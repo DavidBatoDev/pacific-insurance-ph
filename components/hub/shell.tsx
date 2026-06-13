@@ -1,16 +1,39 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { signOut } from "@/app/(auth)/login/actions";
 import { cn } from "@/lib/utils";
 import { NOTIFICATIONS, type Tone } from "./data";
 import { I, type IconName } from "./icons";
-import { Avatar, Btn, TONE_SOFT } from "./primitives";
+import { Avatar, TONE_SOFT } from "./primitives";
 
 export type ScreenId =
   | "dashboard" | "prospects" | "clients" | "applications" | "policies"
   | "renewals" | "claims" | "travel" | "documents" | "tasks"
   | "relationship" | "reports" | "settings";
+
+/** Single source of truth mapping a screen id to its App Router path. */
+export const SCREEN_PATH: Record<ScreenId, string> = {
+  dashboard: "/dashboard",
+  prospects: "/prospects",
+  clients: "/clients",
+  applications: "/applications",
+  policies: "/policies",
+  renewals: "/renewals",
+  claims: "/claims",
+  travel: "/travel",
+  documents: "/documents",
+  tasks: "/tasks",
+  relationship: "/relationship",
+  reports: "/reports",
+  settings: "/settings",
+};
+
+const BTN_PRIMARY =
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-transparent bg-primary font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(4,120,87,0.25)] transition-colors hover:bg-brand-hover";
 
 type NavEntry = { id: ScreenId; label: string; icon: IconName; badge?: string; alert?: boolean };
 
@@ -44,19 +67,11 @@ export function BrandGlyph({ size = 18 }: { size?: number }) {
   );
 }
 
-function NavItem({
-  item,
-  active,
-  onClick,
-}: {
-  item: NavEntry;
-  active: boolean;
-  onClick: () => void;
-}) {
+function NavItem({ item, active }: { item: NavEntry; active: boolean }) {
   const Ico = I[item.icon];
   return (
-    <button
-      onClick={onClick}
+    <Link
+      href={SCREEN_PATH[item.id]}
       className={cn(
         "group relative mb-px flex h-[37px] items-center gap-[11px] rounded-sm px-[11px] text-[13.5px] font-[550] transition-colors",
         active
@@ -80,7 +95,7 @@ function NavItem({
           {item.badge}
         </span>
       )}
-    </button>
+    </Link>
   );
 }
 
@@ -92,25 +107,25 @@ function NavLabel({ children }: { children: string }) {
   );
 }
 
-export function Sidebar({
-  screen,
-  setScreen,
-}: {
-  screen: ScreenId;
-  setScreen: (s: ScreenId) => void;
-}) {
+export function Sidebar() {
+  const pathname = usePathname();
+  const isActive = (id: ScreenId) => {
+    const p = SCREEN_PATH[id];
+    return pathname === p || pathname.startsWith(p + "/");
+  };
+
   return (
     <aside className="col-start-1 row-start-2 flex flex-col overflow-y-auto border-r border-border bg-sidebar px-3 pb-3.5 pt-2.5 max-[900px]:hidden">
       {NAV_MAIN.map((it) => (
-        <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />
+        <NavItem key={it.id} item={it} active={isActive(it.id)} />
       ))}
       <NavLabel>Workspace</NavLabel>
       {NAV_WORK.map((it) => (
-        <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />
+        <NavItem key={it.id} item={it} active={isActive(it.id)} />
       ))}
       <NavLabel>System</NavLabel>
       {NAV_SYS.map((it) => (
-        <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />
+        <NavItem key={it.id} item={it} active={isActive(it.id)} />
       ))}
 
       <div className="mt-auto pt-3">
@@ -119,9 +134,9 @@ export function Sidebar({
           <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
             23 renewals and 14 applications still awaiting payment this cycle.
           </p>
-          <Btn variant="primary" size="sm" className="w-full" onClick={() => setScreen("renewals")}>
+          <Link href={SCREEN_PATH.renewals} className={cn(BTN_PRIMARY, "h-[30px] w-full rounded-sm px-2.5 text-[12.5px]")}>
             Review queue
-          </Btn>
+          </Link>
         </div>
       </div>
     </aside>
@@ -134,17 +149,16 @@ const NOTIF_ICON: Record<string, IconName> = { payment: "peso", claim: "clipboar
 export function Topbar({
   dark,
   setDark,
-  setScreen,
-  search,
-  setSearch,
+  userName,
+  userRole,
 }: {
   dark: boolean;
   setDark: (v: boolean) => void;
-  setScreen: (s: ScreenId) => void;
-  search: string;
-  setSearch: (v: string) => void;
+  userName: string;
+  userRole: string;
 }) {
   const [open, setOpen] = useState<null | "notif" | "profile">(null);
+  const [search, setSearch] = useState("");
   const wrapRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -154,6 +168,7 @@ export function Topbar({
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const firstName = userName.split(" ")[0];
 
   return (
     <header
@@ -174,9 +189,9 @@ export function Topbar({
       </div>
       <div className="flex-1" />
 
-      <Btn variant="primary" onClick={() => setScreen("applications")} className="px-[13px]">
+      <Link href={SCREEN_PATH.applications} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>
         <I.plus size={16} /> New application
-      </Btn>
+      </Link>
 
       <button
         onClick={() => setDark(!dark)}
@@ -234,17 +249,17 @@ export function Topbar({
           onClick={() => setOpen(open === "profile" ? null : "profile")}
           className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-hover"
         >
-          <Avatar name="Matt Nassr" size={30} color="#047857" />
-          <span className="text-[13px] font-semibold tracking-[-0.01em] max-[900px]:hidden">Matt</span>
+          <Avatar name={userName} size={30} />
+          <span className="text-[13px] font-semibold tracking-[-0.01em] max-[900px]:hidden">{firstName}</span>
           <I.chevDown size={15} className="text-subtle" />
         </button>
         {open === "profile" && (
           <div className="absolute right-0 top-[50px] w-[244px] overflow-hidden rounded-md border border-border bg-card shadow-pop">
             <div className="flex items-center gap-[11px] border-b border-border-soft px-[15px] py-[13px]">
-              <Avatar name="Matt Nassr" size={38} color="#047857" />
+              <Avatar name={userName} size={38} />
               <div className="min-w-0">
-                <div className="text-[13.5px] font-[650]">Matt Nassr</div>
-                <div className="text-[12px] text-subtle">Agency Owner</div>
+                <div className="text-[13.5px] font-[650]">{userName}</div>
+                <div className="text-[12px] text-subtle">{userRole}</div>
               </div>
             </div>
             <div className="py-1.5">
@@ -264,10 +279,15 @@ export function Topbar({
                 </button>
               ))}
               <div className="my-1 h-px bg-border-soft" />
-              <button className="flex w-full items-center gap-2.5 px-3.5 py-[9px] text-[13px] font-[550] text-red transition-colors hover:bg-hover">
-                <I.logout size={16} />
-                Sign out
-              </button>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-2.5 px-3.5 py-[9px] text-[13px] font-[550] text-red transition-colors hover:bg-hover"
+                >
+                  <I.logout size={16} />
+                  Sign out
+                </button>
+              </form>
             </div>
           </div>
         )}

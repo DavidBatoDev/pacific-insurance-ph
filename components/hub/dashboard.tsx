@@ -13,6 +13,7 @@ import {
   TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Row, Table, Td, Th, useSort } from "./table";
+import { useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
 
 type Nav = { setScreen: (s: ScreenId) => void };
@@ -430,7 +431,8 @@ function RelationshipWidget() {
 }
 
 /* ---------- Assembly ---------- */
-export function Dashboard({ setScreen }: Nav) {
+export function Dashboard() {
+  const setScreen = useScreenNav();
   return (
     <div>
       <div className="mb-[18px] flex items-end justify-between gap-4">

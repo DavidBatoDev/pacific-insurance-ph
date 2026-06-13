@@ -6,6 +6,10 @@ live in the client's Google Drive; these Markdown copies are the in-repo referen
 
 Read in roughly this order for context: **foundation → data-model → frameworks → modules → workflows**.
 
+## Build Plan (our notes, not client source)
+
+- [Build Roadmap](build-roadmap.md) — our 3-month execution plan: scope decisions, module catalog, and the 12-week phase timeline. Distinct from the client source docs below.
+
 ## Foundation
 
 Vision, scope, and system-wide architecture.

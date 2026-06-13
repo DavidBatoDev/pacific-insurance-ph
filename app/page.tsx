@@ -1,5 +1,5 @@
-import { HubApp } from "@/components/hub/hub-app";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <HubApp />;
+  redirect("/dashboard");
 }
