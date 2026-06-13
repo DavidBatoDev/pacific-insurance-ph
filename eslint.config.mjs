@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static UI prototype (drafts) — reference-only, not app source.
+    "drafts/**",
   ]),
 ]);
 

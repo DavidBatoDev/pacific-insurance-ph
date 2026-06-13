@@ -3,51 +3,26 @@
 import { useEffect, useState } from "react";
 
 import { Dashboard } from "./dashboard";
-import { I } from "./icons";
-import { Btn } from "./primitives";
+import {
+  ApplicationsScreen, ClaimsScreen, ClientsScreen, DocumentsScreen,
+  PoliciesScreen, RenewalsScreen, TravelScreen,
+} from "./screens/list-screens";
+import { ProspectsScreen } from "./screens/prospects";
+import { ReportsScreen } from "./screens/reports";
+import { SettingsScreen } from "./screens/settings";
+import { RelationshipScreen, TasksScreen } from "./screens/workspace";
 import { BrandGlyph, Sidebar, Topbar, type ScreenId } from "./shell";
-
-const TITLES: Record<ScreenId, string> = {
-  dashboard: "Dashboard",
-  prospects: "Prospect Pipeline",
-  clients: "Clients",
-  applications: "Applications",
-  policies: "Policies",
-  renewals: "Renewals",
-  claims: "Claims",
-  travel: "Travel Insurance",
-  documents: "Documents",
-  tasks: "Tasks",
-  relationship: "Relationship Management",
-  reports: "Reports",
-  settings: "Settings",
-};
-
-function Placeholder({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center px-6 py-[70px] text-center text-muted-foreground">
-      <div className="mb-4 grid size-[58px] place-items-center rounded-2xl bg-brand-soft text-brand-hover">
-        <I.grid size={26} />
-      </div>
-      <h2 className="mb-1.5 text-[18px] text-foreground">{title}</h2>
-      <p className="max-w-[360px] leading-relaxed">
-        This module isn&apos;t built yet. The Dashboard is the live example — the rest of the
-        screens come next.
-      </p>
-      <Btn className="mt-5" onClick={onBack}>
-        Back to dashboard
-      </Btn>
-    </div>
-  );
-}
 
 export function HubApp() {
   const [screen, setScreen] = useState<ScreenId>("dashboard");
   const [dark, setDark] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Restore saved theme on mount.
+  // Restore saved theme on mount. Done in an effect (not a lazy initializer) so the
+  // server render and first client render agree — localStorage isn't available on the
+  // server, and reading it during render would cause a theme-toggle hydration mismatch.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe theme restore
     setDark(localStorage.getItem("pi_dark") === "1");
   }, []);
 
@@ -55,6 +30,26 @@ export function HubApp() {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("pi_dark", dark ? "1" : "0");
   }, [dark]);
+
+  // Every screen below the Dashboard is a static draft (mock data, no live wiring yet).
+  const render = () => {
+    switch (screen) {
+      case "dashboard": return <Dashboard setScreen={setScreen} />;
+      case "prospects": return <ProspectsScreen />;
+      case "clients": return <ClientsScreen />;
+      case "applications": return <ApplicationsScreen />;
+      case "policies": return <PoliciesScreen />;
+      case "renewals": return <RenewalsScreen />;
+      case "claims": return <ClaimsScreen />;
+      case "travel": return <TravelScreen />;
+      case "documents": return <DocumentsScreen />;
+      case "tasks": return <TasksScreen />;
+      case "relationship": return <RelationshipScreen />;
+      case "reports": return <ReportsScreen />;
+      case "settings": return <SettingsScreen />;
+      default: return <Dashboard setScreen={setScreen} />;
+    }
+  };
 
   return (
     <div className="grid h-screen grid-cols-[244px_1fr] grid-rows-[60px_1fr] overflow-hidden bg-background max-[900px]:grid-cols-[0_1fr]">
@@ -76,11 +71,7 @@ export function HubApp() {
 
       <main className="col-start-2 row-start-2 overflow-y-auto bg-background">
         <div key={screen} className="mx-auto max-w-[1480px] px-7 pb-[60px] pt-[22px]">
-          {screen === "dashboard" ? (
-            <Dashboard setScreen={setScreen} />
-          ) : (
-            <Placeholder title={TITLES[screen]} onBack={() => setScreen("dashboard")} />
-          )}
+          {render()}
         </div>
       </main>
     </div>

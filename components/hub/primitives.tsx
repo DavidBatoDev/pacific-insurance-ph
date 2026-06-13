@@ -4,7 +4,7 @@ import { useId, type ComponentProps, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { avColor, initials, type Tone } from "./data";
+import { avColor, initials, type Tier, type Tone } from "./data";
 
 /* ---------- Tone → utility-class maps (static so Tailwind keeps them) ---------- */
 export const TONE_TEXT: Record<Tone, string> = {
@@ -106,6 +106,22 @@ export function StatusBadge({ status }: { status: string }) {
     >
       <span className="size-1.5 rounded-full bg-current" />
       {status}
+    </span>
+  );
+}
+
+/* ---------- Client tier badge ---------- */
+const TIER_TONE: Record<Tier, Tone> = { Gold: "amber", Silver: "slate", Bronze: "violet" };
+
+export function TierBadge({ tier }: { tier: Tier }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-[22px] items-center whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
+        TONE_BADGE[TIER_TONE[tier]],
+      )}
+    >
+      {tier}
     </span>
   );
 }
@@ -268,5 +284,51 @@ export function Btn({
     >
       {children}
     </button>
+  );
+}
+
+/* ---------- Draft / mock-only badge ---------- */
+/** Visible marker so prototype reviewers know a screen is static mock UI. */
+export function DraftBadge() {
+  return (
+    <span
+      title="Static draft — mock data only, not wired to live data yet."
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-border bg-amber-soft px-2.5 py-[3px] text-[11px] font-[650] text-amber"
+    >
+      <span className="size-1.5 rounded-full bg-current" />
+      Draft · mock data
+    </span>
+  );
+}
+
+/* ---------- Page header ---------- */
+/** Standard screen header: icon tile + title (+ draft badge) + sub + right actions. */
+export function PageHead({
+  icon: Icon,
+  title,
+  sub,
+  actions,
+}: {
+  icon?: LucideIcon;
+  title: string;
+  sub?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="mb-[18px] flex items-end justify-between gap-4">
+      <div>
+        <h1 className="flex flex-wrap items-center gap-x-[11px] gap-y-2 text-[23px] font-bold tracking-[-0.025em]">
+          {Icon && (
+            <span className="grid size-[34px] place-items-center rounded-[9px] bg-brand-soft text-brand-hover">
+              <Icon size={19} />
+            </span>
+          )}
+          {title}
+          <DraftBadge />
+        </h1>
+        {sub && <p className="mt-[3px] text-[13.5px] text-muted-foreground">{sub}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-2.5 max-[900px]:hidden">{actions}</div>}
+    </div>
   );
 }

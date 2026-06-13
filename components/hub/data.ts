@@ -6,6 +6,13 @@ export type Tone = "red" | "amber" | "blue" | "violet" | "green" | "slate";
 /* ---------- Formatters ---------- */
 export const peso = (n: number) => "₱" + n.toLocaleString("en-PH");
 
+/** Abbreviated peso for stat strips (₱1.25M, ₱860K). */
+export const pesoShort = (n: number) => {
+  if (n >= 1_000_000) return "₱" + (n / 1_000_000).toFixed(2).replace(/\.00$/, "") + "M";
+  if (n >= 1_000) return "₱" + (n / 1_000).toFixed(0) + "K";
+  return "₱" + n;
+};
+
 /** Initials from a full name (max 2). */
 export const initials = (name: string) =>
   name
@@ -86,14 +93,15 @@ export interface Application {
   status: string;
   staff: StaffId;
   due: number;
+  amount: number;
 }
 export const APPLICATIONS: Application[] = [
-  { id: "APP-2026-000123", client: "John Santos", city: "Makati City", product: "Blue Royale", status: "Awaiting Payment", staff: "joy", due: 0 },
-  { id: "APP-2026-000124", client: "Maria Cruz", city: "Quezon City", product: "Select", status: "Missing Documents", staff: "eman", due: -2 },
-  { id: "APP-2026-000125", client: "Renato Dizon", city: "Pasig City", product: "Premier Health", status: "Under Review", staff: "joy", due: 3 },
-  { id: "APP-2026-000126", client: "Liza Gomez", city: "Cebu City", product: "Maxicare Plus", status: "Awaiting Payment", staff: "eman", due: 1 },
-  { id: "APP-2026-000127", client: "Andres Bonifacio", city: "Taguig City", product: "Family Shield", status: "Missing Documents", staff: "joy", due: -1 },
-  { id: "APP-2026-000128", client: "Carmela Tan", city: "Mandaluyong", product: "AsianLife Care", status: "Under Review", staff: "eman", due: 5 },
+  { id: "APP-2026-000123", client: "John Santos", city: "Makati City", product: "Blue Royale", status: "Awaiting Payment", staff: "joy", due: 0, amount: 185000 },
+  { id: "APP-2026-000124", client: "Maria Cruz", city: "Quezon City", product: "Select", status: "Missing Documents", staff: "eman", due: -2, amount: 92000 },
+  { id: "APP-2026-000125", client: "Renato Dizon", city: "Pasig City", product: "Premier Health", status: "Under Review", staff: "joy", due: 3, amount: 240000 },
+  { id: "APP-2026-000126", client: "Liza Gomez", city: "Cebu City", product: "Maxicare Plus", status: "Awaiting Payment", staff: "eman", due: 1, amount: 156000 },
+  { id: "APP-2026-000127", client: "Andres Bonifacio", city: "Taguig City", product: "Family Shield", status: "Missing Documents", staff: "joy", due: -1, amount: 198000 },
+  { id: "APP-2026-000128", client: "Carmela Tan", city: "Mandaluyong", product: "AsianLife Care", status: "Under Review", staff: "eman", due: 5, amount: 134000 },
 ];
 
 export interface Renewal {
@@ -118,16 +126,18 @@ export const RENEWALS: Renewal[] = [
 export interface Claim {
   id: string;
   client: string;
+  city: string;
   policy: string;
   status: string;
   updated: string;
+  amount: number;
 }
 export const CLAIMS: Claim[] = [
-  { id: "CLM-2026-00781", client: "Teresa Mendoza", policy: "Maxicare Plus", status: "Additional Documents Required", updated: "2h ago" },
-  { id: "CLM-2026-00782", client: "Roberto Pascual", policy: "Blue Royale", status: "Under Review", updated: "5h ago" },
-  { id: "CLM-2026-00783", client: "Angelica Reyes", policy: "Premier Health", status: "Awaiting Response", updated: "1d ago" },
-  { id: "CLM-2026-00784", client: "Fernando Lopez", policy: "Family Shield", status: "Additional Documents Required", updated: "1d ago" },
-  { id: "CLM-2026-00785", client: "Isabel Navarro", policy: "Select", status: "Approved", updated: "2d ago" },
+  { id: "CLM-2026-00781", client: "Teresa Mendoza", city: "Makati City", policy: "Maxicare Plus", status: "Additional Documents Required", updated: "2h ago", amount: 48000 },
+  { id: "CLM-2026-00782", client: "Roberto Pascual", city: "Pasig City", policy: "Blue Royale", status: "Under Review", updated: "5h ago", amount: 120000 },
+  { id: "CLM-2026-00783", client: "Angelica Reyes", city: "Quezon City", policy: "Premier Health", status: "Awaiting Response", updated: "1d ago", amount: 67000 },
+  { id: "CLM-2026-00784", client: "Fernando Lopez", city: "Cebu City", policy: "Family Shield", status: "Additional Documents Required", updated: "1d ago", amount: 95000 },
+  { id: "CLM-2026-00785", client: "Isabel Navarro", city: "Taguig City", policy: "Select", status: "Approved", updated: "2d ago", amount: 32000 },
 ];
 
 export interface Travel {
@@ -138,13 +148,14 @@ export interface Travel {
   status: string;
   next: string;
   date: string;
+  amount: number;
 }
 export const TRAVEL: Travel[] = [
-  { id: "TRV-2026-000123", client: "Katrina Bautista", dest: "Japan", flag: "🇯🇵", status: "Awaiting Payment", next: "Send payment link", date: "Jun 20 – Jun 28" },
-  { id: "TRV-2026-000124", client: "Jericho Ramos", dest: "South Korea", flag: "🇰🇷", status: "Awaiting Payment", next: "Send payment link", date: "Jun 15 – Jun 22" },
-  { id: "TRV-2026-000125", client: "Hannah Villamor", dest: "Singapore", flag: "🇸🇬", status: "Policy Issued", next: "Deliver e-policy", date: "Jun 12 – Jun 16" },
-  { id: "TRV-2026-000126", client: "Oliver Chua", dest: "United States", flag: "🇺🇸", status: "Awaiting Payment", next: "Send payment link", date: "Jul 2 – Jul 18" },
-  { id: "TRV-2026-000127", client: "Bianca Soriano", dest: "Australia", flag: "🇦🇺", status: "Under Review", next: "Verify itinerary", date: "Jun 25 – Jul 5" },
+  { id: "TRV-2026-000123", client: "Katrina Bautista", dest: "Japan", flag: "🇯🇵", status: "Awaiting Payment", next: "Send payment link", date: "Jun 20 – Jun 28", amount: 18000 },
+  { id: "TRV-2026-000124", client: "Jericho Ramos", dest: "South Korea", flag: "🇰🇷", status: "Awaiting Payment", next: "Send payment link", date: "Jun 15 – Jun 22", amount: 14500 },
+  { id: "TRV-2026-000125", client: "Hannah Villamor", dest: "Singapore", flag: "🇸🇬", status: "Policy Issued", next: "Deliver e-policy", date: "Jun 12 – Jun 16", amount: 9800 },
+  { id: "TRV-2026-000126", client: "Oliver Chua", dest: "United States", flag: "🇺🇸", status: "Awaiting Payment", next: "Send payment link", date: "Jul 2 – Jul 18", amount: 31000 },
+  { id: "TRV-2026-000127", client: "Bianca Soriano", dest: "Australia", flag: "🇦🇺", status: "Under Review", next: "Verify itinerary", date: "Jun 25 – Jul 5", amount: 22000 },
 ];
 
 export interface Task {
@@ -210,4 +221,29 @@ export const NOTIFICATIONS: Notification[] = [
   { id: 3, type: "renewal", title: "Renewal overdue — Grace Castillo (Maxicare Plus)", time: "3h ago", unread: true },
   { id: 4, type: "travel", title: "Travel request needs review — Bianca Soriano (Australia)", time: "5h ago", unread: false },
   { id: 5, type: "doc", title: "Documents uploaded for APP-2026-000125 — Renato Dizon", time: "Yesterday", unread: false },
+];
+
+/* ---------- Clients (Clients screen) ---------- */
+export type Tier = "Gold" | "Silver" | "Bronze";
+export interface Client {
+  name: string;
+  city: string;
+  email: string;
+  policies: number;
+  tier: Tier;
+  since: string;
+  value: number;
+  status: string;
+}
+export const CLIENTS: Client[] = [
+  { name: "John Santos", city: "Makati City", email: "john.santos@email.com", policies: 3, tier: "Gold", since: "2019", value: 410000, status: "Active" },
+  { name: "Maria Cruz", city: "Quezon City", email: "maria.cruz@email.com", policies: 2, tier: "Silver", since: "2021", value: 186000, status: "Active" },
+  { name: "Ramon Velasco", city: "Makati City", email: "r.velasco@email.com", policies: 4, tier: "Gold", since: "2018", value: 520000, status: "Active" },
+  { name: "Sofia Reyes", city: "Quezon City", email: "sofia.reyes@email.com", policies: 3, tier: "Gold", since: "2020", value: 348000, status: "Active" },
+  { name: "Miguel Torres", city: "Pasig City", email: "m.torres@email.com", policies: 1, tier: "Bronze", since: "2022", value: 95000, status: "Active" },
+  { name: "Grace Castillo", city: "Cebu City", email: "grace.c@email.com", policies: 2, tier: "Silver", since: "2020", value: 168000, status: "At Risk" },
+  { name: "Patricia Lim", city: "Alabang", email: "patricia.lim@email.com", policies: 1, tier: "Bronze", since: "2026", value: 88000, status: "New" },
+  { name: "Edgar Domingo", city: "Davao City", email: "e.domingo@email.com", policies: 2, tier: "Silver", since: "2021", value: 214000, status: "Active" },
+  { name: "Cristina Flores", city: "Iloilo City", email: "cristina.f@email.com", policies: 3, tier: "Gold", since: "2019", value: 376000, status: "Active" },
+  { name: "Nestor Aguilar", city: "Taguig City", email: "n.aguilar@email.com", policies: 1, tier: "Bronze", since: "2023", value: 54000, status: "Active" },
 ];
