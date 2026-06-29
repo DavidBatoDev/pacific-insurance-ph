@@ -36,6 +36,7 @@ import {
   Settings,
   Shield,
   SquareCheckBig,
+  SquarePen,
   Star,
   Sun,
   TrendingUp,
@@ -97,6 +98,7 @@ export const I = {
   building: Building2,
   send: Send,
   star: Star,
+  edit: SquarePen,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof I;

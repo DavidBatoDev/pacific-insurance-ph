@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError, type ListParams, type Paginated } from "../types";
 import type { Client, ClientUpdate, NewClient } from "./client.entity";
-import type { ClientsRepository } from "./clients.repository";
+import type { ClientsRepository, DuplicateProbe } from "./clients.repository";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 type ClientInsert = Database["public"]["Tables"]["clients"]["Insert"];
@@ -126,5 +126,56 @@ export class SupabaseClientsRepository implements ClientsRepository {
       .eq("id", id);
 
     if (error) throw toRepositoryError("ClientsRepository.delete", error);
+  }
+
+  async search(query: string, limit = 20): Promise<Client[]> {
+    // Strip characters that would break the PostgREST `or` filter grammar.
+    const term = query.replace(/[,()%*]/g, " ").trim();
+    if (!term) return [];
+    const like = `%${term}%`;
+
+    const { data, error } = await getSupabaseAdmin()
+      .from("clients")
+      .select("*")
+      .or(
+        `first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},mobile_number.ilike.${like},reference_no.ilike.${like}`,
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw toRepositoryError("ClientsRepository.search", error);
+    return (data ?? []).map(toDomain);
+  }
+
+  async findPotentialDuplicates(input: DuplicateProbe): Promise<Client[]> {
+    const found = new Map<string, Client>();
+
+    const orParts: string[] = [];
+    if (input.email) orParts.push(`email.eq.${input.email}`);
+    if (input.mobileNumber) orParts.push(`mobile_number.eq.${input.mobileNumber}`);
+
+    if (orParts.length) {
+      const { data, error } = await getSupabaseAdmin()
+        .from("clients")
+        .select("*")
+        .or(orParts.join(","))
+        .limit(10);
+      if (error) throw toRepositoryError("ClientsRepository.findPotentialDuplicates", error);
+      for (const row of data ?? []) found.set(row.id, toDomain(row));
+    }
+
+    if (input.firstName && input.lastName && input.dateOfBirth) {
+      const { data, error } = await getSupabaseAdmin()
+        .from("clients")
+        .select("*")
+        .ilike("first_name", input.firstName)
+        .ilike("last_name", input.lastName)
+        .eq("date_of_birth", input.dateOfBirth)
+        .limit(10);
+      if (error) throw toRepositoryError("ClientsRepository.findPotentialDuplicates", error);
+      for (const row of data ?? []) found.set(row.id, toDomain(row));
+    }
+
+    return [...found.values()];
   }
 }

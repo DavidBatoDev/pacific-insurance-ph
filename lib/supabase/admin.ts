@@ -1,4 +1,5 @@
 import "server-only";
+import "./ws-polyfill";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 

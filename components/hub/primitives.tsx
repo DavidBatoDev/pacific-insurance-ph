@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { avColor, initials, type Tier, type Tone } from "./data";
+import { I, type IconName } from "./icons";
 
 /* ---------- Tone → utility-class maps (static so Tailwind keeps them) ---------- */
 export const TONE_TEXT: Record<Tone, string> = {
@@ -221,16 +222,19 @@ export function CountPill({ children }: { children: ReactNode }) {
 }
 
 export function CardHead({
-  icon: Icon,
+  icon,
+  iconName,
   title,
   count,
   action,
 }: {
   icon?: LucideIcon;
+  iconName?: IconName;
   title: ReactNode;
   count?: ReactNode;
   action?: ReactNode;
 }) {
+  const Icon = icon ?? (iconName ? I[iconName] : undefined);
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] py-[15px]">
       <h3 className="flex items-center gap-2.5 whitespace-nowrap text-[14.5px] font-[650] tracking-[-0.01em]">
@@ -304,16 +308,22 @@ export function DraftBadge() {
 /* ---------- Page header ---------- */
 /** Standard screen header: icon tile + title (+ draft badge) + sub + right actions. */
 export function PageHead({
-  icon: Icon,
+  icon,
+  iconName,
   title,
   sub,
   actions,
+  draft = true,
 }: {
   icon?: LucideIcon;
+  iconName?: IconName;
   title: string;
   sub?: ReactNode;
   actions?: ReactNode;
+  /** Show the "Draft · mock data" badge. Real (wired) screens pass false. */
+  draft?: boolean;
 }) {
+  const Icon = icon ?? (iconName ? I[iconName] : undefined);
   return (
     <div className="mb-[18px] flex items-end justify-between gap-4">
       <div>
@@ -324,7 +334,7 @@ export function PageHead({
             </span>
           )}
           {title}
-          <DraftBadge />
+          {draft && <DraftBadge />}
         </h1>
         {sub && <p className="mt-[3px] text-[13.5px] text-muted-foreground">{sub}</p>}
       </div>

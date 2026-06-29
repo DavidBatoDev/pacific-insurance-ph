@@ -1,4 +1,5 @@
 import "server-only";
+import "./ws-polyfill";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";

@@ -37,6 +37,12 @@ yarn-error.log*
 # MCP config — contains a Supabase access token, keep it local
 .mcp.json
 
+# Playwright — saved auth session (live token), MCP output, test screenshots
+/.auth/
+/.playwright-mcp/
+/dashboard-after-login.png
+scripts/*.png
+
 # vercel
 .vercel
 

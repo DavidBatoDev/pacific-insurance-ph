@@ -1,6 +1,15 @@
 import type { ListParams, Paginated } from "../types";
 import type { Client, ClientUpdate, NewClient } from "./client.entity";
 
+/** Signals used to detect a likely-duplicate client before creating one. */
+export interface DuplicateProbe {
+  email?: string | null;
+  mobileNumber?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  dateOfBirth?: string | null;
+}
+
 /**
  * The Clients repository port.
  *
@@ -15,4 +24,8 @@ export interface ClientsRepository {
   create(input: NewClient): Promise<Client>;
   update(id: string, input: ClientUpdate): Promise<Client>;
   delete(id: string): Promise<void>;
+  /** Fuzzy search by name, email, mobile, or reference number. */
+  search(query: string, limit?: number): Promise<Client[]>;
+  /** Existing clients matching the same email, mobile, or name + date of birth. */
+  findPotentialDuplicates(input: DuplicateProbe): Promise<Client[]>;
 }

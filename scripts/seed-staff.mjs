@@ -10,6 +10,10 @@
  * dashboard afterwards.
  */
 import { createClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
+
+// supabase-js needs a WebSocket constructor at init; Node < 22 has none.
+if (typeof globalThis.WebSocket === "undefined") globalThis.WebSocket = WebSocket;
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

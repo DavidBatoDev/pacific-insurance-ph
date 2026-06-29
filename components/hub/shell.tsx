@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { signOut } from "@/app/(auth)/login/actions";
@@ -159,6 +159,7 @@ export function Topbar({
 }) {
   const [open, setOpen] = useState<null | "notif" | "profile">(null);
   const [search, setSearch] = useState("");
+  const router = useRouter();
   const wrapRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -175,18 +176,25 @@ export function Topbar({
       ref={wrapRef}
       className="relative z-30 col-start-2 row-start-1 flex items-center gap-3.5 border-b border-border bg-surface px-5"
     >
-      <div className="flex h-[38px] max-w-[460px] flex-1 items-center gap-2.5 rounded-md border border-transparent bg-surface-3 px-[13px] text-muted-foreground transition-colors focus-within:border-brand focus-within:bg-surface focus-within:ring-[3px] focus-within:ring-brand/20">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const term = search.trim();
+          if (term) router.push(`/search?q=${encodeURIComponent(term)}`);
+        }}
+        className="flex h-[38px] max-w-[460px] flex-1 items-center gap-2.5 rounded-md border border-transparent bg-surface-3 px-[13px] text-muted-foreground transition-colors focus-within:border-brand focus-within:bg-surface focus-within:ring-[3px] focus-within:ring-brand/20"
+      >
         <I.search size={17} />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients, policies, applications…"
+          placeholder="Search clients by name, email, mobile, reference…"
           className="flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
         />
         <kbd className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle">
-          ⌘K
+          ↵
         </kbd>
-      </div>
+      </form>
       <div className="flex-1" />
 
       <Link href={SCREEN_PATH.applications} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>
