@@ -7,8 +7,10 @@ import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
 import { IssuePolicyDrawer } from "./issue-policy";
+import { NewCampaignDrawer } from "./new-campaign";
 import { NewLeadDrawer } from "./new-lead";
 import { NewTravelQuoteDrawer } from "./new-travel-quote";
+import { PaymentLinksDrawer } from "./payment-links";
 import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
 import type { OverlayState } from "./overlay-provider";
 
@@ -36,6 +38,10 @@ export function OverlayHost({
           onClose={close}
         />
       );
+    case "payment-links":
+      return <PaymentLinksDrawer onClose={close} />;
+    case "campaign":
+      return <NewCampaignDrawer presetType={overlay.presetType} onClose={close} />;
     case "engage":
       return (
         <EngageDrawer

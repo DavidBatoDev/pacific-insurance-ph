@@ -121,6 +121,61 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
   }
 }
 
+/** Awaiting/Overdue payments for the Send Payment Links batch drawer. */
+export async function listAwaitingPaymentsAction(): Promise<Payment[]> {
+  const all = await getPaymentsRepository().list();
+  return all.filter((p) => p.status === "Awaiting" || p.status === "Overdue");
+}
+
+/**
+ * Send Payment Links batch (new-modals.md §12): logs a payment-instruction
+ * entry to each contact's timeline and advances the source record's status.
+ */
+export async function sendPaymentLinksAction(input: {
+  paymentIds: string[];
+  payChannel: string;
+  via: string[];
+  subjectBySource: Record<string, string>;
+  bodyBySource: Record<string, string>;
+}): Promise<ActionResult<number>> {
+  const actor = await getActor();
+  try {
+    const repo = getPaymentsRepository();
+    let sent = 0;
+    for (const id of input.paymentIds) {
+      const p = await repo.findById(id);
+      if (!p?.clientId) continue;
+      await getSupabaseAdmin().from("communications").insert({
+        client_id: p.clientId,
+        direction: "Outbound",
+        channel: "Gmail",
+        subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(),
+        summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`,
+        notes: input.bodyBySource[p.source] ?? null,
+        related_user_id: actor.id,
+        delivery_status: "sent",
+      });
+      await recordActivity({
+        scopeType: "client",
+        scopeId: p.clientId,
+        activityType: "payment.instruction_sent",
+        summary: `Payment instruction sent — ${p.sourceRef ?? p.referenceNo ?? ""} · ${peso(p.amount ?? 0)}`,
+        actorId: actor.id,
+      });
+      if (p.renewalId) await getRenewalsRepository().update(p.renewalId, { status: "Reminder Sent" });
+      if (p.travelRequestId)
+        await getTravelRepository().update(p.travelRequestId, { status: "Awaiting Payment" });
+      sent++;
+    }
+    revalidatePath("/payments");
+    revalidatePath("/dashboard");
+    revalidatePath("/renewals");
+    return { ok: true, data: sent };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to send payment links." };
+  }
+}
+
 export type CommissionStep = "requested" | "follow-up" | "received" | "paid";
 
 /** Commission row actions (Request Voucher / Log Follow-up / Mark Received / Mark Paid). */

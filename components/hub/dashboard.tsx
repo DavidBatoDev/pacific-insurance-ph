@@ -4,38 +4,68 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
+import type { DashboardStats } from "@/lib/queries/dashboard";
+import type { TouchpointRow } from "@/lib/queries/relationship";
+import type { Application } from "@/lib/repositories/applications/application.entity";
+import type { Claim } from "@/lib/repositories/claims/claim.entity";
+import type { Renewal } from "@/lib/repositories/renewals/renewal.entity";
 import type { Task as RealTask } from "@/lib/repositories/tasks/task.entity";
+import type { TravelRequest } from "@/lib/repositories/travel/travel-request.entity";
 import { cn } from "@/lib/utils";
-import {
-  ACTIVITY, ALERTS, APPLICATIONS, CLAIMS, KPIS, RELATIONSHIPS, RENEWALS,
-  REVENUE, STAFF, TRAVEL, peso, type Tone,
-} from "./data";
-import { I } from "./icons";
+import { peso, type Tone } from "./data";
+import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
 import { usePersona } from "./persona";
 import {
-  Avatar, Btn, Card, CardHead, CardLink, DueCell, Sparkline, StatusBadge,
+  Btn, Card, CardHead, CardLink, DueCell, StatusBadge,
   TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Row, Table, Td, Th, useSort } from "./table";
 import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "./task-buckets";
-import { useScreenNav } from "./nav";
+import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
+
+/**
+ * Dashboard — the owner's daily command center (design dashboard.jsx /
+ * dash-widgets.jsx), wired: alerts, KPIs, revenue widget, queues, tasks,
+ * relationship touchpoints and activity all read live data.
+ */
 
 type Nav = { setScreen: (s: ScreenId) => void };
 
-const DATE_STR = "Wednesday, June 10, 2026";
+export interface DashboardQueues {
+  applications: Application[];
+  renewals: Renewal[];
+  claims: Claim[];
+  travel: TravelRequest[];
+}
+
+const daysUntil = (iso: string | null): number | null => {
+  if (!iso) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(iso + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
+};
+
+const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 /* ---------- Alert bar ---------- */
-function AlertBar({ setScreen }: Nav) {
+function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
+  const alerts: { id: ScreenId; color: Tone; icon: IconName; num: number; label: string }[] = [
+    { id: "renewals", color: "amber", icon: "refresh", num: stats.alerts.renewalsDue30, label: "Renewals due within 30 days" },
+    { id: "claims", color: "red", icon: "fileMissing", num: stats.alerts.claimsAwaitingDocs, label: "Claims awaiting documents" },
+    { id: "travel", color: "blue", icon: "wallet", num: stats.alerts.travelAwaitingPayment, label: "Travel requests awaiting payment" },
+    { id: "applications", color: "violet", icon: "alertTri", num: stats.alerts.appsMissingRequirements, label: "Applications missing requirements" },
+  ];
   return (
     <div className="mb-[18px] grid grid-cols-4 gap-3 max-[1200px]:grid-cols-2">
-      {ALERTS.map((a) => {
+      {alerts.map((a) => {
         const Ico = I[a.icon];
         return (
           <button
             key={a.id}
-            onClick={() => setScreen(a.id as ScreenId)}
+            onClick={() => setScreen(a.id)}
             className={cn(
               "group flex items-center gap-[13px] rounded-md border p-[13px] text-left transition-all hover:-translate-y-px hover:shadow-md",
               TONE_ALERT[a.color],
@@ -59,35 +89,30 @@ function AlertBar({ setScreen }: Nav) {
 }
 
 /* ---------- KPI row ---------- */
-function KpiRow({ setScreen }: Nav) {
+function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
+  const kpis: { id: ScreenId; icon: IconName; value: number; label: string }[] = [
+    { id: "clients", icon: "users", value: stats.kpis.activeClients, label: "Active Clients" },
+    { id: "policies", icon: "shield", value: stats.kpis.activePolicies, label: "Active Policies" },
+    { id: "applications", icon: "fileText", value: stats.kpis.applicationsInProgress, label: "Applications In Progress" },
+    { id: "claims", icon: "clipboard", value: stats.kpis.openClaims, label: "Open Claims" },
+    { id: "renewals", icon: "refresh", value: stats.kpis.upcomingRenewals, label: "Upcoming Renewals" },
+    { id: "travel", icon: "plane", value: stats.kpis.openTravel, label: "Open Travel Requests" },
+  ];
   return (
     <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3">
-      {KPIS.map((k) => {
+      {kpis.map((k) => {
         const Ico = I[k.icon];
-        const sparkColor =
-          k.dir === "down" ? "var(--red)" : k.dir === "flat" ? "var(--text-subtle)" : "var(--brand)";
-        const DeltaIco = k.dir === "up" ? I.arrowUp : k.dir === "down" ? I.arrowDown : I.arrowRight;
-        const deltaCls = k.dir === "up" ? "text-green" : k.dir === "down" ? "text-red" : "text-subtle";
         return (
           <button
             key={k.id}
-            onClick={() => setScreen(k.id as ScreenId)}
+            onClick={() => setScreen(k.id)}
             className="overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:shadow-md"
           >
-            <div className="flex items-center justify-between">
-              <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-                <Ico size={17} />
-              </span>
-              <span className={cn("inline-flex items-center gap-0.5 text-[11.5px] font-bold", deltaCls)}>
-                <DeltaIco size={12} />
-                {k.delta}
-              </span>
-            </div>
+            <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
+              <Ico size={17} />
+            </span>
             <div className="mt-3 text-[27px] font-[760] leading-none tracking-[-0.03em] tabular-nums">{k.value}</div>
             <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{k.label}</div>
-            <div className="mt-2.5 h-[26px]">
-              <Sparkline data={k.spark} color={sparkColor} />
-            </div>
           </button>
         );
       })}
@@ -96,8 +121,16 @@ function KpiRow({ setScreen }: Nav) {
 }
 
 /* ---------- Revenue widget ---------- */
-function RevenueWidget() {
-  const max = Math.max(...REVENUE.rows.map((r) => r.value));
+function RevenueWidget({ stats }: { stats: DashboardStats }) {
+  const overlays = useOverlays();
+  const persona = usePersona();
+  const rows = stats.revenue.rows;
+  const max = Math.max(...rows.map((r) => r.amount), 1);
+  const items = rows.reduce((a, r) => a + r.count, 0);
+  const colors: Record<string, string> = { Applications: "#059669", Renewals: "#2563eb", Travel: "#d97706" };
+  const icons: Record<string, IconName> = { Applications: "fileText", Renewals: "refresh", Travel: "plane" };
+  const canSend = persona.role !== "agent"; // Admin & Staff only (§12)
+
   return (
     <div className="mb-4 grid grid-cols-[1.1fr_2.4fr_auto] items-center gap-7 rounded-lg border border-border bg-card p-5 shadow-sm max-[1200px]:grid-cols-1">
       <div>
@@ -105,76 +138,72 @@ function RevenueWidget() {
           <I.wallet size={15} /> Revenue opportunity awaiting collection
         </div>
         <div className="mt-1.5 text-[33px] font-[780] leading-none tracking-[-0.035em] tabular-nums">
-          {peso(REVENUE.total)}
+          {peso(stats.revenue.total)}
         </div>
         <div className="mt-2 flex items-center gap-1.5 text-[12px] text-subtle">
-          <I.trendUp size={13} className="text-brand" /> 42 items across 3 pipelines · updated 5m ago
+          <I.trendUp size={13} className="text-brand" /> {items} items across 3 pipelines
         </div>
       </div>
       <div className="flex flex-col gap-2.5">
-        {REVENUE.rows.map((row, i) => {
-          const Ico = I[row.icon];
+        {rows.map((row) => {
+          const Ico = I[icons[row.source]];
           return (
-            <div
-              key={i}
-              className="grid grid-cols-[200px_1fr_110px] items-center gap-3.5 max-[1200px]:grid-cols-[140px_1fr_90px]"
-            >
+            <div key={row.source} className="grid grid-cols-[220px_1fr_110px] items-center gap-3.5 max-[1200px]:grid-cols-[150px_1fr_90px]">
               <span className="flex items-center gap-2 text-[12.5px] font-[550] text-muted-foreground">
-                <Ico size={15} style={{ color: row.color }} />
-                {row.label}
+                <Ico size={15} style={{ color: colors[row.source] }} />
+                {row.source} awaiting payment
+                <span className="tabular-nums text-subtle">· {row.count}</span>
               </span>
               <span className="h-[9px] overflow-hidden rounded-full bg-surface-3">
-                <span className="block h-full rounded-full" style={{ width: `${(row.value / max) * 100}%`, background: row.color }} />
+                <span className="block h-full rounded-full" style={{ width: `${(row.amount / max) * 100}%`, background: colors[row.source] }} />
               </span>
-              <span className="text-right text-[13.5px] font-bold tabular-nums">{peso(row.value)}</span>
+              <span className="text-right text-[13.5px] font-bold tabular-nums">{peso(row.amount)}</span>
             </div>
           );
         })}
       </div>
       <div className="flex flex-col gap-2">
-        <Btn variant="primary"><I.send size={15} /> Send payment links</Btn>
-        <Btn>View breakdown</Btn>
+        {canSend && (
+          <Btn variant="primary" onClick={() => overlays.openPaymentLinks()}>
+            <I.send size={15} /> Send payment links
+          </Btn>
+        )}
       </div>
     </div>
   );
 }
 
-/* ---------- Tables ---------- */
-function ApplicationsCard({ setScreen }: Nav) {
-  const { sorted, sort, toggle } = useSort(APPLICATIONS, "due");
+/* ---------- Queue tables ---------- */
+function ApplicationsCard({ setScreen, rows }: Nav & { rows: Application[] }) {
+  const top = rows.slice(0, 6);
+  const { sorted, sort, toggle } = useSort(top, "createdAt", "desc");
+  const { openContact } = useRecordNav();
   return (
     <Card>
       <CardHead
         icon={I.fileText}
         title="Applications requiring action"
-        count={APPLICATIONS.length}
+        count={rows.length}
         action={<CardLink onClick={() => setScreen("applications")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
         <thead>
           <tr>
-            <Th label="Application" k="id" sort={sort} toggle={toggle} />
-            <Th label="Client" k="client" sort={sort} toggle={toggle} />
-            <Th label="Product" k="product" sort={sort} toggle={toggle} />
+            <Th label="Application" k="referenceNo" sort={sort} toggle={toggle} />
+            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
+            <Th label="Product" k="productName" sort={sort} toggle={toggle} />
             <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Staff" k="staff" sort={sort} toggle={toggle} />
-            <Th label="Due" k="due" sort={sort} toggle={toggle} />
+            <Th label="Started" k="dateStarted" sort={sort} toggle={toggle} />
           </tr>
         </thead>
         <tbody>
           {sorted.map((a) => (
-            <Row key={a.id} onClick={() => setScreen("applications")}>
-              <Td><span className="font-mono text-[12px] text-muted-foreground">{a.id}</span></Td>
-              <Td><ClientCell name={a.client} sub={a.city} /></Td>
-              <Td className="text-muted-foreground">{a.product}</Td>
+            <Row key={a.id} onClick={() => openContact(a.clientId)}>
+              <Td><span className="font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
+              <Td><ClientCell name={a.clientName ?? "—"} sub={a.applicationType} /></Td>
+              <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
               <Td><StatusBadge status={a.status} /></Td>
-              <Td>
-                <div className="flex items-center gap-2.5">
-                  <Avatar name={STAFF[a.staff].name} size={24} />
-                  <span className="text-[12.5px] text-muted-foreground">{STAFF[a.staff].name.split(" ")[0]}</span>
-                </div>
-              </Td>
-              <Td><DueCell days={a.due} /></Td>
+              <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
             </Row>
           ))}
         </tbody>
@@ -183,34 +212,38 @@ function ApplicationsCard({ setScreen }: Nav) {
   );
 }
 
-function RenewalsCard({ setScreen }: Nav) {
-  const { sorted, sort, toggle } = useSort(RENEWALS, "due");
+function RenewalsCard({ setScreen, rows }: Nav & { rows: Renewal[] }) {
+  const top = rows.slice(0, 6);
+  const { sorted, sort, toggle } = useSort(top, "renewalDueDate", "asc");
+  const { openContact } = useRecordNav();
   return (
     <Card>
       <CardHead
         icon={I.refresh}
         title="Renewals queue"
-        count={RENEWALS.length}
+        count={rows.length}
         action={<CardLink onClick={() => setScreen("renewals")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
         <thead>
           <tr>
-            <Th label="Client" k="client" sort={sort} toggle={toggle} />
-            <Th label="Policy" k="policy" sort={sort} toggle={toggle} />
-            <Th label="Renewal date" k="due" sort={sort} toggle={toggle} />
+            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
+            <Th label="Policy" k="policyRef" sort={sort} toggle={toggle} />
+            <Th label="Renewal date" k="renewalDueDate" sort={sort} toggle={toggle} />
             <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Premium" k="amount" sort={sort} toggle={toggle} num />
+            <Th label="Premium" k="premiumAmount" sort={sort} toggle={toggle} num />
           </tr>
         </thead>
         <tbody>
           {sorted.map((r) => (
-            <Row key={r.id} onClick={() => setScreen("renewals")}>
-              <Td><ClientCell name={r.client} sub={r.city} /></Td>
-              <Td className="text-muted-foreground">{r.policy}</Td>
-              <Td><DueCell days={r.due} label={r.date} /></Td>
+            <Row key={r.id} onClick={() => openContact(r.clientId)}>
+              <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
+              <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
+              <Td>{r.renewalDueDate ? <DueCell days={daysUntil(r.renewalDueDate) ?? 0} label={fmtDate(r.renewalDueDate)} /> : "—"}</Td>
               <Td><StatusBadge status={r.status} /></Td>
-              <Td className="text-right font-mono font-semibold tabular-nums">{peso(r.amount)}</Td>
+              <Td className="text-right font-mono font-semibold tabular-nums">
+                {r.premiumAmount != null ? peso(r.premiumAmount) : "—"}
+              </Td>
             </Row>
           ))}
         </tbody>
@@ -219,32 +252,32 @@ function RenewalsCard({ setScreen }: Nav) {
   );
 }
 
-function ClaimsCard({ setScreen }: Nav) {
-  const { sorted, sort, toggle } = useSort(CLAIMS, "updated");
+function ClaimsCard({ setScreen, rows }: Nav & { rows: Claim[] }) {
+  const top = rows.slice(0, 5);
+  const { sorted, sort, toggle } = useSort(top, "updatedAt", "desc");
+  const { openContact } = useRecordNav();
   return (
     <Card>
       <CardHead
         icon={I.clipboard}
         title="Claims requiring action"
-        count={CLAIMS.length}
+        count={rows.length}
         action={<CardLink onClick={() => setScreen("claims")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
         <thead>
           <tr>
-            <Th label="Claim" k="id" sort={sort} toggle={toggle} />
-            <Th label="Client" k="client" sort={sort} toggle={toggle} />
+            <Th label="Claim" k="referenceNo" sort={sort} toggle={toggle} />
+            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
             <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Updated" k="updated" sort={sort} toggle={toggle} />
           </tr>
         </thead>
         <tbody>
           {sorted.map((c) => (
-            <Row key={c.id} onClick={() => setScreen("claims")}>
-              <Td><span className="font-mono text-[12px] text-muted-foreground">{c.id}</span></Td>
-              <Td><ClientCell name={c.client} sub={c.policy} /></Td>
+            <Row key={c.id} onClick={() => openContact(c.clientId)}>
+              <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
+              <Td><ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} /></Td>
               <Td><StatusBadge status={c.status} /></Td>
-              <Td className="text-muted-foreground">{c.updated}</Td>
             </Row>
           ))}
         </tbody>
@@ -253,34 +286,32 @@ function ClaimsCard({ setScreen }: Nav) {
   );
 }
 
-function TravelCard({ setScreen }: Nav) {
-  const { sorted, sort, toggle } = useSort(TRAVEL, "status");
+function TravelCard({ setScreen, rows }: Nav & { rows: TravelRequest[] }) {
+  const top = rows.slice(0, 5);
+  const { sorted, sort, toggle } = useSort(top, "departureDate", "asc");
+  const { openContact } = useRecordNav();
   return (
     <Card>
       <CardHead
         icon={I.plane}
         title="Travel insurance queue"
-        count={TRAVEL.length}
+        count={rows.length}
         action={<CardLink onClick={() => setScreen("travel")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
         <thead>
           <tr>
-            <Th label="Travel no." k="id" sort={sort} toggle={toggle} />
-            <Th label="Client" k="client" sort={sort} toggle={toggle} />
-            <Th label="Destination" k="dest" sort={sort} toggle={toggle} />
+            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
+            <Th label="Destination" k="destination" sort={sort} toggle={toggle} />
             <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Next step" k="next" sort={sort} toggle={toggle} />
           </tr>
         </thead>
         <tbody>
           {sorted.map((t) => (
-            <Row key={t.id} onClick={() => setScreen("travel")}>
-              <Td><span className="font-mono text-[12px] text-muted-foreground">{t.id}</span></Td>
-              <Td><ClientCell name={t.client} sub={t.date} /></Td>
-              <Td className="font-[550]">{t.flag} {t.dest}</Td>
+            <Row key={t.id} onClick={() => openContact(t.clientId)}>
+              <Td><ClientCell name={t.clientName ?? "—"} sub={fmtDate(t.departureDate)} /></Td>
+              <Td className="font-[550]">{t.destination ?? "—"}</Td>
               <Td><StatusBadge status={t.status} /></Td>
-              <Td className="text-muted-foreground">{t.next}</Td>
             </Row>
           ))}
         </tbody>
@@ -378,56 +409,62 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
   );
 }
 
-function ActivityWidget() {
-  const tone: Record<string, Tone> = {
-    policy: "green", payment: "green", claim: "red", travel: "blue", doc: "slate", renewal: "amber", client: "violet",
-  };
-  const ico = {
-    policy: "shield", payment: "peso", claim: "clipboard", travel: "plane", doc: "upload", renewal: "refresh", client: "user",
-  } as const;
+function ActivityWidget({ stats }: { stats: DashboardStats }) {
   return (
     <Card>
-      <CardHead icon={I.clock} title="Recent activity" action={<CardLink>View log <I.chevRight size={13} /></CardLink>} />
+      <CardHead icon={I.clock} title="Recent activity" />
       <div className="py-1.5">
-        {ACTIVITY.map((a, idx) => {
-          const Ico = I[ico[a.type]];
-          return (
-            <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
-              <div className="relative flex shrink-0 flex-col items-center">
-                <div className={cn("z-10 grid size-[30px] place-items-center rounded-lg", TONE_SOFT[tone[a.type]])}>
-                  <Ico size={15} />
-                </div>
-                {idx < ACTIVITY.length - 1 && (
-                  <div className="absolute -bottom-[18px] left-1/2 top-[30px] w-0.5 -translate-x-1/2 bg-border" />
-                )}
+        {stats.activity.length === 0 && (
+          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
+        )}
+        {stats.activity.map((a, idx) => (
+          <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
+            <div className="relative flex shrink-0 flex-col items-center">
+              <div className="z-10 grid size-[28px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
+                <I.clock size={14} />
               </div>
-              <div className="flex-1 pb-1.5 pt-0.5">
-                <div className="text-[13px] leading-snug">
-                  <b className="font-[650]">{a.who}</b> <span dangerouslySetInnerHTML={{ __html: a.text }} />
-                </div>
-                <div className="mt-0.5 text-[11.5px] text-subtle">{a.time}</div>
-              </div>
+              {idx < stats.activity.length - 1 && (
+                <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
+              )}
             </div>
-          );
-        })}
+            <div className="flex-1 pb-1.5 pt-0.5">
+              <div className="text-[13px] leading-snug">
+                {a.actorName && <b className="font-[650]">{a.actorName} </b>}
+                {a.summary}
+              </div>
+              <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   );
 }
 
-function RelationshipWidget() {
-  const tone: Record<string, Tone> = { birthday: "violet", anniversary: "green", loyalty: "amber" };
-  const ico = { birthday: "cake", anniversary: "award", loyalty: "gift" } as const;
+function RelationshipWidget({ touchpoints }: { touchpoints: TouchpointRow[] }) {
+  const setScreen = useScreenNav();
+  const { openContact } = useRecordNav();
+  const tone: Record<string, Tone> = { birthday: "violet", anniversary: "green", renurture: "amber" };
+  const ico: Record<string, IconName> = { birthday: "cake", anniversary: "award", renurture: "refresh" };
+  const top = touchpoints.slice(0, 6);
   return (
     <Card>
-      <CardHead icon={I.heart} title="Relationship management" action={<CardLink>View all <I.chevRight size={13} /></CardLink>} />
+      <CardHead
+        icon={I.heart}
+        title="Relationship management"
+        action={<CardLink onClick={() => setScreen("relationship")}>View all <I.chevRight size={13} /></CardLink>}
+      />
       <div>
-        {RELATIONSHIPS.map((r) => {
+        {top.length === 0 && (
+          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No touchpoints coming up.</div>
+        )}
+        {top.map((r) => {
           const Ico = I[ico[r.type]];
           return (
-            <div
-              key={r.id}
-              className="flex items-center gap-3 border-b border-border-soft px-[18px] py-[11px] transition-colors last:border-b-0 hover:bg-hover"
+            <button
+              key={r.clientId + r.type}
+              onClick={() => openContact(r.clientId)}
+              className="flex w-full items-center gap-3 border-b border-border-soft px-[18px] py-[11px] text-left transition-colors last:border-b-0 hover:bg-hover"
             >
               <div className={cn("grid size-[34px] shrink-0 place-items-center rounded-[9px]", TONE_SOFT[tone[r.type]])}>
                 <Ico size={17} />
@@ -438,11 +475,11 @@ function RelationshipWidget() {
               </div>
               <span className={cn(
                 "whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-bold",
-                r.soon ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
+                r.daysUntil <= 7 ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
               )}>
                 {r.when}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -451,10 +488,26 @@ function RelationshipWidget() {
 }
 
 /* ---------- Assembly ---------- */
-export function Dashboard({ tasks = [] }: { tasks?: RealTask[] }) {
+export function Dashboard({
+  stats,
+  queues,
+  tasks = [],
+  touchpoints = [],
+}: {
+  stats: DashboardStats;
+  queues: DashboardQueues;
+  tasks?: RealTask[];
+  touchpoints?: TouchpointRow[];
+}) {
   const setScreen = useScreenNav();
   const overlays = useOverlays();
   const persona = usePersona();
+  const dateStr = new Date().toLocaleDateString("en-PH", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
   return (
     <div>
       <div className="mb-[18px] flex items-end justify-between gap-4">
@@ -463,34 +516,33 @@ export function Dashboard({ tasks = [] }: { tasks?: RealTask[] }) {
             Good morning, {persona.userName.split(" ")[0]}
           </h1>
           <p className="mt-[3px] text-[13.5px] text-muted-foreground">
-            {DATE_STR} · Here&apos;s what needs your attention today.
+            {dateStr} · Here&apos;s what needs your attention today.
           </p>
         </div>
         <div className="flex items-center gap-2.5 max-[900px]:hidden">
-          <Btn><I.download size={15} /> Export</Btn>
           <Btn variant="primary" onClick={() => overlays.openWizard()}>
             <I.plus size={15} /> New application
           </Btn>
         </div>
       </div>
 
-      <AlertBar setScreen={setScreen} />
-      <KpiRow setScreen={setScreen} />
-      <RevenueWidget />
+      <AlertBar setScreen={setScreen} stats={stats} />
+      <KpiRow setScreen={setScreen} stats={stats} />
+      <RevenueWidget stats={stats} />
 
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ApplicationsCard setScreen={setScreen} />
-          <RenewalsCard setScreen={setScreen} />
+          <ApplicationsCard setScreen={setScreen} rows={queues.applications} />
+          <RenewalsCard setScreen={setScreen} rows={queues.renewals} />
           <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
-            <ClaimsCard setScreen={setScreen} />
-            <TravelCard setScreen={setScreen} />
+            <ClaimsCard setScreen={setScreen} rows={queues.claims} />
+            <TravelCard setScreen={setScreen} rows={queues.travel} />
           </div>
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
           <TasksWidget tasks={tasks} />
-          <RelationshipWidget />
-          <ActivityWidget />
+          <RelationshipWidget touchpoints={touchpoints} />
+          <ActivityWidget stats={stats} />
         </div>
       </div>
     </div>
