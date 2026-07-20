@@ -1,17 +1,25 @@
-import { PageHead } from "@/components/hub/primitives";
+import { notFound } from "next/navigation";
 
-/** Group Account detail — wired in build phase P9. */
+import { GroupLive } from "@/components/hub/screens/group-live";
+import { getActivity } from "@/lib/activity/read";
+import { getGroupsRepository } from "@/lib/repositories/groups";
+
+export const dynamic = "force-dynamic";
+
+/** Group Account detail — company-level Group HMO view (wired). */
 export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return (
-    <PageHead
-      iconName="building"
-      title="Group Account"
-      sub={`Group ${id} — company-level account view arrives in an upcoming build phase.`}
-    />
-  );
+  const repo = getGroupsRepository();
+  const group = await repo.findById(id);
+  if (!group) notFound();
+
+  const [members, activity] = await Promise.all([
+    repo.membersOf(id),
+    getActivity("group_account", id, 20),
+  ]);
+  return <GroupLive group={group} members={members} activity={activity} />;
 }

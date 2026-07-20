@@ -13,7 +13,8 @@ export type ActivityScope =
   | "travel_request"
   | "document"
   | "payment"
-  | "relationship_activity";
+  | "relationship_activity"
+  | "group_account";
 
 /**
  * Human-friendly activity timeline writer. Call from Server Actions on

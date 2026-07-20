@@ -1163,6 +1163,152 @@ export type Database = {
           },
         ]
       }
+      group_accounts: {
+        Row: {
+          address: string | null
+          assigned_user_id: string | null
+          billing_cycle: string
+          created_at: string
+          effective_date: string | null
+          expiry_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          policy_id: string | null
+          premium_amount: number | null
+          primary_contact_id: string | null
+          product_version_id: string | null
+          reference_no: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          assigned_user_id?: string | null
+          billing_cycle?: string
+          created_at?: string
+          effective_date?: string | null
+          expiry_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          policy_id?: string | null
+          premium_amount?: number | null
+          primary_contact_id?: string | null
+          product_version_id?: string | null
+          reference_no?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          assigned_user_id?: string | null
+          billing_cycle?: string
+          created_at?: string
+          effective_date?: string | null
+          expiry_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          policy_id?: string | null
+          premium_amount?: number | null
+          primary_contact_id?: string | null
+          product_version_id?: string | null
+          reference_no?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_accounts_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_accounts_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_accounts_primary_contact_id_fkey"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_accounts_product_version_id_fkey"
+            columns: ["product_version_id"]
+            isOneToOne: false
+            referencedRelation: "product_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          client_id: string | null
+          coverage_tier: string
+          created_at: string
+          ecard_status: string
+          full_name: string
+          group_id: string
+          id: string
+          join_date: string | null
+          notes: string | null
+          relationship: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          coverage_tier?: string
+          created_at?: string
+          ecard_status?: string
+          full_name: string
+          group_id: string
+          id?: string
+          join_date?: string | null
+          notes?: string | null
+          relationship?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          coverage_tier?: string
+          created_at?: string
+          ecard_status?: string
+          full_name?: string
+          group_id?: string
+          id?: string
+          join_date?: string | null
+          notes?: string | null
+          relationship?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "group_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body: string | null
