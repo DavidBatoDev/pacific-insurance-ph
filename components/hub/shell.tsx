@@ -6,14 +6,17 @@ import { useEffect, useRef, useState } from "react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { cn } from "@/lib/utils";
+import type { AppRole } from "@/lib/auth/permissions";
 import { NOTIFICATIONS, type Tone } from "./data";
 import { I, type IconName } from "./icons";
+import { useOverlays } from "./overlays/overlay-provider";
+import { usePersona } from "./persona";
 import { Avatar, TONE_SOFT } from "./primitives";
 
 export type ScreenId =
   | "dashboard" | "prospects" | "clients" | "applications" | "policies"
-  | "renewals" | "claims" | "travel" | "documents" | "tasks"
-  | "relationship" | "reports" | "settings";
+  | "renewals" | "claims" | "travel" | "payments" | "documents" | "tasks"
+  | "relationship" | "reports" | "products" | "templates" | "settings";
 
 /** Single source of truth mapping a screen id to its App Router path. */
 export const SCREEN_PATH: Record<ScreenId, string> = {
@@ -25,10 +28,13 @@ export const SCREEN_PATH: Record<ScreenId, string> = {
   renewals: "/renewals",
   claims: "/claims",
   travel: "/travel",
+  payments: "/payments",
   documents: "/documents",
   tasks: "/tasks",
   relationship: "/relationship",
   reports: "/reports",
+  products: "/products",
+  templates: "/templates",
   settings: "/settings",
 };
 
@@ -39,7 +45,7 @@ type NavEntry = { id: ScreenId; label: string; icon: IconName; badge?: string; a
 
 const NAV_MAIN: NavEntry[] = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
-  { id: "prospects", label: "Prospects", icon: "trendUp", badge: "42" },
+  { id: "prospects", label: "Leads", icon: "trendUp", badge: "42" },
   { id: "clients", label: "Clients", icon: "users", badge: "1.2k" },
   { id: "applications", label: "Applications", icon: "fileText", badge: "41" },
   { id: "policies", label: "Policies", icon: "shield" },
@@ -48,12 +54,15 @@ const NAV_MAIN: NavEntry[] = [
   { id: "travel", label: "Travel Insurance", icon: "plane", badge: "15" },
 ];
 const NAV_WORK: NavEntry[] = [
+  { id: "payments", label: "Payments", icon: "peso" },
   { id: "documents", label: "Documents", icon: "folder" },
   { id: "tasks", label: "Tasks", icon: "checkSquare", badge: "6" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
 ];
 const NAV_SYS: NavEntry[] = [
   { id: "reports", label: "Reports", icon: "chart" },
+  { id: "products", label: "Products", icon: "folder" },
+  { id: "templates", label: "Email Templates", icon: "mail" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -150,16 +159,18 @@ export function Topbar({
   dark,
   setDark,
   userName,
-  userRole,
 }: {
   dark: boolean;
   setDark: (v: boolean) => void;
   userName: string;
-  userRole: string;
+  /** @deprecated display role now comes from the persona context. */
+  userRole?: string;
 }) {
   const [open, setOpen] = useState<null | "notif" | "profile">(null);
   const [search, setSearch] = useState("");
   const router = useRouter();
+  const overlays = useOverlays();
+  const persona = usePersona();
   const wrapRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -168,6 +179,17 @@ export function Topbar({
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  // Global ⌘K / Ctrl-K opens the command palette.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        overlays.openCommandPalette();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [overlays]);
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
   const firstName = userName.split(" ")[0];
 
@@ -191,15 +213,20 @@ export function Topbar({
           placeholder="Search clients by name, email, mobile, reference…"
           className="flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
         />
-        <kbd className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle">
-          ↵
-        </kbd>
+        <button
+          type="button"
+          onClick={() => overlays.openCommandPalette()}
+          title="Command palette (⌘K)"
+          className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle transition-colors hover:text-foreground"
+        >
+          ⌘K
+        </button>
       </form>
       <div className="flex-1" />
 
-      <Link href={SCREEN_PATH.applications} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>
+      <button onClick={() => overlays.openWizard()} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>
         <I.plus size={16} /> New application
-      </Link>
+      </button>
 
       <button
         onClick={() => setDark(!dark)}
@@ -262,24 +289,68 @@ export function Topbar({
           <I.chevDown size={15} className="text-subtle" />
         </button>
         {open === "profile" && (
-          <div className="absolute right-0 top-[50px] w-[244px] overflow-hidden rounded-md border border-border bg-card shadow-pop">
+          <div className="absolute right-0 top-[50px] w-[258px] overflow-hidden rounded-md border border-border bg-card shadow-pop">
             <div className="flex items-center gap-[11px] border-b border-border-soft px-[15px] py-[13px]">
               <Avatar name={userName} size={38} />
               <div className="min-w-0">
                 <div className="text-[13.5px] font-[650]">{userName}</div>
-                <div className="text-[12px] text-subtle">{userRole}</div>
+                <div className="text-[12px] text-subtle">{persona.roleLabel}</div>
               </div>
             </div>
+
+            {persona.previewOptions.length > 1 && (
+              <div className="border-b border-border-soft px-2 py-2">
+                <div className="flex items-center justify-between px-2 pb-1.5 pt-0.5">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                    View as
+                  </span>
+                  <span className="rounded-full bg-amber-soft px-2 py-px text-[10px] font-bold uppercase tracking-[0.04em] text-amber">
+                    Preview
+                  </span>
+                </div>
+                {persona.previewOptions.map((r: AppRole) => {
+                  const on = r === persona.role;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => {
+                        persona.setPreviewRole(r);
+                        setOpen(null);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-sm px-2 py-[7px] text-left transition-colors",
+                        on ? "bg-brand-soft" : "hover:bg-hover",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-[600]">{persona.labelFor(r)}</div>
+                        <div className="text-[11px] text-subtle">
+                          {r === persona.realRole ? "Your role" : "Preview a narrower role"}
+                        </div>
+                      </div>
+                      {on && <I.check size={15} className="text-brand" />}
+                    </button>
+                  );
+                })}
+                <div className="px-2 pb-1 pt-1.5 text-[10.5px] leading-snug text-faint">
+                  Preview only — narrows what you see; server permissions are unchanged.
+                </div>
+              </div>
+            )}
+
             <div className="py-1.5">
               {[
                 { icon: I.user, label: "My profile" },
-                { icon: I.building, label: "Agency settings" },
-                { icon: I.settings, label: "Preferences" },
+                { icon: I.building, label: "Agency settings", href: SCREEN_PATH.settings },
+                { icon: I.settings, label: "Preferences", href: SCREEN_PATH.settings },
                 { icon: I.help, label: "Help & support" },
               ].map((m) => (
                 <button
                   key={m.label}
-                  onClick={() => setOpen(null)}
+                  onClick={() => {
+                    setOpen(null);
+                    if (m.href) router.push(m.href);
+                  }}
                   className="flex w-full items-center gap-2.5 px-3.5 py-[9px] text-[13px] font-[550] transition-colors hover:bg-hover"
                 >
                   <m.icon size={16} className="text-subtle" />

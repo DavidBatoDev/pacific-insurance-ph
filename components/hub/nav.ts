@@ -12,3 +12,16 @@ export function useScreenNav() {
   const router = useRouter();
   return (s: ScreenId) => router.push(SCREEN_PATH[s]);
 }
+
+/**
+ * Parameterized record navigation (design events open-contact / open-group).
+ * Contacts and groups are dynamic routes, so they get helpers rather than
+ * SCREEN_PATH entries — keeping the Record<ScreenId, string> contract intact.
+ */
+export function useRecordNav() {
+  const router = useRouter();
+  return {
+    openContact: (clientId: string) => router.push(`/clients/${clientId}`),
+    openGroup: (groupId: string) => router.push(`/group/${groupId}`),
+  };
+}
