@@ -2,6 +2,7 @@
 
 import { Modal } from "./modal";
 import { Btn } from "../primitives";
+import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { CommandPalette } from "./command-palette";
 import type { OverlayState } from "./overlay-provider";
 
@@ -20,6 +21,8 @@ export function OverlayHost({
   switch (overlay.kind) {
     case "command-palette":
       return <CommandPalette onClose={close} />;
+    case "add-task":
+      return <AddTaskDrawer prefill={overlay.prefill as AddTaskPrefill | undefined} onClose={close} />;
     default:
       return <ComingSoon overlay={overlay} onClose={close} />;
   }

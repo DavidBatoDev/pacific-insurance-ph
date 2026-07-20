@@ -1,18 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 
+import { toggleTaskAction } from "@/app/(app)/tasks/actions";
+import type { Task as RealTask } from "@/lib/repositories/tasks/task.entity";
 import { cn } from "@/lib/utils";
 import {
   ACTIVITY, ALERTS, APPLICATIONS, CLAIMS, KPIS, RELATIONSHIPS, RENEWALS,
-  REVENUE, STAFF, TASKS, TRAVEL, peso, type Task, type Tone,
+  REVENUE, STAFF, TRAVEL, peso, type Tone,
 } from "./data";
 import { I } from "./icons";
+import { useOverlays } from "./overlays/overlay-provider";
+import { usePersona } from "./persona";
 import {
   Avatar, Btn, Card, CardHead, CardLink, DueCell, Sparkline, StatusBadge,
   TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Row, Table, Td, Th, useSort } from "./table";
+import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "./task-buckets";
 import { useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
 
@@ -284,24 +290,24 @@ function TravelCard({ setScreen }: Nav) {
 }
 
 /* ---------- Rail widgets ---------- */
-const TASK_TONE: Record<Task["tag"], Tone> = {
-  Application: "blue",
-  Documents: "amber",
-  Renewal: "violet",
-  Travel: "blue",
-  Claim: "red",
-  Relationship: "green",
-};
+function TasksWidget({ tasks }: { tasks: RealTask[] }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const setScreen = useScreenNav();
+  const [, startTransition] = useTransition();
 
-function TasksWidget() {
-  const [tasks, setTasks] = useState(TASKS);
-  const toggle = (id: number) =>
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const groups = [
-    { key: "overdue", label: "Overdue", overdue: true },
-    { key: "today", label: "Due today", overdue: false },
-    { key: "week", label: "Due this week", overdue: false },
-  ] as const;
+  const toggle = (t: RealTask) =>
+    startTransition(async () => {
+      const res = await toggleTaskAction(t.id);
+      if (!res.ok) overlays.toast("Couldn’t update task", res.error);
+      router.refresh();
+    });
+
+  const groups: { key: TaskBucket; overdue: boolean }[] = [
+    { key: "overdue", overdue: true },
+    { key: "today", overdue: false },
+    { key: "week", overdue: false },
+  ];
   const remaining = tasks.filter((t) => !t.done).length;
   return (
     <Card>
@@ -309,11 +315,25 @@ function TasksWidget() {
         icon={I.checkSquare}
         title="My tasks"
         count={remaining}
-        action={<CardLink>Open board <I.chevRight size={13} /></CardLink>}
+        action={
+          <div className="flex items-center gap-2">
+            <CardLink onClick={() => overlays.openAddTask()}>
+              <I.plus size={13} /> New
+            </CardLink>
+            <CardLink onClick={() => setScreen("tasks")}>
+              Open board <I.chevRight size={13} />
+            </CardLink>
+          </div>
+        }
       />
       <div className="py-1">
+        {tasks.length === 0 && (
+          <div className="px-[18px] py-3 text-[12.5px] text-subtle">
+            No tasks yet — create one with “+ New”.
+          </div>
+        )}
         {groups.map((g) => {
-          const items = tasks.filter((t) => t.group === g.key);
+          const items = tasks.filter((t) => taskBucket(t.dueDate).bucket === g.key);
           if (!items.length) return null;
           return (
             <div key={g.key} className="py-1">
@@ -322,13 +342,13 @@ function TasksWidget() {
                 g.overdue ? "text-red" : "text-subtle",
               )}>
                 {g.overdue && <I.alertTri size={13} />}
-                {g.label}
+                {BUCKET_LABEL[g.key]}
                 <span className="text-faint">· {items.filter((t) => !t.done).length}</span>
               </div>
               {items.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => toggle(t.id)}
+                  onClick={() => toggle(t)}
                   className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
                 >
                   <span className={cn(
@@ -342,10 +362,10 @@ function TasksWidget() {
                       {t.title}
                     </span>
                     <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-subtle">
-                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[10.5px] font-[650]", TONE_TEXT[TASK_TONE[t.tag]])}>
+                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[10.5px] font-[650]", TAG_TONE[t.tag] ?? "text-slate")}>
                         {t.tag}
                       </span>
-                      {t.meta}
+                      {taskBucket(t.dueDate).meta}
                     </span>
                   </span>
                 </button>
@@ -431,20 +451,24 @@ function RelationshipWidget() {
 }
 
 /* ---------- Assembly ---------- */
-export function Dashboard() {
+export function Dashboard({ tasks = [] }: { tasks?: RealTask[] }) {
   const setScreen = useScreenNav();
+  const overlays = useOverlays();
+  const persona = usePersona();
   return (
     <div>
       <div className="mb-[18px] flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.025em]">Good morning, Matt</h1>
+          <h1 className="text-[23px] font-bold tracking-[-0.025em]">
+            Good morning, {persona.userName.split(" ")[0]}
+          </h1>
           <p className="mt-[3px] text-[13.5px] text-muted-foreground">
             {DATE_STR} · Here&apos;s what needs your attention today.
           </p>
         </div>
         <div className="flex items-center gap-2.5 max-[900px]:hidden">
           <Btn><I.download size={15} /> Export</Btn>
-          <Btn variant="primary" onClick={() => setScreen("applications")}>
+          <Btn variant="primary" onClick={() => overlays.openWizard()}>
             <I.plus size={15} /> New application
           </Btn>
         </div>
@@ -464,7 +488,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <TasksWidget />
+          <TasksWidget tasks={tasks} />
           <RelationshipWidget />
           <ActivityWidget />
         </div>

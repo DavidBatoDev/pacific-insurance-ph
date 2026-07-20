@@ -1977,6 +1977,7 @@ export type Database = {
           status: string
           task_type: string | null
           title: string
+          travel_request_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1996,6 +1997,7 @@ export type Database = {
           status?: string
           task_type?: string | null
           title: string
+          travel_request_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2015,6 +2017,7 @@ export type Database = {
           status?: string
           task_type?: string | null
           title?: string
+          travel_request_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2058,6 +2061,13 @@ export type Database = {
             columns: ["renewal_id"]
             isOneToOne: false
             referencedRelation: "renewals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_travel_request_id_fkey"
+            columns: ["travel_request_id"]
+            isOneToOne: false
+            referencedRelation: "travel_requests"
             referencedColumns: ["id"]
           },
         ]
