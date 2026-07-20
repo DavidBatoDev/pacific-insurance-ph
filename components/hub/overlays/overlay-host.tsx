@@ -5,7 +5,10 @@ import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
+import { FileClaimDrawer } from "./file-claim";
+import { IssuePolicyDrawer } from "./issue-policy";
 import { NewLeadDrawer } from "./new-lead";
+import { NewTravelQuoteDrawer } from "./new-travel-quote";
 import type { OverlayState } from "./overlay-provider";
 
 /**
@@ -36,6 +39,9 @@ export function OverlayHost({
       );
     case "page-modal":
       if (overlay.modal === "new-lead") return <NewLeadDrawer onClose={close} />;
+      if (overlay.modal === "issue-policy") return <IssuePolicyDrawer onClose={close} />;
+      if (overlay.modal === "file-claim") return <FileClaimDrawer onClose={close} />;
+      if (overlay.modal === "new-travel-quote") return <NewTravelQuoteDrawer onClose={close} />;
       return <ComingSoon overlay={overlay} onClose={close} />;
     default:
       return <ComingSoon overlay={overlay} onClose={close} />;

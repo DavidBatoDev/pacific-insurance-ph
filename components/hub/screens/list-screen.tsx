@@ -39,6 +39,11 @@ interface ListScreenProps<T extends FilterableRow> {
   defaultSort: { key: keyof T; dir: "asc" | "desc" };
   renderRow: (row: T) => ReactNode;
   primaryAction?: string;
+  /** Fired by the primary action button (wired screens open a drawer here). */
+  onPrimary?: () => void;
+  /** Wired screens pass false to drop the Draft badge. */
+  draft?: boolean;
+  emptyText?: string;
 }
 
 function Chip({
@@ -76,6 +81,9 @@ export function ListScreen<T extends FilterableRow>({
   defaultSort,
   renderRow,
   primaryAction,
+  onPrimary,
+  draft = true,
+  emptyText,
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -96,13 +104,14 @@ export function ListScreen<T extends FilterableRow>({
         icon={icon}
         title={title}
         sub={sub}
+        draft={draft}
         actions={
           <>
             <Btn>
               <I.download size={15} /> Export
             </Btn>
             {primaryAction && (
-              <Btn variant="primary">
+              <Btn variant="primary" onClick={onPrimary}>
                 <I.plus size={15} /> {primaryAction}
               </Btn>
             )}
@@ -164,7 +173,16 @@ export function ListScreen<T extends FilterableRow>({
               ))}
             </tr>
           </thead>
-          <tbody>{sorted.map((r) => renderRow(r))}</tbody>
+          <tbody>
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-[13px] text-subtle">
+                  {emptyText ?? "No matching records."}
+                </td>
+              </tr>
+            )}
+            {sorted.map((r) => renderRow(r))}
+          </tbody>
         </Table>
       </Card>
     </div>

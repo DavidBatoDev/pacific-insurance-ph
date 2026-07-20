@@ -1,5 +1,10 @@
-import { ApplicationsScreen } from "@/components/hub/screens/list-screens";
+import { ApplicationsLive } from "@/components/hub/screens/operations";
+import { getApplicationsRepository } from "@/lib/repositories/applications";
 
-export default function Page() {
-  return <ApplicationsScreen />;
+export const dynamic = "force-dynamic";
+
+/** Applications register — wired to the applications table. */
+export default async function Page() {
+  const rows = await getApplicationsRepository().list();
+  return <ApplicationsLive rows={rows} />;
 }
