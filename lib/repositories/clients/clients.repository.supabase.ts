@@ -28,6 +28,16 @@ function toDomain(row: ClientRow): Client {
     assignedUserId: row.assigned_user_id,
     status: row.status,
     notes: row.notes,
+    lifecycleStage: row.lifecycle_stage as Client["lifecycleStage"],
+    leadStage: row.lead_stage,
+    leadStatus: row.lead_status,
+    proposalStatus: row.proposal_status,
+    productInterest: row.product_interest,
+    estPremium: row.est_premium,
+    expectedCloseDate: row.expected_close_date,
+    nextFollowUpDate: row.next_follow_up_date,
+    earlyPayer: row.early_payer,
+    doNotContact: row.do_not_contact,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -64,6 +74,17 @@ export class SupabaseClientsRepository implements ClientsRepository {
     return { rows: (data ?? []).map(toDomain), total: count ?? 0 };
   }
 
+  async listLeads(): Promise<Client[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("clients")
+      .select("*")
+      .eq("lifecycle_stage", "Lead")
+      .order("created_at", { ascending: true });
+
+    if (error) throw toRepositoryError("ClientsRepository.listLeads", error);
+    return (data ?? []).map(toDomain);
+  }
+
   async create(input: NewClient): Promise<Client> {
     // Build the insert payload, omitting undefined columns so DB defaults apply.
     const payload: ClientInsert = {
@@ -81,6 +102,14 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.clientType !== undefined) payload.client_type = input.clientType;
     if (input.vipStatus !== undefined) payload.vip_status = input.vipStatus;
     if (input.status !== undefined) payload.status = input.status;
+    if (input.lifecycleStage !== undefined) payload.lifecycle_stage = input.lifecycleStage;
+    if (input.leadStage !== undefined) payload.lead_stage = input.leadStage;
+    if (input.leadStatus !== undefined) payload.lead_status = input.leadStatus;
+    if (input.proposalStatus !== undefined) payload.proposal_status = input.proposalStatus;
+    if (input.productInterest !== undefined) payload.product_interest = input.productInterest;
+    if (input.estPremium !== undefined) payload.est_premium = input.estPremium;
+    if (input.expectedCloseDate !== undefined) payload.expected_close_date = input.expectedCloseDate;
+    if (input.nextFollowUpDate !== undefined) payload.next_follow_up_date = input.nextFollowUpDate;
 
     const { data, error } = await getSupabaseAdmin()
       .from("clients")
@@ -107,6 +136,16 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.assignedUserId !== undefined) patch.assigned_user_id = input.assignedUserId;
     if (input.status !== undefined) patch.status = input.status;
     if (input.notes !== undefined) patch.notes = input.notes;
+    if (input.lifecycleStage !== undefined) patch.lifecycle_stage = input.lifecycleStage;
+    if (input.leadStage !== undefined) patch.lead_stage = input.leadStage;
+    if (input.leadStatus !== undefined) patch.lead_status = input.leadStatus;
+    if (input.proposalStatus !== undefined) patch.proposal_status = input.proposalStatus;
+    if (input.productInterest !== undefined) patch.product_interest = input.productInterest;
+    if (input.estPremium !== undefined) patch.est_premium = input.estPremium;
+    if (input.expectedCloseDate !== undefined) patch.expected_close_date = input.expectedCloseDate;
+    if (input.nextFollowUpDate !== undefined) patch.next_follow_up_date = input.nextFollowUpDate;
+    if (input.earlyPayer !== undefined) patch.early_payer = input.earlyPayer;
+    if (input.doNotContact !== undefined) patch.do_not_contact = input.doNotContact;
 
     const { data, error } = await getSupabaseAdmin()
       .from("clients")

@@ -375,14 +375,24 @@ export type Database = {
           client_type: string
           created_at: string
           date_of_birth: string | null
+          do_not_contact: boolean
+          early_payer: boolean
           email: string | null
+          est_premium: number | null
+          expected_close_date: string | null
           first_name: string
           id: string
           last_name: string
           lead_source: string | null
+          lead_stage: string | null
+          lead_status: string | null
+          lifecycle_stage: string
           mobile_number: string | null
+          next_follow_up_date: string | null
           notes: string | null
           preferred_channel: string | null
+          product_interest: string | null
+          proposal_status: string | null
           reference_no: string | null
           status: string
           updated_at: string
@@ -394,14 +404,24 @@ export type Database = {
           client_type?: string
           created_at?: string
           date_of_birth?: string | null
+          do_not_contact?: boolean
+          early_payer?: boolean
           email?: string | null
+          est_premium?: number | null
+          expected_close_date?: string | null
           first_name: string
           id?: string
           last_name: string
           lead_source?: string | null
+          lead_stage?: string | null
+          lead_status?: string | null
+          lifecycle_stage?: string
           mobile_number?: string | null
+          next_follow_up_date?: string | null
           notes?: string | null
           preferred_channel?: string | null
+          product_interest?: string | null
+          proposal_status?: string | null
           reference_no?: string | null
           status?: string
           updated_at?: string
@@ -413,14 +433,24 @@ export type Database = {
           client_type?: string
           created_at?: string
           date_of_birth?: string | null
+          do_not_contact?: boolean
+          early_payer?: boolean
           email?: string | null
+          est_premium?: number | null
+          expected_close_date?: string | null
           first_name?: string
           id?: string
           last_name?: string
           lead_source?: string | null
+          lead_stage?: string | null
+          lead_status?: string | null
+          lifecycle_stage?: string
           mobile_number?: string | null
+          next_follow_up_date?: string | null
           notes?: string | null
           preferred_channel?: string | null
+          product_interest?: string | null
+          proposal_status?: string | null
           reference_no?: string | null
           status?: string
           updated_at?: string

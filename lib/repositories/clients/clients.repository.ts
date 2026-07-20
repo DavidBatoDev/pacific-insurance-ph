@@ -21,6 +21,8 @@ export interface DuplicateProbe {
 export interface ClientsRepository {
   findById(id: string): Promise<Client | null>;
   list(params?: ListParams): Promise<Paginated<Client>>;
+  /** Active leads — contacts at lifecycle_stage 'Lead' (feeds the Lead Lifecycle board). */
+  listLeads(): Promise<Client[]>;
   create(input: NewClient): Promise<Client>;
   update(id: string, input: ClientUpdate): Promise<Client>;
   delete(id: string): Promise<void>;

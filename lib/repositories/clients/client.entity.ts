@@ -6,6 +6,10 @@
  * database column names.
  */
 
+/** Lifecycle stages of the unified contact record (data-model golden rule). */
+export type LifecycleStage =
+  | "Lead" | "Applicant" | "Client" | "Policyholder" | "Renewal" | "Lost";
+
 export interface Client {
   id: string;
   referenceNo: string | null;
@@ -24,6 +28,17 @@ export interface Client {
   assignedUserId: string | null;
   status: string;
   notes: string | null;
+  /* Lead Lifecycle two-axis model (only meaningful while lifecycleStage = Lead) */
+  lifecycleStage: LifecycleStage;
+  leadStage: string | null;
+  leadStatus: string | null;
+  proposalStatus: string | null;
+  productInterest: string | null;
+  estPremium: number | null;
+  expectedCloseDate: string | null;
+  nextFollowUpDate: string | null;
+  earlyPayer: boolean;
+  doNotContact: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +58,14 @@ export interface NewClient {
   assignedUserId?: string | null;
   status?: string;
   notes?: string | null;
+  lifecycleStage?: LifecycleStage;
+  leadStage?: string | null;
+  leadStatus?: string | null;
+  proposalStatus?: string | null;
+  productInterest?: string | null;
+  estPremium?: number | null;
+  expectedCloseDate?: string | null;
+  nextFollowUpDate?: string | null;
 }
 
 /** Fields accepted when updating a Client (all optional). */
@@ -60,4 +83,14 @@ export interface ClientUpdate {
   assignedUserId?: string | null;
   status?: string;
   notes?: string | null;
+  lifecycleStage?: LifecycleStage;
+  leadStage?: string | null;
+  leadStatus?: string | null;
+  proposalStatus?: string | null;
+  productInterest?: string | null;
+  estPremium?: number | null;
+  expectedCloseDate?: string | null;
+  nextFollowUpDate?: string | null;
+  earlyPayer?: boolean;
+  doNotContact?: boolean;
 }
