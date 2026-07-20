@@ -1,12 +1,14 @@
-import { PageHead } from "@/components/hub/primitives";
+import { ProductsLive } from "@/components/hub/screens/products-live";
+import { getProductUsageCounts } from "@/lib/queries/product-usage";
+import { getProductsRepository } from "@/lib/repositories/products";
 
-/** Products catalog (system configuration) — wired in build phase P8. */
-export default function Page() {
-  return (
-    <PageHead
-      iconName="folder"
-      title="Products"
-      sub="Master catalog of insurance products — this screen is wired in an upcoming build phase."
-    />
-  );
+export const dynamic = "force-dynamic";
+
+/** Products catalog — wired to the products table with linked-record guardrails. */
+export default async function Page() {
+  const [products, usage] = await Promise.all([
+    getProductsRepository().list(),
+    getProductUsageCounts(),
+  ]);
+  return <ProductsLive products={products} usage={usage} />;
 }
