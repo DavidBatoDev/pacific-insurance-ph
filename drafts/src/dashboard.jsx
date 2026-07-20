@@ -4,20 +4,29 @@ const PDR = window.PData;
 
 /* ---------- My Tasks ---------- */
 function TasksWidget() {
-  const [tasks, setTasks] = useStateRail(PDR.TASKS);
-  const toggle = (id) => setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: !t.done } : t));
+  const [tasks, setTasks] = useStateRail(window.TasksStore.tasks);
+  React.useEffect(() => {
+    const sync = () => setTasks([...window.TasksStore.tasks]);
+    window.addEventListener("tasks-updated", sync);
+    return () => window.removeEventListener("tasks-updated", sync);
+  }, []);
+  const toggle = (id) => window.TasksStore.toggle(id);
+  const openBoard = () => window.dispatchEvent(new CustomEvent("go-screen", { detail: { screen: "tasks" } }));
   const groups = [
     { key: "overdue", label: "Overdue", cls: "overdue" },
     { key: "today", label: "Due today", cls: "" },
     { key: "week", label: "Due this week", cls: "" },
   ];
-  const tagTone = { Application: "blue", Documents: "amber", Renewal: "violet", Travel: "blue", Claim: "red", Relationship: "green" };
+  const tagTone = { Application: "blue", Documents: "amber", Renewal: "violet", Travel: "blue", Claim: "red", Relationship: "green", Commission: "green", General: "slate" };
   const remaining = tasks.filter((t) => !t.done).length;
   return (
     <div className="card">
       <div className="card-head">
         <h3><I.checkSquare size={17} style={{ color: "var(--text-muted)" }} /> My tasks <span className="count-pill">{remaining}</span></h3>
-        <button className="card-link">Open board <I.chevRight size={13} /></button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button className="card-link" onClick={() => window.dispatchEvent(new CustomEvent("open-page-modal", { detail: { modal: "addTask" } }))}><I.plus size={13} /> New</button>
+          <button className="card-link" onClick={openBoard}>Open board <I.chevRight size={13} /></button>
+        </div>
       </div>
       <div style={{ padding: "4px 0 8px" }}>
         {groups.map((g) => {
@@ -112,19 +121,19 @@ function RelationshipWidget() {
 }
 
 /* ---------- Dashboard assembly ---------- */
-function Dashboard({ setScreen }) {
+function Dashboard({ setScreen, persona }) {
   const today = new Date(2026, 5, 10);
   const dateStr = today.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const P = window.PI_PERSONAS[persona] || window.PI_PERSONAS.eman;
   return (
     <div className="fade-in">
       <div className="page-head">
         <div>
-          <h1>Good morning, Matt</h1>
+          <h1>Good morning, {P.first}</h1>
           <p className="sub">{dateStr} · Here's what needs your attention today.</p>
         </div>
         <div className="page-head-actions">
           <button className="btn"><I.download size={15} /> Export</button>
-          <button className="btn primary"><I.plus size={15} /> New application</button>
         </div>
       </div>
 

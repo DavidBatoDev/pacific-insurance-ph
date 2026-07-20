@@ -49,21 +49,30 @@ function KpiRow({ setScreen }) {
 
 /* ---------- Revenue widget ---------- */
 function RevenueWidget() {
+  const [, plBump] = useStateDash(0);
+  React.useEffect(() => {
+    const rerender = () => plBump((n) => n + 1);
+    window.addEventListener("revenue-updated", rerender);
+    return () => window.removeEventListener("revenue-updated", rerender);
+  }, []);
   const r = PD.REVENUE;
-  const max = Math.max(...r.rows.map((x) => x.value));
+  const max = Math.max(...r.rows.map((x) => x.value), 1);
+  const items = r.rows.reduce((a, x) => a + (x.count || 0), 0);
+  const canSend = window.Perms.role() !== "agent"; // Admin & Staff only (§12)
+  const openBatch = () => window.dispatchEvent(new CustomEvent("open-page-modal", { detail: { modal: "paymentLinks" } }));
   return (
     <div className="revenue">
       <div className="rev-total">
         <div className="rt-label"><I.wallet size={15} /> Revenue opportunity awaiting collection</div>
         <div className="rt-val tnum">{PD.peso(r.total)}</div>
-        <div className="rt-meta"><I.trendUp size={13} style={{ color: "var(--accent)" }} /> 42 items across 3 pipelines · updated 5m ago</div>
+        <div className="rt-meta"><I.trendUp size={13} style={{ color: "var(--accent)" }} /> {items} items across 3 pipelines · updated 5m ago</div>
       </div>
       <div className="rev-bars">
         {r.rows.map((row, i) => {
           const RowIco = I[row.icon];
           return (
           <div className="rev-bar-row" key={i}>
-            <span className="rb-label"><RowIco size={15} style={{ color: row.color }} />{row.label}</span>
+            <span className="rb-label"><RowIco size={15} style={{ color: row.color }} />{row.label}{row.count != null && <span className="rb-count tnum"> · {row.count}</span>}</span>
             <span className="rb-track"><span className="rb-fill" style={{ width: (row.value / max * 100) + "%", background: row.color }}></span></span>
             <span className="rb-val tnum">{PD.peso(row.value)}</span>
           </div>
@@ -71,7 +80,7 @@ function RevenueWidget() {
         })}
       </div>
       <div className="rev-cta">
-        <button className="btn primary"><I.send size={15} /> Send payment links</button>
+        {canSend && <button className="btn primary" onClick={openBatch}><I.send size={15} /> Send payment links</button>}
         <button className="btn">View breakdown</button>
       </div>
     </div>

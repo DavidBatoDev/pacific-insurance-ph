@@ -3,7 +3,7 @@ const { useEffect: useEffectChrome, useRef: useRefChrome, useState: useStateChro
 
 const NAV_MAIN = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
-  { id: "prospects", label: "Prospects", icon: "trendUp", badge: "42" },
+  { id: "prospects", label: "Leads", icon: "trendUp", badge: "42" },
   { id: "clients", label: "Clients", icon: "users", badge: "1.2k" },
   { id: "applications", label: "Applications", icon: "fileText", badge: "41" },
   { id: "policies", label: "Policies", icon: "shield" },
@@ -12,12 +12,15 @@ const NAV_MAIN = [
   { id: "travel", label: "Travel Insurance", icon: "plane", badge: "15" },
 ];
 const NAV_WORK = [
+  { id: "payments", label: "Payments", icon: "peso" },
   { id: "documents", label: "Documents", icon: "folder" },
   { id: "tasks", label: "Tasks", icon: "checkSquare", badge: "6" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
 ];
 const NAV_SYS = [
   { id: "reports", label: "Reports", icon: "chart" },
+  { id: "products", label: "Products", icon: "folder" },
+  { id: "templates", label: "Email Templates", icon: "mail" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -32,14 +35,27 @@ function NavItem({ item, active, onClick }) {
   );
 }
 
+function NavSection({ label, items, screen, setScreen }) {
+  const [open, setOpen] = useStateChrome(true);
+  return (
+    <>
+      <button className={"nav-section-label collapsible" + (open ? " open" : "")} onClick={() => setOpen((o) => !o)}>
+        {label}
+        <I.chevDown size={13} className="nsl-chevron" />
+      </button>
+      {open && items.map((it) => <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />)}
+    </>
+  );
+}
+
 function Sidebar({ screen, setScreen }) {
   return (
     <aside className="sidebar">
-      {NAV_MAIN.map((it) => <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />)}
-      <div className="nav-section-label">Workspace</div>
-      {NAV_WORK.map((it) => <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />)}
-      <div className="nav-section-label">System</div>
-      {NAV_SYS.map((it) => <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />)}
+      <div className="sidebar-scroll">
+        {NAV_MAIN.map((it) => <NavItem key={it.id} item={it} active={screen === it.id} onClick={() => setScreen(it.id)} />)}
+        <NavSection label="Workspace" items={NAV_WORK} screen={screen} setScreen={setScreen} />
+        <NavSection label="System" items={NAV_SYS} screen={screen} setScreen={setScreen} />
+      </div>
 
       <div className="sidebar-foot">
         <div className="upgrade-card">
@@ -64,13 +80,23 @@ function BrandGlyph({ size = 18 }) {
   );
 }
 
-function Topbar({ dark, setDark, screen, setScreen, search, setSearch }) {
+function Topbar({ dark, setDark, screen, setScreen, search, setSearch, persona, setPersona }) {
   const [open, setOpen] = useStateChrome(null); // 'notif' | 'profile'
+  const [paletteOpen, setPaletteOpen] = useStateChrome(false);
   const wrapRef = useRefChrome(null);
+  const P = window.PI_PERSONAS[persona] || window.PI_PERSONAS.eman;
   useEffectChrome(() => {
     const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(null); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
+  }, []);
+  // Global ⌘K / Ctrl-K toggles the command palette.
+  useEffectChrome(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setPaletteOpen((o) => !o); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
   const { NOTIFICATIONS } = window.PData;
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
@@ -79,18 +105,15 @@ function Topbar({ dark, setDark, screen, setScreen, search, setSearch }) {
 
   return (
     <header className="topbar" ref={wrapRef}>
-      <div className="search">
+      <button className="search" onClick={() => setPaletteOpen(true)} title="Search (⌘K)">
         <I.search size={17} />
-        <input
-          placeholder="Search clients, policies, applications…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <span className="search-ph">Search clients, policies, applications…</span>
         <kbd>⌘K</kbd>
-      </div>
+      </button>
+      {window.CommandPalette && <window.CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
       <div className="topbar-spacer"></div>
 
-      <button className="btn primary sm" onClick={() => setScreen("applications")} style={{ height: 36, padding: "0 13px" }}>
+      <button className="btn primary sm" onClick={() => window.dispatchEvent(new Event("open-new-application"))} style={{ height: 36, padding: "0 13px" }}>
         <I.plus size={16} /> New application
       </button>
 
@@ -132,19 +155,42 @@ function Topbar({ dark, setDark, screen, setScreen, search, setSearch }) {
 
       <div style={{ position: "relative" }}>
         <button className="profile-btn" onClick={() => setOpen(open === "profile" ? null : "profile")}>
-          <Avatar name="Matt Nassr" size={30} color="#047857" />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }} className="hide-sm">Matt</span>
+          <Avatar name={P.name} size={30} color={P.color} />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }} className="hide-sm">{P.first}</span>
           <span className="chev"><I.chevDown size={15} /></span>
         </button>
         {open === "profile" && (
-          <div className="pop fade-in" style={{ top: 50, right: 0, width: 244 }}>
+          <div className="pop fade-in" style={{ top: 50, right: 0, width: 258 }}>
             <div style={{ padding: "13px 15px", borderBottom: "1px solid var(--border-soft)", display: "flex", gap: 11, alignItems: "center" }}>
-              <Avatar name="Matt Nassr" size={38} color="#047857" />
+              <Avatar name={P.name} size={38} color={P.color} />
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 650, fontSize: 13.5 }}>Matt Nassr</div>
-                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Agency Owner</div>
+                <div style={{ fontWeight: 650, fontSize: 13.5 }}>{P.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>{P.roleLabel}</div>
               </div>
             </div>
+
+            <div className="viewas">
+              <div className="viewas-head">
+                <span>View as</span>
+                <span className="viewas-tag">Preview</span>
+              </div>
+              {window.PI_PERSONA_ORDER.map((pid) => {
+                const pp = window.PI_PERSONAS[pid];
+                const on = pid === persona;
+                return (
+                  <button key={pid} className={"viewas-opt" + (on ? " on" : "")} onClick={() => { setPersona(pid); setOpen(null); }}>
+                    <Avatar name={pp.name} size={28} color={pp.color} />
+                    <div className="viewas-txt">
+                      <div className="viewas-name">{pp.name}</div>
+                      <div className="viewas-role">{pp.roleLabel}</div>
+                    </div>
+                    {on && <I.check size={15} />}
+                  </button>
+                );
+              })}
+              <div className="viewas-note">Prototype preview — not a real login. Real auth &amp; roles ship in a later phase.</div>
+            </div>
+
             <div style={{ padding: "6px 0" }}>
               <div className="menu-item"><span className="mi-ico"><I.user size={16} /></span>My profile</div>
               <div className="menu-item"><span className="mi-ico"><I.building size={16} /></span>Agency settings</div>

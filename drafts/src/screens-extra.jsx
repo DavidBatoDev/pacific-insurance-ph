@@ -3,14 +3,25 @@ const { useState: useStateX } = React;
 const PX = window.PData;
 
 const POLICIES = [
-  { id: "POL-2024-11820", client: "John Santos", product: "Blue Royale", type: "Individual", premium: 185000, start: "Mar 2024", status: "Active" },
-  { id: "POL-2023-09241", client: "Ramon Velasco", product: "Premier Health", type: "Individual", premium: 95000, start: "Aug 2023", status: "Active" },
-  { id: "POL-2022-04417", client: "Sofia Reyes", product: "Family Shield", type: "Family", premium: 148000, start: "Jan 2022", status: "Active" },
-  { id: "POL-2024-07712", client: "Cristina Flores", product: "AsianLife Care", type: "Individual", premium: 110000, start: "Jun 2024", status: "Active" },
-  { id: "POL-2021-03390", client: "Grace Castillo", product: "Maxicare Plus", type: "Individual", premium: 73000, start: "Nov 2021", status: "Lapsing" },
-  { id: "POL-2023-08856", client: "Edgar Domingo", product: "Family Shield", type: "Family", premium: 132000, start: "Feb 2023", status: "Active" },
-  { id: "POL-2024-12003", client: "Patricia Lim", product: "Select", type: "Individual", premium: 88000, start: "May 2026", status: "Active" },
+  { id: "POL-2024-11820", client: "John Santos", product: "Blue Royale", type: "Individual", premium: 185000, start: "Mar 2024", status: "Active", or_number: "OR-2026-88055", group_id: null },
+  { id: "POL-2023-09241", client: "Ramon Velasco", product: "Premier Health", type: "Individual", premium: 95000, start: "Aug 2023", status: "Active", or_number: null, group_id: null },
+  { id: "POL-2022-04417", client: "Sofia Reyes", product: "Family Shield", type: "Family", premium: 148000, start: "Jan 2022", status: "Active", or_number: null, group_id: null },
+  { id: "POL-2024-07712", client: "Cristina Flores", product: "AsianLife Care", type: "Individual", premium: 110000, start: "Jun 2024", status: "Active", or_number: "OR-2026-88123", group_id: null },
+  { id: "POL-2021-03390", client: "Grace Castillo", product: "Maxicare Plus", type: "Individual", premium: 73000, start: "Nov 2021", status: "Lapsing", or_number: null, group_id: null },
+  { id: "POL-2023-08856", client: "Edgar Domingo", product: "Family Shield", type: "Family", premium: 132000, start: "Feb 2023", status: "Active", or_number: null, group_id: null },
+  { id: "POL-2024-12003", client: "Patricia Lim", product: "Select", type: "Individual", premium: 88000, start: "May 2026", status: "Active", or_number: null, group_id: null },
+  // Group master policies — one per group HMO account (policies.group_id → groups).
+  { id: "POL-2025-GRP-0007", client: "Meridian Tech Solutions", product: "BC Flexi HMO", type: "Group", premium: 1860000, start: "Oct 2025", status: "Active", or_number: "OR-2026-88210", group_id: "GRP-0007" },
+  { id: "POL-2024-GRP-0004", client: "Craft & Co. Manila", product: "Maxicare Group", type: "Group", premium: 640000, start: "Jul 2024", status: "Lapsing", or_number: null, group_id: "GRP-0004" },
 ];
+// Resolve a policy id → its group id (nullable). Claims inherit group context through this: claim.policyId → policy.group_id.
+window.policyGroupId = (policyId) => { const p = POLICIES.find((x) => x.id === policyId); return p ? p.group_id : null; };
+window.PoliciesRegister = POLICIES;
+// Stamp an OR number onto a client's most recent policy (called from PaymentsStore.verify)
+window.setPolicyOR = (clientName, or) => {
+  const p = POLICIES.find((x) => x.client === clientName);
+  if (p && !p.or_number) p.or_number = or;
+};
 
 const DOCS = [
   { name: "Maria Cruz — Valid ID.pdf", type: "Identification", client: "Maria Cruz", size: "1.2 MB", date: "Jun 9, 2026", status: "Verified" },
@@ -27,31 +38,42 @@ function PoliciesScreen() {
   return <window.ListScreen
     title="Policies" icon="shield"
     sub="2,394 active policies under management"
-    primaryAction="Issue policy"
+    primaryAction="Issue policy" onPrimary={() => window.dispatchEvent(new CustomEvent("open-page-modal", { detail: { modal: "policy" } }))}
     stats={[
       { val: "2,394", label: "Active policies" },
       { val: "1,902", label: "Individual" },
       { val: "492", label: "Family / group" },
       { val: "14", label: "Lapsing soon", color: "var(--red)" },
     ]}
-    filters={["Active", "Lapsing"]}
-    rows={POLICIES.map((p) => ({ ...p, _filter: p.status }))}
+    filters={["Active", "Lapsing", "Group"]}
+    filterMatch={(p, f) => f === "Group" ? !!p.group_id : p.status === f}
+    rows={POLICIES.map((p) => ({ ...p, _filter: p.status, memberCount: p.group_id ? window.GroupsData.membersOf(p.group_id).length : 0 }))}
     defaultSort={{ key: "start", dir: "desc" }}
     columns={[
       { k: "id", label: "Policy no." }, { k: "client", label: "Client" }, { k: "product", label: "Product" },
-      { k: "type", label: "Type" }, { k: "premium", label: "Premium", num: true }, { k: "start", label: "Effective" }, { k: "status", label: "Status" },
+      { k: "type", label: "Type" }, { k: "premium", label: "Premium", num: true }, { k: "or_number", label: "OR number" }, { k: "start", label: "Effective" }, { k: "status", label: "Status" },
     ]}
-    renderRow={(p) => (
-      <tr key={p.id}>
+    renderRow={(p) => {
+      const openGroup = (e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("open-group", { detail: { group: window.GroupsData.get(p.group_id) } })); };
+      return (
+      <tr key={p.id} style={p.group_id ? { cursor: "pointer" } : null} onClick={p.group_id ? openGroup : undefined} title={p.group_id ? "Open Group Account" : undefined}>
         <td><span className="cell-code">{p.id}</span></td>
-        <td><div className="client-cell"><Avatar name={p.client} size={30} /><div className="cc-name">{p.client}</div></div></td>
+        <td>
+          {p.group_id ? (
+            <div className="client-cell"><span className="ga-glyph sm"><I.building size={16} /></span><div><div className="cc-name">{p.client}</div><div className="cc-sub">{p.memberCount} members</div></div></div>
+          ) : (
+            <div className="client-cell"><Avatar name={p.client} size={30} /><div className="cc-name">{p.client}</div></div>
+          )}
+        </td>
         <td className="cell-muted">{p.product}</td>
-        <td><span className="badge slate">{p.type}</span></td>
+        <td>{p.group_id ? <button className="group-badge" onClick={openGroup} title="Open Group Account"><I.building size={11} /> Group</button> : <span className="badge slate">{p.type}</span>}</td>
         <td className="num mono" style={{ fontWeight: 600 }}>{PX.peso(p.premium)}</td>
+        <td>{p.or_number ? <span className="cell-code">{p.or_number}</span> : <span className="cell-muted">—</span>}</td>
         <td className="cell-muted">{p.start}</td>
         <td><span className={"badge " + (p.status === "Active" ? "green" : "amber")}><span className="b-dot"></span>{p.status}</span></td>
       </tr>
-    )}
+      );
+    }}
   />;
 }
 
@@ -59,7 +81,7 @@ function DocumentsScreen() {
   return <window.ListScreen
     title="Documents" icon="folder"
     sub="Central repository for client and policy documents"
-    primaryAction="Upload"
+    primaryAction="Upload" onPrimary={() => window.dispatchEvent(new CustomEvent("open-page-modal", { detail: { modal: "document" } }))}
     stats={[
       { val: "4,821", label: "Total documents" },
       { val: "12", label: "Pending review", color: "var(--amber)" },
@@ -88,9 +110,15 @@ function DocumentsScreen() {
 
 /* ---- Tasks full screen ---- */
 function TasksScreen() {
-  const [tasks, setTasks] = useStateX(PX.TASKS);
-  const toggle = (id) => setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: !t.done } : t));
-  const tagTone = { Application: "blue", Documents: "amber", Renewal: "violet", Travel: "blue", Claim: "red", Relationship: "green" };
+  const [tasks, setTasks] = useStateX(window.TasksStore.tasks);
+  React.useEffect(() => {
+    const sync = () => setTasks([...window.TasksStore.tasks]);
+    window.addEventListener("tasks-updated", sync);
+    return () => window.removeEventListener("tasks-updated", sync);
+  }, []);
+  const toggle = (id) => window.TasksStore.toggle(id);
+  const openNew = () => window.dispatchEvent(new CustomEvent("open-page-modal", { detail: { modal: "addTask" } }));
+  const tagTone = { Application: "blue", Documents: "amber", Renewal: "violet", Travel: "blue", Claim: "red", Relationship: "green", Commission: "green", General: "slate" };
   const cols = [
     { key: "overdue", label: "Overdue", cls: "red" },
     { key: "today", label: "Due today", cls: "amber" },
@@ -105,7 +133,7 @@ function TasksScreen() {
           </h1>
           <p className="sub">Your workload across the agency · {tasks.filter((t) => !t.done).length} open</p>
         </div>
-        <div className="page-head-actions"><button className="btn primary"><I.plus size={15} /> New task</button></div>
+        <div className="page-head-actions"><button className="btn primary" onClick={openNew}><I.plus size={15} /> New task</button></div>
       </div>
       <div className="grid12">
         {cols.map((c) => {
@@ -138,10 +166,11 @@ function TasksScreen() {
 
 /* ---- Relationship screen ---- */
 function RelationshipScreen() {
+  const [campaign, setCampaign] = useStateX(null);
   const cats = [
-    { key: "birthday", title: "Upcoming birthdays", icon: "cake", tone: "violet" },
-    { key: "anniversary", title: "Client anniversaries", icon: "award", tone: "green" },
-    { key: "loyalty", title: "Loyalty activities due", icon: "gift", tone: "amber" },
+    { key: "birthday", title: "Upcoming birthdays", icon: "cake", tone: "violet", type: "Birthday" },
+    { key: "anniversary", title: "Client anniversaries", icon: "award", tone: "green", type: "Anniversary" },
+    { key: "loyalty", title: "Loyalty activities due", icon: "gift", tone: "amber", type: "Loyalty" },
   ];
   return (
     <div className="fade-in">
@@ -152,7 +181,7 @@ function RelationshipScreen() {
           </h1>
           <p className="sub">Nurture client loyalty with timely, personal touchpoints</p>
         </div>
-        <div className="page-head-actions"><button className="btn primary"><I.send size={15} /> New campaign</button></div>
+        <div className="page-head-actions"><button className="btn primary" onClick={() => setCampaign({ type: "Birthday" })}><I.send size={15} /> New campaign</button></div>
       </div>
       <div className="grid12">
         {cats.map((cat) => {
@@ -173,12 +202,13 @@ function RelationshipScreen() {
                     </div>
                   ))}
                 </div>
-                <div className="card-foot"><button className="btn sm" style={{ width: "100%", justifyContent: "center" }}>Send greetings</button></div>
+                <div className="card-foot"><button className="btn sm" style={{ width: "100%", justifyContent: "center" }} onClick={() => setCampaign({ type: cat.type })}>Send greetings</button></div>
               </div>
             </div>
           );
         })}
       </div>
+      {campaign && window.NewCampaignModal && <window.NewCampaignModal presetType={campaign.type} onClose={() => setCampaign(null)} />}
     </div>
   );
 }
@@ -256,54 +286,4 @@ function ReportsScreen() {
   );
 }
 
-/* ---- Settings screen ---- */
-function SettingsScreen() {
-  const [tab, setTab] = useStateX("General");
-  const tabs = ["General", "Team", "Notifications", "Billing", "Integrations"];
-  return (
-    <div className="fade-in">
-      <div className="page-head">
-        <div>
-          <h1 style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span className="kpi-ico" style={{ width: 34, height: 34, borderRadius: 9 }}><I.settings size={19} /></span>Settings
-          </h1>
-          <p className="sub">Manage your agency workspace and preferences</p>
-        </div>
-      </div>
-      <div className="card">
-        <div style={{ display: "flex", gap: 4, padding: "8px 12px", borderBottom: "1px solid var(--border-soft)" }}>
-          {tabs.map((t) => <button key={t} className={"chip" + (tab === t ? " on" : "")} style={{ border: "none", background: tab === t ? "var(--accent-soft)" : "transparent" }} onClick={() => setTab(t)}>{t}</button>)}
-        </div>
-        <div style={{ padding: 24, maxWidth: 640 }}>
-          {tab === "General" ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {[
-                { label: "Agency name", val: "Pacific Insurance PH" },
-                { label: "Primary carrier", val: "Pacific Cross" },
-                { label: "Business address", val: "Ayala Avenue, Makati City, Metro Manila" },
-                { label: "Contact email", val: "ops@pacificinsurance.ph" },
-              ].map((f) => (
-                <div key={f.label}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 650, marginBottom: 6, color: "var(--text-muted)" }}>{f.label}</label>
-                  <input defaultValue={f.val} style={{ width: "100%", height: 38, padding: "0 13px", borderRadius: "var(--r-md)", border: "1px solid var(--border-strong)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5 }} />
-                </div>
-              ))}
-              <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
-                <button className="btn primary">Save changes</button>
-                <button className="btn">Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-screen" style={{ padding: "40px 0" }}>
-              <div className="es-ico"><I.settings size={26} /></div>
-              <h2>{tab} settings</h2>
-              <p>This section is part of the full workspace configuration. Connect your account to manage {tab.toLowerCase()} options.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-window.ExtraScreens = { PoliciesScreen, DocumentsScreen, TasksScreen, RelationshipScreen, ReportsScreen, SettingsScreen };
+window.ExtraScreens = { PoliciesScreen, DocumentsScreen, TasksScreen, RelationshipScreen };

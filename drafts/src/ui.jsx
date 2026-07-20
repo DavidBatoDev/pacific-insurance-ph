@@ -18,6 +18,8 @@ const STATUS_TONE = {
   "Under Review": "blue",
   "Approved": "green",
   "Notice Sent": "blue",
+  "Reminder Sent": "blue",
+  "Payment Instruction Sent": "blue",
   "In Progress": "violet",
   "Overdue": "red",
   "Additional Documents Required": "red",
@@ -26,6 +28,12 @@ const STATUS_TONE = {
   "Active": "green",
   "At Risk": "amber",
   "New": "blue",
+  "Verified": "green",
+  "Received": "blue",
+  "Awaiting": "amber",
+  "Requested": "violet",
+  "Follow-up": "amber",
+  "Paid": "green",
 };
 
 function StatusBadge({ status }) {

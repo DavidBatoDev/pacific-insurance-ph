@@ -14,7 +14,7 @@ const avColor = (name) => AV_COLORS[name.split("").reduce((a, c) => a + c.charCo
 
 const STAFF = {
   matt: { name: "Matt Nassr", role: "Agency Owner", initials: "MN" },
-  eman: { name: "Eman Reyes", role: "Operations Manager", initials: "ER" },
+  eman: { name: "Eman Bondoc", role: "Operations Manager", initials: "EB" },
   joy: { name: "Joy Mercado", role: "Account Associate", initials: "JM" },
   paolo: { name: "Paolo Aquino", role: "Claims Specialist", initials: "PA" },
   bea: { name: "Bea Lim", role: "Travel Desk", initials: "BL" },
@@ -75,6 +75,8 @@ const CLAIMS = [
   { id: "CLM-2026-00784", client: "Fernando Lopez", city: "Cebu City", policy: "Family Shield", status: "Additional Documents Required", updated: "1d ago", staff: "paolo", amount: 95000 },
   { id: "CLM-2026-00785", client: "Isabel Navarro", city: "Taguig City", policy: "Select", status: "Approved", updated: "2d ago", staff: "paolo", amount: 32000 },
   { id: "CLM-2026-00786", client: "Marco Salvador", city: "Davao City", policy: "AsianLife Care", status: "Additional Documents Required", updated: "3h ago", staff: "eman", amount: 54000 },
+  // Group-member claim — inherits group context through its policy (policyId → group master policy → group_id).
+  { id: "CLM-2026-00790", client: "Miguel Torres", city: "Pasig City", policy: "BC Flexi HMO", policyId: "POL-2025-GRP-0007", status: "Under Review", updated: "3h ago", staff: "paolo", amount: 62000 },
 ];
 
 const TRAVEL = [
@@ -98,14 +100,14 @@ const TASKS = [
 ];
 
 const ACTIVITY = [
-  { id: 1, type: "policy", who: "Eman Reyes", text: "issued policy <b>POL-2026-01902</b> for Diego Mercado (Blue Royale)", time: "12 minutes ago" },
+  { id: 1, type: "policy", who: "Eman Bondoc", text: "issued policy <b>POL-2026-01902</b> for Diego Mercado (Blue Royale)", time: "12 minutes ago" },
   { id: 2, type: "payment", who: "System", text: "verified <b>₱156,000</b> payment for APP-2026-000126 — Liza Gomez", time: "38 minutes ago" },
   { id: 3, type: "claim", who: "Roberto Pascual", text: "submitted claim <b>CLM-2026-00782</b> — Blue Royale hospitalization", time: "1 hour ago" },
   { id: 4, type: "travel", who: "Bea Lim", text: "delivered travel e-policy to Hannah Villamor — <b>Singapore</b>", time: "2 hours ago" },
   { id: 5, type: "doc", who: "Joy Mercado", text: "uploaded <b>medical questionnaire</b> for APP-2026-000125", time: "3 hours ago" },
   { id: 6, type: "renewal", who: "System", text: "sent renewal notice to Sofia Reyes — <b>Family Shield</b>", time: "4 hours ago" },
   { id: 7, type: "claim", who: "Paolo Aquino", text: "requested additional documents for <b>CLM-2026-00781</b>", time: "5 hours ago" },
-  { id: 8, type: "client", who: "Eman Reyes", text: "added new client <b>Patricia Lim</b> from referral", time: "Yesterday, 4:12 PM" },
+  { id: 8, type: "client", who: "Eman Bondoc", text: "added new client <b>Patricia Lim</b> from referral", time: "Yesterday, 4:12 PM" },
 ];
 
 const RELATIONSHIPS = [
@@ -125,22 +127,59 @@ const NOTIFICATIONS = [
   { id: 5, type: "doc", title: "Documents uploaded for APP-2026-000125 — Renato Dizon", time: "Yesterday", unread: false },
 ];
 
-// Clients table for the Clients screen
+// Clients table for the Clients screen.
+// record_id = immutable identity. policyPremiums/renewalPremiums drive the DERIVED lifetime value;
+// tier is derived from value bands unless tierOverride is set.
 const CLIENTS = [
-  { name: "John Santos", city: "Makati City", email: "john.santos@email.com", policies: 3, tier: "Gold", since: "2019", value: 410000, status: "Active" },
-  { name: "Maria Cruz", city: "Quezon City", email: "maria.cruz@email.com", policies: 2, tier: "Silver", since: "2021", value: 186000, status: "Active" },
-  { name: "Ramon Velasco", city: "Makati City", email: "r.velasco@email.com", policies: 4, tier: "Gold", since: "2018", value: 520000, status: "Active" },
-  { name: "Sofia Reyes", city: "Quezon City", email: "sofia.reyes@email.com", policies: 3, tier: "Gold", since: "2020", value: 348000, status: "Active" },
-  { name: "Miguel Torres", city: "Pasig City", email: "m.torres@email.com", policies: 1, tier: "Bronze", since: "2022", value: 95000, status: "Active" },
-  { name: "Grace Castillo", city: "Cebu City", email: "grace.c@email.com", policies: 2, tier: "Silver", since: "2020", value: 168000, status: "At Risk" },
-  { name: "Patricia Lim", city: "Alabang", email: "patricia.lim@email.com", policies: 1, tier: "Bronze", since: "2026", value: 88000, status: "New" },
-  { name: "Edgar Domingo", city: "Davao City", email: "e.domingo@email.com", policies: 2, tier: "Silver", since: "2021", value: 214000, status: "Active" },
-  { name: "Cristina Flores", city: "Iloilo City", email: "cristina.f@email.com", policies: 3, tier: "Gold", since: "2019", value: 376000, status: "Active" },
-  { name: "Nestor Aguilar", city: "Taguig City", email: "n.aguilar@email.com", policies: 1, tier: "Bronze", since: "2023", value: 54000, status: "Active" },
+  { record_id: "000118", name: "John Santos", city: "Makati City", email: "john.santos@email.com", policies: 3, since: "2019", status: "Active", policyPremiums: [185000, 135000], renewalPremiums: [90000] },
+  { record_id: "000164", name: "Maria Cruz", city: "Quezon City", email: "maria.cruz@email.com", policies: 2, since: "2021", status: "Active", policyPremiums: [110000], renewalPremiums: [76000] },
+  { record_id: "000092", name: "Ramon Velasco", city: "Makati City", email: "r.velasco@email.com", policies: 4, since: "2018", status: "Active", policyPremiums: [180000, 150000, 120000], renewalPremiums: [70000] },
+  { record_id: "000205", name: "Sofia Reyes", city: "Quezon City", email: "sofia.reyes@email.com", policies: 3, since: "2020", status: "Active", policyPremiums: [148000, 120000], renewalPremiums: [80000] },
+  { record_id: "000377", name: "Miguel Torres", city: "Pasig City", email: "m.torres@email.com", policies: 1, since: "2022", status: "Active", policyPremiums: [95000], renewalPremiums: [] },
+  { record_id: "000482", name: "Grace Castillo", city: "Cebu City", email: "grace.c@email.com", policies: 2, since: "2020", status: "At Risk", policyPremiums: [95000], renewalPremiums: [73000] },
+  { record_id: "000531", name: "Patricia Lim", city: "Alabang", email: "patricia.lim@email.com", policies: 1, since: "2026", status: "New", policyPremiums: [88000], renewalPremiums: [] },
+  { record_id: "000246", name: "Edgar Domingo", city: "Davao City", email: "e.domingo@email.com", policies: 2, since: "2021", status: "Active", policyPremiums: [132000], renewalPremiums: [82000] },
+  { record_id: "000131", name: "Cristina Flores", city: "Iloilo City", email: "cristina.f@email.com", policies: 3, since: "2019", status: "Active", policyPremiums: [160000, 130000], renewalPremiums: [86000] },
+  { record_id: "000402", name: "Nestor Aguilar", city: "Taguig City", email: "n.aguilar@email.com", policies: 1, since: "2023", status: "Active", policyPremiums: [54000], renewalPremiums: [] },
 ];
+
+// Tier bands (Gold / Silver / Bronze) — derived from lifetime value, overridable per contact.
+const TIER_BANDS = [{ tier: "Gold", min: 300000 }, { tier: "Silver", min: 120000 }, { tier: "Bronze", min: 0 }];
+const deriveTier = (ltv) => (TIER_BANDS.find((b) => ltv >= b.min) || { tier: "Bronze" }).tier;
+const clientLTV = (c) => ((c.policyPremiums || []).reduce((a, b) => a + b, 0)) + ((c.renewalPremiums || []).reduce((a, b) => a + b, 0));
+const clientTier = (c) => c.tierOverride || deriveTier(clientLTV(c));
 
 window.PData = {
   peso, pesoShort, initials, avColor, STAFF,
   ALERTS, KPIS, REVENUE, PRODUCTS, APPLICATIONS, RENEWALS, CLAIMS, TRAVEL,
   TASKS, ACTIVITY, RELATIONSHIPS, NOTIFICATIONS, CLIENTS,
+  TIER_BANDS, deriveTier, clientLTV, clientTier,
+};
+
+// Shared task store — the single source both the Tasks board and the Dashboard My-tasks widget read.
+// add() and toggle() mutate the same TASKS array and broadcast "tasks-updated" so every view re-syncs.
+let TASK_SEQ = 100;
+window.TasksStore = {
+  tasks: TASKS,
+  add(t) {
+    const task = { id: ++TASK_SEQ, done: false, ...t };
+    TASKS.unshift(task);
+    window.dispatchEvent(new CustomEvent("tasks-updated"));
+    return task;
+  },
+  toggle(id) {
+    const t = TASKS.find((x) => x.id === id);
+    if (!t) return;
+    t.done = !t.done;
+    // Marking a linked task done logs "Task completed" to that contact's timeline (new-modals.md §10)
+    if (t.done && t.contactName) {
+      const actor = (window.Perms && window.Perms.person) ? window.Perms.person().name : "Eman Bondoc";
+      window.dispatchEvent(new CustomEvent("engage-logged", { detail: {
+        key: t.contactKey || t.contactName, name: t.contactName,
+        entry: { kind: "task", actor, title: "Task completed — " + t.title,
+          body: t.linkedRecord ? "Linked record: " + t.linkedRecord : "", time: "Just now" },
+      } }));
+    }
+    window.dispatchEvent(new CustomEvent("tasks-updated"));
+  },
 };
