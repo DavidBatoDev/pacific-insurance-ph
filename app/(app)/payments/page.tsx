@@ -1,12 +1,13 @@
-import { PageHead } from "@/components/hub/primitives";
+import { PaymentsLive } from "@/components/hub/screens/payments-live";
+import { getCommissionsRepository, getPaymentsRepository } from "@/lib/repositories/payments";
 
-/** Payments (Collections / Commissions) — wired in build phase P7. */
-export default function Page() {
-  return (
-    <PageHead
-      iconName="peso"
-      title="Payments"
-      sub="Premium collection across Applications, Renewals & Travel — this screen is wired in an upcoming build phase."
-    />
-  );
+export const dynamic = "force-dynamic";
+
+/** Payments — Collections + Commissions over real payment/commission rows. */
+export default async function Page() {
+  const [payments, commissions] = await Promise.all([
+    getPaymentsRepository().list(),
+    getCommissionsRepository().list(),
+  ]);
+  return <PaymentsLive payments={payments} commissions={commissions} />;
 }

@@ -472,11 +472,13 @@ export type Database = {
           client_id: string | null
           created_at: string
           currency: string | null
+          estimated_amount: number | null
           follow_up_date: string | null
           id: string
           notes: string | null
           or_number: string | null
           pacific_cross_contact_id: string | null
+          paid_date: string | null
           payment_id: string | null
           policy_id: string | null
           received_date: string | null
@@ -488,11 +490,13 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           currency?: string | null
+          estimated_amount?: number | null
           follow_up_date?: string | null
           id?: string
           notes?: string | null
           or_number?: string | null
           pacific_cross_contact_id?: string | null
+          paid_date?: string | null
           payment_id?: string | null
           policy_id?: string | null
           received_date?: string | null
@@ -504,11 +508,13 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           currency?: string | null
+          estimated_amount?: number | null
           follow_up_date?: string | null
           id?: string
           notes?: string | null
           or_number?: string | null
           pacific_cross_contact_id?: string | null
+          paid_date?: string | null
           payment_id?: string | null
           policy_id?: string | null
           received_date?: string | null
@@ -1227,6 +1233,7 @@ export type Database = {
           renewal_id: string | null
           sent_to_pacific_cross: boolean
           sent_to_pacific_cross_date: string | null
+          status: string
           travel_request_id: string | null
           updated_at: string
         }
@@ -1248,6 +1255,7 @@ export type Database = {
           renewal_id?: string | null
           sent_to_pacific_cross?: boolean
           sent_to_pacific_cross_date?: string | null
+          status?: string
           travel_request_id?: string | null
           updated_at?: string
         }
@@ -1269,6 +1277,7 @@ export type Database = {
           renewal_id?: string | null
           sent_to_pacific_cross?: boolean
           sent_to_pacific_cross_date?: string | null
+          status?: string
           travel_request_id?: string | null
           updated_at?: string
         }
@@ -1381,6 +1390,7 @@ export type Database = {
           first_layer_coverage_id: string | null
           id: string
           notes: string | null
+          or_number: string | null
           pacific_cross_contact_id: string | null
           payment_mode: string | null
           plan_option_id: string | null
@@ -1403,6 +1413,7 @@ export type Database = {
           first_layer_coverage_id?: string | null
           id?: string
           notes?: string | null
+          or_number?: string | null
           pacific_cross_contact_id?: string | null
           payment_mode?: string | null
           plan_option_id?: string | null
@@ -1425,6 +1436,7 @@ export type Database = {
           first_layer_coverage_id?: string | null
           id?: string
           notes?: string | null
+          or_number?: string | null
           pacific_cross_contact_id?: string | null
           payment_mode?: string | null
           plan_option_id?: string | null
