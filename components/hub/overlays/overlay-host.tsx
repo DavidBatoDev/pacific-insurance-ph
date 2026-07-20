@@ -4,6 +4,7 @@ import { Modal } from "./modal";
 import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { CommandPalette } from "./command-palette";
+import { EngageDrawer } from "./engage";
 import { NewLeadDrawer } from "./new-lead";
 import type { OverlayState } from "./overlay-provider";
 
@@ -24,6 +25,15 @@ export function OverlayHost({
       return <CommandPalette onClose={close} />;
     case "add-task":
       return <AddTaskDrawer prefill={overlay.prefill as AddTaskPrefill | undefined} onClose={close} />;
+    case "engage":
+      return (
+        <EngageDrawer
+          action={overlay.action}
+          contact={overlay.contact}
+          onSent={overlay.onSent}
+          onClose={close}
+        />
+      );
     case "page-modal":
       if (overlay.modal === "new-lead") return <NewLeadDrawer onClose={close} />;
       return <ComingSoon overlay={overlay} onClose={close} />;

@@ -12,6 +12,11 @@ import {
 } from "@/lib/repositories/templates";
 import type { Json } from "@/lib/supabase/types";
 
+/** Active templates for client-side composers (Engage, wizard, campaigns). */
+export async function listActiveTemplatesAction(): Promise<EmailTemplate[]> {
+  return getTemplatesRepository().list(true);
+}
+
 export async function createTemplateAction(
   name: string,
 ): Promise<ActionResult<EmailTemplate>> {

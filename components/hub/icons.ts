@@ -8,6 +8,7 @@ import {
   Cake,
   ChartLine,
   Check,
+  Command,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
@@ -99,6 +100,7 @@ export const I = {
   send: Send,
   star: Star,
   edit: SquarePen,
+  command: Command,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof I;
