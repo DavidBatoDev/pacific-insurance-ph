@@ -928,6 +928,7 @@ export type Database = {
       email_templates: {
         Row: {
           body: string | null
+          channel: string
           created_at: string
           id: string
           product_version_id: string | null
@@ -940,6 +941,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          channel?: string
           created_at?: string
           id?: string
           product_version_id?: string | null
@@ -952,6 +954,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          channel?: string
           created_at?: string
           id?: string
           product_version_id?: string | null

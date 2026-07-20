@@ -1,12 +1,10 @@
-import { PageHead } from "@/components/hub/primitives";
+import { TemplatesScreen } from "@/components/hub/screens/templates";
+import { getTemplatesRepository } from "@/lib/repositories/templates";
 
-/** Email Templates — wired in build phase P2. */
-export default function Page() {
-  return (
-    <PageHead
-      iconName="mail"
-      title="Email Templates"
-      sub="One source of truth for outbound copy — this screen is wired in an upcoming build phase."
-    />
-  );
+export const dynamic = "force-dynamic";
+
+/** Email Templates — the single source of outbound copy (wired). */
+export default async function Page() {
+  const templates = await getTemplatesRepository().list();
+  return <TemplatesScreen templates={templates} />;
 }
