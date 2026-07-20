@@ -1,0 +1,300 @@
+"use client";
+
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+
+import { createFromWizardAction, type WizardMode } from "@/app/(app)/applications/wizard-actions";
+import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
+import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/tasks/actions";
+import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
+import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
+import { cn } from "@/lib/utils";
+import { I } from "../../icons";
+import { usePersona } from "../../persona";
+import { BrandGlyph } from "../../shell";
+import { Btn } from "../../primitives";
+import { useOverlays } from "../overlay-provider";
+import { Step1, Step2 } from "./steps-1";
+import { Step3, Step4, Step5, Step6 } from "./steps-2";
+import {
+  emptyWizardForm,
+  WIZ_CHECKLISTS,
+  WIZ_STEPS,
+  type WizardForm,
+} from "./wizard-data";
+
+/**
+ * New Client Application — the 6-step wizard overlay (design
+ * new-application.jsx / web/new-application-wizard.md). Adapts to the product
+ * category (Health / Group HMO / Travel); the split Create button fans into
+ * create / create & email / create & request documents / save draft.
+ */
+
+export interface WizardPrefill {
+  convertClientId?: string;
+  convertClientName?: string;
+  productInterest?: string | null;
+  email?: string | null;
+}
+
+export function NewApplicationWizard({
+  prefill,
+  onClose,
+}: {
+  prefill?: WizardPrefill;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const persona = usePersona();
+  const [pending, startTransition] = useTransition();
+
+  const [step, setStep] = useState(1);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const dirtyRef = useRef(false);
+  const [f, setF] = useState<WizardForm>(() => ({
+    ...emptyWizardForm(),
+    convertClientId: prefill?.convertClientId ?? null,
+    convertClientName: prefill?.convertClientName ?? null,
+    clientMode: prefill?.convertClientId ? "existing" : "new",
+    displayName: prefill?.convertClientName ?? "",
+    email: prefill?.email ?? "",
+    emailRecipient: prefill?.email ?? "",
+  }));
+
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [users, setUsers] = useState<AssignableUser[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+
+  useEffect(() => {
+    listProductOptionsAction().then(setProducts).catch(() => setProducts([]));
+    listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
+    listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
+  }, []);
+
+  const set = (patch: Partial<WizardForm>) => {
+    const keys = Object.keys(patch);
+    if (!keys.every((k) => k === "checklist")) dirtyRef.current = true;
+    setF((s) => ({ ...s, ...patch }));
+  };
+
+  // Auto-generate the checklist when the category (or pre-existing flag) changes.
+  useEffect(() => {
+    if (!f.category) return;
+    const base = WIZ_CHECKLISTS[f.category] ?? [];
+    let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
+    if (f.category === "health" && f.preExisting === "Yes") {
+      items = items.map((x) =>
+        x.name.includes("Medical") || x.name.includes("questionnaire")
+          ? { ...x, cond: "required" }
+          : x,
+      );
+    }
+    setF((s) => ({ ...s, checklist: items }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- regenerate on category/underwriting change only
+  }, [f.category, f.preExisting]);
+
+  // Escape / backdrop close with dirty confirm (design requestClose).
+  const requestClose = () => {
+    if (dirtyRef.current && !window.confirm("Discard this application draft? Nothing has been saved.")) return;
+    onClose();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- requestClose reads refs only
+  }, []);
+
+  const hasName = !!(f.firstName || f.displayName || f.companyName || f.existingClientId || f.convertClientId);
+  const hasContact = !!(f.email || f.mobile || f.existingClientId || f.convertClientId);
+  const canDraft = hasName && hasContact && !!f.category && !pending;
+  const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
+  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew;
+
+  const go = (n: number) => setStep(Math.max(1, Math.min(6, n)));
+
+  const finish = (mode: WizardMode) =>
+    startTransition(async () => {
+      const res = await createFromWizardAction(f, mode);
+      if (res.ok) {
+        const titles: Record<WizardMode, string> = {
+          draft: "Draft saved",
+          create: res.data.groupId ? "Group account created" : "Application created",
+          email: "Application created & email sent",
+          docs: "Application created & documents requested",
+        };
+        overlays.toast(titles[mode], res.data.summary);
+        router.refresh();
+        if (res.data.groupId) router.push(`/group/${res.data.groupId}`);
+        onClose();
+      } else {
+        overlays.toast("Couldn’t create the application", res.error);
+      }
+    });
+
+  const stepProps = { f, set, products, users };
+  const heads: Record<number, [string, string]> = {
+    1: ["Client type & application setup", "Tell the system what workflow to prepare."],
+    2: [f.category === "hmo" ? "Company information" : "Client information", "Create or update the main profile."],
+    3: ["Product-specific details", "Configure details for the selected product."],
+    4: ["Requirements & documents", "Auto-generated checklist based on the product."],
+    5: ["Communication & follow-up", "Prepare the next action for the client."],
+    6: ["Review & create application", "Final confirmation before saving."],
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[75] grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onMouseDown={requestClose}>
+      <div
+        className="relative grid h-[min(720px,94vh)] w-full max-w-[980px] grid-cols-[260px_1fr] grid-rows-[1fr_auto] overflow-hidden rounded-xl border border-border bg-card shadow-pop max-[800px]:grid-cols-1"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={requestClose}
+          className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <I.plus size={20} className="rotate-45" />
+        </button>
+
+        {/* Left rail */}
+        <div className="row-span-2 flex flex-col border-r border-border-soft bg-surface-2 p-5 max-[800px]:hidden">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="grid size-7 place-items-center rounded-[8px] bg-gradient-to-br from-[#10b981] to-[#047857]">
+              <BrandGlyph size={16} />
+            </span>
+            <span className="text-[12.5px] font-bold">Pacific Insurance PH</span>
+          </div>
+          <div className="text-[17px] font-bold tracking-[-0.01em]">New Client Application</div>
+          <div className="mt-1 text-[12px] leading-snug text-muted-foreground">
+            Create a client record and start an insurance application workflow.
+          </div>
+          <div className="mt-5 flex flex-col gap-1">
+            {WIZ_STEPS.map((s) => (
+              <button
+                key={s.n}
+                onClick={() => go(s.n)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
+                  step === s.n ? "bg-brand-soft" : "hover:bg-hover",
+                )}
+              >
+                <span
+                  className={cn(
+                    "grid size-6 shrink-0 place-items-center rounded-full text-[11.5px] font-bold",
+                    step > s.n
+                      ? "bg-brand text-white"
+                      : step === s.n
+                        ? "border-2 border-brand text-brand"
+                        : "border border-border-strong text-subtle",
+                  )}
+                >
+                  {step > s.n ? <I.check size={13} /> : s.n}
+                </span>
+                <span>
+                  <span className={cn("block text-[12.5px] font-[650]", step === s.n ? "text-brand-hover" : "")}>{s.label}</span>
+                  <span className="block text-[10.5px] text-subtle">{s.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-auto rounded-md border border-border-soft bg-card px-3 py-2.5 text-[11.5px]">
+            <span className="text-subtle">Initial status</span>
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-blue-border bg-blue-soft px-2 py-px font-[650] text-blue">
+              {f.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto p-6">
+          {f.convertClientId && (
+            <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
+              <I.user size={15} className="mt-0.5 shrink-0 text-brand" />
+              <div>
+                Converting <b>{f.convertClientName}</b> from Lead → Applicant. The same record is
+                used — <b>no duplicate is created.</b> Nothing changes until you save.
+              </div>
+            </div>
+          )}
+          <h2 className="text-[18px] font-bold tracking-[-0.01em]">{heads[step][0]}</h2>
+          <p className="mb-5 mt-0.5 text-[13px] text-muted-foreground">{heads[step][1]}</p>
+          {step === 1 && <Step1 {...stepProps} />}
+          {step === 2 && <Step2 {...stepProps} />}
+          {step === 3 && <Step3 {...stepProps} />}
+          {step === 4 && <Step4 {...stepProps} />}
+          {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
+          {step === 6 && <Step6 {...stepProps} />}
+        </div>
+
+        {/* Footer */}
+        <div className="col-start-2 flex items-center gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5 max-[800px]:col-start-1">
+          {step > 1 ? (
+            <Btn onClick={() => go(step - 1)}>
+              <I.chevRight size={15} className="rotate-180" /> Back
+            </Btn>
+          ) : (
+            <Btn onClick={requestClose}>Cancel</Btn>
+          )}
+          <span className="flex-1 text-[11.5px] text-faint">
+            {canDraft ? "Draft can be saved" : "Add name, contact & product to save a draft"}
+          </span>
+          <Btn disabled={!canDraft} onClick={() => finish("draft")}>
+            Save draft
+          </Btn>
+          {step < 6 ? (
+            <Btn variant="primary" onClick={() => go(step + 1)}>
+              Continue <I.chevRight size={15} />
+            </Btn>
+          ) : (
+            <div className="relative flex">
+              <Btn
+                variant="primary"
+                disabled={!canCreate}
+                onClick={() => finish("docs")}
+                className="rounded-r-none"
+              >
+                <I.send size={15} /> {pending ? "Creating…" : "Create & request documents"}
+              </Btn>
+              <button
+                onClick={() => setSplitOpen((o) => !o)}
+                disabled={!canCreate}
+                className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+              >
+                <I.chevDown size={15} className="rotate-180" />
+              </button>
+              {splitOpen && (
+                <div className="absolute bottom-11 right-0 w-[240px] overflow-hidden rounded-md border border-border bg-card py-1 shadow-pop">
+                  {(
+                    [
+                      ["create", "Create application", "check"],
+                      ["email", "Create & send email", "mail"],
+                      ["draft", "Save as draft", "doc2"],
+                    ] as const
+                  ).map(([mode, label, icon]) => {
+                    const Ico = I[icon];
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          setSplitOpen(false);
+                          finish(mode);
+                        }}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
+                      >
+                        <Ico size={15} className="text-subtle" /> {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

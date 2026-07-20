@@ -337,7 +337,17 @@ export function ContactProfile({
               <I.phone size={15} /> Log Call
             </Btn>
             {isLead && (
-              <Btn variant="primary" onClick={() => overlays.openWizard({ convertClientId: client.id })}>
+              <Btn
+                variant="primary"
+                onClick={() =>
+                  overlays.openWizard({
+                    convertClientId: client.id,
+                    convertClientName: client.fullName,
+                    productInterest: client.productInterest,
+                    email: client.email,
+                  })
+                }
+              >
                 <I.arrowRight size={15} /> Convert to Application
               </Btn>
             )}

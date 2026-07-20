@@ -9,6 +9,7 @@ import { FileClaimDrawer } from "./file-claim";
 import { IssuePolicyDrawer } from "./issue-policy";
 import { NewLeadDrawer } from "./new-lead";
 import { NewTravelQuoteDrawer } from "./new-travel-quote";
+import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
 import type { OverlayState } from "./overlay-provider";
 
 /**
@@ -28,6 +29,13 @@ export function OverlayHost({
       return <CommandPalette onClose={close} />;
     case "add-task":
       return <AddTaskDrawer prefill={overlay.prefill as AddTaskPrefill | undefined} onClose={close} />;
+    case "wizard":
+      return (
+        <NewApplicationWizard
+          prefill={overlay.prefill as WizardPrefill | undefined}
+          onClose={close}
+        />
+      );
     case "engage":
       return (
         <EngageDrawer
