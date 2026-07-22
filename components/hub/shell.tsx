@@ -10,6 +10,7 @@ import type { AppRole } from "@/lib/auth/permissions";
 import { NOTIFICATIONS, type Tone } from "./data";
 import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
+import { SearchDropdown } from "./overlays/search-dropdown";
 import { usePersona } from "./persona";
 import { Avatar, TONE_SOFT } from "./primitives";
 
@@ -182,6 +183,8 @@ export function Topbar({
 }) {
   const [open, setOpen] = useState<null | "notif" | "profile">(null);
   const [search, setSearch] = useState("");
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropKeysRef = useRef<((e: React.KeyboardEvent) => boolean) | null>(null);
   const router = useRouter();
   const overlays = useOverlays();
   const persona = usePersona();
@@ -212,30 +215,51 @@ export function Topbar({
       ref={wrapRef}
       className="relative z-30 col-start-2 row-start-1 flex items-center gap-3.5 border-b border-border bg-surface px-5"
     >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const term = search.trim();
-          if (term) router.push(`/search?q=${encodeURIComponent(term)}`);
-        }}
-        className="flex h-[38px] max-w-[460px] flex-1 items-center gap-2.5 rounded-md border border-transparent bg-surface-3 px-[13px] text-muted-foreground transition-colors focus-within:border-brand focus-within:bg-surface focus-within:ring-[3px] focus-within:ring-brand/20"
-      >
-        <I.search size={17} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients by name, email, mobile, reference…"
-          className="flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
-        />
-        <button
-          type="button"
-          onClick={() => overlays.openCommandPalette()}
-          title="Command palette (⌘K)"
-          className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle transition-colors hover:text-foreground"
+      <div className="relative max-w-[460px] flex-1">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const term = search.trim();
+            if (term) {
+              setDropOpen(false);
+              router.push(`/search?q=${encodeURIComponent(term)}`);
+            }
+          }}
+          className="flex h-[38px] items-center gap-2.5 rounded-md border border-transparent bg-surface-3 px-[13px] text-muted-foreground transition-colors focus-within:border-brand focus-within:bg-surface focus-within:ring-[3px] focus-within:ring-brand/20"
         >
-          ⌘K
-        </button>
-      </form>
+          <I.search size={17} />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setDropOpen(true);
+            }}
+            onFocus={() => setDropOpen(true)}
+            onBlur={() => setDropOpen(false)}
+            onKeyDown={(e) => {
+              // Results dropdown consumes ↑/↓/Enter/Escape while open.
+              if (dropOpen && dropKeysRef.current?.(e)) e.preventDefault();
+            }}
+            placeholder="Search clients, policies, applications, claims…"
+            className="flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
+          />
+          <button
+            type="button"
+            onClick={() => overlays.openCommandPalette()}
+            title="Command palette (⌘K)"
+            className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle transition-colors hover:text-foreground"
+          >
+            ⌘K
+          </button>
+        </form>
+        {dropOpen && search.trim() && (
+          <SearchDropdown
+            term={search}
+            onClose={() => setDropOpen(false)}
+            bindKeys={(h) => (dropKeysRef.current = h)}
+          />
+        )}
+      </div>
       <div className="flex-1" />
 
       <button onClick={() => overlays.openWizard()} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>

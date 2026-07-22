@@ -1,6 +1,14 @@
 "use server";
 
+import { globalSearch, type SearchGroup } from "@/lib/queries/global-search";
 import { getClientsRepository } from "@/lib/repositories/clients";
+
+/** Multi-entity search for the topbar dropdown and the ⌘K palette. */
+export async function globalSearchAction(query: string): Promise<SearchGroup[]> {
+  const term = query.trim();
+  if (!term) return [];
+  return globalSearch(term, 5);
+}
 
 export interface PaletteClientHit {
   id: string;
