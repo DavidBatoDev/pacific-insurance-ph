@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, toRepositoryError } from "../types";
 import type { Task, NewTask, TaskUpdate } from "./task.entity";
 import type { TasksRepository } from "./tasks.repository";
 
@@ -78,7 +78,9 @@ export class SupabaseTasksRepository implements TasksRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(params: { clientId?: string; includeCompleted?: boolean } = {}): Promise<Task[]> {
+  async list(
+    params: { clientId?: string; includeCompleted?: boolean; limit?: number } = {},
+  ): Promise<Task[]> {
     let query = getSupabaseAdmin()
       .from("tasks")
       .select(SELECT)
@@ -87,7 +89,9 @@ export class SupabaseTasksRepository implements TasksRepository {
     if (params.clientId) query = query.eq("client_id", params.clientId);
     if (!params.includeCompleted) query = query.neq("status", "Cancelled");
 
-    const { data, error } = await query.returns<JoinedRow[]>();
+    const { data, error } = await query
+      .limit(params.limit ?? DEFAULT_LIST_LIMIT)
+      .returns<JoinedRow[]>();
     if (error) throw toRepositoryError("TasksRepository.list", error);
     return (data ?? []).map(toDomain);
   }

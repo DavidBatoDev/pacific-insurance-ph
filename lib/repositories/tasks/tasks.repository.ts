@@ -4,7 +4,7 @@ import type { Task, NewTask, TaskUpdate } from "./task.entity";
 export interface TasksRepository {
   findById(id: string): Promise<Task | null>;
   /** All tasks, joined with client + assignee names; newest first. */
-  list(params?: { clientId?: string; includeCompleted?: boolean }): Promise<Task[]>;
+  list(params?: { clientId?: string; includeCompleted?: boolean; limit?: number }): Promise<Task[]>;
   create(input: NewTask): Promise<Task>;
   update(id: string, input: TaskUpdate): Promise<Task>;
   delete(id: string): Promise<void>;

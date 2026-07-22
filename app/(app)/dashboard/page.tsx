@@ -11,14 +11,15 @@ export const dynamic = "force-dynamic";
 
 /** Dashboard — alerts, KPIs, revenue widget, queues and rail widgets, all live. */
 export default async function Page() {
+  // Queue filters are pushed to SQL and bounded — the cards render ≤6 rows each.
   const [stats, tasks, touchpoints, applications, renewals, claims, travel] = await Promise.all([
     getDashboardStats(),
-    getTasksRepository().list(),
+    getTasksRepository().list({ limit: 60 }),
     getRelationshipTouchpoints(),
-    getApplicationsRepository().list(),
-    getRenewalsRepository().list(),
-    getClaimsRepository().list(),
-    getTravelRepository().list(),
+    getApplicationsRepository().list({ statusNotIn: ["Approved", "Lead"], limit: 12 }),
+    getRenewalsRepository().list({ statusNotIn: ["Renewed", "Lapsed"], limit: 12 }),
+    getClaimsRepository().list({ statusNotIn: ["Closed", "Rejected", "Credited"], limit: 12 }),
+    getTravelRepository().list({ statusNotIn: ["Policy Issued"], limit: 12 }),
   ]);
 
   return (
@@ -26,12 +27,7 @@ export default async function Page() {
       stats={stats}
       tasks={tasks}
       touchpoints={touchpoints}
-      queues={{
-        applications: applications.filter((a) => a.status !== "Approved"),
-        renewals: renewals.filter((r) => !["Renewed", "Lapsed"].includes(r.status)),
-        claims: claims.filter((c) => !["Closed", "Rejected", "Credited"].includes(c.status)),
-        travel: travel.filter((t) => t.status !== "Policy Issued"),
-      }}
+      queues={{ applications, renewals, claims, travel }}
     />
   );
 }

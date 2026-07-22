@@ -174,7 +174,7 @@ function RevenueWidget({ stats }: { stats: DashboardStats }) {
 }
 
 /* ---------- Queue tables ---------- */
-function ApplicationsCard({ setScreen, rows }: Nav & { rows: Application[] }) {
+function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[]; count: number }) {
   const top = rows.slice(0, 6);
   const { sorted, sort, toggle } = useSort(top, "createdAt", "desc");
   const { openContact } = useRecordNav();
@@ -183,7 +183,7 @@ function ApplicationsCard({ setScreen, rows }: Nav & { rows: Application[] }) {
       <CardHead
         icon={I.fileText}
         title="Applications requiring action"
-        count={rows.length}
+        count={count}
         action={<CardLink onClick={() => setScreen("applications")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
@@ -212,7 +212,7 @@ function ApplicationsCard({ setScreen, rows }: Nav & { rows: Application[] }) {
   );
 }
 
-function RenewalsCard({ setScreen, rows }: Nav & { rows: Renewal[] }) {
+function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count: number }) {
   const top = rows.slice(0, 6);
   const { sorted, sort, toggle } = useSort(top, "renewalDueDate", "asc");
   const { openContact } = useRecordNav();
@@ -221,7 +221,7 @@ function RenewalsCard({ setScreen, rows }: Nav & { rows: Renewal[] }) {
       <CardHead
         icon={I.refresh}
         title="Renewals queue"
-        count={rows.length}
+        count={count}
         action={<CardLink onClick={() => setScreen("renewals")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
@@ -252,7 +252,7 @@ function RenewalsCard({ setScreen, rows }: Nav & { rows: Renewal[] }) {
   );
 }
 
-function ClaimsCard({ setScreen, rows }: Nav & { rows: Claim[] }) {
+function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: number }) {
   const top = rows.slice(0, 5);
   const { sorted, sort, toggle } = useSort(top, "updatedAt", "desc");
   const { openContact } = useRecordNav();
@@ -261,7 +261,7 @@ function ClaimsCard({ setScreen, rows }: Nav & { rows: Claim[] }) {
       <CardHead
         icon={I.clipboard}
         title="Claims requiring action"
-        count={rows.length}
+        count={count}
         action={<CardLink onClick={() => setScreen("claims")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
@@ -286,7 +286,7 @@ function ClaimsCard({ setScreen, rows }: Nav & { rows: Claim[] }) {
   );
 }
 
-function TravelCard({ setScreen, rows }: Nav & { rows: TravelRequest[] }) {
+function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; count: number }) {
   const top = rows.slice(0, 5);
   const { sorted, sort, toggle } = useSort(top, "departureDate", "asc");
   const { openContact } = useRecordNav();
@@ -295,7 +295,7 @@ function TravelCard({ setScreen, rows }: Nav & { rows: TravelRequest[] }) {
       <CardHead
         icon={I.plane}
         title="Travel insurance queue"
-        count={rows.length}
+        count={count}
         action={<CardLink onClick={() => setScreen("travel")}>View all <I.chevRight size={13} /></CardLink>}
       />
       <Table>
@@ -532,11 +532,11 @@ export function Dashboard({
 
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ApplicationsCard setScreen={setScreen} rows={queues.applications} />
-          <RenewalsCard setScreen={setScreen} rows={queues.renewals} />
+          <ApplicationsCard setScreen={setScreen} rows={queues.applications} count={stats.kpis.applicationsInProgress} />
+          <RenewalsCard setScreen={setScreen} rows={queues.renewals} count={stats.kpis.upcomingRenewals} />
           <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
-            <ClaimsCard setScreen={setScreen} rows={queues.claims} />
-            <TravelCard setScreen={setScreen} rows={queues.travel} />
+            <ClaimsCard setScreen={setScreen} rows={queues.claims} count={stats.kpis.openClaims} />
+            <TravelCard setScreen={setScreen} rows={queues.travel} count={stats.kpis.openTravel} />
           </div>
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">

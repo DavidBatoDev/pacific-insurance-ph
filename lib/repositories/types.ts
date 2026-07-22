@@ -35,6 +35,26 @@ export interface Paginated<T> {
   total: number;
 }
 
+/**
+ * Options for the flat `list()` reads used by the operations screens.
+ * Lists are bounded (default 200 newest) so screens never pull whole tables;
+ * status filters let callers (e.g. dashboard queues) push filtering to SQL.
+ */
+export interface ListOptions {
+  limit?: number;
+  /** Keep only these statuses. */
+  statusIn?: string[];
+  /** Exclude these statuses. */
+  statusNotIn?: string[];
+}
+
+export const DEFAULT_LIST_LIMIT = 200;
+
+/** PostgREST `in` filter literal for a status list (values quoted). */
+export function statusListLiteral(statuses: string[]): string {
+  return `(${statuses.map((s) => `"${s}"`).join(",")})`;
+}
+
 /** Map a supabase-js PostgrestError into a RepositoryError. */
 export function toRepositoryError(
   context: string,

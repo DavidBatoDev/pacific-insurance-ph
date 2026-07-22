@@ -1,3 +1,4 @@
+import type { ListOptions } from "../types";
 import type {
   GroupAccount,
   GroupMember,
@@ -8,7 +9,7 @@ import type {
 /** The Group Accounts repository port. */
 export interface GroupsRepository {
   findById(id: string): Promise<GroupAccount | null>;
-  list(): Promise<GroupAccount[]>;
+  list(opts?: ListOptions): Promise<GroupAccount[]>;
   create(input: NewGroupAccount): Promise<GroupAccount>;
   update(id: string, input: Partial<NewGroupAccount>): Promise<GroupAccount>;
   membersOf(groupId: string): Promise<GroupMember[]>;

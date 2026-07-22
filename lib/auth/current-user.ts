@@ -14,10 +14,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Local ES256 JWT verification (JWKS cached) — the proxy already refreshed
+  // the session this navigation, so no second GoTrue round trip is needed.
+  const { data } = await supabase.auth.getClaims();
+  const sub = data?.claims.sub;
 
-  if (!user) return null;
-  return getUsersRepository().findById(user.id);
+  if (!sub) return null;
+  return getUsersRepository().findById(sub);
 });

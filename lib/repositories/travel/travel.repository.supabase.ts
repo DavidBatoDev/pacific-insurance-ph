@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { TravelRequest, NewTravelRequest, TravelRequestUpdate } from "./travel-request.entity";
 import type { TravelRepository } from "./travel.repository";
 
@@ -53,11 +53,13 @@ export class SupabaseTravelRepository implements TravelRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(): Promise<TravelRequest[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("travel_requests")
-      .select(SELECT)
+  async list(opts: ListOptions = {}): Promise<TravelRequest[]> {
+    let query = getSupabaseAdmin().from("travel_requests").select(SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("departure_date", { ascending: true, nullsFirst: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<JoinedRow[]>();
 
     if (error) throw toRepositoryError("TravelRepository.list", error);

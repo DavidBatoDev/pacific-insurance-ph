@@ -27,9 +27,13 @@ export async function proxy(request: NextRequest) {
     },
   });
 
+  // getClaims verifies the ES256 JWT locally against the cached JWKS —
+  // no GoTrue round trip per request (unlike getUser) — and still refreshes
+  // an expired session cookie.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data,
+  } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const { pathname } = request.nextUrl;
   const isLogin = pathname === "/login" || pathname.startsWith("/login/");

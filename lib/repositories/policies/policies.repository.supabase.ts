@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Policy, NewPolicy, PolicyUpdate } from "./policy.entity";
 import type { PoliciesRepository } from "./policies.repository";
 
@@ -60,11 +60,13 @@ export class SupabasePoliciesRepository implements PoliciesRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(): Promise<Policy[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("policies")
-      .select(SELECT)
+  async list(opts: ListOptions = {}): Promise<Policy[]> {
+    let query = getSupabaseAdmin().from("policies").select(SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("created_at", { ascending: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<JoinedRow[]>();
 
     if (error) throw toRepositoryError("PoliciesRepository.list", error);

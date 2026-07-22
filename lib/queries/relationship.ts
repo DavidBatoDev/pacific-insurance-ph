@@ -30,10 +30,14 @@ const whenLabel = (d: number) => (d <= 0 ? "today" : d === 1 ? "tomorrow" : `in 
 
 export async function getRelationshipTouchpoints(windowDays = 45): Promise<TouchpointRow[]> {
   const s = getSupabaseAdmin();
+  // Birthday/anniversary windows need month-day math, so filtering stays in JS
+  // over a narrow column set — but bounded, so this never becomes a full-table
+  // payload as the client base grows.
   const { data: clients } = await s
     .from("clients")
     .select("id, first_name, last_name, email, date_of_birth, created_at, lifecycle_stage, lead_status, product_interest")
-    .neq("lifecycle_stage", "Lost");
+    .neq("lifecycle_stage", "Lost")
+    .limit(2000);
 
   const rows: TouchpointRow[] = [];
   for (const c of clients ?? []) {

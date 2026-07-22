@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Application, NewApplication, ApplicationUpdate } from "./application.entity";
 import type { ApplicationsRepository } from "./applications.repository";
 
@@ -53,11 +53,13 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(): Promise<Application[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("applications")
-      .select(SELECT)
+  async list(opts: ListOptions = {}): Promise<Application[]> {
+    let query = getSupabaseAdmin().from("applications").select(SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("created_at", { ascending: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<JoinedRow[]>();
 
     if (error) throw toRepositoryError("ApplicationsRepository.list", error);

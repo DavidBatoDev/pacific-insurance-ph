@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type {
   GroupAccount,
   GroupMember,
@@ -81,11 +81,13 @@ export class SupabaseGroupsRepository implements GroupsRepository {
     return data ? groupToDomain(data) : null;
   }
 
-  async list(): Promise<GroupAccount[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("group_accounts")
-      .select(GROUP_SELECT)
+  async list(opts: ListOptions = {}): Promise<GroupAccount[]> {
+    let query = getSupabaseAdmin().from("group_accounts").select(GROUP_SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("premium_amount", { ascending: false, nullsFirst: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<GroupJoined[]>();
     if (error) throw toRepositoryError("GroupsRepository.list", error);
     return (data ?? []).map(groupToDomain);

@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Commission, CommissionUpdate, NewCommission } from "./commission.entity";
 import type { NewPayment, Payment, PaymentSource, PaymentUpdate } from "./payment.entity";
 import type { CommissionsRepository, PaymentsRepository } from "./payments.repository";
@@ -79,11 +79,13 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
     return data ? paymentToDomain(data) : null;
   }
 
-  async list(): Promise<Payment[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("payments")
-      .select(PAYMENT_SELECT)
+  async list(opts: ListOptions = {}): Promise<Payment[]> {
+    let query = getSupabaseAdmin().from("payments").select(PAYMENT_SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("created_at", { ascending: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<PaymentJoined[]>();
     if (error) throw toRepositoryError("PaymentsRepository.list", error);
     return (data ?? []).map(paymentToDomain);
@@ -175,11 +177,13 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
     return data ? commissionToDomain(data) : null;
   }
 
-  async list(): Promise<Commission[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("commissions")
-      .select(COMMISSION_SELECT)
+  async list(opts: ListOptions = {}): Promise<Commission[]> {
+    let query = getSupabaseAdmin().from("commissions").select(COMMISSION_SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("created_at", { ascending: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<CommissionJoined[]>();
     if (error) throw toRepositoryError("CommissionsRepository.list", error);
     return (data ?? []).map(commissionToDomain);

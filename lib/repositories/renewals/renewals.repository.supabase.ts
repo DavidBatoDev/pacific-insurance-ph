@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Renewal, NewRenewal, RenewalUpdate } from "./renewal.entity";
 import type { RenewalsRepository } from "./renewals.repository";
 
@@ -60,11 +60,13 @@ export class SupabaseRenewalsRepository implements RenewalsRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(): Promise<Renewal[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("renewals")
-      .select(SELECT)
+  async list(opts: ListOptions = {}): Promise<Renewal[]> {
+    let query = getSupabaseAdmin().from("renewals").select(SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("renewal_due_date", { ascending: true, nullsFirst: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<JoinedRow[]>();
 
     if (error) throw toRepositoryError("RenewalsRepository.list", error);

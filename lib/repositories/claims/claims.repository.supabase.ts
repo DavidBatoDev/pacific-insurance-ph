@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Claim, NewClaim, ClaimUpdate } from "./claim.entity";
 import type { ClaimsRepository } from "./claims.repository";
 
@@ -55,11 +55,13 @@ export class SupabaseClaimsRepository implements ClaimsRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(): Promise<Claim[]> {
-    const { data, error } = await getSupabaseAdmin()
-      .from("claims")
-      .select(SELECT)
+  async list(opts: ListOptions = {}): Promise<Claim[]> {
+    let query = getSupabaseAdmin().from("claims").select(SELECT);
+    if (opts.statusIn) query = query.in("status", opts.statusIn);
+    if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    const { data, error } = await query
       .order("updated_at", { ascending: false })
+      .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
       .returns<JoinedRow[]>();
 
     if (error) throw toRepositoryError("ClaimsRepository.list", error);
