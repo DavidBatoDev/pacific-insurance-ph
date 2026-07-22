@@ -24,13 +24,16 @@ import { Btn, Card, PageHead } from "../primitives";
  * CRUD, Staff/Agent are view-only; deletes are guarded by linked records.
  */
 
-const CATEGORY_META: Record<string, { icon: IconName; color: string }> = {
-  "Primary Medical": { icon: "shield", color: "#059669" },
-  "Group Medical": { icon: "building", color: "#2563eb" },
-  "Second-Layer Medical": { icon: "heart", color: "#7c3aed" },
-  "Travel Insurance": { icon: "plane", color: "#d97706" },
-  Other: { icon: "folder", color: "#64748b" },
+const CATEGORY_META: Record<string, { icon: IconName; color: string; desc: string }> = {
+  "Primary Medical": { icon: "shield", color: "#059669", desc: "Individual and family health coverage plans" },
+  "Group Medical": { icon: "building", color: "#2563eb", desc: "Employer-sponsored group health maintenance plans" },
+  "Second-Layer Medical": { icon: "heart", color: "#7c3aed", desc: "Top-up coverage layered over a primary medical plan" },
+  "Travel Insurance": { icon: "plane", color: "#d97706", desc: "Short-term coverage for domestic and international travel" },
+  Other: { icon: "folder", color: "#64748b", desc: "Products outside the core medical and travel lines" },
 };
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 
 export function ProductsLive({
   products,
@@ -50,7 +53,8 @@ export function ProductsLive({
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [view, setView] = useState<"table" | "cards">("table");
-  const [drawer, setDrawer] = useState<CatalogProduct | "new" | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [drawer, setDrawer] = useState<{ product: CatalogProduct | null; category?: string } | null>(null);
 
   const filtered = useMemo(() => {
     let list = products;
@@ -67,7 +71,11 @@ export function ProductsLive({
 
   const grouped = catFilter === "all" && statusFilter === "all" && !q.trim();
   const activeCount = products.filter((p) => p.active).length;
-  const categories = [...new Set(products.map((p) => p.category ?? "Other"))];
+  // The fixed taxonomy first (so empty categories still render in the grouped
+  // view, design products.jsx), then any stray values found in the data.
+  const categories = [
+    ...new Set([...PRODUCT_CATEGORIES, ...products.map((p) => p.category ?? "Other")]),
+  ];
 
   const toggleActive = async (p: CatalogProduct) => {
     const linked = usage[p.id] ?? 0;
@@ -124,7 +132,7 @@ export function ProductsLive({
   const rowActions = (p: CatalogProduct) =>
     canEdit && (
       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        <IconBtn title="Edit" onClick={() => setDrawer(p)} icon="edit" />
+        <IconBtn title="Edit" onClick={() => setDrawer({ product: p })} icon="edit" />
         <IconBtn title={p.active ? "Deactivate" : "Reactivate"} onClick={() => toggleActive(p)} icon="refresh" />
         {canDelete && <IconBtn title="Delete" danger onClick={() => remove(p)} icon="fileMissing" />}
       </div>
@@ -149,7 +157,7 @@ export function ProductsLive({
             return (
               <tr
                 key={p.id}
-                onClick={() => canEdit && setDrawer(p)}
+                onClick={() => canEdit && setDrawer({ product: p })}
                 className={cn(
                   "border-b border-border-soft transition-colors last:border-0 hover:bg-hover",
                   canEdit && "cursor-pointer",
@@ -199,7 +207,7 @@ export function ProductsLive({
         sub="Master catalog of insurance products used across leads, policies, claims, payments & reports."
         actions={
           canEdit ? (
-            <Btn variant="primary" onClick={() => setDrawer("new")}>
+            <Btn variant="primary" onClick={() => setDrawer({ product: null })}>
               <I.plus size={15} /> New product
             </Btn>
           ) : undefined
@@ -279,41 +287,81 @@ export function ProductsLive({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {grouped ? (
+        // Grouped by category takes precedence over the table/card toggle
+        // (design products.jsx). Empty categories render with an "Add one" prompt.
+        categories.map((cat) => {
+          const rows = filtered.filter((p) => (p.category ?? "Other") === cat);
+          if (!rows.length && cat === "Other") return null; // catch-all only shown when populated
+          const meta = CATEGORY_META[cat] ?? CATEGORY_META.Other;
+          const CatIco = I[meta.icon];
+          const isCollapsed = !!collapsed[cat];
+          const updated = rows.length
+            ? fmtDate(rows.reduce((m, p) => (p.updatedAt > m ? p.updatedAt : m), rows[0].updatedAt))
+            : null;
+          return (
+            <Card key={cat} className="mb-4 overflow-hidden">
+              <div className={cn("flex items-center gap-3 px-[18px] py-3.5", !isCollapsed && "border-b border-border-soft")}>
+                <span className="grid size-9 place-items-center rounded-[9px]" style={{ background: meta.color + "1e", color: meta.color }}>
+                  <CatIco size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-[650]">{cat}</div>
+                  <div className="truncate text-[11.5px] text-subtle">{meta.desc}</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-3.5 text-[12px] text-muted-foreground max-[900px]:hidden">
+                  <span>
+                    <b>{rows.length}</b> product{rows.length === 1 ? "" : "s"}
+                  </span>
+                  <span>
+                    <b>{rows.filter((p) => p.active).length}</b> active
+                  </span>
+                  {updated && <span className="text-[11px] text-subtle">Updated {updated}</span>}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {canEdit && (
+                    <IconBtn
+                      title="Add product to category"
+                      onClick={() => setDrawer({ product: null, category: cat })}
+                      icon="plus"
+                    />
+                  )}
+                  <button
+                    title={isCollapsed ? "Expand" : "Collapse"}
+                    onClick={() => setCollapsed((s) => ({ ...s, [cat]: !s[cat] }))}
+                    className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover"
+                  >
+                    <I.chevDown size={17} className={cn("transition-transform duration-150", isCollapsed && "-rotate-90")} />
+                  </button>
+                </div>
+              </div>
+              {!isCollapsed &&
+                (rows.length === 0 ? (
+                  <div className="px-[18px] py-6 text-center text-[13px] text-subtle">
+                    No products in this category yet.{" "}
+                    {canEdit && (
+                      <button
+                        onClick={() => setDrawer({ product: null, category: cat })}
+                        className="font-semibold text-brand-hover hover:text-brand"
+                      >
+                        Add one
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  table(rows, false)
+                ))}
+            </Card>
+          );
+        })
+      ) : filtered.length === 0 ? (
         <Card className="p-10 text-center">
           <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-surface-3 text-muted-foreground">
             <I.folder size={24} />
           </div>
           <h2 className="text-[15px] font-bold">No products found</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            {q || catFilter !== "all" || statusFilter !== "all"
-              ? "Try adjusting your search or filters."
-              : "Get started by adding your first product to the catalog."}
-          </p>
+          <p className="mt-1 text-[13px] text-muted-foreground">Try adjusting your search or filters.</p>
         </Card>
-      ) : grouped && view === "table" ? (
-        categories.map((cat) => {
-          const rows = filtered.filter((p) => (p.category ?? "Other") === cat);
-          if (!rows.length) return null;
-          const meta = CATEGORY_META[cat] ?? CATEGORY_META.Other;
-          const CatIco = I[meta.icon];
-          return (
-            <Card key={cat} className="mb-4 overflow-hidden">
-              <div className="flex items-center gap-3 border-b border-border-soft px-[18px] py-3.5">
-                <span className="grid size-9 place-items-center rounded-[9px]" style={{ background: meta.color + "1e", color: meta.color }}>
-                  <CatIco size={18} />
-                </span>
-                <div className="flex-1">
-                  <div className="text-[14px] font-[650]">{cat}</div>
-                  <div className="text-[11.5px] text-subtle">
-                    {rows.length} product{rows.length === 1 ? "" : "s"} · {rows.filter((p) => p.active).length} active
-                  </div>
-                </div>
-              </div>
-              {table(rows, false)}
-            </Card>
-          );
-        })
       ) : view === "table" ? (
         <Card className="overflow-hidden">{table(filtered, true)}</Card>
       ) : (
@@ -353,7 +401,8 @@ export function ProductsLive({
 
       {drawer && (
         <ProductDrawer
-          product={drawer === "new" ? null : drawer}
+          product={drawer.product}
+          defaultCategory={drawer.category}
           onClose={() => setDrawer(null)}
           onSaved={() => router.refresh()}
         />
@@ -393,17 +442,19 @@ function IconBtn({
 
 function ProductDrawer({
   product,
+  defaultCategory,
   onClose,
   onSaved,
 }: {
   product: CatalogProduct | null;
+  defaultCategory?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(product?.name ?? "");
-  const [category, setCategory] = useState(product?.category ?? "Primary Medical");
+  const [category, setCategory] = useState(product?.category ?? defaultCategory ?? "Primary Medical");
   const [description, setDescription] = useState(product?.description ?? "");
   const [active, setActive] = useState(product?.active ?? true);
 
