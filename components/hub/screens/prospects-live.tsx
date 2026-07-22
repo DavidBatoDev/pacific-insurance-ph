@@ -23,7 +23,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, CountPill, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, CountPill, DraftBadge, TONE_BADGE } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -295,6 +295,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
           <ProductInterest leads={leads} />
+          <IntakeForms />
           <Card>
             <CardHead iconName="clock" title="Recent lead activity" />
             <div className="py-1.5">
@@ -444,6 +445,12 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   /* ---------- forecast ---------- */
   const TARGET = 2_500_000;
   const thisMonthLeads = leads.filter((l) => monthBucket(l.expectedCloseDate) === "This month");
+  const quarterLeads = leads.filter((l) => {
+    if (!l.expectedCloseDate) return false;
+    const d = new Date(l.expectedCloseDate);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3);
+  });
   const wThisMonth = thisMonthLeads.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0);
   const targetPct = Math.min(100, Math.round((wThisMonth / TARGET) * 100));
   const funnel = LEAD_STAGES.map((s) => {
@@ -468,7 +475,15 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         {[
           { val: pesoShort(weightedTotal), label: "Weighted pipeline", cls: "text-brand" },
           { val: pesoShort(rawTotal), label: "Raw pipeline" },
-          { val: String(thisMonthLeads.length), label: "Expected conversions · this month" },
+          {
+            val: (
+              <>
+                {thisMonthLeads.length}{" "}
+                <span className="text-[13px] font-semibold text-subtle">/ {quarterLeads.length} qtr</span>
+              </>
+            ),
+            label: "Expected conversions · month / quarter",
+          },
           { val: targetPct + "%", label: `Forecast vs target (${pesoShort(wThisMonth)} / ${pesoShort(TARGET)})` },
         ].map((s, i) => (
           <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
@@ -583,12 +598,20 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         {[
           { label: "Send Intake Form", icon: "clipboard", action: "Send Intake / Application Form" },
           { label: "Send Brochure", icon: "folder", action: "Send Brochure" },
-          { label: "Request Proposal", icon: "fileText", action: "Request Proposal" },
+          // Request Proposal is its OWN modal (modals.md §14), not an email composer action.
+          { label: "Request Proposal", icon: "fileText", proposal: true },
           { label: "Log Discovery Call", icon: "phone", action: "Log Discovery Call" },
         ].map((q) => {
           const Ico = I[q.icon as keyof typeof I];
           return (
-            <Btn key={q.label} onClick={() => overlays.openEngage(q.action)}>
+            <Btn
+              key={q.label}
+              onClick={() =>
+                "proposal" in q && q.proposal
+                  ? overlays.openPageModal("request-proposal")
+                  : overlays.openEngage(q.action as string)
+              }
+            >
               <Ico size={15} /> {q.label}
             </Btn>
           );
@@ -769,6 +792,74 @@ function ProductInterest({ leads }: { leads: Client[] }) {
               <span className="block h-full rounded-full" style={{ width: r.pct + "%", background: r.color }} />
             </span>
             <span className="text-right text-[12px] font-bold tabular-nums">{r.pct}%</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Intake forms — donut completion + recent responses (design prospects.jsx
+ * IntakeForms). DRAFT: no intake-form data model exists yet, so this previews
+ * the design with static figures.
+ */
+function IntakeForms() {
+  const sent = 28;
+  const completed = 19;
+  const awaiting = 9;
+  const recent = [
+    { name: "Carla Mendez", when: "2h ago" },
+    { name: "Tonio Reyes", when: "5h ago" },
+    { name: "Liza Park", when: "Yesterday" },
+  ];
+  const pct = Math.round((completed / sent) * 100);
+  const C = 2 * Math.PI * 26;
+  return (
+    <Card>
+      <CardHead
+        iconName="clipboard"
+        title={
+          <span className="flex items-center gap-2">
+            Intake forms <DraftBadge />
+          </span>
+        }
+      />
+      <div className="flex items-center gap-4 px-[18px] py-3.5">
+        <svg width="68" height="68" viewBox="0 0 68 68" className="shrink-0">
+          <circle cx="34" cy="34" r="26" fill="none" stroke="var(--surface-3)" strokeWidth="8" />
+          <circle
+            cx="34" cy="34" r="26" fill="none" stroke="var(--brand)" strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 34 34)"
+          />
+          <text x="34" y="34" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="750" fill="var(--foreground)">
+            {pct}%
+          </text>
+        </svg>
+        <div className="flex flex-col gap-1.5 text-[12.5px] font-[550]">
+          {(
+            [
+              [sent, "Forms sent", "var(--blue)"],
+              [completed, "Completed", "var(--brand)"],
+              [awaiting, "Awaiting completion", "var(--amber)"],
+            ] as const
+          ).map(([num, label, color]) => (
+            <div key={label} className="flex items-center gap-2">
+              <span className="size-2 rounded-[3px]" style={{ background: color }} />
+              <b className="tabular-nums">{num}</b> {label}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-border-soft px-[18px] pb-2.5">
+        <div className="pb-1.5 pt-2.5 text-[11px] font-bold uppercase tracking-[0.04em] text-subtle">
+          Recent responses
+        </div>
+        {recent.map((r) => (
+          <div key={r.name} className="flex items-center gap-2.5 py-1.5">
+            <Avatar name={r.name} size={24} />
+            <span className="flex-1 text-[12.5px] font-[550]">{r.name}</span>
+            <span className="text-[11px] text-subtle">{r.when}</span>
           </div>
         ))}
       </div>

@@ -33,6 +33,23 @@ const daysUntil = (iso: string | null): number | null => {
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
+/** Clickable Group Account chip (design screens.jsx group cross-link). */
+function GroupChip({ id, name }: { id: string | null; name: string }) {
+  const { openGroup } = useRecordNav();
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (id) openGroup(id);
+      }}
+      title={`Open group account — ${name}`}
+      className="inline-flex h-[21px] max-w-[150px] items-center gap-1 truncate rounded-full border border-blue-border bg-blue-soft px-2 text-[11px] font-[650] text-blue transition-opacity hover:opacity-80"
+    >
+      <I.building size={11} className="shrink-0" /> <span className="truncate">{name}</span>
+    </button>
+  );
+}
+
 /* ------------------------------- Applications ------------------------------ */
 export function ApplicationsLive({ rows }: { rows: Application[] }) {
   const overlays = useOverlays();
@@ -84,6 +101,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
 export function PoliciesLive({ rows }: { rows: Policy[] }) {
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
+  const groupNames = [...new Set(rows.map((p) => p.groupName).filter(Boolean))] as string[];
   const lapsing = rows.filter((p) => {
     const d = daysUntil(p.expiryDate);
     return p.status === "Active" && d != null && d <= 30;
@@ -104,7 +122,9 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
         { val: pesoShort(rows.reduce((a, p) => a + (p.premiumAmount ?? 0), 0)), label: "Premium under management", color: "var(--brand)" },
       ]}
       filters={["Active", "Pending", "Expired", "Lapsed"]}
-      rows={rows.map((p) => ({ ...p, _filter: p.status }))}
+      filters2={[...groupNames, "Individual"]}
+      filters2Label="Group"
+      rows={rows.map((p) => ({ ...p, _filter: p.status, _filter2: p.groupName ?? "Individual" }))}
       defaultSort={{ key: "createdAt", dir: "desc" }}
       emptyText="No policies yet."
       columns={[
@@ -122,7 +142,12 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
         return (
           <Row key={p.id} onClick={() => openContact(p.clientId)}>
             <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
-            <Td><ClientCell name={p.clientName ?? "—"} sub={p.planName ?? undefined} /></Td>
+            <Td>
+              <div className="flex items-center gap-2">
+                <ClientCell name={p.clientName ?? "—"} sub={p.planName ?? undefined} />
+                {p.groupName && <GroupChip id={p.groupId} name={p.groupName} />}
+              </div>
+            </Td>
             <Td className="text-muted-foreground">{p.productName ?? "—"}</Td>
             <Td className="text-right font-mono font-semibold tabular-nums">
               {p.premiumAmount != null ? peso(p.premiumAmount) : "—"}
@@ -227,6 +252,7 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
 export function ClaimsLive({ rows }: { rows: Claim[] }) {
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
+  const groupNames = [...new Set(rows.map((c) => c.groupName).filter(Boolean))] as string[];
   const awaitingDocs = rows.filter((c) => c.status === "Documents Pending").length;
   const open = rows.filter((c) => !["Closed", "Rejected", "Credited"].includes(c.status)).length;
 
@@ -245,7 +271,9 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
         { val: pesoShort(rows.reduce((a, c) => a + (c.amountClaimed ?? 0), 0)), label: "Total claimed", color: "var(--brand)" },
       ]}
       filters={["Documents Pending", "Submitted", "Pending Review", "Approved", "Closed"]}
-      rows={rows.map((c) => ({ ...c, _filter: c.status }))}
+      filters2={[...groupNames, "Individual"]}
+      filters2Label="Group"
+      rows={rows.map((c) => ({ ...c, _filter: c.status, _filter2: c.groupName ?? "Individual" }))}
       defaultSort={{ key: "updatedAt", dir: "desc" }}
       emptyText="No claims yet."
       columns={[
@@ -259,7 +287,12 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
       renderRow={(c) => (
         <Row key={c.id} onClick={() => openContact(c.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
-          <Td><ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} /></Td>
+          <Td>
+            <div className="flex items-center gap-2">
+              <ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} />
+              {c.groupName && <GroupChip id={c.groupId} name={c.groupName} />}
+            </div>
+          </Td>
           <Td className="text-muted-foreground">{c.policyRef ?? "—"}</Td>
           <Td><StatusBadge status={c.status} /></Td>
           <Td className="text-right font-mono font-semibold tabular-nums">

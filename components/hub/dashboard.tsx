@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
-import type { DashboardStats } from "@/lib/queries/dashboard";
+import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
 import type { TouchpointRow } from "@/lib/queries/relationship";
 import type { Application } from "@/lib/repositories/applications/application.entity";
 import type { Claim } from "@/lib/repositories/claims/claim.entity";
@@ -50,6 +50,32 @@ const daysUntil = (iso: string | null): number | null => {
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
+/** SVG sparkline (design ui.jsx). */
+function Sparkline({ data, color = "var(--brand)", w = 110, h = 26 }: { data: number[]; color?: string; w?: number; h?: number }) {
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => [
+    (i / (data.length - 1)) * w,
+    h - 2 - ((v - min) / range) * (h - 4),
+  ]);
+  const line = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const gid = "sg" + Math.abs(data.reduce((a, v, i) => a + v * (i + 7), 0));
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block overflow-visible">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L ${w} ${h} L 0 ${h} Z`} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2.3" fill={color} />
+    </svg>
+  );
+}
+
 /* ---------- Alert bar ---------- */
 function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   const alerts: { id: ScreenId; color: Tone; icon: IconName; num: number; label: string }[] = [
@@ -90,29 +116,46 @@ function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
 
 /* ---------- KPI row ---------- */
 function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
-  const kpis: { id: ScreenId; icon: IconName; value: number; label: string }[] = [
-    { id: "clients", icon: "users", value: stats.kpis.activeClients, label: "Active Clients" },
-    { id: "policies", icon: "shield", value: stats.kpis.activePolicies, label: "Active Policies" },
-    { id: "applications", icon: "fileText", value: stats.kpis.applicationsInProgress, label: "Applications In Progress" },
-    { id: "claims", icon: "clipboard", value: stats.kpis.openClaims, label: "Open Claims" },
-    { id: "renewals", icon: "refresh", value: stats.kpis.upcomingRenewals, label: "Upcoming Renewals" },
-    { id: "travel", icon: "plane", value: stats.kpis.openTravel, label: "Open Travel Requests" },
+  const kpis: { id: ScreenId; icon: IconName; value: number; label: string; trend: KpiTrend }[] = [
+    { id: "clients", icon: "users", value: stats.kpis.activeClients, label: "Active Clients", trend: stats.trends.activeClients },
+    { id: "policies", icon: "shield", value: stats.kpis.activePolicies, label: "Active Policies", trend: stats.trends.activePolicies },
+    { id: "applications", icon: "fileText", value: stats.kpis.applicationsInProgress, label: "Applications In Progress", trend: stats.trends.applicationsInProgress },
+    { id: "claims", icon: "clipboard", value: stats.kpis.openClaims, label: "Open Claims", trend: stats.trends.openClaims },
+    { id: "renewals", icon: "refresh", value: stats.kpis.upcomingRenewals, label: "Upcoming Renewals", trend: stats.trends.upcomingRenewals },
+    { id: "travel", icon: "plane", value: stats.kpis.openTravel, label: "Open Travel Requests", trend: stats.trends.openTravel },
   ];
+  const dirIco: Record<KpiTrend["dir"], IconName> = { up: "arrowUp", down: "arrowDown", flat: "arrowRight" };
   return (
     <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3">
       {kpis.map((k) => {
         const Ico = I[k.icon];
+        const DirIco = I[dirIco[k.trend.dir]];
+        const sparkColor = k.trend.dir === "down" ? "var(--red)" : k.trend.dir === "flat" ? "var(--text-subtle)" : "var(--brand)";
         return (
           <button
             key={k.id}
             onClick={() => setScreen(k.id)}
             className="overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:shadow-md"
           >
-            <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-              <Ico size={17} />
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
+                <Ico size={17} />
+              </span>
+              <span
+                title="New records this month vs last"
+                className={cn(
+                  "inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-bold tabular-nums",
+                  k.trend.dir === "up" ? "bg-green-soft text-green" : k.trend.dir === "down" ? "bg-red-soft text-red" : "bg-surface-3 text-subtle",
+                )}
+              >
+                <DirIco size={12} /> {k.trend.delta}
+              </span>
+            </div>
             <div className="mt-3 text-[27px] font-[760] leading-none tracking-[-0.03em] tabular-nums">{k.value}</div>
             <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{k.label}</div>
+            <div className="mt-2.5">
+              <Sparkline data={k.trend.spark} color={sparkColor} />
+            </div>
           </button>
         );
       })}
@@ -121,7 +164,7 @@ function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
 }
 
 /* ---------- Revenue widget ---------- */
-function RevenueWidget({ stats }: { stats: DashboardStats }) {
+function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   const overlays = useOverlays();
   const persona = usePersona();
   const rows = stats.revenue.rows;
@@ -168,6 +211,7 @@ function RevenueWidget({ stats }: { stats: DashboardStats }) {
             <I.send size={15} /> Send payment links
           </Btn>
         )}
+        <Btn onClick={() => setScreen("payments")}>View breakdown</Btn>
       </div>
     </div>
   );
@@ -409,6 +453,24 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
   );
 }
 
+/** activity_type prefix → feed icon/tone (design dashboard.jsx ActivityWidget). */
+const ACT_META: Record<string, { icon: IconName; tone: Tone }> = {
+  policy: { icon: "shield", tone: "green" },
+  payment: { icon: "peso", tone: "green" },
+  claim: { icon: "clipboard", tone: "red" },
+  travel: { icon: "plane", tone: "blue" },
+  document: { icon: "upload", tone: "slate" },
+  renewal: { icon: "refresh", tone: "amber" },
+  client: { icon: "user", tone: "violet" },
+  lead: { icon: "trendUp", tone: "violet" },
+  application: { icon: "fileText", tone: "blue" },
+  group: { icon: "building", tone: "blue" },
+  task: { icon: "checkSquare", tone: "slate" },
+  campaign: { icon: "send", tone: "violet" },
+  contact: { icon: "user", tone: "slate" },
+  dependent: { icon: "users", tone: "slate" },
+};
+
 function ActivityWidget({ stats }: { stats: DashboardStats }) {
   return (
     <Card>
@@ -417,11 +479,14 @@ function ActivityWidget({ stats }: { stats: DashboardStats }) {
         {stats.activity.length === 0 && (
           <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
         )}
-        {stats.activity.map((a, idx) => (
+        {stats.activity.map((a, idx) => {
+          const meta = ACT_META[a.type.split(".")[0]] ?? { icon: "clock" as IconName, tone: "slate" as Tone };
+          const Ico = I[meta.icon];
+          return (
           <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
             <div className="relative flex shrink-0 flex-col items-center">
-              <div className="z-10 grid size-[28px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-                <I.clock size={14} />
+              <div className={cn("z-10 grid size-[28px] place-items-center rounded-lg", TONE_SOFT[meta.tone])}>
+                <Ico size={14} />
               </div>
               {idx < stats.activity.length - 1 && (
                 <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
@@ -435,7 +500,8 @@ function ActivityWidget({ stats }: { stats: DashboardStats }) {
               <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );
@@ -528,7 +594,7 @@ export function Dashboard({
 
       <AlertBar setScreen={setScreen} stats={stats} />
       <KpiRow setScreen={setScreen} stats={stats} />
-      <RevenueWidget stats={stats} />
+      <RevenueWidget setScreen={setScreen} stats={stats} />
 
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">

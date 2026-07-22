@@ -3,10 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { toggleUserStatusAction, updateUserRoleAction } from "@/app/(app)/settings/actions";
+import {
+  savePaymentChannelAction,
+  togglePaymentChannelAction,
+  toggleUserStatusAction,
+  updateUserRoleAction,
+} from "@/app/(app)/settings/actions";
+import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
 import type { User } from "@/lib/repositories/users/user.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
+import { Modal } from "../overlays/modal";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
 import { Avatar, Card, DraftBadge, PageHead, TONE_BADGE } from "../primitives";
@@ -26,7 +33,7 @@ const TABS = [
   { id: "Integrations", adminOnly: false },
 ] as const;
 
-export function SettingsLive({ users }: { users: User[] }) {
+export function SettingsLive({ users, channels }: { users: User[]; channels: PaymentChannel[] }) {
   const persona = usePersona();
   const isAdmin = persona.role === "admin";
   const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
@@ -73,7 +80,7 @@ export function SettingsLive({ users }: { users: User[] }) {
         {active === "General" && <GeneralTab canEdit={isAdmin} />}
         {active === "Team" && <TeamTab users={users} />}
         {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
-        {active === "Payment Channels" && <StaticTab title="Official Payment Channels" body="Business GCash / company bank accounts that collections route through — never personal accounts. The channel store backs the Send Payment Links payee picker." />}
+        {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
         {active === "Integrations" && <StaticTab title="Integrations" body="Gmail (inbound sync + send-in-app), WhatsApp (preferred automation channel), Viber (manual logging only), and the Pacific Cross portal link-out. OAuth flows land in a later release." />}
       </Card>
@@ -227,5 +234,178 @@ function StaticTab({ title, body }: { title: string; body: string }) {
       </div>
       <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>
     </div>
+  );
+}
+
+/* ---------------------- Official Payment Channels tab ---------------------- */
+
+function PaymentChannelsTab({ channels, canEdit }: { channels: PaymentChannel[]; canEdit: boolean }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const [, startTransition] = useTransition();
+  const [modal, setModal] = useState<PaymentChannel | "new" | null>(null);
+
+  const toggle = (c: PaymentChannel) =>
+    startTransition(async () => {
+      const res = await togglePaymentChannelAction(c.id);
+      if (!res.ok) overlays.toast("Couldn’t update channel", res.error);
+      router.refresh();
+    });
+
+  return (
+    <div>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-[15px] font-bold">Official Payment Channels</h3>
+          <p className="mt-0.5 max-w-[560px] text-[12.5px] text-muted-foreground">
+            Business GCash / company bank accounts that collections route through —{" "}
+            <b>never personal accounts</b>. These back the Send Payment Links payee picker.
+          </p>
+        </div>
+        {canEdit && (
+          <button
+            onClick={() => setModal("new")}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-transparent bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-brand-hover"
+          >
+            <I.plus size={15} /> Add channel
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        {channels.map((c) => (
+          <div
+            key={c.id}
+            className={cn(
+              "flex items-center gap-3.5 rounded-md border border-border-soft bg-surface-2 px-4 py-3",
+              !c.active && "opacity-60",
+            )}
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-[9px] bg-brand-soft text-brand-hover">
+              {c.channelType === "GCash for Business" ? <I.wallet size={17} /> : <I.building size={17} />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-[13.5px] font-[650]">
+                {c.label}
+                {c.isDefault && (
+                  <span className={cn("inline-flex h-[19px] items-center rounded-full border px-2 text-[10.5px] font-bold", TONE_BADGE.green)}>
+                    Default
+                  </span>
+                )}
+                {!c.active && (
+                  <span className={cn("inline-flex h-[19px] items-center rounded-full border px-2 text-[10.5px] font-bold", TONE_BADGE.slate)}>
+                    Inactive
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                {c.channelType} · {c.accountName} · <span className="font-mono">{c.accountNumber}</span>
+              </div>
+            </div>
+            {canEdit && (
+              <div className="flex shrink-0 items-center gap-2">
+                <button onClick={() => setModal(c)} className="text-[12px] font-semibold text-brand-hover hover:text-brand">
+                  Edit
+                </button>
+                <button onClick={() => toggle(c)} className="text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+                  {c.active ? "Deactivate" : "Reactivate"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {channels.length === 0 && (
+          <div className="rounded-md border border-dashed border-border-strong px-4 py-6 text-center text-[13px] text-subtle">
+            No payment channels yet{canEdit && " — add the business GCash or bank account collections should route to"}.
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <ChannelModal channel={modal === "new" ? null : modal} onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+function ChannelModal({ channel, onClose }: { channel: PaymentChannel | null; onClose: () => void }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const [pending, startTransition] = useTransition();
+  const [label, setLabel] = useState(channel?.label ?? "");
+  const [channelType, setChannelType] = useState(channel?.channelType ?? "GCash for Business");
+  const [accountName, setAccountName] = useState(channel?.accountName ?? "Pacific Insurance PH Inc.");
+  const [accountNumber, setAccountNumber] = useState(channel?.accountNumber ?? "");
+  const [isDefault, setIsDefault] = useState(channel?.isDefault ?? false);
+
+  const save = () =>
+    startTransition(async () => {
+      const res = await savePaymentChannelAction(channel?.id ?? null, {
+        label,
+        channelType,
+        accountName,
+        accountNumber,
+        isDefault,
+      });
+      if (res.ok) {
+        overlays.toast(channel ? "Channel saved" : "Channel added", `“${res.data.label}”.`);
+        router.refresh();
+        onClose();
+      } else {
+        overlays.toast("Couldn’t save channel", res.error);
+      }
+    });
+
+  const field = "mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle";
+  return (
+    <Modal onClose={onClose} maxWidth={440}>
+      <h3 className="mb-4 text-[16px] font-bold tracking-[-0.01em]">
+        {channel ? "Edit payment channel" : "Add payment channel"}
+      </h3>
+      <label className={field}>Label</label>
+      <input autoFocus className={INPUT} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Pacific GCash for Business" />
+      <div className="mt-3.5 grid grid-cols-2 gap-3.5">
+        <div>
+          <label className={field}>Type</label>
+          <select className={INPUT} value={channelType} onChange={(e) => setChannelType(e.target.value)}>
+            {CHANNEL_TYPES.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={field}>Account number</label>
+          <input className={INPUT} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="0917 888 2100" />
+        </div>
+      </div>
+      <div className="mt-3.5">
+        <label className={field}>Account name</label>
+        <input className={INPUT} value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+      </div>
+      <button
+        onClick={() => setIsDefault(!isDefault)}
+        className={cn(
+          "mt-4 flex w-full items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-left text-[13px] font-[550] transition-colors",
+          isDefault ? "border-brand bg-brand-soft" : "border-border-strong text-muted-foreground hover:bg-hover",
+        )}
+      >
+        <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", isDefault ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
+          {isDefault && <I.check size={13} />}
+        </span>
+        Default channel for payment instructions
+      </button>
+      <div className="mt-5 flex justify-end gap-2.5">
+        <button onClick={onClose} className="inline-flex h-9 items-center rounded-md border border-border-strong bg-card px-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-hover">
+          Cancel
+        </button>
+        <button
+          onClick={save}
+          disabled={pending || !label.trim() || !accountNumber.trim()}
+          className="inline-flex h-9 items-center rounded-md border border-transparent bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+        >
+          {pending ? "Saving…" : channel ? "Save changes" : "Add channel"}
+        </button>
+      </div>
+    </Modal>
   );
 }

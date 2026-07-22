@@ -65,6 +65,7 @@ export async function uploadDocumentAction(formData: FormData) {
     revalidatePath(`/clients/${clientId}`);
   }
   revalidatePath("/documents");
+  return { id: doc.id };
 }
 
 export async function deleteDocumentAction(formData: FormData) {

@@ -61,6 +61,7 @@ function paymentToDomain(row: PaymentJoined): Payment {
     orNumber: row.or_number,
     orReceivedDate: row.or_received_date,
     sentToPacificCross: row.sent_to_pacific_cross,
+    proofDocumentId: row.proof_document_id,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

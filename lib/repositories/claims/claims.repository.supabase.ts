@@ -12,12 +12,16 @@ type ClaimPatch = Database["public"]["Tables"]["claims"]["Update"];
 
 /** Row plus the joined display names/refs the lists render. */
 type JoinedRow = ClaimRow & {
-  clients: { first_name: string; last_name: string } | null;
+  clients: {
+    first_name: string;
+    last_name: string;
+    group_members: { group_accounts: { id: string; name: string } | null }[];
+  } | null;
   policies: { reference_no: string | null } | null;
 };
 
 const SELECT = `*,
-  clients (first_name, last_name),
+  clients (first_name, last_name, group_members (group_accounts (id, name))),
   policies (reference_no)`;
 
 function toDomain(row: JoinedRow): Claim {
@@ -28,6 +32,8 @@ function toDomain(row: JoinedRow): Claim {
     clientName: row.clients
       ? [row.clients.first_name, row.clients.last_name].filter(Boolean).join(" ")
       : null,
+    groupId: row.clients?.group_members?.[0]?.group_accounts?.id ?? null,
+    groupName: row.clients?.group_members?.[0]?.group_accounts?.name ?? null,
     policyId: row.policy_id,
     policyRef: row.policies?.reference_no ?? null,
     claimType: row.claim_type,

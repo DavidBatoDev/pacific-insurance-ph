@@ -1,5 +1,5 @@
-// Database types generated from the live Supabase schema via the Supabase MCP
-// (generate_typescript_types). Do not edit by hand — regenerate after schema changes.
+// Generated via mcp__supabase__generate_typescript_types — do not edit by hand.
+// Regenerate after applying a migration.
 
 export type Json =
   | string
@@ -373,6 +373,7 @@ export type Database = {
           address: string | null
           assigned_user_id: string | null
           client_type: string
+          coverage_tier: string | null
           created_at: string
           date_of_birth: string | null
           do_not_contact: boolean
@@ -380,6 +381,7 @@ export type Database = {
           email: string | null
           est_premium: number | null
           expected_close_date: string | null
+          family_size: number | null
           first_name: string
           id: string
           last_name: string
@@ -402,6 +404,7 @@ export type Database = {
           address?: string | null
           assigned_user_id?: string | null
           client_type?: string
+          coverage_tier?: string | null
           created_at?: string
           date_of_birth?: string | null
           do_not_contact?: boolean
@@ -409,6 +412,7 @@ export type Database = {
           email?: string | null
           est_premium?: number | null
           expected_close_date?: string | null
+          family_size?: number | null
           first_name: string
           id?: string
           last_name: string
@@ -431,6 +435,7 @@ export type Database = {
           address?: string | null
           assigned_user_id?: string | null
           client_type?: string
+          coverage_tier?: string | null
           created_at?: string
           date_of_birth?: string | null
           do_not_contact?: boolean
@@ -438,6 +443,7 @@ export type Database = {
           email?: string | null
           est_premium?: number | null
           expected_close_date?: string | null
+          family_size?: number | null
           first_name?: string
           id?: string
           last_name?: string
@@ -1359,6 +1365,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_channels: {
+        Row: {
+          account_name: string
+          account_number: string
+          active: boolean
+          channel_type: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          active?: boolean
+          channel_type?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          active?: boolean
+          channel_type?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       payments: {
         Row: {
@@ -2717,3 +2759,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

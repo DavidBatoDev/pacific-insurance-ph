@@ -9,6 +9,9 @@ export interface Policy {
   clientId: string;
   /** Joined convenience: client's full name. */
   clientName: string | null;
+  /** Group account the client belongs to (via group_members), for cross-linking. */
+  groupId: string | null;
+  groupName: string | null;
   /** Joined convenience: product name via product_versions → products. */
   productName: string | null;
   /** Joined convenience: plan option's plan name. */

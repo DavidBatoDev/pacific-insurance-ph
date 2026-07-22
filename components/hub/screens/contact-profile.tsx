@@ -12,7 +12,6 @@ import {
   addNoteAction,
   logCallAction,
   logMessageAction,
-  requestProposalAction,
   sendEmailAction,
   toggleContactFlagAction,
 } from "@/app/(app)/clients/engage-actions";
@@ -30,8 +29,8 @@ import type { Tone } from "../data";
 import { I, type IconName } from "../icons";
 import { STAGE_TONE, STATUS_TONE } from "../lead-config";
 import { AdvanceLeadModal } from "../overlays/advance-lead";
-import { Modal } from "../overlays/modal";
 import { useOverlays } from "../overlays/overlay-provider";
+import { RequestProposalModal } from "../overlays/request-proposal";
 import { usePersona } from "../persona";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
@@ -124,6 +123,11 @@ export function ContactProfile({
   const [msgText, setMsgText] = useState("");
   const [outcome, setOutcome] = useState("Reached");
   const [callNote, setCallNote] = useState("");
+  const [callBudget, setCallBudget] = useState("");
+  const [callFamily, setCallFamily] = useState("");
+  const [callInterest, setCallInterest] = useState(client.productInterest ?? "");
+  const [callTier, setCallTier] = useState(client.coverageTier ?? "");
+  const [callFollow, setCallFollow] = useState("");
   const [note, setNote] = useState("");
 
   const [advanceOpen, setAdvanceOpen] = useState<{ stage?: string; status?: string; label?: string } | null>(null);
@@ -189,10 +193,26 @@ export function ContactProfile({
 
   const logCall = () =>
     startTransition(async () => {
-      const res = await logCallAction({ clientId: client.id, outcome, notes: callNote || null });
+      const reached = outcome === "Reached";
+      const res = await logCallAction({
+        clientId: client.id,
+        outcome,
+        notes: callNote || null,
+        // Structured discovery (design contact-profile.jsx) — Reached calls only.
+        discovery: reached
+          ? {
+              estPremium: callBudget ? Number(callBudget) : null,
+              familySize: callFamily ? Number(callFamily) : null,
+              productInterest: callInterest || null,
+              coverageTier: callTier || null,
+            }
+          : undefined,
+        followUpDate: callFollow || null,
+      });
       if (!res.ok) return toast("Couldn’t log call", res.error);
-      toast("Call logged", `Call with ${client.fullName} saved to the timeline.`);
+      toast("Call logged", reached ? `Discovery details saved to ${client.fullName}’s record.` : `Call with ${client.fullName} saved to the timeline.`);
       setCallNote("");
+      setCallFollow("");
       router.refresh();
       // A reached discovery call implies progress — offer the Advance popup.
       if (isLead && outcome === "Reached") {
@@ -570,15 +590,50 @@ export function ContactProfile({
                       ))}
                     </select>
                   </ComposerField>
+                  {outcome === "Reached" && (
+                    <>
+                      <div className="mt-3.5 grid grid-cols-2 gap-3.5">
+                        <ComposerField label="Budget / est. premium">
+                          <input className={INPUT} type="number" value={callBudget} onChange={(e) => setCallBudget(e.target.value)} placeholder="₱ annual premium" />
+                        </ComposerField>
+                        <ComposerField label="Family size / dependents">
+                          <input className={INPUT} type="number" value={callFamily} onChange={(e) => setCallFamily(e.target.value)} placeholder="# people to cover" />
+                        </ComposerField>
+                      </div>
+                      <div className="mt-3.5 grid grid-cols-2 gap-3.5">
+                        <ComposerField label="Product interest">
+                          <input className={INPUT} value={callInterest} onChange={(e) => setCallInterest(e.target.value)} placeholder="e.g. Blue Royale" />
+                        </ComposerField>
+                        <ComposerField label="Coverage tier / room">
+                          <select className={INPUT} value={callTier} onChange={(e) => setCallTier(e.target.value)}>
+                            {["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"].map((t) => (
+                              <option key={t} value={t}>{t || "— not captured —"}</option>
+                            ))}
+                          </select>
+                        </ComposerField>
+                      </div>
+                    </>
+                  )}
                   <ComposerField label="Call notes" className="mt-3.5">
                     <textarea
                       className={cn(AREA, "min-h-[120px]")}
                       value={callNote}
                       onChange={(e) => setCallNote(e.target.value)}
-                      placeholder="Summary of the conversation…"
+                      placeholder={outcome === "Reached" ? "Anything the fields above don’t capture…" : "What happened on the attempt…"}
                     />
                   </ComposerField>
-                  <div className="mt-3.5 flex justify-end">
+                  <ComposerField label="Next follow-up" className="mt-3.5">
+                    <input className={INPUT} type="date" value={callFollow} onChange={(e) => setCallFollow(e.target.value)} />
+                  </ComposerField>
+                  <div className="mt-3.5 flex items-center justify-between gap-3">
+                    {outcome === "Reached" ? (
+                      <span className="flex items-center gap-1.5 text-[11.5px] text-faint">
+                        <I.check size={12} /> Structured discovery writes to the record — budget &amp; product
+                        interest carry into Convert to Application.
+                      </span>
+                    ) : (
+                      <span />
+                    )}
                     <Btn variant="primary" disabled={pending} onClick={logCall}>
                       <I.phone size={15} /> Log call
                     </Btn>
@@ -795,7 +850,8 @@ export function ContactProfile({
       )}
       {proposalOpen && (
         <RequestProposalModal
-          client={client}
+          clientId={client.id}
+          clientName={client.fullName}
           onClose={() => setProposalOpen(false)}
           onDone={() => router.refresh()}
         />
@@ -822,95 +878,5 @@ function ComposerField({
       </label>
       {children}
     </div>
-  );
-}
-
-/** Request Proposal — its own modal (modals.md §14), never the Email tab. */
-function RequestProposalModal({
-  client,
-  onClose,
-  onDone,
-}: {
-  client: Client;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const overlays = useOverlays();
-  const [pending, startTransition] = useTransition();
-  const [note, setNote] = useState("");
-  const [follow, setFollow] = useState("");
-  const [alsoEmail, setAlsoEmail] = useState(false);
-  const [carrier, setCarrier] = useState("roseanne.llaga@pacificcross.com");
-
-  const confirm = () =>
-    startTransition(async () => {
-      const res = await requestProposalAction({
-        clientId: client.id,
-        note,
-        followUpDate: follow || null,
-        alsoEmailCarrier: alsoEmail,
-        carrierRecipient: alsoEmail ? carrier : null,
-      });
-      if (res.ok) {
-        overlays.toast("Proposal requested", `Note + follow-up task added for ${client.fullName}.`);
-        onDone();
-        onClose();
-      } else {
-        overlays.toast("Couldn’t request proposal", res.error);
-      }
-    });
-
-  return (
-    <Modal onClose={onClose} maxWidth={460}>
-      <div className="mb-4 flex items-center gap-3">
-        <div className="grid size-10 place-items-center rounded-[10px] bg-brand-soft text-brand-hover">
-          <I.fileText size={20} />
-        </div>
-        <div>
-          <h3 className="text-[16px] font-bold tracking-[-0.01em]">Request proposal</h3>
-          <div className="text-[12.5px] text-muted-foreground">
-            Internal request to the carrier — logs a note and a follow-up task, and sets the proposal
-            status to Requested.
-          </div>
-        </div>
-      </div>
-
-      <ComposerField label="Proposal request note" required>
-        <textarea
-          className={cn(AREA, "min-h-[110px]")}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="What to request from the carrier (product, coverage, budget)…"
-        />
-      </ComposerField>
-      <ComposerField label="Follow-up date" className="mt-3.5">
-        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
-      </ComposerField>
-
-      <button
-        onClick={() => setAlsoEmail(!alsoEmail)}
-        className={cn(
-          "mt-4 flex w-full items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-left text-[13px] font-[550] transition-colors",
-          alsoEmail ? "border-brand bg-brand-soft" : "border-border-strong text-muted-foreground hover:bg-hover",
-        )}
-      >
-        <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", alsoEmail ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
-          {alsoEmail && <I.check size={13} />}
-        </span>
-        Also email Pacific Cross
-      </button>
-      {alsoEmail && (
-        <ComposerField label="Carrier recipient" className="mt-3">
-          <input className={INPUT} type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
-        </ComposerField>
-      )}
-
-      <div className="mt-5 flex items-center justify-end gap-2.5">
-        <Btn onClick={onClose}>Cancel</Btn>
-        <Btn variant="primary" disabled={pending || !note.trim()} onClick={confirm}>
-          {pending ? "Requesting…" : "Request proposal"}
-        </Btn>
-      </div>
-    </Modal>
   );
 }

@@ -17,7 +17,16 @@ function fmtDate(iso: string) {
   });
 }
 
-export function ClientsList({ clients, total }: { clients: Client[]; total: number }) {
+export function ClientsList({
+  clients,
+  total,
+  groupsByClient = {},
+}: {
+  clients: Client[];
+  total: number;
+  /** Group-account membership per client id (design screens.jsx group chip). */
+  groupsByClient?: Record<string, { id: string; name: string }>;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
 
@@ -104,7 +113,22 @@ export function ClientsList({ clients, total }: { clients: Client[]; total: numb
             {sorted.map((c) => (
               <Row key={c.id} onClick={() => router.push(`/clients/${c.id}`)}>
                 <Td>
-                  <ClientCell name={c.fullName} sub={c.email ?? undefined} />
+                  <div className="flex items-center gap-2">
+                    <ClientCell name={c.fullName} sub={c.email ?? undefined} />
+                    {groupsByClient[c.id] && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/group/${groupsByClient[c.id].id}`);
+                        }}
+                        title={`Open group account — ${groupsByClient[c.id].name}`}
+                        className="inline-flex h-[21px] max-w-[140px] items-center gap-1 truncate rounded-full border border-blue-border bg-blue-soft px-2 text-[11px] font-[650] text-blue transition-opacity hover:opacity-80"
+                      >
+                        <I.building size={11} className="shrink-0" />
+                        <span className="truncate">{groupsByClient[c.id].name}</span>
+                      </button>
+                    )}
+                  </div>
                 </Td>
                 <Td className="font-mono text-[12px] text-muted-foreground">{c.referenceNo}</Td>
                 <Td className="text-muted-foreground">{c.mobileNumber ?? "—"}</Td>

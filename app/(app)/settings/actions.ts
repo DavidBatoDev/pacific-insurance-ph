@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordAudit } from "@/lib/audit/log";
 import { toAppRole } from "@/lib/auth/permissions";
+import {
+  getPaymentChannelsRepository,
+  type NewPaymentChannel,
+  type PaymentChannel,
+} from "@/lib/repositories/payment-channels";
 import { getUsersRepository, type User } from "@/lib/repositories/users";
 import type { Json } from "@/lib/supabase/types";
 
@@ -55,5 +60,56 @@ export async function toggleUserStatusAction(userId: string): Promise<ActionResu
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update user." };
+  }
+}
+
+/* ------------------------- Official Payment Channels ------------------------ */
+
+/** Create or update a payment channel (Settings → Payment Channels; Admin-only). */
+export async function savePaymentChannelAction(
+  id: string | null,
+  input: NewPaymentChannel,
+): Promise<ActionResult<PaymentChannel>> {
+  try {
+    const actor = await requireAdmin();
+    if (!input.label.trim() || !input.accountNumber.trim())
+      return { ok: false, error: "Label and account number are required." };
+
+    const repo = getPaymentChannelsRepository();
+    // A single default: setting one clears the others.
+    if (input.isDefault) {
+      for (const c of await repo.list()) {
+        if (c.isDefault && c.id !== id) await repo.update(c.id, { isDefault: false });
+      }
+    }
+    const saved = id ? await repo.update(id, input) : await repo.create(input);
+    await recordAudit({
+      actorId: actor.id,
+      action: id ? "update" : "create",
+      tableName: "payment_channels",
+      recordId: saved.id,
+      newValue: saved as unknown as Json,
+    });
+    revalidatePath("/settings");
+    return { ok: true, data: saved };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save channel." };
+  }
+}
+
+/** Soft activate/deactivate a payment channel. */
+export async function togglePaymentChannelAction(id: string): Promise<ActionResult<PaymentChannel>> {
+  try {
+    await requireAdmin();
+    const repo = getPaymentChannelsRepository();
+    const channel = (await repo.list()).find((c) => c.id === id);
+    if (!channel) return { ok: false, error: "Channel not found." };
+    if (channel.isDefault && channel.active)
+      return { ok: false, error: "Make another channel the default first." };
+    const updated = await repo.update(id, { active: !channel.active });
+    revalidatePath("/settings");
+    return { ok: true, data: updated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update channel." };
   }
 }

@@ -34,6 +34,8 @@ function toDomain(row: ClientRow): Client {
     proposalStatus: row.proposal_status,
     productInterest: row.product_interest,
     estPremium: row.est_premium,
+    familySize: row.family_size,
+    coverageTier: row.coverage_tier,
     expectedCloseDate: row.expected_close_date,
     nextFollowUpDate: row.next_follow_up_date,
     earlyPayer: row.early_payer,
@@ -108,6 +110,8 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.proposalStatus !== undefined) payload.proposal_status = input.proposalStatus;
     if (input.productInterest !== undefined) payload.product_interest = input.productInterest;
     if (input.estPremium !== undefined) payload.est_premium = input.estPremium;
+    if (input.familySize !== undefined) payload.family_size = input.familySize;
+    if (input.coverageTier !== undefined) payload.coverage_tier = input.coverageTier;
     if (input.expectedCloseDate !== undefined) payload.expected_close_date = input.expectedCloseDate;
     if (input.nextFollowUpDate !== undefined) payload.next_follow_up_date = input.nextFollowUpDate;
 
@@ -142,6 +146,8 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.proposalStatus !== undefined) patch.proposal_status = input.proposalStatus;
     if (input.productInterest !== undefined) patch.product_interest = input.productInterest;
     if (input.estPremium !== undefined) patch.est_premium = input.estPremium;
+    if (input.familySize !== undefined) patch.family_size = input.familySize;
+    if (input.coverageTier !== undefined) patch.coverage_tier = input.coverageTier;
     if (input.expectedCloseDate !== undefined) patch.expected_close_date = input.expectedCloseDate;
     if (input.nextFollowUpDate !== undefined) patch.next_follow_up_date = input.nextFollowUpDate;
     if (input.earlyPayer !== undefined) patch.early_payer = input.earlyPayer;

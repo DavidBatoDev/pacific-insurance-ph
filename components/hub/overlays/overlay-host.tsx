@@ -11,6 +11,7 @@ import { NewCampaignDrawer } from "./new-campaign";
 import { NewLeadDrawer } from "./new-lead";
 import { NewTravelQuoteDrawer } from "./new-travel-quote";
 import { PaymentLinksDrawer } from "./payment-links";
+import { RequestProposalModal } from "./request-proposal";
 import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
 import type { OverlayState } from "./overlay-provider";
 
@@ -56,6 +57,14 @@ export function OverlayHost({
       if (overlay.modal === "issue-policy") return <IssuePolicyDrawer onClose={close} />;
       if (overlay.modal === "file-claim") return <FileClaimDrawer onClose={close} />;
       if (overlay.modal === "new-travel-quote") return <NewTravelQuoteDrawer onClose={close} />;
+      if (overlay.modal === "request-proposal")
+        return (
+          <RequestProposalModal
+            clientId={overlay.prefill?.clientId as string | undefined}
+            clientName={overlay.prefill?.clientName as string | undefined}
+            onClose={close}
+          />
+        );
       return <ComingSoon overlay={overlay} onClose={close} />;
     default:
       return <ComingSoon overlay={overlay} onClose={close} />;

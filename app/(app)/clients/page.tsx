@@ -5,6 +5,7 @@ import {
 } from "@/components/hub/screens/group-accounts-list";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getGroupsRepository } from "@/lib/repositories/groups";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +22,23 @@ export default async function ClientsPage({
     return <GroupAccountsList groups={groups} />;
   }
 
-  const { rows, total } = await getClientsRepository().list({
-    limit: 200,
-    orderBy: "created_at",
-    ascending: false,
-  });
+  const [{ rows, total }, memberships] = await Promise.all([
+    getClientsRepository().list({ limit: 200, orderBy: "created_at", ascending: false }),
+    getSupabaseAdmin()
+      .from("group_members")
+      .select("client_id, group_accounts (id, name)")
+      .not("client_id", "is", null)
+      .limit(1000),
+  ]);
+  const groupsByClient: Record<string, { id: string; name: string }> = {};
+  for (const m of memberships.data ?? []) {
+    if (m.client_id && m.group_accounts) groupsByClient[m.client_id] = m.group_accounts;
+  }
 
   return (
     <div>
       <ClientsViewToggle view="individuals" />
-      <ClientsList clients={rows} total={total} />
+      <ClientsList clients={rows} total={total} groupsByClient={groupsByClient} />
     </div>
   );
 }

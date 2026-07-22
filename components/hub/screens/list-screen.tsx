@@ -5,7 +5,7 @@
  * Ported from drafts/src/screens.jsx for prototype review. Generic filterable +
  * sortable list screen; renders placeholder data with no real data layer or actions.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -13,8 +13,8 @@ import { Btn, Card, PageHead } from "../primitives";
 import { I } from "../icons";
 import { Row, Table, Td, Th, useSort } from "../table";
 
-/** Filterable rows carry an optional `_filter` bucket used by the chip filters. */
-export type FilterableRow = { _filter?: string };
+/** Filterable rows carry optional `_filter` / `_filter2` buckets used by the chip filters. */
+export type FilterableRow = { _filter?: string; _filter2?: string };
 
 export interface Column<T> {
   k: keyof T;
@@ -34,6 +34,9 @@ interface ListScreenProps<T extends FilterableRow> {
   icon: LucideIcon;
   stats?: Stat[];
   filters?: string[];
+  /** Second filter dimension, shown in the Filters popover (design screens.jsx). */
+  filters2?: string[];
+  filters2Label?: string;
   rows: T[];
   columns: Column<T>[];
   defaultSort: { key: keyof T; dir: "asc" | "desc" };
@@ -76,6 +79,8 @@ export function ListScreen<T extends FilterableRow>({
   icon,
   stats,
   filters,
+  filters2,
+  filters2Label,
   rows,
   columns,
   defaultSort,
@@ -87,9 +92,21 @@ export function ListScreen<T extends FilterableRow>({
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter2, setActiveFilter2] = useState("All");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   let view = rows;
   if (filters && activeFilter !== "All") view = view.filter((r) => r._filter === activeFilter);
+  if (filters2 && activeFilter2 !== "All") view = view.filter((r) => r._filter2 === activeFilter2);
   if (q.trim()) {
     const ql = q.toLowerCase();
     view = view.filter((r) =>
@@ -97,6 +114,26 @@ export function ListScreen<T extends FilterableRow>({
     );
   }
   const { sorted, sort, toggle } = useSort(view, defaultSort.key, defaultSort.dir);
+
+  const exportCsv = useMemo(
+    () => () => {
+      const esc = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [
+        columns.map((c) => esc(c.label)).join(","),
+        ...sorted.map((r) => columns.map((c) => esc((r as Record<string, unknown>)[String(c.k)])).join(",")),
+      ];
+      const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title.toLowerCase().replace(/\s+/g, "-")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [columns, sorted, title],
+  );
 
   return (
     <div>
@@ -107,7 +144,7 @@ export function ListScreen<T extends FilterableRow>({
         draft={draft}
         actions={
           <>
-            <Btn>
+            <Btn onClick={exportCsv}>
               <I.download size={15} /> Export
             </Btn>
             {primaryAction && (
@@ -156,9 +193,40 @@ export function ListScreen<T extends FilterableRow>({
             </div>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <Chip>
-              <I.filter size={15} /> Filters
-            </Chip>
+            {filters2 && (
+              <div className="relative" ref={filterRef}>
+                <Chip active={filterOpen || activeFilter2 !== "All"} onClick={() => setFilterOpen((o) => !o)}>
+                  <I.filter size={15} /> Filters
+                  {activeFilter2 !== "All" && (
+                    <span className="grid size-[17px] place-items-center rounded-full bg-brand text-[10.5px] font-bold text-white">
+                      1
+                    </span>
+                  )}
+                </Chip>
+                {filterOpen && (
+                  <div className="absolute right-0 top-[38px] z-40 w-[280px] rounded-md border border-border bg-card p-3 shadow-pop">
+                    <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                      {filters2Label ?? "Filter"}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["All", ...filters2].map((f) => (
+                        <Chip key={f} active={activeFilter2 === f} onClick={() => setActiveFilter2(f)}>
+                          {f}
+                        </Chip>
+                      ))}
+                    </div>
+                    {activeFilter2 !== "All" && (
+                      <button
+                        onClick={() => setActiveFilter2("All")}
+                        className="mt-2.5 text-[12px] font-semibold text-brand-hover hover:text-brand"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <span className="whitespace-nowrap text-[12.5px] font-semibold text-subtle">
               {sorted.length} of {rows.length}
             </span>

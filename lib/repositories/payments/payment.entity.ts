@@ -27,6 +27,7 @@ export interface Payment {
   orNumber: string | null;
   orReceivedDate: string | null;
   sentToPacificCross: boolean;
+  proofDocumentId: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

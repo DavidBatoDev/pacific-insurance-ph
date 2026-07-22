@@ -7,6 +7,7 @@ import {
   updateCommissionAction,
   verifyPaymentAction,
 } from "@/app/(app)/payments/actions";
+import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import type { Commission, Payment } from "@/lib/repositories/payments";
 import { cn } from "@/lib/utils";
 import { peso, pesoShort, type Tone } from "../data";
@@ -134,7 +135,9 @@ export function PaymentsLive({
         { val: pesoShort(sum("Overdue")), label: `Overdue · ${cnt("Overdue")}`, color: "var(--red)" },
       ]}
       filters={["Awaiting", "Received", "Verified", "Overdue"]}
-      rows={payments.map((p) => ({ ...p, _filter: p.status }))}
+      filters2={["Application", "Renewal", "Travel"]}
+      filters2Label="Source"
+      rows={payments.map((p) => ({ ...p, _filter: p.status, _filter2: p.source }))}
       defaultSort={{ key: "createdAt", dir: "desc" }}
       emptyText="No payments tracked yet."
       columns={[
@@ -145,6 +148,7 @@ export function PaymentsLive({
         { k: "paymentMethod", label: "Method" },
         { k: "status", label: "Status" },
         { k: "orNumber", label: "OR number" },
+        { k: "paymentDate", label: "Date" },
         { k: "id", label: "" },
       ]}
       renderRow={(p) => (
@@ -160,6 +164,7 @@ export function PaymentsLive({
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>
           <Td><StatusBadge status={p.status} /></Td>
           <Td>{p.orNumber ? <span className="font-mono text-[12px]">{p.orNumber}</span> : <span className="text-subtle">—</span>}</Td>
+          <Td className="text-muted-foreground">{fmtDate(p.paymentDate ?? p.createdAt)}</Td>
           <Td>
             <span onClick={(e) => e.stopPropagation()}>
               {p.status === "Verified" ? (
@@ -206,7 +211,9 @@ export function PaymentsLive({
         { k: "policyRef", label: "Policy" },
         { k: "estimatedAmount", label: "Commission", num: true },
         { k: "status", label: "Status" },
+        { k: "clientId", label: "Commission contact" },
         { k: "followUpDate", label: "Last follow-up" },
+        { k: "paidDate", label: "Voucher" },
         { k: "id", label: "" },
       ]}
       renderRow={(c) => {
@@ -235,7 +242,20 @@ export function PaymentsLive({
               )}
             </Td>
             <Td><StatusBadge status={l === "Requested" ? "Requested" : l === "Follow-up" ? "Follow-up" : l} /></Td>
+            <Td>
+              <span className="text-[12.5px] font-[550]">{PC_VOUCHER_CONTACT.name}</span>
+              <span className="block text-[11px] text-subtle">Pacific Cross</span>
+            </Td>
             <Td className="text-muted-foreground">{fmtDate(c.followUpDate)}</Td>
+            <Td>
+              {(l === "Received" || l === "Paid") && c.orNumber ? (
+                <span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-muted-foreground">
+                  <I.doc2 size={12} /> CV-{c.orNumber.replace(/[^0-9]/g, "") || c.orNumber}
+                </span>
+              ) : (
+                <span className="text-subtle">—</span>
+              )}
+            </Td>
             <Td>
               <span className="flex flex-wrap justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {(l === "Requested" || l === "Follow-up" || l === "Not started" || l === "Waiting for OR") && (
@@ -292,18 +312,37 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
   );
   const [or, setOr] = useState(payment.orNumber ?? "");
   const [submitted, setSubmitted] = useState(payment.sentToPacificCross);
+  const [proof, setProof] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
 
-  const canSave = !pending && (status !== "Verified" || or.trim());
+  const hasProof = !!proof || !!payment.proofDocumentId;
+  const canSave = !pending && hasProof && (status !== "Verified" || or.trim());
 
   const save = () =>
     startTransition(async () => {
+      // Upload the proof first (documents storage path), then verify with its id.
+      let proofDocumentId: string | null = null;
+      if (proof) {
+        const fd = new FormData();
+        fd.set("file", proof);
+        if (payment.clientId) fd.set("clientId", payment.clientId);
+        fd.set("documentType", "Proof of Payment");
+        fd.set("name", `Proof of payment — ${payment.referenceNo ?? payment.id.slice(0, 8)}`);
+        try {
+          const uploaded = await uploadDocumentAction(fd);
+          proofDocumentId = uploaded?.id ?? null;
+        } catch {
+          overlays.toast("Couldn’t upload proof", "The file didn’t upload — try again.");
+          return;
+        }
+      }
       const res = await verifyPaymentAction({
         paymentId: payment.id,
         paymentMethod: method,
         status,
         orNumber: or.trim() || null,
         submittedToPacificCross: submitted,
+        proofDocumentId,
         notes: notes.trim() || null,
       });
       if (res.ok) {
@@ -350,6 +389,35 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
           </div>
         ))}
       </div>
+
+      <DrawerField
+        label="Proof of payment"
+        required={!payment.proofDocumentId}
+        hint="Screenshot or bank slip — saved to the client’s documents"
+        className="mb-4"
+      >
+        <label
+          className={cn(
+            "flex cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-3.5 py-3 text-[12.5px] transition-colors",
+            proof
+              ? "border-brand bg-brand-soft text-brand-hover"
+              : "border-border-strong text-muted-foreground hover:bg-hover",
+          )}
+        >
+          <I.upload size={16} className="shrink-0" />
+          {proof
+            ? proof.name
+            : payment.proofDocumentId
+              ? "Proof already on file — attach a new file to replace it"
+              : "Attach screenshot / bank slip…"}
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={(e) => setProof(e.target.files?.[0] ?? null)}
+          />
+        </label>
+      </DrawerField>
 
       <div className="grid grid-cols-2 gap-4">
         <DrawerField label="Payment method" required>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import {
   listAwaitingPaymentsAction,
+  listPaymentChannelOptionsAction,
   sendPaymentLinksAction,
 } from "@/app/(app)/payments/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
@@ -33,6 +34,7 @@ const QUEUE_TEMPLATE: Record<string, string> = {
   Travel: "Travel insurance payment instruction",
 };
 
+/** Fallback until the Official Payment Channels store loads (Settings tab). */
 const PAY_CHANNELS = [
   "Pacific GCash for Business — 0917 888 2100",
   "BPI Corporate Current — 1234-5678-90",
@@ -47,16 +49,26 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [channels, setChannels] = useState<string[]>(PAY_CHANNELS);
   const [payChannel, setPayChannel] = useState(PAY_CHANNELS[0]);
   const [via, setVia] = useState<string[]>(["Email"]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listAwaitingPaymentsAction(), listActiveTemplatesAction()])
-      .then(([pays, tpls]) => {
+    Promise.all([
+      listAwaitingPaymentsAction(),
+      listActiveTemplatesAction(),
+      listPaymentChannelOptionsAction().catch(() => []),
+    ])
+      .then(([pays, tpls, chans]) => {
         setPayments(pays);
         setTemplates(tpls);
         setChecked(new Set(pays.map((p) => p.id))); // all pre-checked (§12)
+        if (chans.length) {
+          // Official Payment Channels from Settings; default channel first.
+          setChannels(chans.map((c) => c.label));
+          setPayChannel(chans[0].label);
+        }
       })
       .catch(() => overlays.toast("Couldn’t load payment queues", "Try again."))
       .finally(() => setLoading(false));
@@ -136,7 +148,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <DrawerField label="Official payment channel" required hint="Business payee — never a personal account">
           <select className={DRAWER_INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
-            {PAY_CHANNELS.map((c) => (
+            {channels.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>

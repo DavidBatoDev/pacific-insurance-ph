@@ -28,6 +28,8 @@ export interface VerifyPaymentInput {
   status: "Received" | "Verified";
   orNumber?: string | null;
   submittedToPacificCross?: boolean;
+  /** documents.id of the uploaded proof (screenshot / bank slip). */
+  proofDocumentId?: string | null;
   notes?: string | null;
 }
 
@@ -45,6 +47,10 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     const repo = getPaymentsRepository();
     const payment = await repo.findById(input.paymentId);
     if (!payment) return { ok: false, error: "Payment not found." };
+    // Proof of payment is required before a payment can be Received/Verified
+    // (payments-page.md) — either just attached or already on file.
+    if (!input.proofDocumentId && !payment.proofDocumentId)
+      return { ok: false, error: "Attach the proof of payment (screenshot or bank slip) first." };
 
     const today = new Date().toISOString().slice(0, 10);
     const updated = await repo.update(input.paymentId, {
@@ -54,6 +60,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
       orNumber: input.orNumber?.trim() || undefined,
       orReceivedDate: input.status === "Verified" ? today : undefined,
       sentToPacificCross: input.submittedToPacificCross,
+      proofDocumentId: input.proofDocumentId ?? undefined,
       notes: input.notes ?? undefined,
     });
 
@@ -225,4 +232,15 @@ export async function updateCommissionAction(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update commission." };
   }
+}
+
+/** Active Official Payment Channels for the Send Payment Links payee picker. */
+export async function listPaymentChannelOptionsAction(): Promise<
+  { id: string; label: string }[]
+> {
+  const { getPaymentChannelsRepository } = await import("@/lib/repositories/payment-channels");
+  const channels = await getPaymentChannelsRepository().list();
+  return channels
+    .filter((c) => c.active)
+    .map((c) => ({ id: c.id, label: `${c.label} — ${c.accountNumber}` }));
 }

@@ -35,6 +35,8 @@ export interface Client {
   proposalStatus: string | null;
   productInterest: string | null;
   estPremium: number | null;
+  familySize: number | null;
+  coverageTier: string | null;
   expectedCloseDate: string | null;
   nextFollowUpDate: string | null;
   earlyPayer: boolean;
@@ -64,6 +66,8 @@ export interface NewClient {
   proposalStatus?: string | null;
   productInterest?: string | null;
   estPremium?: number | null;
+  familySize?: number | null;
+  coverageTier?: string | null;
   expectedCloseDate?: string | null;
   nextFollowUpDate?: string | null;
 }
@@ -89,6 +93,8 @@ export interface ClientUpdate {
   proposalStatus?: string | null;
   productInterest?: string | null;
   estPremium?: number | null;
+  familySize?: number | null;
+  coverageTier?: string | null;
   expectedCloseDate?: string | null;
   nextFollowUpDate?: string | null;
   earlyPayer?: boolean;

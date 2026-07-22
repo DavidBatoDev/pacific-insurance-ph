@@ -9,6 +9,9 @@ export interface Claim {
   clientId: string;
   /** Joined convenience: client's full name. */
   clientName: string | null;
+  /** Group account the client belongs to (via group_members), for cross-linking. */
+  groupId: string | null;
+  groupName: string | null;
   policyId: string | null;
   /** Joined convenience: linked policy's reference number. */
   policyRef: string | null;

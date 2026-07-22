@@ -12,13 +12,17 @@ type PolicyPatch = Database["public"]["Tables"]["policies"]["Update"];
 
 /** Row plus the joined display names the lists render. */
 type JoinedRow = PolicyRow & {
-  clients: { first_name: string; last_name: string } | null;
+  clients: {
+    first_name: string;
+    last_name: string;
+    group_members: { group_accounts: { id: string; name: string } | null }[];
+  } | null;
   product_versions: { product: { name: string } | null } | null;
   plan_options: { plan_name: string } | null;
 };
 
 const SELECT = `*,
-  clients (first_name, last_name),
+  clients (first_name, last_name, group_members (group_accounts (id, name))),
   product_versions (product:products (name)),
   plan_options (plan_name)`;
 
@@ -30,6 +34,8 @@ function toDomain(row: JoinedRow): Policy {
     clientName: row.clients
       ? [row.clients.first_name, row.clients.last_name].filter(Boolean).join(" ")
       : null,
+    groupId: row.clients?.group_members?.[0]?.group_accounts?.id ?? null,
+    groupName: row.clients?.group_members?.[0]?.group_accounts?.name ?? null,
     productName: row.product_versions?.product?.name ?? null,
     planName: row.plan_options?.plan_name ?? null,
     policyNumber: row.policy_number,
