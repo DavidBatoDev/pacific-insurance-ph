@@ -109,8 +109,23 @@ export function NewApplicationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- requestClose reads refs only
   }, []);
 
+  // Derived initial status (design): Inquiry/Lead Only stays a Lead; entering
+  // identity or picking a product makes the record an Applicant.
+  useEffect(() => {
+    const st =
+      f.appType === "Inquiry / Lead Only"
+        ? "Lead"
+        : f.firstName || f.companyName || f.productVersionId
+          ? "Applicant"
+          : "Lead";
+    if (st !== f.status) setF((s) => ({ ...s, status: st })); // derived — must not mark the form dirty
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute on the inputs it derives from
+  }, [f.appType, f.firstName, f.companyName, f.productVersionId]);
+
   const hasName = !!(f.firstName || f.displayName || f.companyName || f.existingClientId || f.convertClientId);
   const hasContact = !!(f.email || f.mobile || f.existingClientId || f.convertClientId);
+  // Design also requires an assigned agent; here the empty select value means
+  // "Me" (resolved to the actor server-side), so that condition always holds.
   const canDraft = hasName && hasContact && !!f.category && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
   const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew;
@@ -239,7 +254,7 @@ export function NewApplicationWizard({
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {canDraft ? "Draft can be saved" : "Add name, contact & product to save a draft"}
+            {canDraft ? "Draft can be saved" : "Add name, contact & category to save a draft"}
           </span>
           <Btn disabled={!canDraft} onClick={() => finish("draft")}>
             Save draft

@@ -520,8 +520,8 @@ export function Dashboard({
           </p>
         </div>
         <div className="flex items-center gap-2.5 max-[900px]:hidden">
-          <Btn variant="primary" onClick={() => overlays.openWizard()}>
-            <I.plus size={15} /> New application
+          <Btn onClick={() => overlays.toast("Export queued", "The dashboard summary will download shortly.")}>
+            <I.download size={15} /> Export
           </Btn>
         </div>
       </div>

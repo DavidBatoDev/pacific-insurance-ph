@@ -108,11 +108,31 @@ function NavItem({ item, active }: { item: NavEntry; active: boolean }) {
   );
 }
 
-function NavLabel({ children }: { children: string }) {
+/** Collapsible nav group (design chrome.jsx NavSection) — default open. */
+function NavSection({
+  label,
+  items,
+  isActive,
+}: {
+  label: string;
+  items: NavEntry[];
+  isActive: (id: ScreenId) => boolean;
+}) {
+  const [open, setOpen] = useState(true);
   return (
-    <div className="px-2.5 pb-1.5 pt-3.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
-      {children}
-    </div>
+    <>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="group flex w-full items-center justify-between px-2.5 pb-1.5 pt-3.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint transition-colors hover:text-muted-foreground"
+      >
+        {label}
+        <I.chevDown
+          size={13}
+          className={cn("transition-transform duration-150", !open && "-rotate-90")}
+        />
+      </button>
+      {open && items.map((it) => <NavItem key={it.id} item={it} active={isActive(it.id)} />)}
+    </>
   );
 }
 
@@ -128,14 +148,8 @@ export function Sidebar() {
       {NAV_MAIN.map((it) => (
         <NavItem key={it.id} item={it} active={isActive(it.id)} />
       ))}
-      <NavLabel>Workspace</NavLabel>
-      {NAV_WORK.map((it) => (
-        <NavItem key={it.id} item={it} active={isActive(it.id)} />
-      ))}
-      <NavLabel>System</NavLabel>
-      {NAV_SYS.map((it) => (
-        <NavItem key={it.id} item={it} active={isActive(it.id)} />
-      ))}
+      <NavSection label="Workspace" items={NAV_WORK} isActive={isActive} />
+      <NavSection label="System" items={NAV_SYS} isActive={isActive} />
 
       <div className="mt-auto pt-3">
         <div className="rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
