@@ -42,11 +42,12 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
   const [source, setSource] = useState("Referral");
   const [stage, setStage] = useState("New Lead");
   const [status, setStatus] = useState("New");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [follow, setFollow] = useState("");
   const [notes, setNotes] = useState("");
 
   const canSave =
-    firstName.trim() && lastName.trim() && (email.trim() || mobile.trim()) && !pending;
+    firstName.trim() && lastName.trim() && dateOfBirth && (email.trim() || mobile.trim()) && !pending;
 
   const save = () => {
     if (!canSave) return;
@@ -61,6 +62,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         leadSource: source,
         startingStage: stage,
         startingStatus: status,
+        dateOfBirth,
         nextFollowUpDate: follow || null,
         notes: notes.trim() || null,
       });
@@ -92,81 +94,90 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="First name" required>
-          <input autoFocus className={INPUT} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-        </Field>
-        <Field label="Last name" required>
-          <input className={INPUT} value={lastName} onChange={(e) => setLastName(e.target.value)} />
-        </Field>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <Field label="Email" hint="Email or mobile is required">
-          <input className={INPUT} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@email.com" />
-        </Field>
-        <Field label="Mobile number">
-          <input className={INPUT} value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+63 9XX XXX XXXX" />
-        </Field>
-      </div>
+      <FieldGroup title="Lead identity" sub="The details needed to identify this prospective client.">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="First name" required>
+            <input autoFocus className={INPUT} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          </Field>
+          <Field label="Last name" required>
+            <input className={INPUT} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </Field>
+          <Field label="Date of birth" required>
+            <input className={INPUT} type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+          </Field>
+        </div>
+      </FieldGroup>
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <Field label="Product interest">
-          <select className={INPUT} value={product} onChange={(e) => setProduct(e.target.value)}>
-            <option value="">Select…</option>
-            {Object.keys(PRODUCT_COLORS).map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Estimated premium (₱)">
-          <input
-            className={INPUT}
-            inputMode="numeric"
-            value={estPremium}
-            onChange={(e) => setEstPremium(e.target.value.replace(/[^0-9,]/g, ""))}
-            placeholder="0"
-          />
-        </Field>
-      </div>
+      <FieldGroup title="Contact details" sub="Enter an email address or mobile number — one is required.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Email">
+            <input className={INPUT} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@email.com" />
+          </Field>
+          <Field label="Mobile number">
+            <input className={INPUT} type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+63 9XX XXX XXXX" />
+          </Field>
+        </div>
+      </FieldGroup>
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <Field label="Source">
-          <select className={INPUT} value={source} onChange={(e) => setSource(e.target.value)}>
-            {SOURCES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Next follow-up">
-          <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
-        </Field>
-      </div>
+      <FieldGroup title="Lead context" sub="Optional details that help prioritize the first follow-up.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Product interest">
+            <select className={INPUT} value={product} onChange={(e) => setProduct(e.target.value)}>
+              <option value="">Select…</option>
+              {Object.keys(PRODUCT_COLORS).map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Estimated premium (₱)">
+            <input
+              className={INPUT}
+              inputMode="numeric"
+              value={estPremium}
+              onChange={(e) => setEstPremium(e.target.value.replace(/[^0-9,]/g, ""))}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="Source">
+            <select className={INPUT} value={source} onChange={(e) => setSource(e.target.value)}>
+              {SOURCES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Next follow-up">
+            <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+          </Field>
+        </div>
+      </FieldGroup>
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <Field label="Starting stage">
-          <select className={INPUT} value={stage} onChange={(e) => setStage(e.target.value)}>
-            {LEAD_STAGES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Starting status">
-          <select className={INPUT} value={status} onChange={(e) => setStatus(e.target.value)}>
-            {LEAD_STATUSES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </Field>
-      </div>
+      <FieldGroup title="Pipeline placement" sub="Leave the defaults for a new inquiry; change them only for a warm or migrated lead.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Starting stage">
+            <select className={INPUT} value={stage} onChange={(e) => setStage(e.target.value)}>
+              {LEAD_STAGES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Starting status">
+            <select className={INPUT} value={status} onChange={(e) => setStatus(e.target.value)}>
+              {LEAD_STATUSES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </FieldGroup>
 
-      <Field label="Notes" className="mt-4">
+      <FieldGroup title="Notes">
         <textarea
           className="min-h-[80px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Inquiry context, discovery notes…"
         />
-      </Field>
+      </FieldGroup>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
         <I.trendUp size={15} className="mt-0.5 shrink-0" />
@@ -200,5 +211,25 @@ function Field({
       {children}
       {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
     </div>
+  );
+}
+
+function FieldGroup({
+  title,
+  sub,
+  children,
+}: {
+  title: string;
+  sub?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-5 border-t border-border-soft pt-4 first:mt-0 first:border-0 first:pt-0">
+      <div className="mb-3">
+        <h3 className="text-[12.5px] font-bold text-foreground">{title}</h3>
+        {sub && <p className="mt-0.5 text-[11.5px] text-subtle">{sub}</p>}
+      </div>
+      {children}
+    </section>
   );
 }

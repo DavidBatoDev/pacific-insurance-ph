@@ -6,6 +6,10 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordAudit } from "@/lib/audit/log";
 import { toAppRole } from "@/lib/auth/permissions";
 import {
+  getIntegrationSettingsRepository,
+  type PacificCrossIntegrationSettings,
+} from "@/lib/repositories/integration-settings";
+import {
   getPaymentChannelsRepository,
   type NewPaymentChannel,
   type PaymentChannel,
@@ -15,8 +19,46 @@ import type { Json } from "@/lib/supabase/types";
 
 async function requireAdmin() {
   const actor = await getActor();
-  if (toAppRole(actor.role) !== "admin") throw new Error("Team changes are Admin-only.");
+  if (toAppRole(actor.role) !== "admin") throw new Error("Settings changes are Admin-only.");
   return actor;
+}
+
+/* -------------------------- Pacific Cross portal -------------------------- */
+
+/** Save the agency's Pacific Cross portal link (Settings → Integrations; Admin-only). */
+export async function savePacificCrossPortalAction(
+  portalUrl: string,
+): Promise<ActionResult<PacificCrossIntegrationSettings>> {
+  try {
+    const actor = await requireAdmin();
+    const value = portalUrl.trim();
+    if (!value) return { ok: false, error: "Pacific Cross portal URL is required." };
+
+    let normalizedUrl: string;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+      normalizedUrl = parsed.toString();
+    } catch {
+      return { ok: false, error: "Enter a valid HTTPS URL." };
+    }
+
+    const saved = await getIntegrationSettingsRepository().savePacificCross({
+      portalUrl: normalizedUrl,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "update",
+      tableName: "integration_settings",
+      recordId: saved.id,
+      newValue: saved as unknown as Json,
+    });
+    revalidatePath("/settings");
+    revalidatePath("/clients", "layout");
+    return { ok: true, data: saved };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save Pacific Cross portal." };
+  }
 }
 
 /** Change a team member's role (Settings → Team; Admin-only). */

@@ -1315,6 +1315,30 @@ export type Database = {
           },
         ]
       }
+      integration_settings: {
+        Row: {
+          created_at: string
+          id: string
+          portal_url: string | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          portal_url?: string | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          portal_url?: string | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           body: string | null
@@ -2759,4 +2783,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

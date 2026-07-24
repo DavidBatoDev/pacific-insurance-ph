@@ -63,6 +63,7 @@ interface Props {
   timeline: TimelineEntry[];
   templates: EmailTemplate[];
   userNames: Record<string, string>;
+  pacificCrossPortalUrl: string | null;
 }
 
 const INPUT =
@@ -92,6 +93,7 @@ export function ContactProfile({
   timeline,
   templates,
   userNames,
+  pacificCrossPortalUrl,
 }: Props) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -749,6 +751,16 @@ export function ContactProfile({
                     : "No proposal requested yet."}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {pacificCrossPortalUrl && (
+                    <a
+                      href={pacificCrossPortalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                    >
+                      <I.arrowUpRight size={14} /> Open Pacific Cross portal
+                    </a>
+                  )}
                   {!client.proposalStatus && (
                     <Btn size="sm" onClick={() => setProposalOpen(true)}>
                       Request proposal

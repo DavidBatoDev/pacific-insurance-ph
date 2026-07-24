@@ -6,6 +6,7 @@ import { getContactTimeline } from "@/lib/queries/contact-timeline";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
+import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { getTemplatesRepository } from "@/lib/repositories/templates";
 import { getUsersRepository } from "@/lib/repositories/users";
 
@@ -24,13 +25,14 @@ export default async function ContactProfilePage({
   const client = await getClientsRepository().findById(id);
   if (!client) notFound();
 
-  const [counts, dependents, documents, timeline, templates, users] = await Promise.all([
+  const [counts, dependents, documents, timeline, templates, users, pacificCross] = await Promise.all([
     getClientRelatedCounts(id),
     getDependentsRepository().listByClient(id),
     getDocumentsRepository().listByClient(id),
     getContactTimeline(id),
     getTemplatesRepository().list(true),
     getUsersRepository().list({ limit: 50 }),
+    getIntegrationSettingsRepository().getPacificCross(),
   ]);
 
   return (
@@ -42,6 +44,7 @@ export default async function ContactProfilePage({
       timeline={timeline}
       templates={templates}
       userNames={Object.fromEntries(users.rows.map((u) => [u.id, u.fullName]))}
+      pacificCrossPortalUrl={pacificCross?.portalUrl ?? null}
     />
   );
 }

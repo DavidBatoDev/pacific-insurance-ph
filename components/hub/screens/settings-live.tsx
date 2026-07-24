@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
+  savePacificCrossPortalAction,
   savePaymentChannelAction,
   togglePaymentChannelAction,
   toggleUserStatusAction,
   updateUserRoleAction,
 } from "@/app/(app)/settings/actions";
+import type { PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
 import type { User } from "@/lib/repositories/users/user.entity";
 import { cn } from "@/lib/utils";
@@ -33,7 +35,15 @@ const TABS = [
   { id: "Integrations", adminOnly: false },
 ] as const;
 
-export function SettingsLive({ users, channels }: { users: User[]; channels: PaymentChannel[] }) {
+export function SettingsLive({
+  users,
+  channels,
+  pacificCross,
+}: {
+  users: User[];
+  channels: PaymentChannel[];
+  pacificCross: PacificCrossIntegrationSettings | null;
+}) {
   const persona = usePersona();
   const isAdmin = persona.role === "admin";
   const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
@@ -82,7 +92,7 @@ export function SettingsLive({ users, channels }: { users: User[]; channels: Pay
         {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
-        {active === "Integrations" && <StaticTab title="Integrations" body="Gmail (inbound sync + send-in-app), WhatsApp (preferred automation channel), Viber (manual logging only), and the Pacific Cross portal link-out. OAuth flows land in a later release." />}
+        {active === "Integrations" && <IntegrationsTab pacificCross={pacificCross} canEdit={isAdmin} />}
       </Card>
     </div>
   );
@@ -233,6 +243,92 @@ function StaticTab({ title, body }: { title: string; body: string }) {
         <DraftBadge />
       </div>
       <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
+/* -------------------------- Pacific Cross portal -------------------------- */
+
+function IntegrationsTab({
+  pacificCross,
+  canEdit,
+}: {
+  pacificCross: PacificCrossIntegrationSettings | null;
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const [portalUrl, setPortalUrl] = useState(pacificCross?.portalUrl ?? "");
+  const [pending, startTransition] = useTransition();
+  const configuredUrl = pacificCross?.portalUrl ?? null;
+
+  const save = () =>
+    startTransition(async () => {
+      const res = await savePacificCrossPortalAction(portalUrl);
+      if (res.ok) {
+        setPortalUrl(res.data.portalUrl ?? "");
+        overlays.toast("Pacific Cross portal saved", "Staff can now open the configured portal from Settings and proposal tracking.");
+        router.refresh();
+      } else {
+        overlays.toast("Couldn’t save portal", res.error);
+      }
+    });
+
+  return (
+    <div className="max-w-[640px]">
+      <div className="mb-4 flex items-start gap-3.5 rounded-md border border-border-soft bg-surface-2 p-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-[9px] bg-brand-soft text-brand-hover">
+          <I.building size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-bold">Pacific Cross portal</h3>
+          <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
+            Open the carrier portal in a separate tab when preparing or generating a proposal.
+          </p>
+          {configuredUrl ? (
+            <a
+              href={configuredUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <I.arrowUpRight size={14} /> Open Pacific Cross portal
+            </a>
+          ) : (
+            <p className="mt-3 text-[12px] text-subtle">
+              {canEdit
+                ? "Add the official portal URL below to make it available to staff."
+                : "Your admin has not configured the portal link yet."}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {canEdit && (
+        <div>
+          <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+            Portal URL
+          </label>
+          <div className="flex gap-2.5">
+            <input
+              className={INPUT}
+              type="url"
+              inputMode="url"
+              value={portalUrl}
+              onChange={(e) => setPortalUrl(e.target.value)}
+              placeholder="https://…"
+            />
+            <button
+              onClick={save}
+              disabled={pending || !portalUrl.trim()}
+              className="inline-flex h-9 shrink-0 items-center rounded-md border border-transparent bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+            >
+              {pending ? "Saving…" : "Save URL"}
+            </button>
+          </div>
+          <p className="mt-2 text-[12px] text-faint">Only admins can change this shared integration setting.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -101,6 +101,7 @@ export interface NewLeadInput {
   leadSource?: string | null;
   startingStage?: string;
   startingStatus?: string;
+  dateOfBirth?: string | null;
   nextFollowUpDate?: string | null;
   notes?: string | null;
 }
@@ -111,6 +112,9 @@ export async function createLeadAction(input: NewLeadInput): Promise<ActionResul
     return { ok: false, error: "First and last name are required." };
   if (!input.email && !input.mobileNumber)
     return { ok: false, error: "At least one contact method (email or mobile) is required." };
+  const dateOfBirth = input.dateOfBirth?.trim();
+  if (!dateOfBirth)
+    return { ok: false, error: "Date of birth is required to create a lead." };
 
   try {
     const created = await getClientsRepository().create({
@@ -124,6 +128,7 @@ export async function createLeadAction(input: NewLeadInput): Promise<ActionResul
       lifecycleStage: "Lead",
       leadStage: input.startingStage ?? "New Lead",
       leadStatus: input.startingStatus ?? "New",
+      dateOfBirth,
       productInterest: input.productInterest ?? null,
       estPremium: input.estPremium ?? null,
       nextFollowUpDate: input.nextFollowUpDate ?? null,
