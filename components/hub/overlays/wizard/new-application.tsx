@@ -141,7 +141,8 @@ export function NewApplicationWizard({
   const hasContact = !!(f.email || f.mobile || f.existingClientId || f.convertClientId);
   // Design also requires an assigned agent; here the empty select value means
   // "Me" (resolved to the actor server-side), so that condition always holds.
-  const canDraft = hasName && hasContact && !!f.category && !pending;
+  // A draft captures an early inquiry, before a product/workflow is necessarily known.
+  const canDraft = hasName && hasContact && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
   const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew;
 
@@ -273,7 +274,7 @@ export function NewApplicationWizard({
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {canDraft ? "Draft can be saved" : "Add name, contact & category to save a draft"}
+            {canDraft ? "Draft can be saved" : "Add a name and contact method to save a draft"}
           </span>
           <Btn disabled={!canDraft} onClick={() => finish("draft")}>
             Save draft

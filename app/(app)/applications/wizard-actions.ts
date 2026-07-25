@@ -42,8 +42,14 @@ export async function createFromWizardAction(
 
   const hasName = !!(form.firstName || form.displayName || form.companyName || form.existingClientId || form.convertClientId);
   const hasContact = !!(form.email || form.mobile || form.existingClientId || form.convertClientId);
-  if (!hasName || !hasContact || !form.category)
-    return { ok: false, error: "Name, a contact method, and a product category are required." };
+  if (!hasName || !hasContact || (mode !== "draft" && !form.category))
+    return {
+      ok: false,
+      error:
+        mode === "draft"
+          ? "A name and contact method are required to save a draft."
+          : "Name, a contact method, and a product category are required.",
+    };
 
   try {
     /* ---------- 1. resolve the contact record ---------- */
