@@ -54,6 +54,7 @@ export interface ConfirmOptions {
   title: string;
   /** Plain-text body (no HTML injection). */
   message: ReactNode;
+  cancelLabel?: string;
   confirmLabel?: string;
 }
 
@@ -80,7 +81,7 @@ export function ConfirmDialog({
         <h3 className="text-[16px] font-bold tracking-[-0.01em]">{options.title}</h3>
         <div className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{options.message}</div>
         <div className="mt-5 flex w-full items-center justify-center gap-2.5">
-          <Btn onClick={() => onResolve(false)}>Cancel</Btn>
+          <Btn onClick={() => onResolve(false)}>{options.cancelLabel ?? "Cancel"}</Btn>
           <Btn
             variant="primary"
             className={kind === "danger" ? "border-transparent bg-red text-white hover:bg-red/90" : undefined}

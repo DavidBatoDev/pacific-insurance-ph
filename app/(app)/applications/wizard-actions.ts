@@ -13,7 +13,7 @@ import { getTravelRepository } from "@/lib/repositories/travel";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
-import { parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
+import { categoryForProduct, emptyWizardForm, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
 
 export type WizardMode = "draft" | "create" | "email" | "docs";
 
@@ -24,6 +24,107 @@ export interface WizardResult {
   groupId?: string;
   /** Human summary for the toast. */
   summary: string;
+}
+
+export type AutoFilledWizardField =
+  | "firstName"
+  | "lastName"
+  | "email"
+  | "mobile"
+  | "dob"
+  | "address"
+  | "channels"
+  | "notes"
+  | "assignedUserId"
+  | "appType"
+  | "source"
+  | "productVersionId";
+
+export interface DraftResumePayload {
+  form: WizardForm;
+  linkedClientName: string;
+  /** Fields that received a lead/default value instead of an existing draft value. */
+  autoFilled: Partial<Record<AutoFilledWizardField, string>>;
+}
+
+const normaliseProductName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+const hasSavedValue = (value: unknown): boolean =>
+  Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim().length > 0 : value != null;
+const wizardChannel = (value: string | null) => (value === "Gmail" ? "Email" : value);
+const isWizardState = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Resolve a resumable draft against its current linked lead. Saved values win;
+ * a blank field inherits the lead only when the field has usable lead context.
+ */
+export async function getDraftResumeAction(
+  applicationId: string,
+): Promise<ActionResult<DraftResumePayload>> {
+  await getActor();
+  try {
+    const draft = await getApplicationsRepository().findById(applicationId);
+    if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
+      return { ok: false, error: "This application draft is no longer available to continue." };
+    }
+    const client = await getClientsRepository().findById(draft.clientId);
+    if (!client) return { ok: false, error: "The contact for this application draft no longer exists." };
+
+    const saved = draft.wizardState as Partial<WizardForm>;
+    const { data: productRows, error: productError } = await getSupabaseAdmin()
+      .from("product_versions")
+      .select("id, product:products (name)")
+      .eq("status", "Active");
+    if (productError) return { ok: false, error: productError.message };
+
+    const matches = (productRows ?? []).filter((row) => {
+      const name = (row.product as { name: string } | null)?.name;
+      return !!client.productInterest && !!name && normaliseProductName(name) === normaliseProductName(client.productInterest);
+    });
+    const uniqueProduct = matches.length === 1
+      ? { id: matches[0].id, name: (matches[0].product as { name: string }).name }
+      : null;
+
+    const autoFilled: Partial<Record<AutoFilledWizardField, string>> = {};
+    const resolveDefault = <K extends AutoFilledWizardField>(key: K, fallback: WizardForm[K]) => {
+      const value = saved[key];
+      if (hasSavedValue(value)) return value as WizardForm[K];
+      if (hasSavedValue(fallback)) autoFilled[key] = Array.isArray(fallback) ? fallback.join(", ") : String(fallback);
+      return fallback;
+    };
+
+    const form = {
+      ...emptyWizardForm(),
+      ...saved,
+      draftApplicationId: draft.id,
+      draftStep: typeof saved.draftStep === "number" ? saved.draftStep : 1,
+      clientMode: "existing" as const,
+      existingClientId: client.id,
+      existingClientName: client.fullName,
+      convertClientId: null,
+      convertClientName: null,
+      firstName: resolveDefault("firstName", client.firstName),
+      lastName: resolveDefault("lastName", client.lastName),
+      displayName: hasSavedValue(saved.displayName) ? saved.displayName! : client.fullName,
+      email: resolveDefault("email", client.email ?? ""),
+      mobile: resolveDefault("mobile", client.mobileNumber ?? ""),
+      dob: resolveDefault("dob", client.dateOfBirth ?? ""),
+      address: resolveDefault("address", client.address ?? ""),
+      channels: resolveDefault("channels", wizardChannel(client.preferredChannel) ? [wizardChannel(client.preferredChannel)!] : []),
+      notes: resolveDefault("notes", client.notes ?? ""),
+      assignedUserId: resolveDefault("assignedUserId", client.assignedUserId ?? ""),
+      appType: resolveDefault("appType", "New Insurance Application"),
+      source: resolveDefault("source", client.leadSource ?? ""),
+      productVersionId: resolveDefault("productVersionId", uniqueProduct?.id ?? ""),
+      productName: hasSavedValue(saved.productName) ? saved.productName! : uniqueProduct?.name ?? "",
+      category: hasSavedValue(saved.category) ? saved.category! : uniqueProduct ? categoryForProduct(uniqueProduct.name) : "",
+    } satisfies WizardForm;
+    if (!hasSavedValue(saved.emailRecipient) && form.email) form.emailRecipient = form.email;
+
+    return { ok: true, data: { form, linkedClientName: client.fullName, autoFilled } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to load the application draft." };
+  }
 }
 
 /**
@@ -60,7 +161,7 @@ export async function createFromWizardAction(
 
     if (form.draftApplicationId) {
       const draft = await applicationsRepo.findById(form.draftApplicationId);
-      if (!draft || draft.status !== "Lead" || draft.wizardState === null) {
+      if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
         return { ok: false, error: "This application draft is no longer available to continue." };
       }
       const existingClient = await clientsRepo.findById(draft.clientId);

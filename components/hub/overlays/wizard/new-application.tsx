@@ -4,7 +4,12 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { createFromWizardAction, type WizardMode } from "@/app/(app)/applications/wizard-actions";
+import {
+  createFromWizardAction,
+  getDraftResumeAction,
+  type AutoFilledWizardField,
+  type WizardMode,
+} from "@/app/(app)/applications/wizard-actions";
 import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
 import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/tasks/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
@@ -37,8 +42,22 @@ export interface WizardPrefill {
   productInterest?: string | null;
   email?: string | null;
   draftApplicationId?: string;
-  draftForm?: WizardForm;
 }
+
+const AUTO_FILLED_LABEL: Record<AutoFilledWizardField, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  email: "Email address",
+  mobile: "Mobile number",
+  dob: "Date of birth",
+  address: "Address",
+  channels: "Preferred communication channel",
+  notes: "Notes",
+  assignedUserId: "Assigned agent",
+  appType: "Application type",
+  source: "Source",
+  productVersionId: "Product",
+};
 
 export function NewApplicationWizard({
   prefill,
@@ -52,27 +71,23 @@ export function NewApplicationWizard({
   const persona = usePersona();
   const [pending, startTransition] = useTransition();
 
-  const [step, setStep] = useState(prefill?.draftForm?.draftStep ?? 1);
+  const [step, setStep] = useState(1);
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
-  const [f, setF] = useState<WizardForm>(() =>
-    prefill?.draftForm
-      ? {
-          ...emptyWizardForm(),
-          ...prefill.draftForm,
-          draftApplicationId: prefill.draftApplicationId ?? prefill.draftForm.draftApplicationId,
-        }
-      : {
-          ...emptyWizardForm(),
-          convertClientId: prefill?.convertClientId ?? null,
-          convertClientName: prefill?.convertClientName ?? null,
-          clientMode: prefill?.convertClientId ? "existing" : "new",
-          displayName: prefill?.convertClientName ?? "",
-          email: prefill?.email ?? "",
-          emailRecipient: prefill?.email ?? "",
-        },
-  );
-  const skipInitialChecklist = useRef(Boolean(prefill?.draftForm));
+  const [f, setF] = useState<WizardForm>(() => ({
+    ...emptyWizardForm(),
+    convertClientId: prefill?.convertClientId ?? null,
+    convertClientName: prefill?.convertClientName ?? null,
+    clientMode: prefill?.convertClientId ? "existing" : "new",
+    displayName: prefill?.convertClientName ?? "",
+    email: prefill?.email ?? "",
+    emailRecipient: prefill?.email ?? "",
+  }));
+  const skipInitialChecklist = useRef(Boolean(prefill?.draftApplicationId));
+  const [resumeLoading, setResumeLoading] = useState(Boolean(prefill?.draftApplicationId));
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>({});
+  const [linkedClientName, setLinkedClientName] = useState<string | null>(null);
 
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -84,6 +99,31 @@ export function NewApplicationWizard({
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
   }, []);
 
+  useEffect(() => {
+    if (!prefill?.draftApplicationId) return;
+    getDraftResumeAction(prefill.draftApplicationId)
+      .then((res) => {
+        if (!res.ok || !res.data?.form) {
+          const message = res.ok
+            ? "The application draft returned incomplete data. Close and reopen it to try again."
+            : res.error;
+          setResumeError(message);
+          overlays.toast("Couldn’t load application draft", message);
+          return;
+        }
+        setF(res.data.form);
+        setStep(res.data.form.draftStep);
+        setAutoFilled(res.data.autoFilled);
+        setLinkedClientName(res.data.linkedClientName);
+      })
+      .catch(() => {
+        const message = "The application draft could not be loaded.";
+        setResumeError(message);
+        overlays.toast("Couldn’t load application draft", message);
+      })
+      .finally(() => setResumeLoading(false));
+  }, [overlays, prefill?.draftApplicationId]);
+
   const set = (patch: Partial<WizardForm>) => {
     const keys = Object.keys(patch);
     if (!keys.every((k) => k === "checklist")) dirtyRef.current = true;
@@ -92,11 +132,11 @@ export function NewApplicationWizard({
 
   // Auto-generate the checklist when the category (or pre-existing flag) changes.
   useEffect(() => {
+    if (!f.category) return;
     if (skipInitialChecklist.current) {
       skipInitialChecklist.current = false;
       return;
     }
-    if (!f.category) return;
     const base = WIZ_CHECKLISTS[f.category] ?? [];
     let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
     if (f.category === "health" && f.preExisting === "Yes") {
@@ -152,7 +192,28 @@ export function NewApplicationWizard({
     setF((s) => ({ ...s, draftStep: next }));
   };
 
-  const finish = (mode: WizardMode) =>
+  const changedAutoFilledFields = () =>
+    (Object.keys(autoFilled) as AutoFilledWizardField[]).filter((field) => {
+      const value = f[field];
+      const current = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+      return current !== autoFilled[field];
+    });
+
+  const finish = async (mode: WizardMode) => {
+    const changedFields = changedAutoFilledFields();
+    if (changedFields.length > 0) {
+      const confirmed = await overlays.confirm({
+        title: "Save changes to linked lead?",
+        message: (
+          <>
+            You changed {changedFields.map((field) => AUTO_FILLED_LABEL[field]).join(", ")}. Saving will update the linked lead/client record.
+          </>
+        ),
+        confirmLabel: "Save changes",
+        cancelLabel: "Review changes",
+      });
+      if (!confirmed) return;
+    }
     startTransition(async () => {
       const res = await createFromWizardAction(f, mode);
       if (res.ok) {
@@ -170,6 +231,7 @@ export function NewApplicationWizard({
         overlays.toast("Couldn’t create the application", res.error);
       }
     });
+  };
 
   const stepProps = { f, set, products, users };
   const heads: Record<number, [string, string]> = {
@@ -256,12 +318,24 @@ export function NewApplicationWizard({
           )}
           <h2 className="text-[18px] font-bold tracking-[-0.01em]">{heads[step][0]}</h2>
           <p className="mb-5 mt-0.5 text-[13px] text-muted-foreground">{heads[step][1]}</p>
-          {step === 1 && <Step1 {...stepProps} />}
-          {step === 2 && <Step2 {...stepProps} />}
-          {step === 3 && <Step3 {...stepProps} />}
-          {step === 4 && <Step4 {...stepProps} />}
-          {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
-          {step === 6 && <Step6 {...stepProps} />}
+          {resumeLoading ? (
+            <div className="rounded-md border border-border-soft bg-surface-2 px-4 py-5 text-[13px] text-muted-foreground">
+              Loading the linked lead and saved application details…
+            </div>
+          ) : resumeError ? (
+            <div className="rounded-md border border-red-border bg-red-soft px-4 py-3 text-[13px] text-red">
+              {resumeError}
+            </div>
+          ) : (
+            <>
+              {step === 1 && <Step1 {...stepProps} />}
+              {step === 2 && <Step2 {...stepProps} linkedClientName={linkedClientName} />}
+              {step === 3 && <Step3 {...stepProps} />}
+              {step === 4 && <Step4 {...stepProps} />}
+              {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
+              {step === 6 && <Step6 {...stepProps} />}
+            </>
+          )}
         </div>
 
         {/* Footer */}
@@ -276,18 +350,18 @@ export function NewApplicationWizard({
           <span className="flex-1 text-[11.5px] text-faint">
             {canDraft ? "Draft can be saved" : "Add a name and contact method to save a draft"}
           </span>
-          <Btn disabled={!canDraft} onClick={() => finish("draft")}>
+          <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
             Save draft
           </Btn>
           {step < 6 ? (
-            <Btn variant="primary" onClick={() => go(step + 1)}>
+            <Btn variant="primary" disabled={resumeLoading || !!resumeError} onClick={() => go(step + 1)}>
               Continue <I.chevRight size={15} />
             </Btn>
           ) : (
             <div className="relative flex">
               <Btn
                 variant="primary"
-                disabled={!canCreate}
+                disabled={!canCreate || resumeLoading || !!resumeError}
                 onClick={() => finish("docs")}
                 className="rounded-r-none"
               >
@@ -295,7 +369,7 @@ export function NewApplicationWizard({
               </Btn>
               <button
                 onClick={() => setSplitOpen((o) => !o)}
-                disabled={!canCreate}
+                disabled={!canCreate || resumeLoading || !!resumeError}
                 className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
               >
                 <I.chevDown size={15} className="rotate-180" />

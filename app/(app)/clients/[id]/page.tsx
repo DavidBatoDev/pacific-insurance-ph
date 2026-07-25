@@ -51,7 +51,13 @@ export default async function ContactProfilePage({
       userNames={Object.fromEntries(users.rows.map((u) => [u.id, u.fullName]))}
       pacificCrossPortalUrl={pacificCross?.portalUrl ?? null}
       origin={from === "prospects" || client.lifecycleStage === "Lead" ? "prospects" : "clients"}
-      draftApplications={applications.filter((application) => application.status === "Lead" && application.wizardState !== null)}
+      draftApplications={applications.filter(
+        (application) =>
+          application.status === "Lead" &&
+          !!application.wizardState &&
+          typeof application.wizardState === "object" &&
+          !Array.isArray(application.wizardState),
+      )}
     />
   );
 }

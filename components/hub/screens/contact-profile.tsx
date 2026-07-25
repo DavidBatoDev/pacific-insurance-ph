@@ -393,7 +393,6 @@ export function ContactProfile({
                   const draft = draftApplications[0];
                   overlays.openWizard({
                     draftApplicationId: draft.id,
-                    draftForm: draft.wizardState as unknown as Record<string, unknown>,
                   });
                 }}
               >
@@ -850,7 +849,6 @@ export function ContactProfile({
                       onClick={() =>
                         overlays.openWizard({
                           draftApplicationId: draft.id,
-                          draftForm: draft.wizardState as unknown as Record<string, unknown>,
                         })
                       }
                     >
