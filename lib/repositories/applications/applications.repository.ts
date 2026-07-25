@@ -10,4 +10,6 @@ export interface ApplicationsRepository {
   listByClient(clientId: string): Promise<Application[]>;
   create(input: NewApplication): Promise<Application>;
   update(id: string, input: ApplicationUpdate): Promise<Application>;
+  /** Hard-delete an application (used when cleaning up a lead's unsubmitted draft). */
+  delete(id: string): Promise<void>;
 }

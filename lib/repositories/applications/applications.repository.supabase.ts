@@ -122,4 +122,13 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     if (error) throw toRepositoryError("ApplicationsRepository.update", error);
     return toDomain(data);
   }
+
+  async delete(id: string): Promise<void> {
+    const { error } = await getSupabaseAdmin()
+      .from("applications")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw toRepositoryError("ApplicationsRepository.delete", error);
+  }
 }

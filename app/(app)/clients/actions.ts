@@ -11,7 +11,12 @@ import {
   type ClientUpdate,
   type NewClient,
 } from "@/lib/repositories/clients";
+import {
+  getApplicationsRepository,
+  type Application,
+} from "@/lib/repositories/applications";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
+import { RepositoryError } from "@/lib/repositories/types";
 import type { Json } from "@/lib/supabase/types";
 
 export interface ClientFormState {
@@ -169,14 +174,63 @@ export async function updateClientAction(
   redirect(`/clients/${id}${formData.get("from") === "prospects" ? "?from=prospects" : ""}`);
 }
 
-export async function deleteClientAction(formData: FormData) {
+/**
+ * An application counts as "unsubmitted" — a lead's draft that never went to
+ * Pacific Cross — only while it still carries the default `Lead` status and has
+ * no submission date. Once it advances (Under Review, Missing Requirements,
+ * Awaiting Payment, Approved) it's a real commitment and must not be swept away
+ * with the lead. See docs/lead-stage-status.md.
+ */
+const UNSUBMITTED_APPLICATION_STATUSES = new Set(["Lead"]);
+
+function isUnsubmittedApplication(app: Application): boolean {
+  return app.dateSubmitted == null && UNSUBMITTED_APPLICATION_STATUSES.has(app.status);
+}
+
+/** Turn a client-delete FK violation (23503) into a specific, actionable message. */
+function blockedDeleteMessage(error: RepositoryError): string {
+  const blockers: Array<[constraint: string, label: string]> = [
+    ["applications_client_id_fkey", "a submitted application"],
+    ["claims_client_id_fkey", "a claim"],
+    ["policies_client_id_fkey", "a policy"],
+    ["renewals_client_id_fkey", "a renewal"],
+    ["travel_requests_client_id_fkey", "a travel request"],
+  ];
+  const hit = blockers.find(([constraint]) => error.message.includes(constraint));
+  const label = hit ? hit[1] : "related records";
+  return `Can't delete this client — they still have ${label} on record. Resolve or reassign it first.`;
+}
+
+export async function deleteClientAction(
+  _prev: ClientFormState,
+  formData: FormData,
+): Promise<ClientFormState> {
   const actor = await getActor();
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Missing client id." };
 
   const repo = getClientsRepository();
+  const appsRepo = getApplicationsRepository();
   const before = await repo.findById(id);
-  await repo.delete(id);
+
+  // A lead's in-flight application draft shouldn't block deleting the lead —
+  // remove the unsubmitted ones first. Submitted applications and other
+  // commitments stay protected by their RESTRICT foreign keys, and surface as a
+  // clear message below rather than an unhandled 500.
+  const apps = await appsRepo.listByClient(id);
+  for (const app of apps.filter(isUnsubmittedApplication)) {
+    await appsRepo.delete(app.id);
+  }
+
+  try {
+    await repo.delete(id);
+  } catch (e) {
+    if (e instanceof RepositoryError && e.code === "23503") {
+      return { error: blockedDeleteMessage(e) };
+    }
+    throw e;
+  }
+
   await recordAudit({
     actorId: actor.id,
     action: "delete",

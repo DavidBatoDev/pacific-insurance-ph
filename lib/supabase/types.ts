@@ -1,6 +1,3 @@
-// Generated via mcp__supabase__generate_typescript_types — do not edit by hand.
-// Regenerate after applying a migration.
-
 export type Json =
   | string
   | number
