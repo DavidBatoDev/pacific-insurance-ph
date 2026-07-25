@@ -137,6 +137,7 @@ export type Database = {
           reference_no: string | null
           status: string
           updated_at: string
+          wizard_state: Json | null
         }
         Insert: {
           application_type?: string
@@ -159,6 +160,7 @@ export type Database = {
           reference_no?: string | null
           status?: string
           updated_at?: string
+          wizard_state?: Json | null
         }
         Update: {
           application_type?: string
@@ -181,6 +183,7 @@ export type Database = {
           reference_no?: string | null
           status?: string
           updated_at?: string
+          wizard_state?: Json | null
         }
         Relationships: [
           {

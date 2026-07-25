@@ -36,6 +36,8 @@ export interface WizardPrefill {
   convertClientName?: string;
   productInterest?: string | null;
   email?: string | null;
+  draftApplicationId?: string;
+  draftForm?: WizardForm;
 }
 
 export function NewApplicationWizard({
@@ -50,18 +52,27 @@ export function NewApplicationWizard({
   const persona = usePersona();
   const [pending, startTransition] = useTransition();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(prefill?.draftForm?.draftStep ?? 1);
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
-  const [f, setF] = useState<WizardForm>(() => ({
-    ...emptyWizardForm(),
-    convertClientId: prefill?.convertClientId ?? null,
-    convertClientName: prefill?.convertClientName ?? null,
-    clientMode: prefill?.convertClientId ? "existing" : "new",
-    displayName: prefill?.convertClientName ?? "",
-    email: prefill?.email ?? "",
-    emailRecipient: prefill?.email ?? "",
-  }));
+  const [f, setF] = useState<WizardForm>(() =>
+    prefill?.draftForm
+      ? {
+          ...emptyWizardForm(),
+          ...prefill.draftForm,
+          draftApplicationId: prefill.draftApplicationId ?? prefill.draftForm.draftApplicationId,
+        }
+      : {
+          ...emptyWizardForm(),
+          convertClientId: prefill?.convertClientId ?? null,
+          convertClientName: prefill?.convertClientName ?? null,
+          clientMode: prefill?.convertClientId ? "existing" : "new",
+          displayName: prefill?.convertClientName ?? "",
+          email: prefill?.email ?? "",
+          emailRecipient: prefill?.email ?? "",
+        },
+  );
+  const skipInitialChecklist = useRef(Boolean(prefill?.draftForm));
 
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -81,6 +92,10 @@ export function NewApplicationWizard({
 
   // Auto-generate the checklist when the category (or pre-existing flag) changes.
   useEffect(() => {
+    if (skipInitialChecklist.current) {
+      skipInitialChecklist.current = false;
+      return;
+    }
     if (!f.category) return;
     const base = WIZ_CHECKLISTS[f.category] ?? [];
     let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
@@ -130,7 +145,11 @@ export function NewApplicationWizard({
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
   const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew;
 
-  const go = (n: number) => setStep(Math.max(1, Math.min(6, n)));
+  const go = (n: number) => {
+    const next = Math.max(1, Math.min(6, n));
+    setStep(next);
+    setF((s) => ({ ...s, draftStep: next }));
+  };
 
   const finish = (mode: WizardMode) =>
     startTransition(async () => {

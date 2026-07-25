@@ -21,6 +21,10 @@ export interface ChecklistItem {
 }
 
 export interface WizardForm {
+  /** Application row that owns a saved wizard draft, if this is a resume. */
+  draftApplicationId: string | null;
+  /** Last active wizard step, persisted with a saved draft. */
+  draftStep: number;
   /* Step 1 — workflow & product */
   appType: string;
   source: string;
@@ -158,6 +162,8 @@ export function categoryForProduct(name: string): WizardCategory {
 
 export function emptyWizardForm(): WizardForm {
   return {
+    draftApplicationId: null,
+    draftStep: 1,
     appType: "",
     source: "",
     category: "",

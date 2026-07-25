@@ -237,7 +237,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                           key={l.id}
                           draggable
                           onDragStart={() => setDragId(l.id)}
-                          onClick={() => openContact(l.id)}
+                          onClick={() => openContact(l.id, "prospects")}
                           className="cursor-pointer rounded-md border border-border bg-card p-2.5 shadow-xs transition-all hover:-translate-y-px hover:shadow-md"
                           style={{ opacity: dim ? 0.32 : 1 }}
                         >
@@ -291,7 +291,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
           <ProposalTracking leads={leads} onMarkReceived={markProposalReceived} />
-          <FollowUpQueue leads={leads} userNames={userNames} onOpen={openContact} />
+          <FollowUpQueue leads={leads} userNames={userNames} onOpen={(id) => openContact(id, "prospects")} />
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
           <ProductInterest leads={leads} />
@@ -394,7 +394,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
           <tbody>
             {listRows.map((l) => (
               <tr key={l.id} className="border-b border-border-soft transition-colors last:border-0 hover:bg-hover">
-                <td className="cursor-pointer px-4 py-2.5" onClick={() => openContact(l.id)}>
+                <td className="cursor-pointer px-4 py-2.5" onClick={() => openContact(l.id, "prospects")}>
                   <div className="flex items-center gap-2.5">
                     <Avatar name={l.fullName} size={30} />
                     <div>

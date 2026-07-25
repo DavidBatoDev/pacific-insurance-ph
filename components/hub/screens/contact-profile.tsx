@@ -10,10 +10,12 @@ import {
 } from "@/app/(app)/clients/actions";
 import {
   addNoteAction,
+  completeDiscoveryAction,
   logCallAction,
   logMessageAction,
   sendEmailAction,
   toggleContactFlagAction,
+  type LeadAdvanceSuggestion,
 } from "@/app/(app)/clients/engage-actions";
 import { setProposalStatusAction } from "@/app/(app)/prospects/actions";
 import { deleteDocumentAction } from "@/app/(app)/documents/actions";
@@ -22,13 +24,14 @@ import { DocumentUploadForm } from "@/components/documents/document-upload-form"
 import type { TimelineEntry, TimelineKind } from "@/lib/queries/contact-timeline";
 import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
 import type { Client } from "@/lib/repositories/clients/client.entity";
+import type { Application } from "@/lib/repositories/applications";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import type { Tone } from "../data";
 import { I, type IconName } from "../icons";
 import { STAGE_TONE, STATUS_TONE } from "../lead-config";
-import { AdvanceLeadModal } from "../overlays/advance-lead";
+import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { usePersona } from "../persona";
@@ -64,6 +67,8 @@ interface Props {
   templates: EmailTemplate[];
   userNames: Record<string, string>;
   pacificCrossPortalUrl: string | null;
+  origin: "clients" | "prospects";
+  draftApplications: Application[];
 }
 
 const INPUT =
@@ -94,6 +99,8 @@ export function ContactProfile({
   templates,
   userNames,
   pacificCrossPortalUrl,
+  origin,
+  draftApplications,
 }: Props) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -132,7 +139,7 @@ export function ContactProfile({
   const [callFollow, setCallFollow] = useState("");
   const [note, setNote] = useState("");
 
-  const [advanceOpen, setAdvanceOpen] = useState<{ stage?: string; status?: string; label?: string } | null>(null);
+  const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState("All");
 
@@ -177,6 +184,7 @@ export function ContactProfile({
       setBody("");
       setTpl("");
       router.refresh();
+      if (res.data.advance) setAdvanceOpen(res.data.advance);
     });
 
   const logMessage = () =>
@@ -191,6 +199,7 @@ export function ContactProfile({
       toast("Message logged", `Inbound ${msgChannel} message saved to ${client.fullName}’s timeline.`);
       setMsgText("");
       router.refresh();
+      if (res.data.advance) setAdvanceOpen(res.data.advance);
     });
 
   const logCall = () =>
@@ -216,10 +225,16 @@ export function ContactProfile({
       setCallNote("");
       setCallFollow("");
       router.refresh();
-      // A reached discovery call implies progress — offer the Advance popup.
-      if (isLead && outcome === "Reached") {
-        setAdvanceOpen({ stage: "Discovery", status: "Connected", label: "Logged discovery call (reached)" });
-      }
+      if (res.data.advance) setAdvanceOpen(res.data.advance);
+    });
+
+  const completeDiscovery = () =>
+    startTransition(async () => {
+      const res = await completeDiscoveryAction(client.id);
+      if (!res.ok) return toast("Couldn’t complete discovery", res.error);
+      toast("Discovery completed", `${client.fullName} is now qualified.`);
+      router.refresh();
+      if (res.data.advance) setAdvanceOpen(res.data.advance);
     });
 
   const addNote = () =>
@@ -298,8 +313,8 @@ export function ContactProfile({
 
   return (
     <div>
-      <Link href="/clients" className="mb-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-subtle hover:text-foreground">
-        <I.arrowRight size={14} className="rotate-180" /> Clients
+      <Link href={origin === "prospects" ? "/prospects" : "/clients"} className="mb-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-subtle hover:text-foreground">
+        <I.arrowRight size={14} className="rotate-180" /> {origin === "prospects" ? "Prospects" : "Clients"}
       </Link>
 
       {/* ---------- header ---------- */}
@@ -328,9 +343,7 @@ export function ContactProfile({
                   {client.leadStage === "Discovery" && (
                     <Btn
                       size="sm"
-                      onClick={() =>
-                        setAdvanceOpen({ stage: "Proposal", status: "Qualified", label: "Marked discovery complete" })
-                      }
+                      onClick={completeDiscovery}
                     >
                       <I.check size={14} /> Mark Discovery Complete
                     </Btn>
@@ -373,8 +386,22 @@ export function ContactProfile({
                 <I.arrowRight size={15} /> Convert to Application
               </Btn>
             )}
+            {draftApplications.length > 0 && (
+              <Btn
+                variant="primary"
+                onClick={() => {
+                  const draft = draftApplications[0];
+                  overlays.openWizard({
+                    draftApplicationId: draft.id,
+                    draftForm: draft.wizardState as unknown as Record<string, unknown>,
+                  });
+                }}
+              >
+                <I.arrowRight size={15} /> Continue Application
+              </Btn>
+            )}
             <Link
-              href={`/clients/${client.id}/edit`}
+              href={`/clients/${client.id}/edit${origin === "prospects" ? "?from=prospects" : ""}`}
               className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3.5 text-[13px] font-semibold transition-colors hover:bg-hover"
             >
               <I.edit size={15} /> Edit
@@ -808,6 +835,32 @@ export function ContactProfile({
               })}
             </div>
           </Card>
+          {draftApplications.length > 0 && (
+            <Card>
+              <CardHead iconName="fileText" title="Application drafts" count={draftApplications.length} />
+              <div className="divide-y divide-border-soft">
+                {draftApplications.map((draft) => (
+                  <div key={draft.id} className="flex items-center gap-2 px-[18px] py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[11.5px] text-subtle">{draft.referenceNo ?? "Draft"}</div>
+                      <div className="truncate text-[12.5px] font-semibold">{draft.productName ?? draft.applicationType}</div>
+                    </div>
+                    <Btn
+                      size="sm"
+                      onClick={() =>
+                        overlays.openWizard({
+                          draftApplicationId: draft.id,
+                          draftForm: draft.wizardState as unknown as Record<string, unknown>,
+                        })
+                      }
+                    >
+                      Continue
+                    </Btn>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Documents (preserved) */}
           <Card>
@@ -853,8 +906,8 @@ export function ContactProfile({
             clientId: client.id,
             name: client.fullName,
             referenceNo: client.referenceNo,
-            stage: client.leadStage,
-            status: client.leadStatus,
+            stage: advanceOpen.currentStage ?? client.leadStage,
+            status: advanceOpen.currentStatus ?? client.leadStatus,
           }}
           preset={advanceOpen}
           onClose={() => setAdvanceOpen(null)}

@@ -166,7 +166,7 @@ export async function updateClientAction(
   }
 
   revalidatePath(`/clients/${id}`);
-  redirect(`/clients/${id}`);
+  redirect(`/clients/${id}${formData.get("from") === "prospects" ? "?from=prospects" : ""}`);
 }
 
 export async function deleteClientAction(formData: FormData) {

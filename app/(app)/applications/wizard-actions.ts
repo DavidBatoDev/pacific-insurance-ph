@@ -6,7 +6,7 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
-import { getClientsRepository } from "@/lib/repositories/clients";
+import { getClientsRepository, type ClientUpdate } from "@/lib/repositories/clients";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
@@ -49,8 +49,44 @@ export async function createFromWizardAction(
     /* ---------- 1. resolve the contact record ---------- */
     let clientId: string | null = null;
     let clientName = "";
+    let resumingDraft = false;
+    const applicationsRepo = getApplicationsRepository();
 
-    if (form.convertClientId) {
+    if (form.draftApplicationId) {
+      const draft = await applicationsRepo.findById(form.draftApplicationId);
+      if (!draft || draft.status !== "Lead" || draft.wizardState === null) {
+        return { ok: false, error: "This application draft is no longer available to continue." };
+      }
+      const existingClient = await clientsRepo.findById(draft.clientId);
+      if (!existingClient) return { ok: false, error: "The contact for this application draft no longer exists." };
+
+      const clientPatch: ClientUpdate = {
+        email: form.email || null,
+        mobileNumber: form.mobile || null,
+        dateOfBirth: form.dob || null,
+        address: form.address || null,
+        preferredChannel: form.channels[0] ?? null,
+        leadSource: form.source || null,
+        assignedUserId: form.assignedUserId || actor.id,
+        notes: form.notes || null,
+        productInterest: form.productName || null,
+        estPremium: parseAmount(form.premium),
+      };
+      if (form.category === "hmo") {
+        const [firstName, ...lastName] = (form.companyContact || form.companyName).trim().split(" ");
+        clientPatch.firstName = firstName || existingClient.firstName;
+        clientPatch.lastName = lastName.join(" ") || existingClient.lastName;
+      } else {
+        clientPatch.firstName = form.firstName || form.displayName.split(" ")[0] || existingClient.firstName;
+        clientPatch.lastName = form.lastName || form.displayName.split(" ").slice(1).join(" ") || existingClient.lastName;
+      }
+      await clientsRepo.update(draft.clientId, clientPatch);
+      clientId = draft.clientId;
+      clientName = [clientPatch.firstName, clientPatch.lastName].filter(Boolean).join(" ") || existingClient.fullName;
+      resumingDraft = true;
+    }
+
+    if (!resumingDraft && form.convertClientId) {
       // Convert-from-lead commit: flip the SAME record to Applicant.
       const lead = await clientsRepo.findById(form.convertClientId);
       if (!lead) return { ok: false, error: "The lead being converted no longer exists." };
@@ -68,10 +104,10 @@ export async function createFromWizardAction(
       });
       clientId = lead.id;
       clientName = lead.fullName;
-    } else if (form.clientMode === "existing" && form.existingClientId) {
+    } else if (!resumingDraft && form.clientMode === "existing" && form.existingClientId) {
       clientId = form.existingClientId;
       clientName = form.existingClientName;
-    } else if (form.category === "hmo") {
+    } else if (!resumingDraft && form.category === "hmo") {
       // Group HMO: the primary contact person becomes the contact record.
       const contactName = (form.companyContact || form.companyName).trim();
       const [firstName, ...rest] = contactName.split(" ");
@@ -89,7 +125,7 @@ export async function createFromWizardAction(
       });
       clientId = created.id;
       clientName = created.fullName;
-    } else {
+    } else if (!resumingDraft) {
       const created = await clientsRepo.create({
         firstName: form.firstName || form.displayName.split(" ")[0],
         lastName: form.lastName || form.displayName.split(" ").slice(1).join(" ") || "—",
@@ -112,7 +148,49 @@ export async function createFromWizardAction(
       clientName = created.fullName;
     }
 
-    const result: WizardResult = { clientId, summary: "" };
+    if (!clientId) return { ok: false, error: "Could not resolve the application contact." };
+    const resolvedClientId = clientId;
+    const result: WizardResult = { clientId: resolvedClientId, summary: "" };
+
+    const applicationType =
+      form.category === "hmo"
+        ? "Group Application"
+        : form.category === "travel"
+          ? "Travel Insurance"
+          : form.preExisting === "Yes"
+            ? "Medical Evaluation"
+            : "Standard";
+
+    if (resumingDraft && form.draftApplicationId) {
+      const application = await applicationsRepo.update(form.draftApplicationId, {
+        productVersionId: form.productVersionId || null,
+        applicationType,
+        status: mode === "draft" ? "Lead" : form.status || "Applicant",
+        assignedUserId: form.assignedUserId || actor.id,
+        dateStarted: new Date().toISOString().slice(0, 10),
+        notes: form.internalNote || form.notes || null,
+        wizardState: mode === "draft" ? (form as unknown as Json) : null,
+      });
+      await recordActivity({
+        scopeType: "client",
+        scopeId: resolvedClientId,
+        activityType: mode === "draft" ? "application.draft_saved" : "application.updated",
+        summary: mode === "draft" ? "Application draft updated" : `Application completed — status ${application.status}`,
+        actorId: actor.id,
+      });
+      await recordAudit({
+        actorId: actor.id,
+        action: mode === "draft" ? "update_draft" : "update",
+        tableName: "applications",
+        recordId: application.id,
+        newValue: application as unknown as Json,
+      });
+      result.applicationId = application.id;
+      result.summary =
+        mode === "draft"
+          ? `${clientName} draft updated — no messages sent.`
+          : `${clientName} — ${form.productName || "application"} · status ${application.status}.`;
+    }
 
     /* ---------- 2. create the operational record ---------- */
     if (form.category === "hmo" && mode !== "draft") {
@@ -122,7 +200,7 @@ export async function createFromWizardAction(
         premiumAmount: parseAmount(form.premium),
         billingCycle: form.payFreq === "Semi-annual" ? "Semi-Annual" : "Annual",
         status: "Onboarding",
-        primaryContactId: clientId,
+        primaryContactId: resolvedClientId,
         effectiveDate: form.startDate || null,
         address: form.address || null,
       });
@@ -146,7 +224,7 @@ export async function createFromWizardAction(
       result.summary = `${group.name} — group account created · ${validMembers.length} members · status Onboarding.`;
     } else if (form.category === "travel" && mode !== "draft") {
       const travel = await getTravelRepository().create({
-        clientId,
+        clientId: resolvedClientId,
         productVersionId: form.productVersionId || null,
         destination: form.destination || null,
         departureDate: form.departure || null,
@@ -158,33 +236,27 @@ export async function createFromWizardAction(
       });
       await recordActivity({
         scopeType: "client",
-        scopeId: clientId,
+        scopeId: resolvedClientId,
         activityType: "travel.quoted",
         summary: `Travel request created — ${travel.referenceNo ?? ""} ${form.destination ?? ""}`.trim(),
         actorId: actor.id,
       });
       result.travelRequestId = travel.id;
       result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.`;
-    } else {
-      const application = await getApplicationsRepository().create({
-        clientId,
+    } else if (!resumingDraft) {
+      const application = await applicationsRepo.create({
+        clientId: resolvedClientId,
         productVersionId: form.productVersionId || null,
-        applicationType:
-          form.category === "hmo"
-            ? "Group Application"
-            : form.category === "travel"
-              ? "Travel Insurance"
-              : form.preExisting === "Yes"
-                ? "Medical Evaluation"
-                : "Standard",
+        applicationType,
         status: mode === "draft" ? "Lead" : form.status || "Applicant",
         assignedUserId: form.assignedUserId || actor.id,
         dateStarted: new Date().toISOString().slice(0, 10),
         notes: form.internalNote || form.notes || null,
+        wizardState: mode === "draft" ? (form as unknown as Json) : null,
       });
       await recordActivity({
         scopeType: "client",
-        scopeId: clientId,
+        scopeId: resolvedClientId,
         activityType: "application.created",
         summary: `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
         actorId: actor.id,
@@ -208,7 +280,7 @@ export async function createFromWizardAction(
       await getTasksRepository().create({
         title: `Follow up ${form.category === "hmo" ? form.companyName || clientName : clientName} — ${form.productName || "application"}`,
         tag: form.category === "travel" ? "Travel" : "Application",
-        clientId,
+        clientId: resolvedClientId,
         assignedUserId: form.assignedUserId || actor.id,
         dueDate: form.followDate ? form.followDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
         priority: form.priority === "Urgent" ? "High" : "Normal",
@@ -219,7 +291,7 @@ export async function createFromWizardAction(
     const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
     if (sendingEmail && (form.emailRecipient || form.email)) {
       await getSupabaseAdmin().from("communications").insert({
-        client_id: clientId,
+        client_id: resolvedClientId,
         direction: "Outbound",
         channel: "Gmail",
         subject: form.emailSubject || `Your ${form.productName || "insurance"} application`,
@@ -234,7 +306,7 @@ export async function createFromWizardAction(
       const items = form.checklist.filter((c) => !c.checked).length;
       await recordActivity({
         scopeType: "client",
-        scopeId: clientId,
+        scopeId: resolvedClientId,
         activityType: "application.docs_requested",
         summary: `Document checklist requested — ${items} outstanding item${items === 1 ? "" : "s"}`,
         actorId: actor.id,
@@ -247,7 +319,7 @@ export async function createFromWizardAction(
     revalidatePath("/travel");
     revalidatePath("/clients");
     revalidatePath("/tasks");
-    if (clientId) revalidatePath(`/clients/${clientId}`);
+    revalidatePath(`/clients/${resolvedClientId}`);
     if (result.groupId) revalidatePath(`/group/${result.groupId}`);
     return { ok: true, data: result };
   } catch (e) {

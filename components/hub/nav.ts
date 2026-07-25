@@ -21,7 +21,8 @@ export function useScreenNav() {
 export function useRecordNav() {
   const router = useRouter();
   return {
-    openContact: (clientId: string) => router.push(`/clients/${clientId}`),
+    openContact: (clientId: string, from?: "prospects") =>
+      router.push(`/clients/${clientId}${from === "prospects" ? "?from=prospects" : ""}`),
     openGroup: (groupId: string) => router.push(`/group/${groupId}`),
   };
 }

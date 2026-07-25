@@ -3,6 +3,7 @@
 import { Modal } from "./modal";
 import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
+import { AdvanceLeadModal } from "./advance-lead";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
@@ -52,6 +53,20 @@ export function OverlayHost({
           onClose={close}
         />
       );
+    case "advance-lead":
+      return (
+        <AdvanceLeadModal
+          lead={{
+            clientId: overlay.suggestion.clientId,
+            name: overlay.suggestion.name,
+            referenceNo: overlay.suggestion.referenceNo,
+            stage: overlay.suggestion.currentStage,
+            status: overlay.suggestion.currentStatus,
+          }}
+          preset={overlay.suggestion}
+          onClose={close}
+        />
+      );
     case "page-modal":
       if (overlay.modal === "new-lead") return <NewLeadDrawer onClose={close} />;
       if (overlay.modal === "issue-policy") return <IssuePolicyDrawer onClose={close} />;
@@ -75,6 +90,7 @@ const LABEL: Record<OverlayState["kind"], string> = {
   "page-modal": "This form",
   wizard: "The New Application wizard",
   engage: "The Engage composer",
+  "advance-lead": "The Advance Lead popup",
   "add-task": "The Add Task drawer",
   "payment-links": "The Send Payment Links drawer",
   campaign: "The New Campaign drawer",

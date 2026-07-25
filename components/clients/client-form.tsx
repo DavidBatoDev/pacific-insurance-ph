@@ -72,7 +72,7 @@ function Field({
   );
 }
 
-export function ClientForm({ client }: { client?: Client }) {
+export function ClientForm({ client, from }: { client?: Client; from?: "prospects" }) {
   const isEdit = !!client;
   const [state, formAction, pending] = useActionState<ClientFormState, FormData>(
     isEdit ? updateClientAction : createClientAction,
@@ -87,6 +87,7 @@ export function ClientForm({ client }: { client?: Client }) {
   return (
     <form action={formAction} className="space-y-4">
       {isEdit && <input type="hidden" name="id" value={client.id} />}
+      {isEdit && from === "prospects" && <input type="hidden" name="from" value="prospects" />}
       {/* Rendered only after a duplicate is flagged; the next submit carries this
           controlled value so the action proceeds. */}
       {state.duplicate && <input type="hidden" name="confirmDuplicate" value="true" />}
@@ -220,7 +221,7 @@ export function ClientForm({ client }: { client?: Client }) {
 
       <div className="flex items-center justify-end gap-2.5">
         <Link
-          href={isEdit ? `/clients/${client.id}` : "/clients"}
+          href={isEdit ? `/clients/${client.id}${from === "prospects" ? "?from=prospects" : ""}` : "/clients"}
           className="inline-flex h-9 items-center rounded-md border border-border-strong bg-card px-3.5 text-[13px] font-semibold transition-colors hover:bg-hover"
         >
           Cancel

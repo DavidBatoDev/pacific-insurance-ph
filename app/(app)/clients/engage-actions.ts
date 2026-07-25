@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
+import { recordAudit } from "@/lib/audit/log";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getTasksRepository } from "@/lib/repositories/tasks";
+import type { Client } from "@/lib/repositories/clients";
+import type { Json } from "@/lib/supabase/types";
 
 /**
  * Engage composer mutations (contact-profile.md; human-in-the-loop). Emails,
@@ -20,16 +23,77 @@ function refresh(clientId: string) {
   revalidatePath("/prospects");
 }
 
+/** A status changes automatically; the suggested stage still requires consent. */
+export interface LeadAdvanceSuggestion {
+  clientId: string;
+  name: string;
+  referenceNo: string | null;
+  currentStage: string | null;
+  currentStatus: string | null;
+  stage: string;
+  status: string;
+  label: string;
+}
+
+export interface EngagementResult {
+  advance?: LeadAdvanceSuggestion;
+}
+
+async function updateLeadStatus(
+  client: Client,
+  actorId: string,
+  nextStatus: string,
+  summary: string,
+  advance?: Pick<LeadAdvanceSuggestion, "stage" | "label">,
+): Promise<EngagementResult> {
+  if (client.lifecycleStage !== "Lead" || client.leadStatus === nextStatus) return {};
+
+  const updated = await getClientsRepository().update(client.id, { leadStatus: nextStatus });
+  await recordActivity({
+    scopeType: "client",
+    scopeId: client.id,
+    activityType: "lead.status_changed",
+    summary: `${summary}: ${client.leadStatus ?? "—"} → ${nextStatus}`,
+    actorId,
+  });
+  await recordAudit({
+    actorId,
+    action: "lead_status_updated",
+    tableName: "clients",
+    recordId: client.id,
+    previousValue: client as unknown as Json,
+    newValue: updated as unknown as Json,
+  });
+
+  return advance
+    ? {
+        advance: {
+          clientId: client.id,
+          name: client.fullName,
+          referenceNo: client.referenceNo,
+          currentStage: updated.leadStage,
+          currentStatus: updated.leadStatus,
+          stage: advance.stage,
+          status: nextStatus,
+          label: advance.label,
+        },
+      }
+    : {};
+}
+
 export async function sendEmailAction(input: {
   clientId: string;
   recipient: string;
   subject: string;
   body: string;
   templateName?: string | null;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.recipient.trim() || !input.subject.trim())
     return { ok: false, error: "Recipient and subject are required." };
+
+  const client = await getClientsRepository().findById(input.clientId);
+  if (!client) return { ok: false, error: "Contact not found." };
 
   const { error } = await getSupabaseAdmin().from("communications").insert({
     client_id: input.clientId,
@@ -43,8 +107,15 @@ export async function sendEmailAction(input: {
   });
   if (error) return { ok: false, error: error.message };
 
+  const result =
+    client.leadStatus === "New"
+      ? await updateLeadStatus(client, actor.id, "Attempted", "First outbound email sent", {
+          stage: "Contacted",
+          label: "First outreach sent",
+        })
+      : {};
   refresh(input.clientId);
-  return { ok: true, data: undefined };
+  return { ok: true, data: result };
 }
 
 export async function logMessageAction(input: {
@@ -52,9 +123,12 @@ export async function logMessageAction(input: {
   channel: string;
   transcript: string;
   occurredAt?: string | null;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.transcript.trim()) return { ok: false, error: "Message transcript is required." };
+
+  const client = await getClientsRepository().findById(input.clientId);
+  if (!client) return { ok: false, error: "Contact not found." };
 
   const { error } = await getSupabaseAdmin().from("communications").insert({
     client_id: input.clientId,
@@ -68,8 +142,15 @@ export async function logMessageAction(input: {
   });
   if (error) return { ok: false, error: error.message };
 
+  const result =
+    client.leadStatus === "New" || client.leadStatus === "Attempted"
+      ? await updateLeadStatus(client, actor.id, "Connected", "Inbound message logged", {
+          stage: "Discovery",
+          label: "Inbound response logged",
+        })
+      : {};
   refresh(input.clientId);
-  return { ok: true, data: undefined };
+  return { ok: true, data: result };
 }
 
 export async function logCallAction(input: {
@@ -84,8 +165,10 @@ export async function logCallAction(input: {
     coverageTier?: string | null;
   };
   followUpDate?: string | null;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
+  const client = await getClientsRepository().findById(input.clientId);
+  if (!client) return { ok: false, error: "Contact not found." };
 
   const d = input.discovery;
   const bits = [
@@ -128,8 +211,51 @@ export async function logCallAction(input: {
     });
   }
 
+  const result =
+    input.outcome === "Reached" && (client.leadStatus === "New" || client.leadStatus === "Attempted")
+      ? await updateLeadStatus(
+          client,
+          actor.id,
+          "Connected",
+          "Reached call logged",
+          { stage: "Discovery", label: "Reached call logged" },
+        )
+      : input.outcome === "No answer" && client.leadStatus === "Connected"
+        ? await updateLeadStatus(client, actor.id, "Attempted", "No-answer call logged")
+        : {};
+
   refresh(input.clientId);
-  return { ok: true, data: undefined };
+  return { ok: true, data: result };
+}
+
+export async function completeDiscoveryAction(
+  clientId: string,
+): Promise<ActionResult<EngagementResult>> {
+  const actor = await getActor();
+  const client = await getClientsRepository().findById(clientId);
+  if (!client) return { ok: false, error: "Contact not found." };
+  if (client.lifecycleStage !== "Lead" || client.leadStatus !== "Connected") {
+    return { ok: false, error: "Discovery can be completed only for a connected lead." };
+  }
+  if (
+    client.estPremium == null ||
+    client.familySize == null ||
+    client.familySize < 1 ||
+    !client.productInterest ||
+    !client.coverageTier
+  ) {
+    return {
+      ok: false,
+      error: "Add budget, family size, product interest, and coverage tier before completing discovery.",
+    };
+  }
+
+  const result = await updateLeadStatus(client, actor.id, "Qualified", "Discovery completed", {
+    stage: "Proposal",
+    label: "Discovery complete",
+  });
+  refresh(clientId);
+  return { ok: true, data: result };
 }
 
 export async function addNoteAction(input: {

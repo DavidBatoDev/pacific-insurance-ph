@@ -5,6 +5,7 @@ import { useTransition } from "react";
 
 import { markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
 import type { Application } from "@/lib/repositories/applications";
+import type { WizardForm } from "../overlays/wizard/wizard-data";
 import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
 import type { Renewal } from "@/lib/repositories/renewals";
@@ -82,6 +83,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
         { k: "status", label: "Status" },
         { k: "applicationType", label: "Type" },
         { k: "dateStarted", label: "Started" },
+        { k: "id", label: "" },
       ]}
       renderRow={(a) => (
         <Row key={a.id} onClick={() => openContact(a.clientId)}>
@@ -91,6 +93,22 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
           <Td><StatusBadge status={a.status} /></Td>
           <Td className="text-muted-foreground">{a.applicationType}</Td>
           <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
+          <Td>
+            {a.status === "Lead" && a.wizardState !== null && (
+              <Btn
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  overlays.openWizard({
+                    draftApplicationId: a.id,
+                    draftForm: a.wizardState as unknown as WizardForm,
+                  });
+                }}
+              >
+                Continue application
+              </Btn>
+            )}
+          </Td>
         </Row>
       )}
     />

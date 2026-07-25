@@ -142,7 +142,11 @@ export function EngageDrawer({
         );
         router.refresh();
         onSent?.();
-        onClose();
+        if (res.data.advance) {
+          overlays.openAdvanceLead(res.data.advance);
+        } else {
+          onClose();
+        }
       } else {
         overlays.toast("Couldn’t complete the action", res.error);
       }

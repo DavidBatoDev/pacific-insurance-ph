@@ -35,6 +35,7 @@ function toDomain(row: JoinedRow): Application {
     dateStarted: row.date_started,
     dateSubmitted: row.date_submitted,
     notes: row.notes,
+    wizardState: row.wizard_state,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -85,6 +86,7 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
       assigned_user_id: input.assignedUserId ?? null,
       date_started: input.dateStarted ?? null,
       notes: input.notes ?? null,
+      wizard_state: input.wizardState ?? null,
     };
     if (input.applicationType !== undefined) insert.application_type = input.applicationType;
     if (input.status !== undefined) insert.status = input.status;
@@ -105,6 +107,10 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     if (input.dateSubmitted !== undefined) patch.date_submitted = input.dateSubmitted;
     if (input.notes !== undefined) patch.notes = input.notes;
     if (input.assignedUserId !== undefined) patch.assigned_user_id = input.assignedUserId;
+    if (input.productVersionId !== undefined) patch.product_version_id = input.productVersionId;
+    if (input.applicationType !== undefined) patch.application_type = input.applicationType;
+    if (input.dateStarted !== undefined) patch.date_started = input.dateStarted;
+    if (input.wizardState !== undefined) patch.wizard_state = input.wizardState;
 
     const { data, error } = await getSupabaseAdmin()
       .from("applications")
