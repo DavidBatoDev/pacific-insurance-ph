@@ -10,6 +10,10 @@ export interface Commission {
   policyId: string | null;
   policyRef: string | null;
   paymentId: string | null;
+  pacificCrossContactId: string | null;
+  pacificCrossContactName: string | null;
+  pacificCrossContactEmail: string | null;
+  pacificCrossContactStatus: string | null;
   orNumber: string | null;
   /** DB voucher_status: Not Started / Waiting for OR / Voucher Pending /
    *  Issue · Follow-Up Required / Received / Paid. */
@@ -28,6 +32,7 @@ export interface NewCommission {
   clientId?: string | null;
   policyId?: string | null;
   paymentId?: string | null;
+  pacificCrossContactId?: string | null;
   orNumber?: string | null;
   status?: string;
   estimatedAmount?: number | null;
@@ -36,6 +41,7 @@ export interface NewCommission {
 }
 
 export interface CommissionUpdate {
+  pacificCrossContactId?: string | null;
   status?: string;
   estimatedAmount?: number | null;
   amount?: number | null;

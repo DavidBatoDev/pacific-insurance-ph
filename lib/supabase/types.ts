@@ -1040,6 +1040,7 @@ export type Database = {
           email: string | null
           end_date: string | null
           id: string
+          last_verified_date: string | null
           name: string
           notes: string | null
           organization: string | null
@@ -1057,6 +1058,7 @@ export type Database = {
           email?: string | null
           end_date?: string | null
           id?: string
+          last_verified_date?: string | null
           name: string
           notes?: string | null
           organization?: string | null
@@ -1074,6 +1076,7 @@ export type Database = {
           email?: string | null
           end_date?: string | null
           id?: string
+          last_verified_date?: string | null
           name?: string
           notes?: string | null
           organization?: string | null

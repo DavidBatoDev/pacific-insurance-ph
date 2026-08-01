@@ -39,6 +39,7 @@ export interface EngageContact {
   email?: string | null;
   product?: string | null;
   premium?: number | null;
+  externalContactId?: string | null;
 }
 
 export interface AdvanceLeadOverlay {

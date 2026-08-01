@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-import { updateCommissionAction } from "@/app/(app)/payments/actions";
+import { assignCommissionContactAction, updateCommissionAction } from "@/app/(app)/payments/actions";
+import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { Commission } from "@/lib/repositories/payments";
 import { peso, pesoShort } from "../data";
 import { I } from "../icons";
@@ -13,12 +14,6 @@ import { usePersona } from "../persona";
 import { Avatar, Btn, StatusBadge } from "../primitives";
 import { Row, Td } from "../table";
 import { ListScreen } from "./list-screen";
-
-/** Pacific Cross contact index — C3 will replace this with managed contacts. */
-const PC_VOUCHER_CONTACT = {
-  name: "Roseanne Llaga",
-  email: "roseanne.llaga@pacificcross.com",
-};
 
 /** DB voucher_status → design display label. */
 const COMM_LABEL: Record<string, string> = {
@@ -40,7 +35,7 @@ const fmtDate = (iso: string | null) =>
     : "—";
 
 /** Reusable commission tracker rendered at /commissions and under Payments. */
-export function CommissionsLive({ commissions }: { commissions: Commission[] }) {
+export function CommissionsLive({ commissions, commissionContacts }: { commissions: Commission[]; commissionContacts: ExternalContact[] }) {
   const router = useRouter();
   const overlays = useOverlays();
   const persona = usePersona();
@@ -78,13 +73,14 @@ export function CommissionsLive({ commissions }: { commissions: Commission[] }) 
     });
 
   const requestVoucher = (commission: Commission) => {
-    if (!commission.clientId) return;
+    if (!commission.clientId || !commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail) return;
     overlays.openEngage(
       "Request Commission Voucher",
       {
         clientId: commission.clientId,
         name: commission.clientName ?? "Client",
-        email: PC_VOUCHER_CONTACT.email,
+        email: commission.pacificCrossContactEmail,
+        externalContactId: commission.pacificCrossContactId,
         product: `OR ${commission.orNumber ?? "—"} — ${commission.clientName ?? ""} (${commission.policyRef ?? "policy"})`,
         premium: commission.estimatedAmount,
       },
@@ -95,6 +91,12 @@ export function CommissionsLive({ commissions }: { commissions: Commission[] }) 
         }),
     );
   };
+
+  const assignContact = (commission: Commission, contactId: string) => startTransition(async () => {
+    const result = await assignCommissionContactAction(commission.id, contactId || null);
+    if (!result.ok) overlays.toast("Couldn’t assign contact", result.error);
+    router.refresh();
+  });
 
   return (
     <ListScreen
@@ -181,8 +183,13 @@ export function CommissionsLive({ commissions }: { commissions: Commission[] }) 
               />
             </Td>
             <Td>
-              <span className="text-[12.5px] font-[550]">{PC_VOUCHER_CONTACT.name}</span>
-              <span className="block text-[11px] text-subtle">Pacific Cross</span>
+              <span onClick={(event) => event.stopPropagation()}>
+                <select className="h-8 max-w-[190px] rounded-md border border-border-strong bg-card px-2 text-[11.5px]" value={commission.pacificCrossContactId ?? ""} onChange={(event) => assignContact(commission, event.target.value)}>
+                  <option value="">Assign contact…</option>
+                  {commission.pacificCrossContactId && !commissionContacts.some((contact) => contact.id === commission.pacificCrossContactId) && <option value={commission.pacificCrossContactId}>{commission.pacificCrossContactName ?? "Inactive contact"} (inactive)</option>}
+                  {commissionContacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
+                </select>
+              </span>
             </Td>
             <Td className="text-muted-foreground">{fmtDate(commission.followUpDate)}</Td>
             <Td>
@@ -207,7 +214,7 @@ export function CommissionsLive({ commissions }: { commissions: Commission[] }) 
                   displayLabel === "Waiting for OR") && (
                   <>
                     {displayLabel !== "Follow-up" && (
-                      <Btn size="sm" onClick={() => requestVoucher(commission)}>
+                      <Btn size="sm" disabled={!commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail} onClick={() => requestVoucher(commission)}>
                         Request Voucher
                       </Btn>
                     )}

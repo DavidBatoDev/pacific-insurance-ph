@@ -14,6 +14,7 @@ import {
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
+import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /** First-year vs renewal vs travel commission estimate (design payments-data.jsx). */
@@ -185,6 +186,21 @@ export async function sendPaymentLinksAction(input: {
 }
 
 export type CommissionStep = "requested" | "follow-up" | "received" | "paid";
+
+export async function assignCommissionContactAction(id: string, contactId: string | null): Promise<ActionResult<Commission>> {
+  try {
+    const actor = await getActor();
+    if (contactId) {
+      const contact = await getExternalContactsRepository().findById(contactId);
+      if (!contact || contact.status !== "Active" || contact.contactType !== "Commission Contact" || !contact.email)
+        return { ok: false, error: "Choose an active, verified commission contact with an email address." };
+    }
+    const updated = await getCommissionsRepository().update(id, { pacificCrossContactId: contactId });
+    if (updated.clientId) await recordActivity({ scopeType: "client", scopeId: updated.clientId, activityType: "commission.contact_assigned", summary: `Commission contact ${updated.pacificCrossContactName ? `assigned to ${updated.pacificCrossContactName}` : "cleared"}`, actorId: actor.id });
+    revalidatePath("/payments"); revalidatePath("/commissions");
+    return { ok: true, data: updated };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to assign contact." }; }
+}
 
 /** Commission row actions (Request Voucher / Log Follow-up / Mark Received / Mark Paid). */
 export async function updateCommissionAction(

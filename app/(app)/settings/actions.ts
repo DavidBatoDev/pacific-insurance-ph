@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordAudit } from "@/lib/audit/log";
-import { toAppRole } from "@/lib/auth/permissions";
+import { can, toAppRole } from "@/lib/auth/permissions";
+import { getExternalContactsRepository, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts";
 import {
   getIntegrationSettingsRepository,
   type PacificCrossIntegrationSettings,
@@ -21,6 +22,39 @@ async function requireAdmin() {
   const actor = await getActor();
   if (toAppRole(actor.role) !== "admin") throw new Error("Settings changes are Admin-only.");
   return actor;
+}
+
+async function requireContactEditor() {
+  const actor = await getActor();
+  if (!can(toAppRole(actor.role), "externalContacts", "edit"))
+    throw new Error("Pacific Cross contacts are view-only for your role.");
+  return actor;
+}
+
+export async function saveExternalContactAction(
+  id: string | null,
+  input: NewExternalContact,
+): Promise<ActionResult<ExternalContact>> {
+  try {
+    const actor = await requireContactEditor();
+    const normalized = { ...input, name: input.name.trim(), email: input.email?.trim().toLowerCase() || null };
+    if (!normalized.name) return { ok: false, error: "Contact name is required." };
+    if (normalized.email && !/^\S+@\S+\.\S+$/.test(normalized.email))
+      return { ok: false, error: "Enter a valid email address." };
+    const repo = getExternalContactsRepository();
+    const duplicate = (await repo.list()).find((contact) =>
+      contact.id !== id && normalized.email && contact.email?.toLowerCase() === normalized.email,
+    );
+    if (duplicate) return { ok: false, error: `That email is already assigned to ${duplicate.name}.` };
+    const saved = id ? await repo.update(id, normalized) : await repo.create(normalized);
+    await recordAudit({ actorId: actor.id, action: id ? "update" : "create", tableName: "external_contacts", recordId: saved.id, newValue: saved as unknown as Json });
+    revalidatePath("/settings");
+    revalidatePath("/commissions");
+    revalidatePath("/payments");
+    return { ok: true, data: saved };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save contact." };
+  }
 }
 
 /* -------------------------- Pacific Cross portal -------------------------- */

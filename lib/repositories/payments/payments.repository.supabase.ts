@@ -137,11 +137,13 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
 type CommissionJoined = CommissionRow & {
   clients: { first_name: string; last_name: string } | null;
   policies: { reference_no: string | null } | null;
+  external_contacts: { name: string; email: string | null; status: string } | null;
 };
 
 const COMMISSION_SELECT = `*,
   clients (first_name, last_name),
-  policies (reference_no)`;
+  policies (reference_no),
+  external_contacts (name, email, status)`;
 
 function commissionToDomain(row: CommissionJoined): Commission {
   return {
@@ -153,6 +155,10 @@ function commissionToDomain(row: CommissionJoined): Commission {
     policyId: row.policy_id,
     policyRef: row.policies?.reference_no ?? null,
     paymentId: row.payment_id,
+    pacificCrossContactId: row.pacific_cross_contact_id,
+    pacificCrossContactName: row.external_contacts?.name ?? null,
+    pacificCrossContactEmail: row.external_contacts?.email ?? null,
+    pacificCrossContactStatus: row.external_contacts?.status ?? null,
     orNumber: row.or_number,
     status: row.voucher_status,
     estimatedAmount: row.estimated_amount,
@@ -197,6 +203,7 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
         client_id: input.clientId ?? null,
         policy_id: input.policyId ?? null,
         payment_id: input.paymentId ?? null,
+        pacific_cross_contact_id: input.pacificCrossContactId ?? null,
         or_number: input.orNumber ?? null,
         ...(input.status !== undefined ? { voucher_status: input.status } : {}),
         estimated_amount: input.estimatedAmount ?? null,
@@ -211,6 +218,7 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
 
   async update(id: string, input: CommissionUpdate): Promise<Commission> {
     const patch: Database["public"]["Tables"]["commissions"]["Update"] = {};
+    if (input.pacificCrossContactId !== undefined) patch.pacific_cross_contact_id = input.pacificCrossContactId;
     if (input.status !== undefined) patch.voucher_status = input.status;
     if (input.estimatedAmount !== undefined) patch.estimated_amount = input.estimatedAmount;
     if (input.amount !== undefined) patch.amount = input.amount;

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
-import { requestProposalAction } from "@/app/(app)/clients/engage-actions";
+import { listProposalContactsAction, requestProposalAction } from "@/app/(app)/clients/engage-actions";
+import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Btn } from "../primitives";
@@ -37,7 +38,10 @@ export function RequestProposalModal({
   const [note, setNote] = useState("");
   const [follow, setFollow] = useState("");
   const [alsoEmail, setAlsoEmail] = useState(false);
-  const [carrier, setCarrier] = useState("roseanne.llaga@pacificcross.com");
+  const [carrier, setCarrier] = useState("");
+  const [carrierContactId, setCarrierContactId] = useState("");
+  const [contacts, setContacts] = useState<ExternalContact[]>([]);
+  useEffect(() => { listProposalContactsAction().then(setContacts).catch(() => setContacts([])); }, []);
 
   const confirm = () => {
     if (!picked) return;
@@ -48,6 +52,7 @@ export function RequestProposalModal({
         followUpDate: follow || null,
         alsoEmailCarrier: alsoEmail,
         carrierRecipient: alsoEmail ? carrier : null,
+        carrierContactId: alsoEmail ? carrierContactId || null : null,
       });
       if (res.ok) {
         overlays.toast("Proposal requested", `Note + follow-up task added for ${picked.name}.`);
@@ -112,13 +117,17 @@ export function RequestProposalModal({
       </button>
       {alsoEmail && (
         <DrawerField label="Carrier recipient" className="mt-3">
-          <input className={DRAWER_INPUT} type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
+          <select className={DRAWER_INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
+            <option value="">Enter another email…</option>
+            {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.role ?? contact.department} · {contact.email}</option>)}
+          </select>
+          {!carrierContactId && <input className={`${DRAWER_INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
         </DrawerField>
       )}
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>
-        <Btn variant="primary" disabled={pending || !note.trim() || !picked} onClick={confirm}>
+        <Btn variant="primary" disabled={pending || !note.trim() || !picked || (alsoEmail && !carrier.trim())} onClick={confirm}>
           {pending ? "Requesting…" : "Request proposal"}
         </Btn>
       </div>

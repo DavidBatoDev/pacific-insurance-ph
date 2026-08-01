@@ -8,6 +8,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getTasksRepository } from "@/lib/repositories/tasks";
+import { getExternalContactsRepository, type ExternalContact } from "@/lib/repositories/external-contacts";
 import type { Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
 
@@ -87,6 +88,7 @@ export async function sendEmailAction(input: {
   subject: string;
   body: string;
   templateName?: string | null;
+  externalContactId?: string | null;
 }): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.recipient.trim() || !input.subject.trim())
@@ -103,6 +105,7 @@ export async function sendEmailAction(input: {
     summary: input.body.split("\n").find(Boolean) ?? "",
     notes: input.body,
     related_user_id: actor.id,
+    external_contact_id: input.externalContactId ?? null,
     delivery_status: "sent",
   });
   if (error) return { ok: false, error: error.message };
@@ -288,6 +291,7 @@ export async function requestProposalAction(input: {
   followUpDate?: string | null;
   alsoEmailCarrier?: boolean;
   carrierRecipient?: string | null;
+  carrierContactId?: string | null;
 }): Promise<ActionResult> {
   const actor = await getActor();
   if (!input.note.trim()) return { ok: false, error: "A proposal request note is required." };
@@ -296,6 +300,18 @@ export async function requestProposalAction(input: {
     const repo = getClientsRepository();
     const client = await repo.findById(input.clientId);
     if (!client) return { ok: false, error: "Contact not found." };
+
+    let carrierRecipient = input.carrierRecipient?.trim() || null;
+    let carrierContactId: string | null = null;
+    if (input.alsoEmailCarrier && input.carrierContactId) {
+      const contact = await getExternalContactsRepository().findById(input.carrierContactId);
+      if (!contact || contact.status !== "Active" || !contact.email)
+        return { ok: false, error: "Choose an active Pacific Cross contact with an email address." };
+      carrierRecipient = contact.email;
+      carrierContactId = contact.id;
+    }
+    if (input.alsoEmailCarrier && !carrierRecipient)
+      return { ok: false, error: "Choose a Pacific Cross contact or enter a recipient email." };
 
     await repo.update(input.clientId, { proposalStatus: "Requested" });
     await recordActivity({
@@ -313,13 +329,14 @@ export async function requestProposalAction(input: {
       dueDate: input.followUpDate ?? null,
       priority: "Normal",
     });
-    if (input.alsoEmailCarrier && input.carrierRecipient) {
+    if (input.alsoEmailCarrier && carrierRecipient) {
       await getSupabaseAdmin().from("communications").insert({
         client_id: input.clientId,
         direction: "Outbound",
         channel: "Gmail",
         subject: `Proposal request — ${client.productInterest ?? "product"} for ${client.fullName}`,
-        summary: `Sent to ${input.carrierRecipient} (Pacific Cross)`,
+        summary: `Sent to ${carrierRecipient} (Pacific Cross)`,
+        external_contact_id: carrierContactId,
         related_user_id: actor.id,
         delivery_status: "sent",
       });
@@ -331,6 +348,11 @@ export async function requestProposalAction(input: {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to request proposal." };
   }
+}
+
+export async function listProposalContactsAction(): Promise<ExternalContact[]> {
+  const contacts = await getExternalContactsRepository().list({ status: "Active", departments: ["New Business"] });
+  return contacts.filter((contact) => !!contact.email);
 }
 
 export async function toggleContactFlagAction(input: {

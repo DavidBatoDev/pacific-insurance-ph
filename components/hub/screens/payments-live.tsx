@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { verifyPaymentAction } from "@/app/(app)/payments/actions";
 import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import type { Commission, Payment } from "@/lib/repositories/payments";
+import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { peso, pesoShort, type Tone } from "../data";
 import { I } from "../icons";
@@ -37,9 +38,11 @@ const fmtDate = (iso: string | null) =>
 export function PaymentsLive({
   payments,
   commissions,
+  commissionContacts,
 }: {
   payments: Payment[];
   commissions: Commission[];
+  commissionContacts: ExternalContact[];
 }) {
   const { openContact } = useRecordNav();
   const [tab, setTab] = useState<"collections" | "commissions">("collections");
@@ -135,7 +138,7 @@ export function PaymentsLive({
   return (
     <div>
       <div className="mb-2 flex justify-end">{tabControl}</div>
-      {tab === "collections" ? collections : <CommissionsLive commissions={commissions} />}
+      {tab === "collections" ? collections : <CommissionsLive commissions={commissions} commissionContacts={commissionContacts} />}
       {verify && <VerifyPaymentDrawer payment={verify} onClose={() => setVerify(null)} />}
     </div>
   );

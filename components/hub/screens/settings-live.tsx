@@ -9,7 +9,9 @@ import {
   togglePaymentChannelAction,
   toggleUserStatusAction,
   updateUserRoleAction,
+  saveExternalContactAction,
 } from "@/app/(app)/settings/actions";
+import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
 import type { User } from "@/lib/repositories/users/user.entity";
@@ -31,6 +33,7 @@ const TABS = [
   { id: "Team", adminOnly: true },
   { id: "Notifications", adminOnly: false },
   { id: "Payment Channels", adminOnly: false },
+  { id: "Pacific Cross Contacts", adminOnly: false },
   { id: "Billing", adminOnly: true },
   { id: "Integrations", adminOnly: false },
 ] as const;
@@ -39,10 +42,12 @@ export function SettingsLive({
   users,
   channels,
   pacificCross,
+  contacts,
 }: {
   users: User[];
   channels: PaymentChannel[];
   pacificCross: PacificCrossIntegrationSettings | null;
+  contacts: ExternalContact[];
 }) {
   const persona = usePersona();
   const isAdmin = persona.role === "admin";
@@ -63,8 +68,8 @@ export function SettingsLive({
         <div className="mb-4 flex items-start gap-2.5 rounded-md border border-amber-border bg-amber-soft px-4 py-3 text-[12.5px] text-amber">
           <I.shield size={16} className="mt-px shrink-0" />
           <span>
-            Viewing as <b>{persona.userName} · {persona.roleLabel}</b>. Settings are view-only for
-            your role; Team and Billing are managed by your Admin.
+            Viewing as <b>{persona.userName} · {persona.roleLabel}</b>. Most settings are view-only
+            for your role; Staff can maintain Pacific Cross contacts, while Team and Billing remain Admin-managed.
           </span>
         </div>
       )}
@@ -91,6 +96,7 @@ export function SettingsLive({
         {active === "Team" && <TeamTab users={users} />}
         {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
+        {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
         {active === "Integrations" && <IntegrationsTab pacificCross={pacificCross} canEdit={isAdmin} />}
       </Card>
@@ -233,6 +239,53 @@ function TeamTab({ users }: { users: User[] }) {
       </p>
     </div>
   );
+}
+
+const EMPTY_CONTACT: NewExternalContact = {
+  name: "", organization: "Pacific Cross", role: "", contactType: "Other", department: "",
+  email: "", phone: "", status: "Active", lastVerifiedDate: "", notes: "",
+};
+
+function PacificCrossContactsTab({ contacts, canEdit }: { contacts: ExternalContact[]; canEdit: boolean }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const [editing, setEditing] = useState<ExternalContact | null>(null);
+  const [contactEditorOpen, setContactEditorOpen] = useState(false);
+  const [form, setForm] = useState<NewExternalContact>(EMPTY_CONTACT);
+  const [pending, startTransition] = useTransition();
+  const field = (key: keyof NewExternalContact, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const begin = (contact?: ExternalContact) => {
+    setContactEditorOpen(true);
+    setEditing(contact ?? null);
+    setForm(contact ? {
+      name: contact.name, organization: contact.organization, role: contact.role,
+      contactType: contact.contactType, department: contact.department, email: contact.email,
+      phone: contact.phone, status: contact.status, effectiveDate: contact.effectiveDate,
+      endDate: contact.endDate, lastVerifiedDate: contact.lastVerifiedDate, notes: contact.notes,
+      replacementContactId: contact.replacementContactId,
+    } : EMPTY_CONTACT);
+  };
+  const save = () => startTransition(async () => {
+    const result = await saveExternalContactAction(editing?.id ?? null, form);
+    if (result.ok) {
+      overlays.toast("Pacific Cross contact saved", `${result.data.name} is available in the contact directory.`);
+      setEditing(null); setContactEditorOpen(false); setForm(EMPTY_CONTACT); router.refresh();
+    } else overlays.toast("Couldn’t save contact", result.error);
+  });
+  return <div>
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div><h3 className="text-[15px] font-bold">Pacific Cross contact directory</h3><p className="mt-0.5 text-[12.5px] text-muted-foreground">Operational recipients by department. Inactive contacts remain visible for history but cannot be selected for new messages.</p></div>
+      {canEdit && <button className="rounded-md bg-brand px-3 py-2 text-[12.5px] font-semibold text-white" onClick={() => begin()}>Add contact</button>}
+    </div>
+    <div className="overflow-x-auto rounded-md border border-border-soft"><table className="w-full min-w-[760px] text-left text-[12.5px]"><thead><tr className="border-b border-border-soft text-[11px] uppercase tracking-[.05em] text-subtle">{["Contact","Department / role","Email","Verified","Status", ""].map((h) => <th className="px-3 py-2.5" key={h}>{h}</th>)}</tr></thead><tbody>{contacts.map((contact) => <tr key={contact.id} className={cn("border-b border-border-soft last:border-0", contact.status === "Inactive" && "opacity-60")}><td className="px-3 py-2.5 font-semibold">{contact.name}</td><td className="px-3 py-2.5"><span>{contact.department ?? "—"}</span><span className="block text-[11px] text-subtle">{contact.role ?? contact.contactType ?? "—"}</span></td><td className="px-3 py-2.5 font-mono text-[11.5px]">{contact.email ?? "—"}</td><td className="px-3 py-2.5">{contact.lastVerifiedDate ?? "Not verified"}</td><td className="px-3 py-2.5">{contact.status}</td><td className="px-3 py-2.5 text-right">{canEdit && <button className="font-semibold text-brand-hover" onClick={() => begin(contact)}>Edit</button>}</td></tr>)}</tbody></table></div>
+    {contactEditorOpen && canEdit && <Modal onClose={() => { setEditing(null); setContactEditorOpen(false); setForm(EMPTY_CONTACT); }} maxWidth={620}>
+      <h3 className="mb-4 text-[16px] font-bold">{editing ? "Edit" : "Add"} Pacific Cross contact</h3>
+      <div className="grid grid-cols-2 gap-3">{([['name','Name'],['department','Department'],['role','Role'],['email','Email'],['phone','Phone'],['lastVerifiedDate','Last verified date']] as const).map(([key,label]) => <label key={key} className="text-[11.5px] font-bold uppercase text-subtle">{label}<input type={key === 'lastVerifiedDate' ? 'date' : key === 'email' ? 'email' : 'text'} className={`${INPUT} mt-1.5 normal-case font-normal`} value={(form[key] as string | null) ?? ""} onChange={(event) => field(key, event.target.value)} /></label>)}</div>
+      <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-[11.5px] font-bold uppercase text-subtle">Contact type<select className={`${INPUT} mt-1.5 normal-case font-normal`} value={form.contactType ?? "Other"} onChange={(event) => field('contactType', event.target.value)}>{EXTERNAL_CONTACT_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label><label className="text-[11.5px] font-bold uppercase text-subtle">Status<select className={`${INPUT} mt-1.5 normal-case font-normal`} value={form.status ?? "Active"} onChange={(event) => field('status', event.target.value)}><option>Active</option><option>Inactive</option></select></label></div>
+      <label className="mt-3 block text-[11.5px] font-bold uppercase text-subtle">Notes<textarea className="mt-1.5 min-h-20 w-full rounded-md border border-border-strong bg-card p-3 text-[13px] font-normal normal-case" value={form.notes ?? ""} onChange={(event) => field('notes', event.target.value)} /></label>
+      <div className="mt-5 flex justify-end gap-2"><button className="rounded-md border px-3 py-2 text-[13px]" onClick={() => { setEditing(null); setContactEditorOpen(false); setForm(EMPTY_CONTACT); }}>Cancel</button><button disabled={pending || !form.name.trim()} className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50" onClick={save}>{pending ? "Saving…" : "Save contact"}</button></div>
+    </Modal>}
+  </div>;
 }
 
 function StaticTab({ title, body }: { title: string; body: string }) {

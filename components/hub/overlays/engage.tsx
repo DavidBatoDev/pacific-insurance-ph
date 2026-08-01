@@ -131,6 +131,7 @@ export function EngageDrawer({
               subject,
               body: (cfg.attach ? `📎 ${cfg.attach}\n` : "") + body,
               templateName: tpl || null,
+              externalContactId: contact.externalContactId ?? null,
             })
           : await logCallAction({ clientId: contact.clientId!, outcome, notes: callNote || null });
       if (res.ok) {
