@@ -120,6 +120,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     }
 
     revalidatePath("/payments");
+    revalidatePath("/commissions");
     if (payment.clientId) revalidatePath(`/clients/${payment.clientId}`);
     revalidatePath("/tasks");
     return { ok: true, data: updated };
@@ -228,6 +229,7 @@ export async function updateCommissionAction(
     }
 
     revalidatePath("/payments");
+    revalidatePath("/commissions");
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update commission." };

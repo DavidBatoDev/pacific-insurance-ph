@@ -26,6 +26,7 @@ const SCREEN_ENTRIES: { id: ScreenId; label: string; icon: IconName }[] = [
   { id: "claims", label: "Claims", icon: "clipboard" },
   { id: "travel", label: "Travel Insurance", icon: "plane" },
   { id: "payments", label: "Payments", icon: "peso" },
+  { id: "commissions", label: "Commissions", icon: "chart" },
   { id: "documents", label: "Documents", icon: "folder" },
   { id: "tasks", label: "Tasks", icon: "checkSquare" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },

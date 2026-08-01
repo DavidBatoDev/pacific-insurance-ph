@@ -3,10 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import {
-  updateCommissionAction,
-  verifyPaymentAction,
-} from "@/app/(app)/payments/actions";
+import { verifyPaymentAction } from "@/app/(app)/payments/actions";
 import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import type { Commission, Payment } from "@/lib/repositories/payments";
 import { cn } from "@/lib/utils";
@@ -16,9 +13,9 @@ import { useRecordNav } from "../nav";
 import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { usePersona } from "../persona";
-import { Avatar, Btn, PageHead, StatusBadge, TONE_BADGE } from "../primitives";
+import { Btn, StatusBadge, TONE_BADGE } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
+import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
 
 /**
@@ -34,19 +31,6 @@ const SOURCE_TONE: Record<string, Tone> = {
   Other: "slate",
 };
 
-/** Pacific Cross contact index — one edit if personnel change. */
-const PC_VOUCHER_CONTACT = { name: "Roseanne Llaga", email: "roseanne.llaga@pacificcross.com" };
-
-/** DB voucher_status → design display label. */
-const COMM_LABEL: Record<string, string> = {
-  "Voucher Pending": "Requested",
-  "Issue / Follow-Up Required": "Follow-up",
-  Received: "Received",
-  Paid: "Paid",
-  "Not Started": "Not started",
-  "Waiting for OR": "Waiting for OR",
-};
-
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
@@ -57,13 +41,9 @@ export function PaymentsLive({
   payments: Payment[];
   commissions: Commission[];
 }) {
-  const router = useRouter();
-  const overlays = useOverlays();
-  const persona = usePersona();
   const { openContact } = useRecordNav();
   const [tab, setTab] = useState<"collections" | "commissions">("collections");
   const [verify, setVerify] = useState<Payment | null>(null);
-  const [, startTransition] = useTransition();
 
   const tabControl = (
     <div className="flex items-center rounded-md border border-border bg-surface-3 p-0.5">
@@ -86,37 +66,6 @@ export function PaymentsLive({
       ))}
     </div>
   );
-
-  const commissionStep = (c: Commission, step: "follow-up" | "received" | "paid") =>
-    startTransition(async () => {
-      const res = await updateCommissionAction(c.id, step);
-      if (res.ok)
-        overlays.toast(
-          step === "paid" ? "Commission paid" : step === "received" ? "Commission received" : "Follow-up logged",
-          `${c.clientName ?? "Client"} · OR ${c.orNumber ?? "—"}.`,
-        );
-      else overlays.toast("Couldn’t update commission", res.error);
-      router.refresh();
-    });
-
-  const requestVoucher = (c: Commission) => {
-    if (!c.clientId) return;
-    overlays.openEngage(
-      "Request Commission Voucher",
-      {
-        clientId: c.clientId,
-        name: c.clientName ?? "Client",
-        email: PC_VOUCHER_CONTACT.email,
-        product: `OR ${c.orNumber ?? "—"} — ${c.clientName ?? ""} (${c.policyRef ?? "policy"})`,
-        premium: c.estimatedAmount,
-      },
-      () =>
-        startTransition(async () => {
-          await updateCommissionAction(c.id, "requested");
-          router.refresh();
-        }),
-    );
-  };
 
   /* ------------------------------ collections ------------------------------ */
   const sum = (st: string) => payments.filter((p) => p.status === st).reduce((a, p) => a + (p.amount ?? 0), 0);
@@ -183,118 +132,10 @@ export function PaymentsLive({
     />
   );
 
-  /* ------------------------------ commissions ------------------------------ */
-  const canSeeAmounts = persona.role !== "agent";
-  const label = (c: Commission) => COMM_LABEL[c.status] ?? c.status;
-  const ccnt = (l: string) => commissions.filter((c) => label(c) === l).length;
-  const paidSum = commissions.filter((c) => label(c) === "Paid").reduce((a, c) => a + (c.amount ?? c.estimatedAmount ?? 0), 0);
-
-  const commissionsTab = (
-    <ListScreen
-      title="Payments"
-      sub="Commission tracking · OR number → voucher requested → follow-up → received → paid"
-      icon={I.peso}
-      draft={false}
-      stats={[
-        { val: ccnt("Requested"), label: "Requested", color: "var(--violet)" },
-        { val: ccnt("Follow-up"), label: "Follow-up pending", color: "var(--amber)" },
-        { val: ccnt("Received"), label: "Received", color: "var(--blue)" },
-        { val: pesoShort(paidSum) + ` · ${ccnt("Paid")}`, label: "Paid · Commission YTD", color: "var(--brand)" },
-      ]}
-      filters={["Requested", "Follow-up", "Received", "Paid"]}
-      rows={commissions.map((c) => ({ ...c, _filter: label(c) }))}
-      defaultSort={{ key: "createdAt", dir: "desc" }}
-      emptyText="No commissions yet — verify a payment with an OR number to start one."
-      columns={[
-        { k: "orNumber", label: "OR number" },
-        { k: "clientName", label: "Client" },
-        { k: "policyRef", label: "Policy" },
-        { k: "estimatedAmount", label: "Commission", num: true },
-        { k: "status", label: "Status" },
-        { k: "clientId", label: "Commission contact" },
-        { k: "followUpDate", label: "Last follow-up" },
-        { k: "paidDate", label: "Voucher" },
-        { k: "id", label: "" },
-      ]}
-      renderRow={(c) => {
-        const l = label(c);
-        return (
-          <Row key={c.id} onClick={() => c.clientId && openContact(c.clientId)}>
-            <Td><span className="font-mono text-[12px]">{c.orNumber ?? "—"}</span></Td>
-            <Td>
-              <div className="flex items-center gap-2.5">
-                <Avatar name={c.clientName ?? "—"} size={28} />
-                <span className="text-[13px] font-semibold">{c.clientName ?? "—"}</span>
-              </div>
-            </Td>
-            <Td className="text-muted-foreground">{c.policyRef ?? "—"}</Td>
-            <Td className="text-right font-mono font-semibold tabular-nums">
-              {canSeeAmounts ? (
-                c.amount != null ? (
-                  peso(c.amount)
-                ) : c.estimatedAmount != null ? (
-                  <span className="text-muted-foreground">~{peso(c.estimatedAmount)}</span>
-                ) : (
-                  "—"
-                )
-              ) : (
-                <span title="Hidden — commission amounts are restricted for your role" className="text-subtle">•••••</span>
-              )}
-            </Td>
-            <Td><StatusBadge status={l === "Requested" ? "Requested" : l === "Follow-up" ? "Follow-up" : l} /></Td>
-            <Td>
-              <span className="text-[12.5px] font-[550]">{PC_VOUCHER_CONTACT.name}</span>
-              <span className="block text-[11px] text-subtle">Pacific Cross</span>
-            </Td>
-            <Td className="text-muted-foreground">{fmtDate(c.followUpDate)}</Td>
-            <Td>
-              {(l === "Received" || l === "Paid") && c.orNumber ? (
-                <span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-muted-foreground">
-                  <I.doc2 size={12} /> CV-{c.orNumber.replace(/[^0-9]/g, "") || c.orNumber}
-                </span>
-              ) : (
-                <span className="text-subtle">—</span>
-              )}
-            </Td>
-            <Td>
-              <span className="flex flex-wrap justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                {(l === "Requested" || l === "Follow-up" || l === "Not started" || l === "Waiting for OR") && (
-                  <>
-                    {l !== "Follow-up" && (
-                      <Btn size="sm" onClick={() => requestVoucher(c)}>
-                        Request Voucher
-                      </Btn>
-                    )}
-                    <Btn size="sm" onClick={() => commissionStep(c, "follow-up")}>
-                      Log Follow-up
-                    </Btn>
-                    <Btn size="sm" onClick={() => commissionStep(c, "received")}>
-                      Mark Received
-                    </Btn>
-                  </>
-                )}
-                {l === "Received" && (
-                  <Btn size="sm" variant="primary" onClick={() => commissionStep(c, "paid")}>
-                    Mark Paid
-                  </Btn>
-                )}
-                {l === "Paid" && (
-                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
-                    <I.check size={13} /> Paid
-                  </span>
-                )}
-              </span>
-            </Td>
-          </Row>
-        );
-      }}
-    />
-  );
-
   return (
     <div>
       <div className="mb-2 flex justify-end">{tabControl}</div>
-      {tab === "collections" ? collections : commissionsTab}
+      {tab === "collections" ? collections : <CommissionsLive commissions={commissions} />}
       {verify && <VerifyPaymentDrawer payment={verify} onClose={() => setVerify(null)} />}
     </div>
   );

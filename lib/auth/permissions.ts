@@ -32,7 +32,7 @@ export const narrowerOrEqual = (candidate: AppRole, real: AppRole) =>
 /** Modules match ScreenId plus the record-detail surfaces. */
 export type PermModule =
   | "dashboard" | "prospects" | "clients" | "contact" | "applications"
-  | "policies" | "renewals" | "claims" | "travel" | "payments" | "documents"
+  | "policies" | "renewals" | "claims" | "travel" | "payments" | "commissions" | "documents"
   | "tasks" | "relationship" | "reports" | "group" | "products" | "templates"
   | "settings";
 
@@ -49,6 +49,7 @@ const MATRIX: Record<PermModule, Record<AppRole, Cap>> = {
   claims:       { admin: "full", staff: "full", agent: "own" },
   travel:       { admin: "full", staff: "full", agent: "own" },
   payments:     { admin: "full", staff: "full", agent: "own" },
+  commissions:  { admin: "full", staff: "full", agent: "own" },
   documents:    { admin: "full", staff: "full", agent: "own" },
   tasks:        { admin: "full", staff: "full", agent: "own" },
   relationship: { admin: "full", staff: "full", agent: "view" },

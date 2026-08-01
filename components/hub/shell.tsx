@@ -16,7 +16,7 @@ import { Avatar, TONE_SOFT } from "./primitives";
 
 export type ScreenId =
   | "dashboard" | "prospects" | "clients" | "applications" | "policies"
-  | "renewals" | "claims" | "travel" | "payments" | "documents" | "tasks"
+  | "renewals" | "claims" | "travel" | "payments" | "commissions" | "documents" | "tasks"
   | "relationship" | "reports" | "products" | "templates" | "settings";
 
 /** Single source of truth mapping a screen id to its App Router path. */
@@ -30,6 +30,7 @@ export const SCREEN_PATH: Record<ScreenId, string> = {
   claims: "/claims",
   travel: "/travel",
   payments: "/payments",
+  commissions: "/commissions",
   documents: "/documents",
   tasks: "/tasks",
   relationship: "/relationship",
@@ -56,6 +57,7 @@ const NAV_MAIN: NavEntry[] = [
 ];
 const NAV_WORK: NavEntry[] = [
   { id: "payments", label: "Payments", icon: "peso" },
+  { id: "commissions", label: "Commissions", icon: "chart" },
   { id: "documents", label: "Documents", icon: "folder" },
   { id: "tasks", label: "Tasks", icon: "checkSquare", badge: "6" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
