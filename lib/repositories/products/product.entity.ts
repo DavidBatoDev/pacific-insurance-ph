@@ -24,6 +24,16 @@ export interface CatalogProduct {
   updatedAt: string;
 }
 
+export interface CatalogProductVersion {
+  id: string;
+  productId: string;
+  productName: string;
+  versionName: string;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  active: boolean;
+}
+
 export interface NewCatalogProduct {
   name: string;
   category?: string | null;

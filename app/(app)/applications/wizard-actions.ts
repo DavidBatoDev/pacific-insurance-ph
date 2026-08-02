@@ -12,6 +12,7 @@ import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
+import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
 import { categoryForProduct, emptyWizardForm, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
 
@@ -397,17 +398,8 @@ export async function createFromWizardAction(
     /* ---------- 4. initial email ---------- */
     const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
     if (sendingEmail && (form.emailRecipient || form.email)) {
-      await getSupabaseAdmin().from("communications").insert({
-        client_id: resolvedClientId,
-        direction: "Outbound",
-        channel: "Gmail",
-        subject: form.emailSubject || `Your ${form.productName || "insurance"} application`,
-        summary: form.emailBody.split("\n").find(Boolean) ?? "",
-        notes: form.emailBody || null,
-        related_user_id: actor.id,
-        delivery_status: "sent",
-      });
-      result.summary += ` “${form.emailTemplate || "Initial email"}” sent.`;
+      await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id });
+      result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered).`;
     }
     if (mode === "docs") {
       const items = form.checklist.filter((c) => !c.checked).length;

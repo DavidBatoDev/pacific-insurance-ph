@@ -103,13 +103,13 @@ export function NewCampaignDrawer({
       });
       if (res.ok) {
         overlays.toast(
-          "Campaign sent",
-          `${res.data} personalized ${type.toLowerCase()} message${res.data === 1 ? "" : "s"} sent · logged to timelines.`,
+          "Campaign logged",
+          `${res.data} personalized ${type.toLowerCase()} message${res.data === 1 ? "" : "s"} logged to timelines; nothing was delivered.`,
         );
         router.refresh();
         onClose();
       } else {
-        overlays.toast("Couldn’t send campaign", res.error);
+        overlays.toast("Couldn’t log campaign", res.error);
       }
     });
 
@@ -140,7 +140,7 @@ export function NewCampaignDrawer({
               <I.arrowRight size={15} className="rotate-180" /> Back
             </Btn>
             <Btn variant="primary" disabled={pending} onClick={send}>
-              <I.send size={15} /> {pending ? "Sending…" : `Send campaign (${recipients.length})`}
+              <I.send size={15} /> {pending ? "Logging…" : `Log campaign (${recipients.length})`}
             </Btn>
           </>
         )
@@ -282,8 +282,8 @@ export function NewCampaignDrawer({
           <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
             <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
             <div>
-              <b>Human-in-the-loop.</b> Nothing sends until you click <b>Send campaign</b>. Each
-              recipient gets a personalized message logged to their timeline.
+              <b>Logged only.</b> Clicking <b>Log campaign</b> records each personalized message on
+              the timeline; no message is delivered.
             </div>
           </div>
 

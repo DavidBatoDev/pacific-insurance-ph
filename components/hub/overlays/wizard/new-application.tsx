@@ -220,7 +220,7 @@ export function NewApplicationWizard({
         const titles: Record<WizardMode, string> = {
           draft: "Draft saved",
           create: res.data.groupId ? "Group account created" : "Application created",
-          email: "Application created & email sent",
+          email: "Application created & email logged",
           docs: "Application created & documents requested",
         };
         overlays.toast(titles[mode], res.data.summary);
@@ -379,7 +379,7 @@ export function NewApplicationWizard({
                   {(
                     [
                       ["create", "Create application", "check"],
-                      ["email", "Create & send email", "mail"],
+                      ["email", "Create & log email", "mail"],
                       ["draft", "Save as draft", "doc2"],
                     ] as const
                   ).map(([mode, label, icon]) => {

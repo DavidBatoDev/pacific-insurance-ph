@@ -459,7 +459,7 @@ export function Step6({ f, set }: StepProps) {
     `Timeline entry — application created`,
   ];
   if (f.createTask) willCreate.push("Follow-up task on the board + dashboard");
-  if (f.sendEmail) willCreate.push(`Email — ${f.emailTemplate || "initial email"}`);
+  if (f.sendEmail) willCreate.push(`Logged email — ${f.emailTemplate || "initial email"} (not delivered)`);
   if (f.preExisting === "Yes") willCreate.push("Medical Evaluation type — records + questionnaire required");
 
   return (

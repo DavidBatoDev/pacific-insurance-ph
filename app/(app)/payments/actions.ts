@@ -16,6 +16,7 @@ import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
 import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 
 /** First-year vs renewal vs travel commission estimate (design payments-data.jsx). */
 const COMM_RATE: Record<string, number> = { Application: 0.18, Renewal: 0.1, Travel: 0.15 };
@@ -137,8 +138,8 @@ export async function listAwaitingPaymentsAction(): Promise<Payment[]> {
 }
 
 /**
- * Send Payment Links batch (new-modals.md §12): logs a payment-instruction
- * entry to each contact's timeline and advances the source record's status.
+ * Payment Links batch (new-modals.md §12): logs a payment-instruction
+ * entry to each contact's timeline. No delivery or source-status advancement occurs.
  */
 export async function sendPaymentLinksAction(input: {
   paymentIds: string[];
@@ -150,38 +151,26 @@ export async function sendPaymentLinksAction(input: {
   const actor = await getActor();
   try {
     const repo = getPaymentsRepository();
-    let sent = 0;
+    let logged = 0;
     for (const id of input.paymentIds) {
       const p = await repo.findById(id);
       if (!p?.clientId) continue;
-      await getSupabaseAdmin().from("communications").insert({
-        client_id: p.clientId,
-        direction: "Outbound",
-        channel: "Gmail",
-        subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(),
-        summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`,
-        notes: input.bodyBySource[p.source] ?? null,
-        related_user_id: actor.id,
-        delivery_status: "sent",
-      });
+      await logOutboundEmail({ clientId: p.clientId, subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(), summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`, notes: input.bodyBySource[p.source] ?? null, actorId: actor.id });
       await recordActivity({
         scopeType: "client",
         scopeId: p.clientId,
-        activityType: "payment.instruction_sent",
-        summary: `Payment instruction sent — ${p.sourceRef ?? p.referenceNo ?? ""} · ${peso(p.amount ?? 0)}`,
+        activityType: "payment.instruction_logged",
+        summary: `Payment instruction logged — ${p.sourceRef ?? p.referenceNo ?? ""} · ${peso(p.amount ?? 0)}`,
         actorId: actor.id,
       });
-      if (p.renewalId) await getRenewalsRepository().update(p.renewalId, { status: "Reminder Sent" });
-      if (p.travelRequestId)
-        await getTravelRepository().update(p.travelRequestId, { status: "Awaiting Payment" });
-      sent++;
+      logged++;
     }
     revalidatePath("/payments");
     revalidatePath("/dashboard");
     revalidatePath("/renewals");
-    return { ok: true, data: sent };
+    return { ok: true, data: logged };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to send payment links." };
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to log payment links." };
   }
 }
 

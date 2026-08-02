@@ -684,6 +684,48 @@ export type Database = {
           },
         ]
       }
+      communication_library_documents: {
+        Row: {
+          communication_id: string
+          created_at: string
+          document_library_id: string
+          document_name_snapshot: string
+          file_path_snapshot: string
+          version_label_snapshot: string
+        }
+        Insert: {
+          communication_id: string
+          created_at?: string
+          document_library_id: string
+          document_name_snapshot: string
+          file_path_snapshot: string
+          version_label_snapshot: string
+        }
+        Update: {
+          communication_id?: string
+          created_at?: string
+          document_library_id?: string
+          document_name_snapshot?: string
+          file_path_snapshot?: string
+          version_label_snapshot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_library_documents_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_library_documents_document_library_id_fkey"
+            columns: ["document_library_id"]
+            isOneToOne: false
+            referencedRelation: "document_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dependents: {
         Row: {
           created_at: string
@@ -803,43 +845,70 @@ export type Database = {
       }
       document_library: {
         Row: {
+          age_band: string
+          approval_status: string
           created_at: string
           document_name: string
           document_type: string | null
+          distribution_notes: string | null
           effective_date: string | null
           expiry_date: string | null
+          file_size_bytes: number | null
           file_path: string | null
           id: string
+          mime_type: string | null
           notes: string | null
+          original_file_name: string | null
           product_version_id: string | null
           status: string
           updated_at: string
+          uploaded_by: string | null
+          variant: string | null
+          version_label: string
         }
         Insert: {
+          age_band?: string
+          approval_status?: string
           created_at?: string
           document_name: string
           document_type?: string | null
+          distribution_notes?: string | null
           effective_date?: string | null
           expiry_date?: string | null
+          file_size_bytes?: number | null
           file_path?: string | null
           id?: string
+          mime_type?: string | null
           notes?: string | null
+          original_file_name?: string | null
           product_version_id?: string | null
           status?: string
           updated_at?: string
+          uploaded_by?: string | null
+          variant?: string | null
+          version_label: string
         }
         Update: {
+          age_band?: string
+          approval_status?: string
           created_at?: string
           document_name?: string
           document_type?: string | null
+          distribution_notes?: string | null
           effective_date?: string | null
           expiry_date?: string | null
+          file_size_bytes?: number | null
           file_path?: string | null
           id?: string
+          mime_type?: string | null
           notes?: string | null
+          original_file_name?: string | null
           product_version_id?: string | null
           status?: string
           updated_at?: string
+          uploaded_by?: string | null
+          variant?: string | null
+          version_label?: string
         }
         Relationships: [
           {
@@ -847,6 +916,13 @@ export type Database = {
             columns: ["product_version_id"]
             isOneToOne: false
             referencedRelation: "product_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_library_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -2653,6 +2729,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_document_library_asset: {
+        Args: { p_asset_id: string }
+        Returns: Database["public"]["Tables"]["document_library"]["Row"]
+      }
       next_reference: { Args: { prefix: string }; Returns: string }
     }
     Enums: {

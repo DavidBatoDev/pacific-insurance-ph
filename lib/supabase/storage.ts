@@ -34,3 +34,15 @@ export async function removeObject(path: string): Promise<void> {
   const { error } = await getSupabaseAdmin().storage.from(DOCUMENTS_BUCKET).remove([path]);
   if (error) throw new Error(`Storage remove failed: ${error.message}`);
 }
+
+export async function createSignedUpload(path: string) {
+  const { data, error } = await getSupabaseAdmin().storage.from(DOCUMENTS_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw new Error(`Signed upload failed: ${error?.message ?? "unknown error"}`);
+  return { path: data.path, token: data.token };
+}
+
+export async function getObjectInfo(path: string) {
+  const { data, error } = await getSupabaseAdmin().storage.from(DOCUMENTS_BUCKET).info(path);
+  if (error || !data) throw new Error(`Storage verification failed: ${error?.message ?? "unknown error"}`);
+  return data;
+}

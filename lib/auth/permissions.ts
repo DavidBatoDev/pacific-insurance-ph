@@ -34,7 +34,7 @@ export type PermModule =
   | "dashboard" | "prospects" | "clients" | "contact" | "applications"
   | "policies" | "renewals" | "claims" | "travel" | "payments" | "commissions" | "documents"
   | "tasks" | "relationship" | "reports" | "group" | "products" | "templates"
-  | "settings" | "externalContacts";
+  | "settings" | "externalContacts" | "documentLibrary";
 
 type Cap = "full" | "edit" | "own" | "view" | "none";
 
@@ -59,6 +59,7 @@ const MATRIX: Record<PermModule, Record<AppRole, Cap>> = {
   templates:    { admin: "full", staff: "edit", agent: "view" },
   settings:     { admin: "full", staff: "view", agent: "view" },
   externalContacts: { admin: "full", staff: "edit", agent: "view" },
+  documentLibrary: { admin: "full", staff: "view", agent: "none" },
 };
 
 export type PermAction = "view" | "create" | "edit" | "delete" | "export";

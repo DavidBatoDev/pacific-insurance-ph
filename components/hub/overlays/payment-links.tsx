@@ -110,28 +110,28 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       });
       if (res.ok) {
         overlays.toast(
-          "Payment links sent",
-          `${res.data} personalized payment instruction${res.data === 1 ? "" : "s"} sent · logged to timelines · statuses updated.`,
+          "Payment links logged",
+          `${res.data} personalized payment instruction${res.data === 1 ? "" : "s"} logged to timelines; nothing was delivered.`,
         );
         router.refresh();
         onClose();
       } else {
-        overlays.toast("Couldn’t send payment links", res.error);
+        overlays.toast("Couldn’t log payment links", res.error);
       }
     });
 
   return (
     <Drawer
       icon="send"
-      title="Send payment links"
-      sub="Batch payment instructions to everyone with money awaiting collection"
+      title="Log payment links"
+      sub="Record intended payment instructions for everyone with money awaiting collection"
       wide
       onClose={onClose}
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn variant="primary" disabled={selected.length === 0 || via.length === 0 || pending} onClick={send}>
-            <I.send size={15} /> {pending ? "Sending…" : `Send all (${selected.length})`}
+            <I.send size={15} /> {pending ? "Logging…" : `Log all (${selected.length})`}
           </Btn>
         </>
       }
@@ -140,8 +140,8 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
         <div>
           <b>Human-in-the-loop batch.</b> Every recipient is pre-selected across the queues —
-          uncheck anyone to exclude them, then <b>Send all</b>. Each person gets a personalized
-          instruction logged to their timeline.
+          uncheck anyone to exclude them, then <b>Log all</b>. Each personalized instruction is
+          recorded to the timeline but is not delivered.
         </div>
       </div>
 

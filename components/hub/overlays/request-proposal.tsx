@@ -113,7 +113,7 @@ export function RequestProposalModal({
         <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", alsoEmail ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
           {alsoEmail && <I.check size={13} />}
         </span>
-        Also email Pacific Cross
+        Also log an email to Pacific Cross (not delivered)
       </button>
       {alsoEmail && (
         <DrawerField label="Carrier recipient" className="mt-3">

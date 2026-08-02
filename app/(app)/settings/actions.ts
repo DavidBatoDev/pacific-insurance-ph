@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
@@ -16,12 +17,118 @@ import {
   type PaymentChannel,
 } from "@/lib/repositories/payment-channels";
 import { getUsersRepository, type User } from "@/lib/repositories/users";
+import {
+  getDocumentLibraryRepository,
+  LIBRARY_AGE_BANDS,
+  LIBRARY_DOCUMENT_TYPES,
+  type LibraryDocument,
+  type LibraryDocumentUpdate,
+  type NewLibraryDocument,
+} from "@/lib/repositories/document-library";
+import { createSignedUpload, getObjectInfo, removeObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
 async function requireAdmin() {
   const actor = await getActor();
   if (toAppRole(actor.role) !== "admin") throw new Error("Settings changes are Admin-only.");
   return actor;
+}
+
+const LIBRARY_MAX_BYTES = 25 * 1024 * 1024;
+const LIBRARY_MIME_TYPES = new Set([
+  "application/pdf", "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+function libraryMimeType(fileName: string, supplied: string) {
+  if (LIBRARY_MIME_TYPES.has(supplied)) return supplied;
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "doc") return "application/msword";
+  if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return null;
+}
+
+export type LibraryUploadMetadata = Omit<NewLibraryDocument, "filePath" | "uploadedBy">;
+
+export async function beginLibraryUploadAction(input: { fileName: string; mimeType: string; size: number })
+  : Promise<ActionResult<{ path: string; token: string; mimeType: string }>> {
+  try {
+    await requireAdmin();
+    if (!input.fileName.trim() || input.size <= 0) return { ok: false, error: "Choose a file to upload." };
+    if (input.size > LIBRARY_MAX_BYTES) return { ok: false, error: "Library files must be 25 MB or smaller." };
+    const mimeType = libraryMimeType(input.fileName, input.mimeType);
+    if (!mimeType) return { ok: false, error: "Only PDF, DOC, and DOCX files are allowed." };
+    const ext = input.fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    return { ok: true, data: { ...await createSignedUpload(`library/${randomUUID()}.${ext}`), mimeType } };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." }; }
+}
+
+export async function finalizeLibraryUploadAction(path: string, input: LibraryUploadMetadata): Promise<ActionResult<LibraryDocument>> {
+  try {
+    const actor = await requireAdmin();
+    if (!path.startsWith("library/")) return { ok: false, error: "Invalid library path." };
+    if (!input.productVersionId || !input.documentName.trim() || !input.versionLabel.trim())
+      return { ok: false, error: "Product version, document name, and version are required." };
+    if (!LIBRARY_DOCUMENT_TYPES.includes(input.documentType as (typeof LIBRARY_DOCUMENT_TYPES)[number]))
+      return { ok: false, error: "Choose a supported document type." };
+    if (!LIBRARY_AGE_BANDS.includes((input.ageBand ?? "All Ages") as (typeof LIBRARY_AGE_BANDS)[number]))
+      return { ok: false, error: "Choose a supported age band." };
+    if (!libraryMimeType(input.originalFileName, input.mimeType))
+      return { ok: false, error: "Only PDF, DOC, and DOCX files are allowed." };
+    if (input.expiryDate && input.effectiveDate && input.expiryDate < input.effectiveDate)
+      return { ok: false, error: "Expiry date cannot be before the effective date." };
+    const info = await getObjectInfo(path);
+    const size = Number(info.size ?? input.fileSizeBytes);
+    if (size > LIBRARY_MAX_BYTES) return { ok: false, error: "Uploaded file exceeds 25 MB." };
+    const saved = await getDocumentLibraryRepository().create({ ...input, filePath: path, fileSizeBytes: size, uploadedBy: actor.id, approvalStatus: "Pending Approval", status: "Active" });
+    await recordAudit({ actorId: actor.id, action: "create", tableName: "document_library", recordId: saved.id, newValue: saved as unknown as Json });
+    revalidatePath("/settings");
+    return { ok: true, data: saved };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t finalize upload." }; }
+}
+
+export async function discardLibraryUploadAction(path: string): Promise<ActionResult<null>> {
+  try {
+    await requireAdmin();
+    if (!/^library\/[0-9a-f-]+\.(pdf|doc|docx)$/.test(path))
+      return { ok: false, error: "Invalid library path." };
+    await removeObject(path);
+    return { ok: true, data: null };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t discard upload." }; }
+}
+
+export async function updateLibraryDocumentAction(id: string, input: LibraryDocumentUpdate): Promise<ActionResult<LibraryDocument>> {
+  try {
+    const actor = await requireAdmin();
+    const current = await getDocumentLibraryRepository().findById(id);
+    if (!current) return { ok: false, error: "Library asset not found." };
+    if (input.expiryDate && input.effectiveDate && input.expiryDate < input.effectiveDate)
+      return { ok: false, error: "Expiry date cannot be before the effective date." };
+    if (current.approvalStatus === "Approved") {
+      const changesIdentity =
+        (input.documentName !== undefined && input.documentName !== current.documentName) ||
+        (input.documentType !== undefined && input.documentType !== current.documentType) ||
+        (input.versionLabel !== undefined && input.versionLabel !== current.versionLabel) ||
+        (input.variant !== undefined && input.variant !== current.variant) ||
+        (input.ageBand !== undefined && input.ageBand !== current.ageBand);
+      if (changesIdentity)
+        return { ok: false, error: "Approved asset identity is locked. Upload a new version instead." };
+    }
+    const saved = await getDocumentLibraryRepository().update(id, input);
+    await recordAudit({ actorId: actor.id, action: "update", tableName: "document_library", recordId: id, previousValue: current as unknown as Json, newValue: saved as unknown as Json });
+    revalidatePath("/settings"); return { ok: true, data: saved };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t update asset." }; }
+}
+
+export async function setLibraryDocumentStateAction(id: string, operation: "approve" | "archive"): Promise<ActionResult<LibraryDocument>> {
+  try {
+    const actor = await requireAdmin();
+    const repo = getDocumentLibraryRepository();
+    const saved = operation === "approve" ? await repo.approve(id) : await repo.archive(id);
+    await recordAudit({ actorId: actor.id, action: "update", tableName: "document_library", recordId: id, newValue: saved as unknown as Json });
+    revalidatePath("/settings"); return { ok: true, data: saved };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : `Couldn’t ${operation} asset.` }; }
 }
 
 async function requireContactEditor() {

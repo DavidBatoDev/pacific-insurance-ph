@@ -16,6 +16,7 @@ export type {
   CatalogProduct,
   NewCatalogProduct,
   CatalogProductUpdate,
+  CatalogProductVersion,
   ProductCategory,
 } from "./product.entity";
 export { PRODUCT_CATEGORIES } from "./product.entity";

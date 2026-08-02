@@ -8,18 +8,18 @@ import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/sear
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
-import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
 import { usePersona } from "../persona";
 import { Avatar, Btn } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays, type EngageContact } from "./overlay-provider";
+import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 
 /**
  * Engage drawer — the shared human-in-the-loop composer opened from anywhere
  * WITHOUT an open Contact Profile (design engage.jsx; on the profile the same
- * fields render inline as the Email tab). Sends are real: a communications row
- * + timeline entry via server actions.
+ * fields render inline as the Email tab). Until a provider is connected,
+ * email actions create a communications row + timeline entry only.
  */
 
 interface ActionCfg {
@@ -27,17 +27,16 @@ interface ActionCfg {
   tpl?: string;
   icon: IconName;
   sub: string;
-  attach?: string;
 }
 
 export const ENGAGE_ACTIONS: Record<string, ActionCfg> = {
-  "Send Email": { kind: "email", tpl: "New inquiry response", icon: "mail", sub: "Compose from a template — editable before you send." },
-  "Send Brochure": { kind: "email", tpl: "Send brochure", icon: "mail", sub: "Attach the plan brochure and send.", attach: "Brochure.pdf" },
-  "Send Intake / Application Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Send the intake / application form.", attach: "Application-form.pdf" },
-  "Send Intake Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Send the intake / application form.", attach: "Application-form.pdf" },
-  "Send Payment Instruction": { kind: "email", tpl: "Payment instruction", icon: "peso", sub: "Send payment options and instructions." },
-  "Send Renewal Notice": { kind: "email", tpl: "Renewal reminder", icon: "refresh", sub: "Send the renewal notice and payment options." },
-  "Send Proposal": { kind: "email", tpl: "Proposal / Quote Delivery", icon: "send", sub: "Deliver the received carrier proposal to the lead." },
+  "Send Email": { kind: "email", tpl: "New inquiry response", icon: "mail", sub: "Compose from a template and log the intended email." },
+  "Send Brochure": { kind: "email", tpl: "Send brochure", icon: "mail", sub: "Choose the approved plan brochure and log the intended email." },
+  "Send Intake / Application Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
+  "Send Intake Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
+  "Send Payment Instruction": { kind: "email", tpl: "Payment instruction", icon: "peso", sub: "Log the intended payment-options email." },
+  "Send Renewal Notice": { kind: "email", tpl: "Renewal reminder", icon: "refresh", sub: "Log the intended renewal-notice email." },
+  "Send Proposal": { kind: "email", tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
   "Request Commission Voucher": { kind: "email", tpl: "Commission Voucher Request", icon: "mail", sub: "Email the Pacific Cross commission contact to request the voucher." },
   "Log Commission Follow-Up": { kind: "email", tpl: "Commission Follow-Up", icon: "mail", sub: "Chase a commission voucher that hasn't arrived yet." },
   "Log Discovery Call": { kind: "call", icon: "phone", sub: "Log the discovery conversation — outcome + notes to the timeline." },
@@ -72,6 +71,7 @@ export function EngageDrawer({
   const [body, setBody] = useState("");
   const [outcome, setOutcome] = useState("Reached");
   const [callNote, setCallNote] = useState("");
+  const [libraryDocumentId, setLibraryDocumentId] = useState("");
   const seededRef = useRef(false);
 
   const ctx = useMemo<MergeContext>(
@@ -101,6 +101,7 @@ export function EngageDrawer({
 
   const applyTemplate = (name: string) => {
     setTpl(name);
+    setLibraryDocumentId("");
     const t = templates.find((x) => x.name === name);
     if (t) {
       setSubject(fillTemplate(t.subject, ctx));
@@ -119,6 +120,7 @@ export function EngageDrawer({
     !!contact?.clientId &&
     !pending &&
     (cfg.kind === "email" ? !!recipient.trim() && !!subject.trim() : !!outcome);
+  const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!libraryDocumentId);
 
   const send = () => {
     if (!contact?.clientId) return;
@@ -129,16 +131,17 @@ export function EngageDrawer({
               clientId: contact.clientId!,
               recipient,
               subject,
-              body: (cfg.attach ? `📎 ${cfg.attach}\n` : "") + body,
+              body,
               templateName: tpl || null,
               externalContactId: contact.externalContactId ?? null,
+              libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
             })
           : await logCallAction({ clientId: contact.clientId!, outcome, notes: callNote || null });
       if (res.ok) {
         overlays.toast(
-          cfg.kind === "email" ? action : "Call logged",
+          cfg.kind === "email" ? "Email logged" : "Call logged",
           cfg.kind === "email"
-            ? `“${tpl || "Email"}” sent to ${contact.name} · logged to the timeline.`
+            ? `“${tpl || "Email"}” recorded for ${contact.name}; nothing was delivered.`
             : `Call with ${contact.name} saved to the timeline.`,
         );
         router.refresh();
@@ -157,14 +160,14 @@ export function EngageDrawer({
   return (
     <Drawer
       icon={cfg.icon}
-      title={action}
+      title={cfg.kind === "email" ? action.replace(/^Send /, "Log ") : action}
       sub={cfg.sub}
       onClose={onClose}
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
-          <Btn variant="primary" disabled={!canSend} onClick={send}>
-            <I.send size={15} /> {pending ? "Sending…" : cfg.kind === "email" ? "Send" : "Log call"}
+          <Btn variant="primary" disabled={!canComplete} onClick={send}>
+            <I.send size={15} /> {pending ? "Logging…" : cfg.kind === "email" ? "Log email" : "Log call"}
           </Btn>
         </>
       }
@@ -172,8 +175,7 @@ export function EngageDrawer({
       <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed text-foreground">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
         <div>
-          <b>Human-in-the-loop.</b> Nothing sends automatically — review and edit the draft, then
-          click <b>{cfg.kind === "email" ? "Send" : "Log call"}</b>. The touch is logged to{" "}
+          <b>Human-in-the-loop.</b> Review the draft, then click <b>{cfg.kind === "email" ? "Log email" : "Log call"}</b>. Emails and attachments are recorded only and are not delivered. The touch is logged to{" "}
           {contact ? contact.name + "’s" : "the contact’s"} timeline.
         </div>
       </div>
@@ -226,11 +228,7 @@ export function EngageDrawer({
               onChange={(e) => setBody(e.target.value)}
             />
           </Field>
-          {cfg.attach && (
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5 text-[12px] font-semibold text-muted-foreground">
-              <I.folder size={14} /> {cfg.attach} attached
-            </div>
-          )}
+          <LibraryAttachmentPicker clientId={contact.clientId!} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
 
           <div className="mt-5">
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-subtle">

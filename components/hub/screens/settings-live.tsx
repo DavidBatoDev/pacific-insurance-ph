@@ -15,6 +15,9 @@ import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact }
 import type { PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
 import type { User } from "@/lib/repositories/users/user.entity";
+import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
+import type { CatalogProductVersion } from "@/lib/repositories/products/product.entity";
+import { CarrierLibraryTab } from "@/components/settings/carrier-library-tab";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Modal } from "../overlays/modal";
@@ -34,6 +37,7 @@ const TABS = [
   { id: "Notifications", adminOnly: false },
   { id: "Payment Channels", adminOnly: false },
   { id: "Pacific Cross Contacts", adminOnly: false },
+  { id: "Carrier Library", adminOnly: true },
   { id: "Billing", adminOnly: true },
   { id: "Integrations", adminOnly: false },
 ] as const;
@@ -43,14 +47,20 @@ export function SettingsLive({
   channels,
   pacificCross,
   contacts,
+  libraryDocuments,
+  productVersions,
+  canManageLibrary,
 }: {
   users: User[];
   channels: PaymentChannel[];
   pacificCross: PacificCrossIntegrationSettings | null;
   contacts: ExternalContact[];
+  libraryDocuments: LibraryDocument[];
+  productVersions: CatalogProductVersion[];
+  canManageLibrary: boolean;
 }) {
   const persona = usePersona();
-  const isAdmin = persona.role === "admin";
+  const isAdmin = persona.role === "admin" && canManageLibrary;
   const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
   const [tab, setTab] = useState<string>(tabs[0].id);
   const active = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
@@ -97,6 +107,7 @@ export function SettingsLive({
         {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
+        {active === "Carrier Library" && <CarrierLibraryTab documents={libraryDocuments} productVersions={productVersions} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
         {active === "Integrations" && <IntegrationsTab pacificCross={pacificCross} canEdit={isAdmin} />}
       </Card>

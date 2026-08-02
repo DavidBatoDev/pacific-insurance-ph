@@ -34,6 +34,7 @@ import { STAGE_TONE, STATUS_TONE } from "../lead-config";
 import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
+import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "../overlays/library-attachment-picker";
 import { usePersona } from "../persona";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
@@ -138,6 +139,7 @@ export function ContactProfile({
   const [callTier, setCallTier] = useState(client.coverageTier ?? "");
   const [callFollow, setCallFollow] = useState("");
   const [note, setNote] = useState("");
+  const [libraryDocumentId, setLibraryDocumentId] = useState("");
 
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
@@ -145,6 +147,7 @@ export function ContactProfile({
 
   const applyTemplate = (name: string) => {
     setTpl(name);
+    setLibraryDocumentId("");
     const t = templates.find((x) => x.name === name);
     if (t) {
       setSubject(fillTemplate(t.subject, ctx));
@@ -173,13 +176,10 @@ export function ContactProfile({
         subject,
         body,
         templateName: tpl || null,
+        libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
       });
-      if (!res.ok) return toast("Couldn’t send email", res.error);
-      toast("Email sent", `“${tpl || subject}” sent to ${client.fullName} · logged to the timeline.`);
-      // Delivering the proposal template advances the proposal micro-status.
-      if (tpl === "Proposal / Quote Delivery" && isLead) {
-        await setProposalStatusAction(client.id, "Sent");
-      }
+      if (!res.ok) return toast("Couldn’t log email", res.error);
+      toast("Email logged", `“${tpl || subject}” recorded for ${client.fullName}; nothing was delivered.`);
       setSubject("");
       setBody("");
       setTpl("");
@@ -289,7 +289,7 @@ export function ContactProfile({
   };
 
   const NURTURE: { label: string; icon: IconName; run: () => void }[] = [
-    { label: "Send Email", icon: "mail", run: () => focusEmail("New inquiry response") },
+    { label: "Log Email", icon: "mail", run: () => focusEmail("New inquiry response") },
     { label: "Send Brochure", icon: "folder", run: () => focusEmail("Send brochure") },
     { label: "Send Intake Form", icon: "clipboard", run: () => focusEmail("Send application form") },
     { label: "Request Proposal", icon: "fileText", run: () => setProposalOpen(true) },
@@ -297,7 +297,7 @@ export function ContactProfile({
   ];
   if (isLead && client.proposalStatus === "Received") {
     NURTURE.splice(4, 0, {
-      label: "Send Proposal",
+      label: "Log Proposal Email",
       icon: "send",
       run: () => focusEmail("Proposal / Quote Delivery"),
     });
@@ -567,12 +567,13 @@ export function ContactProfile({
                   <ComposerField label="Message" className="mt-3.5">
                     <textarea className={cn(AREA, "min-h-[150px]")} value={body} onChange={(e) => setBody(e.target.value)} />
                   </ComposerField>
+                  <LibraryAttachmentPicker clientId={client.id} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
                   <div className="mt-3.5 flex items-center justify-between">
                     <span className="text-[11.5px] text-faint">
-                      Human-in-the-loop — nothing sends automatically. Sender: {persona.userName}.
+                      Logged only — neither the email nor selected attachments are delivered. Actor: {persona.userName}.
                     </span>
-                    <Btn variant="primary" disabled={pending || !recipient.trim() || !subject.trim()} onClick={sendEmail}>
-                      <I.send size={15} /> {pending ? "Sending…" : "Send"}
+                    <Btn variant="primary" disabled={pending || !recipient.trim() || !subject.trim() || (templateNeedsLibraryAttachment(tpl) && !libraryDocumentId)} onClick={sendEmail}>
+                      <I.send size={15} /> {pending ? "Logging…" : "Log email"}
                     </Btn>
                   </div>
                 </>
@@ -732,7 +733,7 @@ export function ContactProfile({
                           <span
                             className={cn(
                               "rounded-[5px] px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.04em]",
-                              e.direction === "sent" ? "bg-blue-soft text-blue" : "bg-green-soft text-green",
+                              e.direction === "sent" ? "bg-blue-soft text-blue" : e.direction === "logged" ? "bg-amber-soft text-amber" : "bg-green-soft text-green",
                             )}
                           >
                             {e.direction}
@@ -799,7 +800,7 @@ export function ContactProfile({
                   )}
                   {client.proposalStatus === "Received" && (
                     <Btn size="sm" variant="primary" onClick={() => focusEmail("Proposal / Quote Delivery")}>
-                      Send Proposal
+                      Log Proposal Email
                     </Btn>
                   )}
                   {client.proposalStatus === "Sent" && (

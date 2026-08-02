@@ -14,8 +14,8 @@ export type TimelineKind =
 export interface TimelineEntry {
   id: string;
   kind: TimelineKind;
-  /** Sent/Received tag for emails & messages. */
-  direction: "sent" | "received" | null;
+  /** Logged/Sent/Received tag for emails and messages. */
+  direction: "sent" | "logged" | "received" | null;
   title: string;
   body: string | null;
   actorName: string | null;
@@ -54,7 +54,7 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
   const [comms, activity] = await Promise.all([
     supabase
       .from("communications")
-      .select("id, direction, channel, subject, summary, notes, occurred_at, related_user:users (full_name)")
+      .select("id, direction, channel, subject, summary, notes, delivery_status, occurred_at, related_user:users (full_name), communication_library_documents (document_name_snapshot, version_label_snapshot)")
       .eq("client_id", clientId)
       .order("occurred_at", { ascending: false })
       .limit(limit),
@@ -72,12 +72,16 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
   for (const c of comms.data ?? []) {
     const kind: TimelineKind =
       c.channel === "Phone" ? "call" : c.channel === "Gmail" ? "email" : "message";
+    const attachments = (c.communication_library_documents as Array<{ document_name_snapshot: string; version_label_snapshot: string }> | null) ?? [];
+    const attachmentSummary = attachments.length
+      ? `Attachments logged: ${attachments.map((item) => `${item.document_name_snapshot} (${item.version_label_snapshot})`).join(", ")}. No files were delivered.`
+      : null;
     entries.push({
       id: "c-" + c.id,
       kind,
-      direction: kind === "call" ? null : c.direction === "Inbound" ? "received" : "sent",
+      direction: kind === "call" ? null : c.direction === "Inbound" ? "received" : c.delivery_status === "logged" ? "logged" : "sent",
       title: c.subject ?? c.summary ?? "Communication",
-      body: c.notes && c.notes !== c.subject ? c.notes : null,
+      body: [c.notes && c.notes !== c.subject ? c.notes : null, attachmentSummary].filter(Boolean).join("\n\n") || null,
       actorName: (c.related_user as { full_name: string } | null)?.full_name ?? null,
       at: c.occurred_at,
       atLabel: label(c.occurred_at),

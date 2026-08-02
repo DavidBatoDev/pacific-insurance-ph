@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { getRelationshipTouchpoints, type TouchpointRow } from "@/lib/queries/relationship";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 
 /** Audience segments for the New Campaign drawer. */
 export async function listTouchpointsAction(): Promise<TouchpointRow[]> {
@@ -34,29 +34,20 @@ export async function sendCampaignAction(input: {
   if (input.recipients.length === 0) return { ok: false, error: "No recipients selected." };
 
   try {
-    let sent = 0;
+    let logged = 0;
     for (const r of input.recipients) {
-      await getSupabaseAdmin().from("communications").insert({
-        client_id: r.clientId,
-        direction: "Outbound",
-        channel: "Gmail",
-        subject: r.subject,
-        summary: `${input.type} campaign “${input.campaignName}” · via ${input.channels.join(", ")}`,
-        notes: r.body,
-        related_user_id: actor.id,
-        delivery_status: "sent",
-      });
+      await logOutboundEmail({ clientId: r.clientId, subject: r.subject, summary: `${input.type} campaign “${input.campaignName}” · via ${input.channels.join(", ")}`, notes: r.body, actorId: actor.id });
       await recordActivity({
         scopeType: "client",
         scopeId: r.clientId,
-        activityType: "campaign.sent",
-        summary: `${input.type} campaign sent — “${r.subject}”`,
+        activityType: "campaign.logged",
+        summary: `${input.type} campaign logged — “${r.subject}”`,
         actorId: actor.id,
       });
-      sent++;
+      logged++;
     }
     revalidatePath("/relationship");
-    return { ok: true, data: sent };
+    return { ok: true, data: logged };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to send campaign." };
   }

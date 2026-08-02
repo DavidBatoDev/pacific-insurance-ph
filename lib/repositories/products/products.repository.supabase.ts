@@ -6,6 +6,7 @@ import { toRepositoryError } from "../types";
 import type {
   CatalogProduct,
   CatalogProductUpdate,
+  CatalogProductVersion,
   NewCatalogProduct,
 } from "./product.entity";
 import type { ProductsRepository } from "./products.repository";
@@ -45,6 +46,19 @@ export class SupabaseProductsRepository implements ProductsRepository {
       .order("name", { ascending: true });
     if (error) throw toRepositoryError("ProductsRepository.list", error);
     return (data ?? []).map(toDomain);
+  }
+
+  async listVersions(): Promise<CatalogProductVersion[]> {
+    const { data, error } = await getSupabaseAdmin().from("product_versions")
+      .select("id, product_id, version_name, effective_date, expiry_date, status, products (name)")
+      .order("version_name");
+    if (error) throw toRepositoryError("ProductsRepository.listVersions", error);
+    return (data ?? []).map((row) => ({
+      id: row.id, productId: row.product_id,
+      productName: (row.products as { name: string } | null)?.name ?? "Unknown product",
+      versionName: row.version_name, effectiveDate: row.effective_date,
+      expiryDate: row.expiry_date, active: row.status === "Active",
+    }));
   }
 
   async create(input: NewCatalogProduct): Promise<CatalogProduct> {

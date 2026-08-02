@@ -208,7 +208,7 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
       <div className="flex flex-col gap-2">
         {canSend && (
           <Btn variant="primary" onClick={() => overlays.openPaymentLinks()}>
-            <I.send size={15} /> Send payment links
+            <I.send size={15} /> Log payment links
           </Btn>
         )}
         <Btn onClick={() => setScreen("payments")}>View breakdown</Btn>

@@ -11,6 +11,9 @@ import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getExternalContactsRepository, type ExternalContact } from "@/lib/repositories/external-contacts";
 import type { Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
+import { can, toAppRole } from "@/lib/auth/permissions";
+import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
+import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 
 /**
  * Engage composer mutations (contact-profile.md; human-in-the-loop). Emails,
@@ -89,6 +92,7 @@ export async function sendEmailAction(input: {
   body: string;
   templateName?: string | null;
   externalContactId?: string | null;
+  libraryDocumentIds?: string[];
 }): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.recipient.trim() || !input.subject.trim())
@@ -96,29 +100,62 @@ export async function sendEmailAction(input: {
 
   const client = await getClientsRepository().findById(input.clientId);
   if (!client) return { ok: false, error: "Contact not found." };
+  const requirement = attachmentRequirement(input.templateName ?? null);
+  const ids = [...new Set(input.libraryDocumentIds ?? [])];
+  if (requirement) {
+    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    const eligible = await resolveEligibleLibraryDocuments(client, requirement);
+    if (eligible.reason) return { ok: false, error: eligible.reason };
+    if (ids.length !== 1 || !eligible.documents.some((doc) => doc.id === ids[0]))
+      return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this contact.` };
+  } else if (ids.length) return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
 
-  const { error } = await getSupabaseAdmin().from("communications").insert({
-    client_id: input.clientId,
-    direction: "Outbound",
-    channel: "Gmail",
-    subject: input.subject,
-    summary: input.body.split("\n").find(Boolean) ?? "",
-    notes: input.body,
-    related_user_id: actor.id,
-    external_contact_id: input.externalContactId ?? null,
-    delivery_status: "sent",
-  });
-  if (error) return { ok: false, error: error.message };
+  try {
+    await logOutboundEmail({ clientId: input.clientId, subject: input.subject, summary: input.body.split("\n").find(Boolean) ?? "", notes: input.body, actorId: actor.id, externalContactId: input.externalContactId, libraryDocumentIds: ids });
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to log email." }; }
 
-  const result =
-    client.leadStatus === "New"
-      ? await updateLeadStatus(client, actor.id, "Attempted", "First outbound email sent", {
-          stage: "Contacted",
-          label: "First outreach sent",
-        })
-      : {};
+  const result = {};
   refresh(input.clientId);
   return { ok: true, data: result };
+}
+
+type RequiredLibraryType = "Brochure" | "Application Form";
+function attachmentRequirement(templateName: string | null): RequiredLibraryType | null {
+  if (templateName === "Send brochure") return "Brochure";
+  if (templateName === "Send application form") return "Application Form";
+  return null;
+}
+
+function ageOn(dateOfBirth: string) {
+  const today = new Date(); const dob = new Date(`${dateOfBirth}T00:00:00Z`);
+  let age = today.getUTCFullYear() - dob.getUTCFullYear();
+  if (today.getUTCMonth() < dob.getUTCMonth() || (today.getUTCMonth() === dob.getUTCMonth() && today.getUTCDate() < dob.getUTCDate())) age--;
+  return age;
+}
+
+async function resolveEligibleLibraryDocuments(client: Client, documentType: RequiredLibraryType): Promise<{ documents: LibraryDocument[]; reason: string | null }> {
+  if (!client.productInterest?.trim()) return { documents: [], reason: "Set the contact’s product interest before selecting a carrier asset." };
+  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
+  if (documentType === "Application Form") {
+    if (!client.dateOfBirth) return { documents: [], reason: "Add the contact’s date of birth before selecting an application form." };
+    const age = ageOn(client.dateOfBirth);
+    if (age < 0 || age > 100) return { documents: [], reason: "No supported application-form age band matches this contact." };
+    ageBand = age <= 70 ? "0-70" : "71-100";
+  }
+  const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentType, ageBand });
+  return { documents, reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${client.productInterest}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.` };
+}
+
+export async function listEligibleLibraryDocumentsAction(clientId: string, templateName: string): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
+  try {
+    const actor = await getActor();
+    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    const requirement = attachmentRequirement(templateName);
+    if (!requirement) return { ok: true, data: { documents: [], reason: null } };
+    const client = await getClientsRepository().findById(clientId);
+    if (!client) return { ok: false, error: "Contact not found." };
+    return { ok: true, data: await resolveEligibleLibraryDocuments(client, requirement) };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." }; }
 }
 
 export async function logMessageAction(input: {
@@ -330,16 +367,7 @@ export async function requestProposalAction(input: {
       priority: "Normal",
     });
     if (input.alsoEmailCarrier && carrierRecipient) {
-      await getSupabaseAdmin().from("communications").insert({
-        client_id: input.clientId,
-        direction: "Outbound",
-        channel: "Gmail",
-        subject: `Proposal request — ${client.productInterest ?? "product"} for ${client.fullName}`,
-        summary: `Sent to ${carrierRecipient} (Pacific Cross)`,
-        external_contact_id: carrierContactId,
-        related_user_id: actor.id,
-        delivery_status: "sent",
-      });
+      await logOutboundEmail({ clientId: input.clientId, subject: `Proposal request — ${client.productInterest ?? "product"} for ${client.fullName}`, summary: `Logged for ${carrierRecipient} (Pacific Cross)`, actorId: actor.id, externalContactId: carrierContactId });
     }
 
     refresh(input.clientId);
