@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
-import type { Application, NewApplication, ApplicationUpdate } from "./application.entity";
+import type { Application, ApplicationRequirementProgress, NewApplication, ApplicationUpdate } from "./application.entity";
 import type { ApplicationsRepository } from "./applications.repository";
 
 type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"];
@@ -14,11 +14,27 @@ type ApplicationPatch = Database["public"]["Tables"]["applications"]["Update"];
 type JoinedRow = ApplicationRow & {
   clients: { first_name: string; last_name: string } | null;
   product_versions: { product: { name: string } | null } | null;
+  application_requirements: Array<{ is_required: boolean; status: string }> | null;
 };
 
 const SELECT = `*,
   clients (first_name, last_name),
-  product_versions (product:products (name))`;
+  product_versions (product:products (name)),
+  application_requirements (is_required, status)`;
+
+function requirementProgress(row: JoinedRow): ApplicationRequirementProgress {
+  const all = row.application_requirements ?? [];
+  const required = all.filter((item) => item.is_required);
+  const count = (status: string) => required.filter((item) => item.status === status).length;
+  return {
+    initialized: all.length > 0,
+    required: required.length,
+    pending: count("Pending"),
+    received: count("Received"),
+    incomplete: count("Incomplete"),
+    verified: count("Verified"),
+  };
+}
 
 function toDomain(row: JoinedRow): Application {
   return {
@@ -37,6 +53,7 @@ function toDomain(row: JoinedRow): Application {
     dateSubmitted: row.date_submitted,
     notes: row.notes,
     wizardState: row.wizard_state,
+    requirementProgress: requirementProgress(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

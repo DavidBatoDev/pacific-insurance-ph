@@ -12,4 +12,4 @@ export function getApplicationsRepository(): ApplicationsRepository {
 }
 
 export type { ApplicationsRepository } from "./applications.repository";
-export type { Application, NewApplication, ApplicationUpdate } from "./application.entity";
+export type { Application, ApplicationRequirementProgress, NewApplication, ApplicationUpdate } from "./application.entity";

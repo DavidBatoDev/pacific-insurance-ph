@@ -21,7 +21,8 @@ historical. They no longer describe this repository.
 ## Delivered vertical slices
 
 - Unified people records, lead lifecycle, contact profile, group accounts, clients, and policies.
-- Application creation and draft resume, including persisted application requirements.
+- Application creation and draft resume, including persisted application requirements and
+  verified-only completeness reporting on the Applications register.
 - Payments and Commissions, with a standalone `/commissions` route and the Payments sub-tab as a
   second entry point to the same component.
 - Pacific Cross officer contacts with repository-backed list/create/edit administration and
@@ -55,16 +56,12 @@ historical. They no longer describe this repository.
 
 ## Near-term execution order
 
-1. Confirm migrations `0023_document_library_attachments.sql` and `0024_application_requirements.sql` are
-   applied to the target Supabase project, then refresh generated types.
-2. Add the Applications requirements-completeness column and filtering backed by persisted
-   requirement rows.
-3. Reconcile remaining carrier application forms against the requirements catalog without
+1. Reconcile remaining carrier application forms against the requirements catalog without
    ingesting unapproved samples.
-4. Add portal-based Generate Proposal support; keep calculated/in-app proposal generation blocked
+2. Add portal-based Generate Proposal support; keep calculated/in-app proposal generation blocked
    until product formulas and carrier approval are available.
-5. Complete client import and deployment-login readiness work.
-6. Validate renewals, claims, and travel workflows against newly approved carrier material when it
+3. Complete client import and deployment-login readiness work.
+4. Validate renewals, claims, and travel workflows against newly approved carrier material when it
    becomes available.
 
 ## Verification gate

@@ -5,6 +5,15 @@
 
 import type { Json } from "@/lib/supabase/types";
 
+export interface ApplicationRequirementProgress {
+  initialized: boolean;
+  required: number;
+  pending: number;
+  received: number;
+  incomplete: number;
+  verified: number;
+}
+
 export interface Application {
   id: string;
   referenceNo: string | null;
@@ -22,6 +31,8 @@ export interface Application {
   dateSubmitted: string | null;
   notes: string | null;
   wizardState: Json | null;
+  /** Derived from the persisted C4 checklist; optional items are excluded from status counts. */
+  requirementProgress: ApplicationRequirementProgress;
   createdAt: string;
   updatedAt: string;
 }

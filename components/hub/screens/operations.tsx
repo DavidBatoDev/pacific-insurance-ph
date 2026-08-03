@@ -51,11 +51,45 @@ function GroupChip({ id, name }: { id: string | null; name: string }) {
 }
 
 /* ------------------------------- Applications ------------------------------ */
+type CompletenessState = "Complete" | "In review" | "Missing" | "Not initialized" | "Draft";
+
+function applicationCompleteness(application: Application) {
+  const progress = application.requirementProgress;
+  if (!progress.initialized) {
+    const state: CompletenessState = application.status === "Lead" ? "Draft" : "Not initialized";
+    return { state, label: state, countLabel: null, sort: state === "Draft" ? -2 : -1 };
+  }
+
+  const complete = progress.required === 0 || progress.verified === progress.required;
+  const state: CompletenessState = complete
+    ? "Complete"
+    : progress.pending > 0 || progress.incomplete > 0
+      ? "Missing"
+      : "In review";
+  const countLabel = progress.required === 0
+    ? "No required items"
+    : `${progress.verified}/${progress.required} complete`;
+  const sort = progress.required === 0 ? 100 : (progress.verified / progress.required) * 100;
+  return { state, label: `${countLabel} · ${state}`, countLabel, sort };
+}
+
 export function ApplicationsLive({ rows }: { rows: Application[] }) {
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
+  const viewRows = rows.map((application) => {
+    const completeness = applicationCompleteness(application);
+    return {
+      ...application,
+      completenessState: completeness.state,
+      completenessLabel: completeness.label,
+      completenessCountLabel: completeness.countLabel,
+      completenessSort: completeness.sort,
+      _filter: application.status,
+      _filter2: completeness.state,
+    };
+  });
   const awaiting = rows.filter((a) => a.status === "Awaiting Payment").length;
-  const missing = rows.filter((a) => a.status.includes("Missing")).length;
+  const missing = viewRows.filter((a) => a.completenessState === "Missing").length;
 
   return (
     <ListScreen
@@ -72,7 +106,9 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
         { val: rows.filter((a) => a.status === "Under Review").length, label: "Under review", color: "var(--blue)" },
       ]}
       filters={["Awaiting Payment", "Missing Requirements", "Under Review", "Approved"]}
-      rows={rows.map((a) => ({ ...a, _filter: a.status }))}
+      filters2={["Complete", "In review", "Missing", "Not initialized", "Draft"]}
+      filters2Label="Completeness"
+      rows={viewRows}
       defaultSort={{ key: "createdAt", dir: "desc" }}
       emptyText="No applications yet — start one with the wizard."
       columns={[
@@ -80,6 +116,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
         { k: "clientName", label: "Client" },
         { k: "productName", label: "Product" },
         { k: "status", label: "Status" },
+        { k: "completenessLabel", sortKey: "completenessSort", label: "Completeness" },
         { k: "applicationType", label: "Type" },
         { k: "dateStarted", label: "Started" },
         { k: "id", label: "" },
@@ -90,6 +127,16 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
           <Td><ClientCell name={a.clientName ?? "—"} sub={a.productName ?? undefined} /></Td>
           <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
           <Td><StatusBadge status={a.status} /></Td>
+          <Td>
+            <div className="flex items-center gap-2">
+              {a.completenessCountLabel && (
+                <span className="whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums">
+                  {a.completenessCountLabel}
+                </span>
+              )}
+              <StatusBadge status={a.completenessState} />
+            </div>
+          </Td>
           <Td className="text-muted-foreground">{a.applicationType}</Td>
           <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
           <Td>

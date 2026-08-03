@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -23,6 +24,7 @@ const statusTone: Record<ApplicationRequirementStatus, string> = {
 };
 
 export function ApplicationRequirementsModal({ applicationId, onClose }: { applicationId: string; onClose: () => void }) {
+  const router = useRouter();
   const overlays = useOverlays();
   const [payload, setPayload] = useState<ApplicationRequirementsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         ...current,
         requirements: current.requirements.map((requirement) => requirement.id === item.id ? result.data : requirement),
       });
+      router.refresh();
       overlays.toast("Requirement updated", `${item.documentName} is now ${status}.`);
     });
 

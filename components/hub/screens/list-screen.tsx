@@ -18,6 +18,8 @@ export type FilterableRow = { _filter?: string; _filter2?: string };
 
 export interface Column<T> {
   k: keyof T;
+  /** Sort by a separate raw value while displaying/exporting `k`. */
+  sortKey?: keyof T;
   label: string;
   num?: boolean;
 }
@@ -237,7 +239,7 @@ export function ListScreen<T extends FilterableRow>({
           <thead>
             <tr>
               {columns.map((c) => (
-                <Th key={String(c.k)} label={c.label} k={c.k} sort={sort} toggle={toggle} num={c.num} />
+                <Th key={String(c.k)} label={c.label} k={c.sortKey ?? c.k} sort={sort} toggle={toggle} num={c.num} />
               ))}
             </tr>
           </thead>

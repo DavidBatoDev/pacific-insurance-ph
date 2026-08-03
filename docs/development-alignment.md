@@ -27,7 +27,7 @@ history. Shared decisions must be reflected here or in the canonical documentati
 | Lead stage and status | Stored on the unified client/lead record and written through repositories/actions | Aligned; `../../docs/lead-stage-status*.md` remains lifecycle truth. |
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
-| Application requirements | Persisted requirements/checklist records from migration `0024` | Aligned; list-level completeness reporting remains follow-up work. |
+| Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
 | Carrier assets | `document_library` plus communication-version links from migration `0023` | Aligned; library starts empty until assets are redacted and approved. |
 | Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
 | Proposal `Sent` | Current composer can log the draft/action | Code gap: advance only after provider confirmation or explicit `Mark externally sent`. |
