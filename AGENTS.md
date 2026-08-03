@@ -16,11 +16,22 @@ Always plan before you write or change code:
 
 Don't jump straight to edits. A short, grounded plan first prevents rework.
 
-## Find context in `docs/`
+## Find the right source of truth
 
-The authoritative description of what we're building lives in [`docs/`](docs/README.md) — the
-client's specification, converted to Markdown and organized by topic. Read the relevant docs
-before implementing a feature; start at [`docs/README.md`](docs/README.md) for the index.
+The two colocated repositories have different documentation roles:
+
+1. The parent workspace [`../docs/`](../docs/INDEX.md) is authoritative for current business
+   intent, UI behavior, workflows, and client decisions. Start at `../docs/INDEX.md`.
+2. This repository's [`docs/`](docs/README.md) is the implementation companion: current build
+   status, implementation mappings, and a dated June 2026 baseline converted from the client's
+   earlier Word documents.
+3. Code and Supabase migrations are the truth for what is implemented. If implementation differs
+   from the canonical spec, record the difference in
+   [`docs/development-alignment.md`](docs/development-alignment.md); do not silently rewrite the
+   business requirement to match the code.
+
+Read the relevant canonical spec and the alignment register before implementing a feature. The
+legacy folders below remain useful background, but are not the latest product specification.
 
 - `docs/foundation/` — vision, scope, terminology, system & module architecture
 - `docs/data-model/` — database schema
