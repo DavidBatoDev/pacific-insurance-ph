@@ -69,6 +69,7 @@ interface Props {
   userNames: Record<string, string>;
   pacificCrossPortalUrl: string | null;
   origin: "clients" | "prospects";
+  applications: Application[];
   draftApplications: Application[];
 }
 
@@ -101,6 +102,7 @@ export function ContactProfile({
   userNames,
   pacificCrossPortalUrl,
   origin,
+  applications,
   draftApplications,
 }: Props) {
   const router = useRouter();
@@ -384,6 +386,11 @@ export function ContactProfile({
                 }
               >
                 <I.arrowRight size={15} /> Convert to Application
+              </Btn>
+            )}
+            {applications.length > 0 && (
+              <Btn onClick={() => overlays.openApplicationRequirements(applications[0].id)}>
+                <I.clipboard size={15} /> Requirements
               </Btn>
             )}
             {draftApplications.length > 0 && (
@@ -854,6 +861,25 @@ export function ContactProfile({
                       }
                     >
                       Continue
+                    </Btn>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {applications.length > 0 && (
+            <Card>
+              <CardHead iconName="clipboard" title="Application requirements" count={applications.length} />
+              <div className="divide-y divide-border-soft">
+                {applications.map((application) => (
+                  <div key={application.id} className="flex items-center gap-2 px-[18px] py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[11.5px] text-subtle">{application.referenceNo ?? "Application"}</div>
+                      <div className="truncate text-[12.5px] font-semibold">{application.productName ?? application.applicationType}</div>
+                    </div>
+                    <Btn size="sm" onClick={() => overlays.openApplicationRequirements(application.id)}>
+                      View requirements
                     </Btn>
                   </div>
                 ))}

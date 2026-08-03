@@ -93,7 +93,17 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
           <Td className="text-muted-foreground">{a.applicationType}</Td>
           <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
           <Td>
-            {a.status === "Lead" && !!a.wizardState && typeof a.wizardState === "object" && !Array.isArray(a.wizardState) && (
+            {a.status !== "Lead" ? (
+              <Btn
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  overlays.openApplicationRequirements(a.id);
+                }}
+              >
+                Requirements
+              </Btn>
+            ) : !!a.wizardState && typeof a.wizardState === "object" && !Array.isArray(a.wizardState) && (
               <Btn
                 size="sm"
                 onClick={(event) => {

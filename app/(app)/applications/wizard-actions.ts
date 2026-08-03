@@ -6,6 +6,7 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
+import { getApplicationRequirementsRepository } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type ClientUpdate } from "@/lib/repositories/clients";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 import { getTasksRepository } from "@/lib/repositories/tasks";
@@ -54,6 +55,53 @@ const hasSavedValue = (value: unknown): boolean =>
 const wizardChannel = (value: string | null) => (value === "Gmail" ? "Email" : value);
 const isWizardState = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
+
+/** Copy the current configurable template into an immutable application checklist. */
+async function snapshotApplicationRequirements(applicationId: string, productVersionId: string | null) {
+  const requirements = getApplicationRequirementsRepository();
+  if ((await requirements.listByApplication(applicationId)).length > 0) return;
+
+  const db = getSupabaseAdmin();
+  let templateQuery = db
+    .from("required_document_templates")
+    .select("id")
+    .eq("status", "Active")
+    .limit(1);
+  if (productVersionId) templateQuery = templateQuery.eq("product_version_id", productVersionId);
+  else templateQuery = templateQuery.is("product_version_id", null);
+  let { data: template, error } = await templateQuery.maybeSingle();
+  if (error) throw new Error(error.message);
+
+  if (!template && productVersionId) {
+    const fallback = await db
+      .from("required_document_templates")
+      .select("id")
+      .eq("status", "Active")
+      .is("product_version_id", null)
+      .eq("template_name", "Standard new-business baseline")
+      .maybeSingle();
+    template = fallback.data;
+    error = fallback.error;
+  }
+  if (error) throw new Error(error.message);
+  if (!template) return;
+
+  const { data: items, error: itemsError } = await db
+    .from("required_document_items")
+    .select("id, document_name, is_required, applies_to, notes, sort_order")
+    .eq("requirement_template_id", template.id)
+    .order("sort_order");
+  if (itemsError) throw new Error(itemsError.message);
+  await requirements.createMany((items ?? []).map((item) => ({
+    applicationId,
+    requiredDocumentItemId: item.id,
+    documentName: item.document_name,
+    isRequired: item.is_required,
+    appliesTo: item.applies_to,
+    notes: item.notes,
+    sortOrder: item.sort_order,
+  })));
+}
 
 /**
  * Resolve a resumable draft against its current linked lead. Saved values win;
@@ -279,6 +327,7 @@ export async function createFromWizardAction(
         notes: form.internalNote || form.notes || null,
         wizardState: mode === "draft" ? (form as unknown as Json) : null,
       });
+      if (mode !== "draft") await snapshotApplicationRequirements(application.id, application.productVersionId ?? null);
       await recordActivity({
         scopeType: "client",
         scopeId: resolvedClientId,
@@ -362,6 +411,7 @@ export async function createFromWizardAction(
         notes: form.internalNote || form.notes || null,
         wizardState: mode === "draft" ? (form as unknown as Json) : null,
       });
+      if (mode !== "draft") await snapshotApplicationRequirements(application.id, application.productVersionId ?? null);
       await recordActivity({
         scopeType: "client",
         scopeId: resolvedClientId,

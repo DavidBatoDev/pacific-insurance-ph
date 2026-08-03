@@ -25,6 +25,7 @@ function toDomain(row: JoinedRow): Application {
     id: row.id,
     referenceNo: row.reference_no,
     clientId: row.client_id,
+    productVersionId: row.product_version_id,
     clientName: row.clients
       ? [row.clients.first_name, row.clients.last_name].filter(Boolean).join(" ")
       : null,

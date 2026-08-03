@@ -61,7 +61,8 @@ export type OverlayState =
   | { kind: "add-task"; prefill?: Record<string, unknown> }
   | { kind: "payment-links" }
   | { kind: "campaign"; presetType?: string }
-  | { kind: "command-palette" };
+  | { kind: "command-palette" }
+  | { kind: "application-requirements"; applicationId: string };
 
 interface OverlayApi {
   active: OverlayState | null;
@@ -75,6 +76,7 @@ interface OverlayApi {
   openPaymentLinks: () => void;
   openCampaign: (presetType?: string) => void;
   openCommandPalette: () => void;
+  openApplicationRequirements: (applicationId: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   toast: (title: string, sub?: string) => void;
 }
@@ -128,6 +130,7 @@ export function OverlayProvider({
       openPaymentLinks: () => open({ kind: "payment-links" }),
       openCampaign: (presetType) => open({ kind: "campaign", presetType }),
       openCommandPalette: () => open({ kind: "command-palette" }),
+      openApplicationRequirements: (applicationId) => open({ kind: "application-requirements", applicationId }),
       confirm,
       toast,
     }),

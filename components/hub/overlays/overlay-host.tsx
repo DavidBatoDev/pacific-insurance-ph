@@ -4,6 +4,7 @@ import { Modal } from "./modal";
 import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { AdvanceLeadModal } from "./advance-lead";
+import { ApplicationRequirementsModal } from "./application-requirements";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
@@ -31,6 +32,8 @@ export function OverlayHost({
   switch (overlay.kind) {
     case "command-palette":
       return <CommandPalette onClose={close} />;
+    case "application-requirements":
+      return <ApplicationRequirementsModal applicationId={overlay.applicationId} onClose={close} />;
     case "add-task":
       return <AddTaskDrawer prefill={overlay.prefill as AddTaskPrefill | undefined} onClose={close} />;
     case "wizard":
@@ -95,6 +98,7 @@ const LABEL: Record<OverlayState["kind"], string> = {
   "payment-links": "The Send Payment Links drawer",
   campaign: "The New Campaign drawer",
   "command-palette": "The command palette",
+  "application-requirements": "Application requirements",
 };
 
 function ComingSoon({ overlay, onClose }: { overlay: OverlayState; onClose: () => void }) {

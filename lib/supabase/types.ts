@@ -227,6 +227,63 @@ export type Database = {
           },
         ]
       }
+      application_requirements: {
+        Row: {
+          application_id: string
+          applies_to: string | null
+          created_at: string
+          document_name: string
+          id: string
+          is_required: boolean
+          notes: string | null
+          required_document_item_id: string | null
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          applies_to?: string | null
+          created_at?: string
+          document_name: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          applies_to?: string | null
+          created_at?: string
+          document_name?: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_requirements_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_requirements_required_document_item_id_fkey"
+            columns: ["required_document_item_id"]
+            isOneToOne: false
+            referencedRelation: "required_document_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string

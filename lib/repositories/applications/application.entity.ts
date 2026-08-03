@@ -9,6 +9,7 @@ export interface Application {
   id: string;
   referenceNo: string | null;
   clientId: string;
+  productVersionId: string | null;
   /** Joined convenience: client's full name. */
   clientName: string | null;
   /** Joined convenience: product name via product_versions → products. */
