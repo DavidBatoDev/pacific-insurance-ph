@@ -381,7 +381,6 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
 /* ---------------------------------- Travel --------------------------------- */
 export function TravelLive({ rows }: { rows: TravelRequest[] }) {
   const overlays = useOverlays();
-  const { openContact } = useRecordNav();
   const awaiting = rows.filter((t) => t.status === "Awaiting Payment").length;
 
   return (
@@ -411,7 +410,7 @@ export function TravelLive({ rows }: { rows: TravelRequest[] }) {
         { k: "quotedPremium", label: "Premium", num: true },
       ]}
       renderRow={(t) => (
-        <Row key={t.id} onClick={() => openContact(t.clientId)}>
+        <Row key={t.id} onClick={() => overlays.openTravelWorkflow(t.id)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{t.referenceNo ?? "—"}</span></Td>
           <Td>
             <div className="flex items-center gap-2.5">

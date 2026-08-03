@@ -7,10 +7,28 @@
 export type WizardCategory = "health" | "hmo" | "travel";
 
 export interface WizardMember {
+  id?: string | null;
   name: string;
   dob: string;
   rel: string;
   email: string;
+  preExisting?: string;
+  medicalNotes?: string;
+}
+
+export interface WizardTraveler {
+  name: string;
+  dob: string;
+  nationality: string;
+  gender: string;
+  contact: string;
+  idType: string;
+  idNumber: string;
+  planOptionId: string;
+  beneficiaryName: string;
+  beneficiaryDob: string;
+  beneficiaryRelationship: string;
+  beneficiaryContact: string;
 }
 
 export interface ChecklistItem {
@@ -21,6 +39,7 @@ export interface ChecklistItem {
 }
 
 export interface WizardForm {
+  schemaVersion: 2;
   /** Application row that owns a saved wizard draft, if this is a resume. */
   draftApplicationId: string | null;
   /** Last active wizard step, persisted with a saved draft. */
@@ -31,6 +50,7 @@ export interface WizardForm {
   category: WizardCategory | "";
   productVersionId: string;
   productName: string;
+  planOptionId: string;
   clientMode: "new" | "existing";
   existingClientId: string | null;
   existingClientName: string;
@@ -57,6 +77,7 @@ export interface WizardForm {
   companyContact: string;
   memberCount: string;
   members: WizardMember[];
+  healthDependents: WizardMember[];
   /* Step 3 — product specifics */
   coverage: string;
   startDate: string;
@@ -64,6 +85,7 @@ export interface WizardForm {
   existingPC: string;
   preExisting: string;
   medicalNotes: string;
+  remoteSale: boolean;
   payFreq: string;
   premium: string;
   passport: string;
@@ -71,6 +93,14 @@ export interface WizardForm {
   departure: string;
   returnDate: string;
   travelPurpose: string;
+  itinerary: string;
+  applicantIsTraveler: boolean;
+  travelers: WizardTraveler[];
+  paymentChannelId: string;
+  portalPaymentStatus: string;
+  portalPaymentReference: string;
+  portalPaymentAmount: string;
+  portalProcessingStatus: string;
   /* Step 4 — requirements */
   checklist: ChecklistItem[];
   /* Step 5 — communication & follow-up */
@@ -154,14 +184,15 @@ export const WIZ_CHECKLISTS: Record<WizardCategory, { name: string; cond: string
 };
 
 /** Product name → wizard category. */
-export function categoryForProduct(name: string): WizardCategory {
-  if (/travel/i.test(name)) return "travel";
-  if (/flexi|hmo|group/i.test(name)) return "hmo";
+export function categoryForProduct(name: string, productCategory?: string | null): WizardCategory {
+  if (productCategory === "Travel Insurance" || /travel/i.test(name)) return "travel";
+  if (productCategory === "Group Medical" || /\bhmo\b|\bgroup\b/i.test(name)) return "hmo";
   return "health";
 }
 
 export function emptyWizardForm(): WizardForm {
   return {
+    schemaVersion: 2,
     draftApplicationId: null,
     draftStep: 1,
     appType: "",
@@ -169,6 +200,7 @@ export function emptyWizardForm(): WizardForm {
     category: "",
     productVersionId: "",
     productName: "",
+    planOptionId: "",
     clientMode: "new",
     existingClientId: null,
     existingClientName: "",
@@ -197,12 +229,14 @@ export function emptyWizardForm(): WizardForm {
       { name: "", dob: "", rel: "Employee", email: "" },
       { name: "", dob: "", rel: "Employee", email: "" },
     ],
+    healthDependents: [],
     coverage: "",
     startDate: "",
     dependents: "",
     existingPC: "",
     preExisting: "",
     medicalNotes: "",
+    remoteSale: false,
     payFreq: "",
     premium: "",
     passport: "",
@@ -210,6 +244,14 @@ export function emptyWizardForm(): WizardForm {
     departure: "",
     returnDate: "",
     travelPurpose: "",
+    itinerary: "",
+    applicantIsTraveler: true,
+    travelers: [],
+    paymentChannelId: "",
+    portalPaymentStatus: "Not Yet",
+    portalPaymentReference: "",
+    portalPaymentAmount: "",
+    portalProcessingStatus: "Not Started",
     checklist: [],
     sendEmail: false,
     emailTemplate: "",

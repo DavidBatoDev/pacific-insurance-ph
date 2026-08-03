@@ -8,6 +8,7 @@ import { getActor } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { removeObject, uploadObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
@@ -28,6 +29,11 @@ export async function uploadDocumentAction(formData: FormData) {
   const documentType = str(formData, "documentType") ?? null;
   const visibility = str(formData, "visibility") ?? "Internal Only";
   const name = str(formData, "name") ?? file.name;
+  const applicationId = str(formData, "applicationId") ?? null;
+  const travelRequestId = str(formData, "travelRequestId") ?? null;
+  const sourceLibraryDocumentId = str(formData, "sourceLibraryDocumentId") ?? null;
+  const applicationRequirementId = str(formData, "applicationRequirementId") ?? null;
+  const travelRequirementId = str(formData, "travelRequirementId") ?? null;
 
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -41,10 +47,22 @@ export async function uploadDocumentAction(formData: FormData) {
     name,
     filePath: path,
     clientId,
+    applicationId,
+    travelRequestId,
+    sourceLibraryDocumentId,
+    applicationRequirementId,
+    travelRequirementId,
     documentType,
     visibility,
     uploadedBy: actor.id,
   });
+
+  if (applicationRequirementId) {
+    await getSupabaseAdmin().from("application_requirements").update({ status: "Received" }).eq("id", applicationRequirementId);
+  }
+  if (travelRequirementId) {
+    await getSupabaseAdmin().from("travel_request_requirements").update({ status: "Received" }).eq("id", travelRequirementId);
+  }
 
   await recordAudit({
     actorId: actor.id,
@@ -65,6 +83,8 @@ export async function uploadDocumentAction(formData: FormData) {
     revalidatePath(`/clients/${clientId}`);
   }
   revalidatePath("/documents");
+  if (applicationId) revalidatePath("/applications");
+  if (travelRequestId) revalidatePath("/travel");
   return { id: doc.id };
 }
 

@@ -112,117 +112,105 @@ export type Database = {
           },
         ]
       }
-      applications: {
+      application_carrier_forms: {
         Row: {
-          application_type: string
-          assigned_user_id: string | null
-          client_id: string
+          age_band: string
+          application_id: string
           created_at: string
-          date_started: string | null
-          date_submitted: string | null
+          dependent_id: string | null
+          document_library_id: string | null
+          form_variant: string | null
           id: string
-          notes: string | null
-          pacific_cross_contact_id: string | null
-          payment_proof_sent_date: string | null
-          payment_received_date: string | null
-          plan_option_id: string | null
-          policy_id: string | null
-          policy_issued_date: string | null
-          product_version_id: string | null
-          proposal_received_date: string | null
-          proposal_sent_date: string | null
-          reference_no: string | null
-          status: string
+          match_status: string
+          person_name_snapshot: string
           updated_at: string
-          wizard_state: Json | null
         }
         Insert: {
-          application_type?: string
-          assigned_user_id?: string | null
-          client_id: string
+          age_band: string
+          application_id: string
           created_at?: string
-          date_started?: string | null
-          date_submitted?: string | null
+          dependent_id?: string | null
+          document_library_id?: string | null
+          form_variant?: string | null
           id?: string
-          notes?: string | null
-          pacific_cross_contact_id?: string | null
-          payment_proof_sent_date?: string | null
-          payment_received_date?: string | null
-          plan_option_id?: string | null
-          policy_id?: string | null
-          policy_issued_date?: string | null
-          product_version_id?: string | null
-          proposal_received_date?: string | null
-          proposal_sent_date?: string | null
-          reference_no?: string | null
-          status?: string
+          match_status: string
+          person_name_snapshot: string
           updated_at?: string
-          wizard_state?: Json | null
         }
         Update: {
-          application_type?: string
-          assigned_user_id?: string | null
-          client_id?: string
+          age_band?: string
+          application_id?: string
           created_at?: string
-          date_started?: string | null
-          date_submitted?: string | null
+          dependent_id?: string | null
+          document_library_id?: string | null
+          form_variant?: string | null
           id?: string
-          notes?: string | null
-          pacific_cross_contact_id?: string | null
-          payment_proof_sent_date?: string | null
-          payment_received_date?: string | null
-          plan_option_id?: string | null
-          policy_id?: string | null
-          policy_issued_date?: string | null
-          product_version_id?: string | null
-          proposal_received_date?: string | null
-          proposal_sent_date?: string | null
-          reference_no?: string | null
-          status?: string
+          match_status?: string
+          person_name_snapshot?: string
           updated_at?: string
-          wizard_state?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "applications_assigned_user_id_fkey"
-            columns: ["assigned_user_id"]
+            foreignKeyName: "application_carrier_forms_application_id_fkey"
+            columns: ["application_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "applications"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "applications_client_id_fkey"
-            columns: ["client_id"]
+            foreignKeyName: "application_carrier_forms_dependent_id_fkey"
+            columns: ["dependent_id"]
             isOneToOne: false
-            referencedRelation: "clients"
+            referencedRelation: "dependents"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "applications_pacific_cross_contact_id_fkey"
-            columns: ["pacific_cross_contact_id"]
+            foreignKeyName: "application_carrier_forms_document_library_id_fkey"
+            columns: ["document_library_id"]
             isOneToOne: false
-            referencedRelation: "external_contacts"
+            referencedRelation: "document_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_dependents: {
+        Row: {
+          application_id: string
+          created_at: string
+          dependent_id: string
+          medical_notes: string | null
+          pre_existing_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          dependent_id: string
+          medical_notes?: string | null
+          pre_existing_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          dependent_id?: string
+          medical_notes?: string | null
+          pre_existing_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_dependents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "applications_plan_option_id_fkey"
-            columns: ["plan_option_id"]
+            foreignKeyName: "application_dependents_dependent_id_fkey"
+            columns: ["dependent_id"]
             isOneToOne: false
-            referencedRelation: "plan_options"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "applications_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "policies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "applications_product_version_id_fkey"
-            columns: ["product_version_id"]
-            isOneToOne: false
-            referencedRelation: "product_versions"
+            referencedRelation: "dependents"
             referencedColumns: ["id"]
           },
         ]
@@ -280,6 +268,142 @@ export type Database = {
             columns: ["required_document_item_id"]
             isOneToOne: false
             referencedRelation: "required_document_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          application_type: string
+          assigned_user_id: string | null
+          client_id: string
+          coverage_type: string | null
+          created_at: string
+          date_started: string | null
+          date_submitted: string | null
+          desired_start_date: string | null
+          estimated_premium: number | null
+          id: string
+          medical_notes: string | null
+          notes: string | null
+          pacific_cross_contact_id: string | null
+          payment_proof_sent_date: string | null
+          payment_received_date: string | null
+          plan_option_id: string | null
+          policy_id: string | null
+          policy_issued_date: string | null
+          pre_existing_status: string | null
+          preferred_payment_mode: string | null
+          product_version_id: string | null
+          proposal_received_date: string | null
+          proposal_sent_date: string | null
+          reference_no: string | null
+          remote_sale: boolean
+          status: string
+          updated_at: string
+          wizard_state: Json | null
+        }
+        Insert: {
+          application_type?: string
+          assigned_user_id?: string | null
+          client_id: string
+          coverage_type?: string | null
+          created_at?: string
+          date_started?: string | null
+          date_submitted?: string | null
+          desired_start_date?: string | null
+          estimated_premium?: number | null
+          id?: string
+          medical_notes?: string | null
+          notes?: string | null
+          pacific_cross_contact_id?: string | null
+          payment_proof_sent_date?: string | null
+          payment_received_date?: string | null
+          plan_option_id?: string | null
+          policy_id?: string | null
+          policy_issued_date?: string | null
+          pre_existing_status?: string | null
+          preferred_payment_mode?: string | null
+          product_version_id?: string | null
+          proposal_received_date?: string | null
+          proposal_sent_date?: string | null
+          reference_no?: string | null
+          remote_sale?: boolean
+          status?: string
+          updated_at?: string
+          wizard_state?: Json | null
+        }
+        Update: {
+          application_type?: string
+          assigned_user_id?: string | null
+          client_id?: string
+          coverage_type?: string | null
+          created_at?: string
+          date_started?: string | null
+          date_submitted?: string | null
+          desired_start_date?: string | null
+          estimated_premium?: number | null
+          id?: string
+          medical_notes?: string | null
+          notes?: string | null
+          pacific_cross_contact_id?: string | null
+          payment_proof_sent_date?: string | null
+          payment_received_date?: string | null
+          plan_option_id?: string | null
+          policy_id?: string | null
+          policy_issued_date?: string | null
+          pre_existing_status?: string | null
+          preferred_payment_mode?: string | null
+          product_version_id?: string | null
+          proposal_received_date?: string | null
+          proposal_sent_date?: string | null
+          reference_no?: string | null
+          remote_sale?: boolean
+          status?: string
+          updated_at?: string
+          wizard_state?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_pacific_cross_contact_id_fkey"
+            columns: ["pacific_cross_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_plan_option_id_fkey"
+            columns: ["plan_option_id"]
+            isOneToOne: false
+            referencedRelation: "plan_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_product_version_id_fkey"
+            columns: ["product_version_id"]
+            isOneToOne: false
+            referencedRelation: "product_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -615,6 +739,48 @@ export type Database = {
           },
         ]
       }
+      communication_library_documents: {
+        Row: {
+          communication_id: string
+          created_at: string
+          document_library_id: string
+          document_name_snapshot: string
+          file_path_snapshot: string
+          version_label_snapshot: string
+        }
+        Insert: {
+          communication_id: string
+          created_at?: string
+          document_library_id: string
+          document_name_snapshot: string
+          file_path_snapshot: string
+          version_label_snapshot: string
+        }
+        Update: {
+          communication_id?: string
+          created_at?: string
+          document_library_id?: string
+          document_name_snapshot?: string
+          file_path_snapshot?: string
+          version_label_snapshot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_library_documents_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_library_documents_document_library_id_fkey"
+            columns: ["document_library_id"]
+            isOneToOne: false
+            referencedRelation: "document_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communications: {
         Row: {
           application_id: string | null
@@ -741,48 +907,6 @@ export type Database = {
           },
         ]
       }
-      communication_library_documents: {
-        Row: {
-          communication_id: string
-          created_at: string
-          document_library_id: string
-          document_name_snapshot: string
-          file_path_snapshot: string
-          version_label_snapshot: string
-        }
-        Insert: {
-          communication_id: string
-          created_at?: string
-          document_library_id: string
-          document_name_snapshot: string
-          file_path_snapshot: string
-          version_label_snapshot: string
-        }
-        Update: {
-          communication_id?: string
-          created_at?: string
-          document_library_id?: string
-          document_name_snapshot?: string
-          file_path_snapshot?: string
-          version_label_snapshot?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "communication_library_documents_communication_id_fkey"
-            columns: ["communication_id"]
-            isOneToOne: false
-            referencedRelation: "communications"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "communication_library_documents_document_library_id_fkey"
-            columns: ["document_library_id"]
-            isOneToOne: false
-            referencedRelation: "document_library"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       dependents: {
         Row: {
           created_at: string
@@ -905,13 +1029,13 @@ export type Database = {
           age_band: string
           approval_status: string
           created_at: string
+          distribution_notes: string | null
           document_name: string
           document_type: string | null
-          distribution_notes: string | null
           effective_date: string | null
           expiry_date: string | null
-          file_size_bytes: number | null
           file_path: string | null
+          file_size_bytes: number | null
           id: string
           mime_type: string | null
           notes: string | null
@@ -927,13 +1051,13 @@ export type Database = {
           age_band?: string
           approval_status?: string
           created_at?: string
+          distribution_notes?: string | null
           document_name: string
           document_type?: string | null
-          distribution_notes?: string | null
           effective_date?: string | null
           expiry_date?: string | null
-          file_size_bytes?: number | null
           file_path?: string | null
+          file_size_bytes?: number | null
           id?: string
           mime_type?: string | null
           notes?: string | null
@@ -949,13 +1073,13 @@ export type Database = {
           age_band?: string
           approval_status?: string
           created_at?: string
+          distribution_notes?: string | null
           document_name?: string
           document_type?: string | null
-          distribution_notes?: string | null
           effective_date?: string | null
           expiry_date?: string | null
-          file_size_bytes?: number | null
           file_path?: string | null
+          file_size_bytes?: number | null
           id?: string
           mime_type?: string | null
           notes?: string | null
@@ -987,6 +1111,7 @@ export type Database = {
       documents: {
         Row: {
           application_id: string | null
+          application_requirement_id: string | null
           claim_id: string | null
           client_id: string | null
           created_at: string
@@ -998,8 +1123,10 @@ export type Database = {
           policy_id: string | null
           reference_no: string | null
           renewal_id: string | null
+          source_library_document_id: string | null
           status: string
           travel_request_id: string | null
+          travel_requirement_id: string | null
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -1008,6 +1135,7 @@ export type Database = {
         }
         Insert: {
           application_id?: string | null
+          application_requirement_id?: string | null
           claim_id?: string | null
           client_id?: string | null
           created_at?: string
@@ -1019,8 +1147,10 @@ export type Database = {
           policy_id?: string | null
           reference_no?: string | null
           renewal_id?: string | null
+          source_library_document_id?: string | null
           status?: string
           travel_request_id?: string | null
+          travel_requirement_id?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -1029,6 +1159,7 @@ export type Database = {
         }
         Update: {
           application_id?: string | null
+          application_requirement_id?: string | null
           claim_id?: string | null
           client_id?: string | null
           created_at?: string
@@ -1040,8 +1171,10 @@ export type Database = {
           policy_id?: string | null
           reference_no?: string | null
           renewal_id?: string | null
+          source_library_document_id?: string | null
           status?: string
           travel_request_id?: string | null
+          travel_requirement_id?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -1054,6 +1187,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_application_requirement_id_fkey"
+            columns: ["application_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "application_requirements"
             referencedColumns: ["id"]
           },
           {
@@ -1085,10 +1225,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documents_source_library_document_id_fkey"
+            columns: ["source_library_document_id"]
+            isOneToOne: false
+            referencedRelation: "document_library"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "documents_travel_request_id_fkey"
             columns: ["travel_request_id"]
             isOneToOne: false
             referencedRelation: "travel_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_travel_requirement_id_fkey"
+            columns: ["travel_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "travel_request_requirements"
             referencedColumns: ["id"]
           },
           {
@@ -2462,64 +2616,160 @@ export type Database = {
           },
         ]
       }
+      travel_request_requirements: {
+        Row: {
+          applies_to: string | null
+          created_at: string
+          document_name: string
+          id: string
+          is_required: boolean
+          notes: string | null
+          required_document_item_id: string | null
+          sort_order: number
+          status: string
+          travel_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string | null
+          created_at?: string
+          document_name: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          travel_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string | null
+          created_at?: string
+          document_name?: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          travel_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travel_request_requirements_required_document_item_id_fkey"
+            columns: ["required_document_item_id"]
+            isOneToOne: false
+            referencedRelation: "required_document_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travel_request_requirements_travel_request_id_fkey"
+            columns: ["travel_request_id"]
+            isOneToOne: false
+            referencedRelation: "travel_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       travel_requests: {
         Row: {
+          applicant_is_traveler: boolean
           assigned_user_id: string | null
+          carrier_form_age_band: string
+          carrier_form_library_id: string | null
+          carrier_form_match_status: string
           client_id: string
           created_at: string
           currency: string | null
           departure_date: string | null
           destination: string | null
           id: string
+          itinerary: string | null
           notes: string | null
+          payment_acknowledgement_logged_at: string | null
+          payment_channel_id: string | null
           payment_destination: string | null
+          payment_instruction_logged_at: string | null
           plan_option_id: string | null
           policy_number: string | null
+          portal_payment_amount: number | null
+          portal_payment_reference: string | null
+          portal_payment_status: string
+          portal_processing_status: string
           product_version_id: string | null
           quoted_premium: number | null
           reference_no: string | null
           return_date: string | null
           status: string
+          travel_purpose: string | null
           traveler_count: number | null
           updated_at: string
         }
         Insert: {
+          applicant_is_traveler?: boolean
           assigned_user_id?: string | null
+          carrier_form_age_band?: string
+          carrier_form_library_id?: string | null
+          carrier_form_match_status?: string
           client_id: string
           created_at?: string
           currency?: string | null
           departure_date?: string | null
           destination?: string | null
           id?: string
+          itinerary?: string | null
           notes?: string | null
+          payment_acknowledgement_logged_at?: string | null
+          payment_channel_id?: string | null
           payment_destination?: string | null
+          payment_instruction_logged_at?: string | null
           plan_option_id?: string | null
           policy_number?: string | null
+          portal_payment_amount?: number | null
+          portal_payment_reference?: string | null
+          portal_payment_status?: string
+          portal_processing_status?: string
           product_version_id?: string | null
           quoted_premium?: number | null
           reference_no?: string | null
           return_date?: string | null
           status?: string
+          travel_purpose?: string | null
           traveler_count?: number | null
           updated_at?: string
         }
         Update: {
+          applicant_is_traveler?: boolean
           assigned_user_id?: string | null
+          carrier_form_age_band?: string
+          carrier_form_library_id?: string | null
+          carrier_form_match_status?: string
           client_id?: string
           created_at?: string
           currency?: string | null
           departure_date?: string | null
           destination?: string | null
           id?: string
+          itinerary?: string | null
           notes?: string | null
+          payment_acknowledgement_logged_at?: string | null
+          payment_channel_id?: string | null
           payment_destination?: string | null
+          payment_instruction_logged_at?: string | null
           plan_option_id?: string | null
           policy_number?: string | null
+          portal_payment_amount?: number | null
+          portal_payment_reference?: string | null
+          portal_payment_status?: string
+          portal_processing_status?: string
           product_version_id?: string | null
           quoted_premium?: number | null
           reference_no?: string | null
           return_date?: string | null
           status?: string
+          travel_purpose?: string | null
           traveler_count?: number | null
           updated_at?: string
         }
@@ -2532,10 +2782,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "travel_requests_carrier_form_library_id_fkey"
+            columns: ["carrier_form_library_id"]
+            isOneToOne: false
+            referencedRelation: "document_library"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "travel_requests_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travel_requests_payment_channel_id_fkey"
+            columns: ["payment_channel_id"]
+            isOneToOne: false
+            referencedRelation: "payment_channels"
             referencedColumns: ["id"]
           },
           {
@@ -2550,6 +2814,81 @@ export type Database = {
             columns: ["product_version_id"]
             isOneToOne: false
             referencedRelation: "product_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      travelers: {
+        Row: {
+          beneficiary_birthdate: string | null
+          beneficiary_contact: string | null
+          beneficiary_name: string | null
+          beneficiary_relation: string | null
+          contact_number: string | null
+          created_at: string
+          date_of_birth: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          id_number: string | null
+          id_type: string | null
+          nationality: string | null
+          plan_option_id: string | null
+          sort_order: number
+          travel_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
+          contact_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          nationality?: string | null
+          plan_option_id?: string | null
+          sort_order?: number
+          travel_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
+          contact_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          id_type?: string | null
+          nationality?: string | null
+          plan_option_id?: string | null
+          sort_order?: number
+          travel_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travelers_plan_option_id_fkey"
+            columns: ["plan_option_id"]
+            isOneToOne: false
+            referencedRelation: "plan_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travelers_travel_request_id_fkey"
+            columns: ["travel_request_id"]
+            isOneToOne: false
+            referencedRelation: "travel_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -2788,7 +3127,34 @@ export type Database = {
     Functions: {
       approve_document_library_asset: {
         Args: { p_asset_id: string }
-        Returns: Database["public"]["Tables"]["document_library"]["Row"]
+        Returns: {
+          age_band: string
+          approval_status: string
+          created_at: string
+          distribution_notes: string | null
+          document_name: string
+          document_type: string | null
+          effective_date: string | null
+          expiry_date: string | null
+          file_path: string | null
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          original_file_name: string | null
+          product_version_id: string | null
+          status: string
+          updated_at: string
+          uploaded_by: string | null
+          variant: string | null
+          version_label: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "document_library"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       next_reference: { Args: { prefix: string }; Returns: string }
     }

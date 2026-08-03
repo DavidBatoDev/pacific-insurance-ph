@@ -2,6 +2,8 @@ import type { LibraryDocument, LibraryDocumentUpdate, NewLibraryDocument } from 
 
 export interface EligibleLibraryInput {
   productName: string;
+  productVersionId?: string;
+  variant?: string | null;
   documentType: "Brochure" | "Application Form";
   ageBand: "All Ages" | "0-70" | "71-100";
   onDate?: string;

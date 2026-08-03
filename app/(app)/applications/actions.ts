@@ -9,6 +9,7 @@ import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import { getApplicationRequirementsRepository, type ApplicationRequirement, type ApplicationRequirementStatus } from "@/lib/repositories/application-requirements";
 import { getApplicationsRepository, type Application } from "@/lib/repositories/applications";
 import { getClientsRepository } from "@/lib/repositories/clients";
+import { getCarrierWorkflowsRepository, type CarrierFormAssignmentRecord } from "@/lib/repositories/carrier-workflows";
 import { getTemplatesRepository } from "@/lib/repositories/templates";
 import { fillTemplate, pesoMerge } from "@/lib/templates/merge";
 
@@ -17,6 +18,7 @@ export interface ApplicationRequirementsPayload {
   clientName: string;
   clientEmail: string | null;
   requirements: ApplicationRequirement[];
+  carrierForms: CarrierFormAssignmentRecord[];
 }
 
 const refresh = (clientId: string) => {
@@ -31,8 +33,11 @@ export async function getApplicationRequirementsAction(applicationId: string): P
     if (!application || application.status === "Lead") return { ok: false, error: "This application does not have a persisted requirements checklist." };
     const client = await getClientsRepository().findById(application.clientId);
     if (!client) return { ok: false, error: "The linked contact could not be found." };
-    const requirements = await getApplicationRequirementsRepository().listByApplication(applicationId);
-    return { ok: true, data: { application, clientName: client.fullName, clientEmail: client.email, requirements } };
+    const [requirements, carrierForms] = await Promise.all([
+      getApplicationRequirementsRepository().listByApplication(applicationId),
+      getCarrierWorkflowsRepository().listApplicationCarrierForms(applicationId),
+    ]);
+    return { ok: true, data: { application, clientName: client.fullName, clientEmail: client.email, requirements, carrierForms } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to load application requirements." };
   }
@@ -59,6 +64,30 @@ export async function updateApplicationRequirementStatusAction(
     await recordAudit({
       actorId: actor.id, action: "update_status", tableName: "application_requirements", recordId: updated.id,
       previousValue: { status: current.status }, newValue: { status: updated.status },
+    });
+    refresh(application.clientId);
+    return { ok: true, data: updated };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to update the requirement." };
+  }
+}
+
+export async function updateApplicationRequirementRequiredAction(
+  applicationId: string,
+  requirementId: string,
+  isRequired: boolean,
+): Promise<ActionResult<ApplicationRequirement>> {
+  const actor = await getActor();
+  try {
+    const application = await getApplicationsRepository().findById(applicationId);
+    if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
+    const repo = getApplicationRequirementsRepository();
+    const current = (await repo.listByApplication(applicationId)).find((item) => item.id === requirementId);
+    if (!current) return { ok: false, error: "That requirement does not belong to this application." };
+    const updated = await repo.updateRequired(requirementId, isRequired);
+    await recordAudit({
+      actorId: actor.id, action: "update_required", tableName: "application_requirements", recordId: updated.id,
+      previousValue: { is_required: current.isRequired }, newValue: { is_required: updated.isRequired },
     });
     refresh(application.clientId);
     return { ok: true, data: updated };

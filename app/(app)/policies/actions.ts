@@ -13,13 +13,14 @@ import type { Json } from "@/lib/supabase/types";
 export interface ProductOption {
   productVersionId: string;
   productName: string;
+  productCategory: string | null;
   planOptions: { id: string; name: string }[];
 }
 
 export async function listProductOptionsAction(): Promise<ProductOption[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("product_versions")
-    .select("id, status, product:products (name), plan_options (id, plan_name)")
+    .select("id, status, product:products (name, category), plan_options (id, plan_name)")
     .eq("status", "Active")
     .order("id");
   if (error) return [];
@@ -27,6 +28,7 @@ export async function listProductOptionsAction(): Promise<ProductOption[]> {
     .map((v) => ({
       productVersionId: v.id,
       productName: (v.product as { name: string } | null)?.name ?? "—",
+      productCategory: (v.product as { category: string | null } | null)?.category ?? null,
       planOptions: ((v.plan_options ?? []) as { id: string; plan_name: string }[]).map((p) => ({
         id: p.id,
         name: p.plan_name,

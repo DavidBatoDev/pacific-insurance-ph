@@ -6,6 +6,7 @@ import type { NewPayment, Payment, PaymentUpdate } from "./payment.entity";
 export interface PaymentsRepository {
   findById(id: string): Promise<Payment | null>;
   list(opts?: ListOptions): Promise<Payment[]>;
+  listByTravelRequest(travelRequestId: string): Promise<Payment[]>;
   create(input: NewPayment): Promise<Payment>;
   update(id: string, input: PaymentUpdate): Promise<Payment>;
 }

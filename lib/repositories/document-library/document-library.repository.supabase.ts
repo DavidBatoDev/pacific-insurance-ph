@@ -53,13 +53,17 @@ export class SupabaseDocumentLibraryRepository implements DocumentLibraryReposit
   }
   async listEligible(input: EligibleLibraryInput) {
     const date = input.onDate ?? new Date().toISOString().slice(0, 10);
-    const { data, error } = await getSupabaseAdmin().from("document_library").select(SELECT)
+    let query = getSupabaseAdmin().from("document_library").select(SELECT)
       .eq("status", "Active").eq("approval_status", "Approved").eq("document_type", input.documentType)
       .in("age_band", input.ageBand === "All Ages" ? ["All Ages"] : ["All Ages", input.ageBand])
-      .or(`effective_date.is.null,effective_date.lte.${date}`).or(`expiry_date.is.null,expiry_date.gte.${date}`)
-      .returns<Joined[]>();
+      .or(`effective_date.is.null,effective_date.lte.${date}`).or(`expiry_date.is.null,expiry_date.gte.${date}`);
+    if (input.productVersionId) query = query.eq("product_version_id", input.productVersionId);
+    if (input.variant) query = query.ilike("variant", input.variant);
+    const { data, error } = await query.returns<Joined[]>();
     if (error) throw toRepositoryError("DocumentLibraryRepository.listEligible", error);
-    return (data ?? []).map(toDomain).filter((doc) => doc.productName?.toLowerCase() === input.productName.toLowerCase());
+    return (data ?? []).map(toDomain)
+      .filter((doc) => doc.productName?.toLowerCase() === input.productName.toLowerCase())
+      .sort((a, b) => Number(b.ageBand === input.ageBand) - Number(a.ageBand === input.ageBand) || (b.effectiveDate ?? "").localeCompare(a.effectiveDate ?? ""));
   }
   async create(input: NewLibraryDocument) {
     const { data, error } = await getSupabaseAdmin().from("document_library").insert({

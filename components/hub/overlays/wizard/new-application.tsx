@@ -11,6 +11,7 @@ import {
   type WizardMode,
 } from "@/app/(app)/applications/wizard-actions";
 import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
+import { listPaymentChannelOptionsAction } from "@/app/(app)/payments/actions";
 import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/tasks/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
@@ -24,6 +25,8 @@ import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
 import {
   emptyWizardForm,
+  ageFromDob,
+  categoryForProduct,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
   type WizardForm,
@@ -92,12 +95,20 @@ export function NewApplicationWizard({
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [paymentChannels, setPaymentChannels] = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
-    listProductOptionsAction().then(setProducts).catch(() => setProducts([]));
+    listProductOptionsAction().then((items) => {
+      setProducts(items);
+      if (prefill?.productInterest) {
+        const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
+        if (product) setF((current) => ({ ...current, appType: current.appType || "New Insurance Application", productVersionId: product.productVersionId, productName: product.productName, category: categoryForProduct(product.productName, product.productCategory) }));
+      }
+    }).catch(() => setProducts([]));
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
-  }, []);
+    listPaymentChannelOptionsAction().then(setPaymentChannels).catch(() => setPaymentChannels([]));
+  }, [prefill?.productInterest]);
 
   useEffect(() => {
     if (!prefill?.draftApplicationId) return;
@@ -139,16 +150,27 @@ export function NewApplicationWizard({
     }
     const base = WIZ_CHECKLISTS[f.category] ?? [];
     let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
-    if (f.category === "health" && f.preExisting === "Yes") {
-      items = items.map((x) =>
-        x.name.includes("Medical") || x.name.includes("questionnaire")
-          ? { ...x, cond: "required" }
-          : x,
-      );
+    if (f.category === "health") {
+      const principal = f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Principal applicant";
+      const people = [{ name: principal, dob: f.dob, preExisting: f.preExisting }, ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown" }))].filter((person) => person.name.trim());
+      items = people.flatMap((person) => {
+        const age = ageFromDob(person.dob);
+        const senior = typeof age === "number" && age >= 71;
+        const result = [
+          { name: senior ? `Age 71–100 application form — ${person.name}` : `Regular application form — ${person.name}`, cond: senior ? "individual senior form" : null, checked: false, status: "Pending" },
+          { name: `Valid ID — ${person.name}`, cond: null, checked: false, status: "Pending" },
+          { name: `Attestation — ${person.name}`, cond: null, checked: false, status: "Pending" },
+        ];
+        if (senior || person.preExisting === "Yes") result.push({ name: `Medical documents — ${person.name}`, cond: "required", checked: false, status: "Pending" });
+        return result;
+      });
+      if (f.remoteSale) items.push({ name: "Advisor declaration and remote-selling confirmation", cond: "required", checked: false, status: "Pending" });
+      items.push({ name: "TAL conforme / CAC", cond: "only if requested after underwriting", checked: false, status: "Pending" });
+    } else if (f.category === "travel") {
+      items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
     }
     setF((s) => ({ ...s, checklist: items }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- regenerate on category/underwriting change only
-  }, [f.category, f.preExisting]);
+  }, [f.category, f.preExisting, f.remoteSale, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {
@@ -173,7 +195,9 @@ export function NewApplicationWizard({
         : f.firstName || f.companyName || f.productVersionId
           ? "Applicant"
           : "Lead";
-    if (st !== f.status) setF((s) => ({ ...s, status: st })); // derived — must not mark the form dirty
+    // Derived state mirrors the existing wizard behavior and does not mark the form dirty.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (st !== f.status) setF((s) => ({ ...s, status: st }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute on the inputs it derives from
   }, [f.appType, f.firstName, f.companyName, f.productVersionId]);
 
@@ -184,7 +208,9 @@ export function NewApplicationWizard({
   // A draft captures an early inquiry, before a product/workflow is necessarily known.
   const canDraft = hasName && hasContact && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
-  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew;
+  const travelMissing = f.category === "travel" && (!f.destination || !f.departure || !f.returnDate || !f.travelers.some((traveler) => traveler.name.trim()));
+  const healthMissing = f.category === "health" && (!f.planOptionId || !f.coverage);
+  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew && !travelMissing && !healthMissing;
 
   const go = (n: number) => {
     const next = Math.max(1, Math.min(6, n));
@@ -233,7 +259,7 @@ export function NewApplicationWizard({
     });
   };
 
-  const stepProps = { f, set, products, users };
+  const stepProps = { f, set, products, users, paymentChannels };
   const heads: Record<number, [string, string]> = {
     1: ["Client type & application setup", "Tell the system what workflow to prepare."],
     2: [f.category === "hmo" ? "Company information" : "Client information", "Create or update the main profile."],

@@ -22,7 +22,7 @@ function SubmitButton() {
   );
 }
 
-export function DocumentUploadForm({ clientId }: { clientId?: string }) {
+export function DocumentUploadForm({ clientId, applicationId, travelRequestId, requirementId, sourceLibraryDocumentId }: { clientId?: string; applicationId?: string; travelRequestId?: string; requirementId?: string; sourceLibraryDocumentId?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
@@ -35,6 +35,10 @@ export function DocumentUploadForm({ clientId }: { clientId?: string }) {
       className="flex flex-wrap items-center gap-2.5"
     >
       {clientId && <input type="hidden" name="clientId" value={clientId} />}
+      {applicationId && <input type="hidden" name="applicationId" value={applicationId} />}
+      {travelRequestId && <input type="hidden" name="travelRequestId" value={travelRequestId} />}
+      {requirementId && <input type="hidden" name={travelRequestId ? "travelRequirementId" : "applicationRequirementId"} value={requirementId} />}
+      {sourceLibraryDocumentId && <input type="hidden" name="sourceLibraryDocumentId" value={sourceLibraryDocumentId} />}
       <input
         type="file"
         name="file"

@@ -42,6 +42,7 @@ function toDomain(row: JoinedRow): Application {
     referenceNo: row.reference_no,
     clientId: row.client_id,
     productVersionId: row.product_version_id,
+    planOptionId: row.plan_option_id,
     clientName: row.clients
       ? [row.clients.first_name, row.clients.last_name].filter(Boolean).join(" ")
       : null,
@@ -51,6 +52,13 @@ function toDomain(row: JoinedRow): Application {
     assignedUserId: row.assigned_user_id,
     dateStarted: row.date_started,
     dateSubmitted: row.date_submitted,
+    coverageType: row.coverage_type,
+    desiredStartDate: row.desired_start_date,
+    preferredPaymentMode: row.preferred_payment_mode,
+    estimatedPremium: row.estimated_premium,
+    remoteSale: row.remote_sale,
+    preExistingStatus: row.pre_existing_status,
+    medicalNotes: row.medical_notes,
     notes: row.notes,
     wizardState: row.wizard_state,
     requirementProgress: requirementProgress(row),
@@ -101,10 +109,18 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     const insert: ApplicationInsert = {
       client_id: input.clientId,
       product_version_id: input.productVersionId ?? null,
+      plan_option_id: input.planOptionId ?? null,
       assigned_user_id: input.assignedUserId ?? null,
       date_started: input.dateStarted ?? null,
       notes: input.notes ?? null,
       wizard_state: input.wizardState ?? null,
+      coverage_type: input.coverageType ?? null,
+      desired_start_date: input.desiredStartDate ?? null,
+      preferred_payment_mode: input.preferredPaymentMode ?? null,
+      estimated_premium: input.estimatedPremium ?? null,
+      remote_sale: input.remoteSale ?? false,
+      pre_existing_status: input.preExistingStatus ?? null,
+      medical_notes: input.medicalNotes ?? null,
     };
     if (input.applicationType !== undefined) insert.application_type = input.applicationType;
     if (input.status !== undefined) insert.status = input.status;
@@ -126,9 +142,17 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     if (input.notes !== undefined) patch.notes = input.notes;
     if (input.assignedUserId !== undefined) patch.assigned_user_id = input.assignedUserId;
     if (input.productVersionId !== undefined) patch.product_version_id = input.productVersionId;
+    if (input.planOptionId !== undefined) patch.plan_option_id = input.planOptionId;
     if (input.applicationType !== undefined) patch.application_type = input.applicationType;
     if (input.dateStarted !== undefined) patch.date_started = input.dateStarted;
     if (input.wizardState !== undefined) patch.wizard_state = input.wizardState;
+    if (input.coverageType !== undefined) patch.coverage_type = input.coverageType;
+    if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
+    if (input.preferredPaymentMode !== undefined) patch.preferred_payment_mode = input.preferredPaymentMode;
+    if (input.estimatedPremium !== undefined) patch.estimated_premium = input.estimatedPremium;
+    if (input.remoteSale !== undefined) patch.remote_sale = input.remoteSale;
+    if (input.preExistingStatus !== undefined) patch.pre_existing_status = input.preExistingStatus;
+    if (input.medicalNotes !== undefined) patch.medical_notes = input.medicalNotes;
 
     const { data, error } = await getSupabaseAdmin()
       .from("applications")

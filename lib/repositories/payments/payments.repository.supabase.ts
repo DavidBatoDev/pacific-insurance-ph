@@ -92,6 +92,13 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
     return (data ?? []).map(paymentToDomain);
   }
 
+  async listByTravelRequest(travelRequestId: string): Promise<Payment[]> {
+    const { data, error } = await getSupabaseAdmin().from("payments").select(PAYMENT_SELECT)
+      .eq("travel_request_id", travelRequestId).order("created_at").returns<PaymentJoined[]>();
+    if (error) throw toRepositoryError("PaymentsRepository.listByTravelRequest", error);
+    return (data ?? []).map(paymentToDomain);
+  }
+
   async create(input: NewPayment): Promise<Payment> {
     const { data, error } = await getSupabaseAdmin()
       .from("payments")

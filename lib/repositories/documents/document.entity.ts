@@ -12,6 +12,9 @@ export interface DocumentRecord {
   claimId: string | null;
   renewalId: string | null;
   travelRequestId: string | null;
+  sourceLibraryDocumentId: string | null;
+  applicationRequirementId: string | null;
+  travelRequirementId: string | null;
   documentType: string | null;
   name: string;
   filePath: string | null;
@@ -34,6 +37,9 @@ export interface NewDocumentRecord {
   claimId?: string | null;
   renewalId?: string | null;
   travelRequestId?: string | null;
+  sourceLibraryDocumentId?: string | null;
+  applicationRequirementId?: string | null;
+  travelRequirementId?: string | null;
   documentType?: string | null;
   visibility?: string;
   status?: string;

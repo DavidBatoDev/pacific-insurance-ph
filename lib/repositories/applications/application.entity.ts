@@ -19,6 +19,7 @@ export interface Application {
   referenceNo: string | null;
   clientId: string;
   productVersionId: string | null;
+  planOptionId: string | null;
   /** Joined convenience: client's full name. */
   clientName: string | null;
   /** Joined convenience: product name via product_versions → products. */
@@ -29,6 +30,13 @@ export interface Application {
   assignedUserId: string | null;
   dateStarted: string | null;
   dateSubmitted: string | null;
+  coverageType: string | null;
+  desiredStartDate: string | null;
+  preferredPaymentMode: string | null;
+  estimatedPremium: number | null;
+  remoteSale: boolean;
+  preExistingStatus: string | null;
+  medicalNotes: string | null;
   notes: string | null;
   wizardState: Json | null;
   /** Derived from the persisted C4 checklist; optional items are excluded from status counts. */
@@ -40,12 +48,20 @@ export interface Application {
 export interface NewApplication {
   clientId: string;
   productVersionId?: string | null;
+  planOptionId?: string | null;
   applicationType?: string;
   status?: string;
   assignedUserId?: string | null;
   dateStarted?: string | null;
   notes?: string | null;
   wizardState?: Json | null;
+  coverageType?: string | null;
+  desiredStartDate?: string | null;
+  preferredPaymentMode?: string | null;
+  estimatedPremium?: number | null;
+  remoteSale?: boolean;
+  preExistingStatus?: string | null;
+  medicalNotes?: string | null;
 }
 
 export interface ApplicationUpdate {
@@ -54,7 +70,15 @@ export interface ApplicationUpdate {
   notes?: string | null;
   assignedUserId?: string | null;
   productVersionId?: string | null;
+  planOptionId?: string | null;
   applicationType?: string;
   dateStarted?: string | null;
   wizardState?: Json | null;
+  coverageType?: string | null;
+  desiredStartDate?: string | null;
+  preferredPaymentMode?: string | null;
+  estimatedPremium?: number | null;
+  remoteSale?: boolean;
+  preExistingStatus?: string | null;
+  medicalNotes?: string | null;
 }

@@ -62,4 +62,12 @@ export class SupabaseApplicationRequirementsRepository implements ApplicationReq
     if (error) throw toRepositoryError("ApplicationRequirementsRepository.updateStatus", error);
     return toDomain(data);
   }
+
+  async updateRequired(id: string, isRequired: boolean): Promise<ApplicationRequirement> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("application_requirements").update({ is_required: isRequired })
+      .eq("id", id).select("*").single();
+    if (error) throw toRepositoryError("ApplicationRequirementsRepository.updateRequired", error);
+    return toDomain(data);
+  }
 }

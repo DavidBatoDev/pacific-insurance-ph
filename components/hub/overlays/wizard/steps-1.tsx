@@ -20,6 +20,7 @@ export interface StepProps {
   set: (patch: Partial<WizardForm>) => void;
   products: ProductOption[];
   users: AssignableUser[];
+  paymentChannels: { id: string; label: string }[];
 }
 
 const AREA =
@@ -59,7 +60,8 @@ export function Step1({ f, set, products, users }: StepProps) {
               set({
                 productVersionId: e.target.value,
                 productName: p?.productName ?? "",
-                category: p ? categoryForProduct(p.productName) : "",
+                category: p ? categoryForProduct(p.productName, p.productCategory) : "",
+                planOptionId: "",
               });
             }}
           >

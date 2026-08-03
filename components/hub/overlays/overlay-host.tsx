@@ -5,13 +5,13 @@ import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { AdvanceLeadModal } from "./advance-lead";
 import { ApplicationRequirementsModal } from "./application-requirements";
+import { TravelWorkflowModal } from "./travel-workflow";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
 import { IssuePolicyDrawer } from "./issue-policy";
 import { NewCampaignDrawer } from "./new-campaign";
 import { NewLeadDrawer } from "./new-lead";
-import { NewTravelQuoteDrawer } from "./new-travel-quote";
 import { PaymentLinksDrawer } from "./payment-links";
 import { RequestProposalModal } from "./request-proposal";
 import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
@@ -34,6 +34,8 @@ export function OverlayHost({
       return <CommandPalette onClose={close} />;
     case "application-requirements":
       return <ApplicationRequirementsModal applicationId={overlay.applicationId} onClose={close} />;
+    case "travel-workflow":
+      return <TravelWorkflowModal travelRequestId={overlay.travelRequestId} onClose={close} />;
     case "add-task":
       return <AddTaskDrawer prefill={overlay.prefill as AddTaskPrefill | undefined} onClose={close} />;
     case "wizard":
@@ -74,7 +76,7 @@ export function OverlayHost({
       if (overlay.modal === "new-lead") return <NewLeadDrawer onClose={close} />;
       if (overlay.modal === "issue-policy") return <IssuePolicyDrawer onClose={close} />;
       if (overlay.modal === "file-claim") return <FileClaimDrawer onClose={close} />;
-      if (overlay.modal === "new-travel-quote") return <NewTravelQuoteDrawer onClose={close} />;
+      if (overlay.modal === "new-travel-quote") return <NewApplicationWizard prefill={{ productInterest: "Travel Insurance" }} onClose={close} />;
       if (overlay.modal === "request-proposal")
         return (
           <RequestProposalModal
@@ -99,6 +101,7 @@ const LABEL: Record<OverlayState["kind"], string> = {
   campaign: "The New Campaign drawer",
   "command-palette": "The command palette",
   "application-requirements": "Application requirements",
+  "travel-workflow": "Travel workflow",
 };
 
 function ComingSoon({ overlay, onClose }: { overlay: OverlayState; onClose: () => void }) {

@@ -55,7 +55,7 @@ function YesNo({
 }
 
 /* ------------------------------- Step 3 ------------------------------- */
-export function Step3({ f, set }: StepProps) {
+export function Step3({ f, set, products, paymentChannels }: StepProps) {
   if (!f.category)
     return (
       <div className="flex gap-2.5 rounded-md border border-amber-border bg-amber-soft p-3.5 text-[13px]">
@@ -64,15 +64,21 @@ export function Step3({ f, set }: StepProps) {
       </div>
     );
   if (f.category === "hmo") return <Step3Group f={f} set={set} />;
-  if (f.category === "travel") return <Step3Travel f={f} set={set} />;
-  return <Step3Health f={f} set={set} />;
+  if (f.category === "travel") return <Step3Travel f={f} set={set} products={products} paymentChannels={paymentChannels} />;
+  return <Step3Health f={f} set={set} products={products} />;
 }
 
-function Step3Health({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) => void }) {
+function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
+  const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
   return (
     <div>
       <Section title="Plan & coverage">
         <div className="grid grid-cols-2 gap-4">
+          <DrawerField label="Plan option" required>
+            <select className={DRAWER_INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
+              <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+            </select>
+          </DrawerField>
           <DrawerField label="Coverage type" required>
             <select className={DRAWER_INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
               <option value="">Select…</option>
@@ -85,14 +91,11 @@ function Step3Health({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) 
             <input className={DRAWER_INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </DrawerField>
         </div>
-        {f.coverage === "Family" && (
-          <DrawerField label="Number of applicants / dependents" required className="mt-4">
-            <input className={DRAWER_INPUT} type="number" min={1} value={f.dependents} onChange={(e) => set({ dependents: e.target.value })} placeholder="e.g. 3" />
-          </DrawerField>
-        )}
+        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={DRAWER_INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={DRAWER_INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={DRAWER_INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
       <Section title="Underwriting">
+        <label className="mb-4 flex items-center gap-2 rounded-md border border-border-soft bg-surface-2 px-3 py-2.5 text-[12.5px]"><input type="checkbox" checked={f.remoteSale} onChange={(e) => set({ remoteSale: e.target.checked })} /> Remote / online sale — require advisor declaration and confirmation</label>
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Existing Pacific Cross client?">
             <YesNo value={f.existingPC} onChange={(v) => set({ existingPC: v })} />
@@ -225,8 +228,10 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
   );
 }
 
-function Step3Travel({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) => void }) {
+function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" | "set" | "products" | "paymentChannels">) {
   const days = daysBetween(f.departure, f.returnDate);
+  const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
+  const addApplicant = () => set({ travelers: [...f.travelers, { name: f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" "), dob: f.dob, nationality: f.nationality, gender: f.gender, contact: f.mobile, idType: "Passport", idNumber: f.passport, planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] });
   return (
     <div>
       <div className="mb-5 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
@@ -252,6 +257,11 @@ function Step3Travel({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) 
           </DrawerField>
         </div>
       </Section>
+      <Section title="Persons to be insured">
+        <div className="mb-2 flex items-center justify-between"><span className="text-[12px] text-muted-foreground">Capture each traveler and beneficiary needed for portal processing.</span><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
+        <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={DRAWER_INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={DRAWER_INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={DRAWER_INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={DRAWER_INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={DRAWER_INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
+        <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
+      </Section>
       <Section title="Trip">
         <div className="grid grid-cols-3 gap-4 max-[700px]:grid-cols-1">
           <DrawerField label="Destination country" required>
@@ -269,15 +279,15 @@ function Step3Travel({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) 
             Travel days: <b className="text-foreground">{days}</b> (auto-calculated)
           </div>
         )}
+        <DrawerField label="Itinerary / route" className="mt-4"><textarea className={AREA} value={f.itinerary} onChange={(e) => set({ itinerary: e.target.value })} placeholder="Cities, flight route, or trip notes" /></DrawerField>
       </Section>
       <Section title="Payment" last>
         <div className="grid grid-cols-2 gap-4">
-          <DrawerField label="Travelers">
-            <input className={DRAWER_INPUT} type="number" min={1} value={f.dependents} onChange={(e) => set({ dependents: e.target.value })} placeholder="1" />
-          </DrawerField>
+          <DrawerField label="Travelers"><input className={DRAWER_INPUT} readOnly value={f.travelers.filter((traveler) => traveler.name.trim()).length || "—"} /></DrawerField>
           <DrawerField label="Quoted premium (₱)">
             <input className={DRAWER_INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
           </DrawerField>
+          <DrawerField label="Official payment channel" hint="Business payee; may be selected later"><select className={DRAWER_INPUT} value={f.paymentChannelId} onChange={(e) => set({ paymentChannelId: e.target.value })}><option value="">Select later…</option>{paymentChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.label}</option>)}</select></DrawerField>
         </div>
       </Section>
     </div>
