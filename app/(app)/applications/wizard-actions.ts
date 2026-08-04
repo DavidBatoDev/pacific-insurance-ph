@@ -56,6 +56,11 @@ const normaliseProductName = (value: string) => value.trim().replace(/\s+/g, " "
 const hasSavedValue = (value: unknown): boolean =>
   Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim().length > 0 : value != null;
 const wizardChannel = (value: string | null) => (value === "Gmail" ? "Email" : value);
+const clientChannels = new Set(["Gmail", "Phone", "Viber", "WhatsApp", "iMessage", "In-Person", "Other"]);
+const clientChannel = (value: string | null | undefined) => {
+  const normalized = value === "Email" ? "Gmail" : value;
+  return normalized && clientChannels.has(normalized) ? normalized : null;
+};
 const isWizardState = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -299,7 +304,7 @@ export async function createFromWizardAction(
         mobileNumber: form.mobile || null,
         dateOfBirth: form.dob || null,
         address: form.address || null,
-        preferredChannel: form.channels[0] ?? null,
+        preferredChannel: clientChannel(form.channels[0]),
         leadSource: form.source || null,
         assignedUserId: form.assignedUserId || actor.id,
         notes: form.notes || null,
@@ -355,6 +360,7 @@ export async function createFromWizardAction(
         leadSource: form.source || null,
         assignedUserId: form.assignedUserId || actor.id,
         address: form.address || null,
+        preferredChannel: clientChannel(form.channels[0]),
         notes: form.notes || null,
       });
       clientId = created.id;
@@ -367,7 +373,7 @@ export async function createFromWizardAction(
         mobileNumber: form.mobile || null,
         dateOfBirth: form.dob || null,
         address: form.address || null,
-        preferredChannel: form.channels[0] ?? null,
+        preferredChannel: clientChannel(form.channels[0]),
         clientType: "Prospect",
         lifecycleStage: mode === "draft" && form.status === "Lead" ? "Lead" : "Applicant",
         leadStage: mode === "draft" && form.status === "Lead" ? "New Lead" : "Converted",
@@ -588,7 +594,10 @@ export async function createFromWizardAction(
       await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id });
       result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered).`;
     }
-    if (mode === "docs") {
+    // Travel lives in its own lane: it already persists travel requirements
+    // (replaceTravelRequirements) and logs a `travel.quoted` activity, so the generic
+    // application document-checklist entry would be redundant and misleading here.
+    if (mode === "docs" && form.category !== "travel") {
       const items = form.checklist.filter((c) => !c.checked).length;
       await recordActivity({
         scopeType: "client",

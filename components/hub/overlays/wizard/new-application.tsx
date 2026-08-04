@@ -249,7 +249,10 @@ export function NewApplicationWizard({
           email: "Application created & email logged",
           docs: "Application created & documents requested",
         };
-        overlays.toast(titles[mode], res.data.summary);
+        // Travel submissions live in the Travel Insurance lane (travel_requests / /travel),
+        // not Applications — surface that instead of the generic "Application created" titles.
+        const title = res.data.travelRequestId ? "Client moved to Travel Insurance" : titles[mode];
+        overlays.toast(title, res.data.summary);
         router.refresh();
         if (res.data.groupId) router.push(`/group/${res.data.groupId}`);
         onClose();
@@ -272,7 +275,7 @@ export function NewApplicationWizard({
   return createPortal(
     <div className="fixed inset-0 z-[75] grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onMouseDown={requestClose}>
       <div
-        className="relative grid h-[min(720px,94vh)] w-full max-w-[980px] grid-cols-[260px_1fr] grid-rows-[1fr_auto] overflow-hidden rounded-xl border border-border bg-card shadow-pop max-[800px]:grid-cols-1"
+        className="relative grid h-[min(720px,94vh)] w-full max-w-[980px] grid-cols-[260px_1fr] grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-xl border border-border bg-card shadow-pop max-[800px]:grid-cols-1"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <button
@@ -332,7 +335,7 @@ export function NewApplicationWizard({
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto p-6">
+        <div className="min-h-0 overflow-y-auto p-6">
           {f.convertClientId && (
             <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
               <I.user size={15} className="mt-0.5 shrink-0 text-brand" />

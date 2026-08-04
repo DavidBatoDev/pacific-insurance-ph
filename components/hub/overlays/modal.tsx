@@ -33,11 +33,13 @@ export function Modal({
       onMouseDown={onClose}
     >
       <div
-        className="w-full overflow-hidden rounded-lg border border-border bg-card shadow-pop"
+        className="flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-pop"
         style={{ maxWidth }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="px-6 pb-4 pt-6">{children}</div>
+        {/* min-h-0 lets this flex child shrink so its own scroll engages instead of
+            growing the card past the viewport (footer stays pinned below). */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 pt-6">{children}</div>
         {footer && (
           <div className="flex items-center justify-end gap-2.5 border-t border-border-soft bg-surface-2 px-5 py-3.5">
             {footer}
