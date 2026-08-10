@@ -16,6 +16,7 @@ import {
   nextLeadStage,
   type DiscoveryValues,
 } from "../lead-config";
+import { peso } from "../data";
 import { Avatar, Btn, TONE_BADGE } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
@@ -86,6 +87,12 @@ export function AdvanceLeadModal({
   // stand on the four discovery answers. The server enforces this too; showing it here turns
   // a rejection into guidance about exactly what is missing.
   const checklist = discoveryChecklist(lead);
+  /** What is on file for a field, formatted — null when nothing is recorded. */
+  const recordedValue = (key: keyof DiscoveryValues): string | null => {
+    if (key === "estPremium") return lead.estPremium != null ? peso(lead.estPremium) : null;
+    const value = lead[key];
+    return value == null || value === "" ? null : String(value);
+  };
   const gaps = checklist.filter((item) => !item.done);
   const assertsDiscovery =
     (stage === "Proposal" && stage !== lead.stage) || status === "Qualified";
@@ -194,20 +201,22 @@ export function AdvanceLeadModal({
           <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
             Discovery on file
           </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+          {/* Show what is actually on file, not just a tick — otherwise there is no way to
+              tell a wrong value from a missing one without leaving the popup. */}
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
             {checklist.map((item) => (
-              <span
-                key={item.label}
-                className={cn(
-                  "inline-flex items-center gap-1.5 text-[12.5px]",
-                  item.done ? "text-green" : "font-[650] text-amber",
-                )}
-              >
-                <I.check size={13} className={item.done ? "" : "opacity-30"} />
-                {item.label}
-              </span>
+              <div key={item.key} className="flex items-baseline gap-1.5 text-[12.5px]">
+                <I.check
+                  size={13}
+                  className={cn("shrink-0 translate-y-0.5", item.done ? "text-green" : "text-amber opacity-30")}
+                />
+                <dt className="text-subtle">{item.label}</dt>
+                <dd className={cn("min-w-0 truncate", item.done ? "font-[650]" : "font-[650] text-amber")}>
+                  {recordedValue(item.key) ?? "not recorded"}
+                </dd>
+              </div>
             ))}
-          </div>
+          </dl>
           {blocked && (
             <div className="mt-2.5 flex items-center justify-between gap-3">
               <span className="text-[12px] leading-snug text-amber">
@@ -223,7 +232,7 @@ export function AdvanceLeadModal({
                     onCompleteDiscovery();
                   }}
                 >
-                  Complete discovery
+                  Add missing details
                 </Btn>
               )}
             </div>

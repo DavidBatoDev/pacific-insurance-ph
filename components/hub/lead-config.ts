@@ -47,13 +47,15 @@ export interface DiscoveryValues {
   coverageTier?: string | null;
 }
 
-export function discoveryChecklist(values: DiscoveryValues): { label: string; done: boolean }[] {
+export function discoveryChecklist(
+  values: DiscoveryValues,
+): { key: keyof DiscoveryValues; label: string; done: boolean }[] {
   return [
-    { label: "Budget", done: values.estPremium != null },
+    { key: "estPremium", label: "Budget", done: values.estPremium != null },
     // A zero-person household isn't a real answer, so require at least one.
-    { label: "Family size", done: values.familySize != null && values.familySize >= 1 },
-    { label: "Product", done: !!values.productInterest },
-    { label: "Coverage tier", done: !!values.coverageTier },
+    { key: "familySize", label: "Family size", done: values.familySize != null && values.familySize >= 1 },
+    { key: "productInterest", label: "Product", done: !!values.productInterest },
+    { key: "coverageTier", label: "Coverage tier", done: !!values.coverageTier },
   ];
 }
 
