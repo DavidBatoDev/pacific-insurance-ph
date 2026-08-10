@@ -6,7 +6,16 @@ import { useMemo, useState, useTransition } from "react";
 import { advanceLeadAction } from "@/app/(app)/prospects/actions";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { LEAD_STATUSES, STAGE_TONE, STATUS_TONE, allowedLeadStages, nextLeadStage } from "../lead-config";
+import {
+  LEAD_STATUSES,
+  STAGE_TONE,
+  STATUS_TONE,
+  allowedLeadStages,
+  discoveryChecklist,
+  formatGaps,
+  nextLeadStage,
+  type DiscoveryValues,
+} from "../lead-config";
 import { Avatar, Btn, TONE_BADGE } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
@@ -17,7 +26,7 @@ import { useOverlays } from "./overlay-provider";
  * Nothing moves silently; confirming runs the one transition server action.
  */
 
-export interface AdvanceLeadTarget {
+export interface AdvanceLeadTarget extends DiscoveryValues {
   clientId: string;
   name: string;
   referenceNo: string | null;
@@ -37,11 +46,14 @@ export function AdvanceLeadModal({
   preset,
   onClose,
   onDone,
+  onCompleteDiscovery,
 }: {
   lead: AdvanceLeadTarget;
   preset?: AdvanceLeadPreset;
   onClose: () => void;
   onDone?: () => void;
+  /** Send the user to where discovery details are captured (the Log Call composer). */
+  onCompleteDiscovery?: () => void;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -49,10 +61,14 @@ export function AdvanceLeadModal({
 
   // Open on the move this popup is named after: an action-supplied stage wins, otherwise
   // suggest the next stage. At the final stage there is nothing to advance to, so hold.
-  const [stage, setStage] = useState(
-    preset?.stage ?? nextLeadStage(lead.stage) ?? lead.stage ?? "New Lead",
+  const initialStage = preset?.stage ?? nextLeadStage(lead.stage) ?? lead.stage ?? "New Lead";
+  const [stage, setStage] = useState(initialStage);
+  // Reaching Proposal *is* the discovery-complete moment, so the status it implies is
+  // pre-selected — one confirm now does what a separate button used to.
+  const [status, setStatus] = useState(
+    preset?.status ??
+      (initialStage === "Proposal" && initialStage !== lead.stage ? "Qualified" : lead.status ?? "New"),
   );
-  const [status, setStatus] = useState(preset?.status ?? lead.status ?? "New");
   const [note, setNote] = useState("");
   const [follow, setFollow] = useState("");
   const [markLost, setMarkLost] = useState(false);
@@ -65,6 +81,15 @@ export function AdvanceLeadModal({
     if (preset?.stage && !options.includes(preset.stage)) options.push(preset.stage);
     return options;
   }, [lead.stage, preset?.stage]);
+
+  // Moving to Proposal or marking Qualified both claim the lead is quotable, so both have to
+  // stand on the four discovery answers. The server enforces this too; showing it here turns
+  // a rejection into guidance about exactly what is missing.
+  const checklist = discoveryChecklist(lead);
+  const gaps = checklist.filter((item) => !item.done);
+  const assertsDiscovery =
+    (stage === "Proposal" && stage !== lead.stage) || status === "Qualified";
+  const blocked = !markLost && assertsDiscovery && gaps.length > 0;
 
   const confirm = () => {
     startTransition(async () => {
@@ -131,7 +156,12 @@ export function AdvanceLeadModal({
           <select
             className="h-9 w-full rounded-md border border-border-strong bg-card px-2.5 text-[13.5px] outline-none focus:border-brand"
             value={stage}
-            onChange={(e) => setStage(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setStage(value);
+              // Keep the implied status visible rather than overriding it silently at confirm.
+              if (value === "Proposal" && value !== lead.stage) setStatus("Qualified");
+            }}
           >
             {stageOptions.map((s) => (
               <option key={s}>{s}</option>
@@ -153,6 +183,53 @@ export function AdvanceLeadModal({
           </select>
         </div>
       </div>
+
+      {!markLost && assertsDiscovery && (
+        <div
+          className={cn(
+            "mt-3.5 rounded-md border px-3.5 py-3",
+            blocked ? "border-amber-border bg-amber-soft" : "border-green-border bg-green-soft/50",
+          )}
+        >
+          <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+            Discovery on file
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+            {checklist.map((item) => (
+              <span
+                key={item.label}
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-[12.5px]",
+                  item.done ? "text-green" : "font-[650] text-amber",
+                )}
+              >
+                <I.check size={13} className={item.done ? "" : "opacity-30"} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+          {blocked && (
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <span className="text-[12px] leading-snug text-amber">
+                A quote needs {formatGaps(gaps.map((gap) => gap.label))}. Log a reached call to add
+                {gaps.length === 1 ? " it" : " them"}.
+              </span>
+              {onCompleteDiscovery && (
+                <Btn
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    onClose();
+                    onCompleteDiscovery();
+                  }}
+                >
+                  Complete discovery
+                </Btn>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-3.5">
         <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
@@ -202,7 +279,7 @@ export function AdvanceLeadModal({
         <Btn onClick={onClose}>Cancel</Btn>
         <Btn
           variant="primary"
-          disabled={pending}
+          disabled={pending || blocked}
           onClick={confirm}
           className={markLost ? "border-transparent bg-red text-white hover:bg-red/90" : undefined}
         >

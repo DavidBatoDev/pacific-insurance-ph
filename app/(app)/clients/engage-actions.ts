@@ -268,36 +268,6 @@ export async function logCallAction(input: {
   return { ok: true, data: result };
 }
 
-export async function completeDiscoveryAction(
-  clientId: string,
-): Promise<ActionResult<EngagementResult>> {
-  const actor = await getActor();
-  const client = await getClientsRepository().findById(clientId);
-  if (!client) return { ok: false, error: "Contact not found." };
-  if (client.lifecycleStage !== "Lead" || client.leadStatus !== "Connected") {
-    return { ok: false, error: "Discovery can be completed only for a connected lead." };
-  }
-  if (
-    client.estPremium == null ||
-    client.familySize == null ||
-    client.familySize < 1 ||
-    !client.productInterest ||
-    !client.coverageTier
-  ) {
-    return {
-      ok: false,
-      error: "Add budget, family size, product interest, and coverage tier before completing discovery.",
-    };
-  }
-
-  const result = await updateLeadStatus(client, actor.id, "Qualified", "Discovery completed", {
-    stage: "Proposal",
-    label: "Discovery complete",
-  });
-  refresh(clientId);
-  return { ok: true, data: result };
-}
-
 export async function addNoteAction(input: {
   clientId: string;
   note: string;

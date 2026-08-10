@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { LEAD_STAGES, nextLeadStage, type LeadStage } from "@/components/hub/lead-config";
+import {
+  LEAD_STAGES,
+  discoveryGaps,
+  formatGaps,
+  nextLeadStage,
+  type LeadStage,
+} from "@/components/hub/lead-config";
 import {
   getClientsRepository,
   type Client,
@@ -59,6 +65,25 @@ export async function advanceLeadAction(
             ? `Leads advance one stage at a time — from ${current} you can only stay or move to ${next}.`
             : `${current} is the final lead stage; convert the application instead.`,
         };
+
+      // Discovery readiness. `Qualified` and the Proposal stage both assert the lead is quotable,
+      // so neither is reachable until budget, family size, product and tier are on the record
+      // (docs/lead-stage-status.md). Enforced here so no client path — this popup, a stale tab,
+      // a direct call — can set the state without the data behind it.
+      const gaps = discoveryGaps(lead);
+      if (gaps.length) {
+        const movingToProposal = input.stage === "Proposal" && input.stage !== current;
+        const qualifying = input.status === "Qualified" && input.status !== lead.leadStatus;
+        if (movingToProposal || qualifying)
+          return {
+            ok: false,
+            error: `Add ${formatGaps(gaps)} before ${
+              movingToProposal
+                ? `moving ${lead.fullName} to Proposal`
+                : `marking ${lead.fullName} Qualified`
+            }.`,
+          };
+      }
     }
 
     const patch: ClientUpdate = {};

@@ -34,6 +34,41 @@ export function allowedLeadStages(stage: string | null | undefined): string[] {
   return next ? [current, next] : [current];
 }
 
+/**
+ * Discovery readiness — the four answers a quote needs (docs/lead-stage-status.md: `Qualified`
+ * means budget, family size, product and tier are actually on file, not just discussed).
+ * Defined once and shared by the Advance popup's checklist and the server guard, so the UI and
+ * the rule can never drift apart.
+ */
+export interface DiscoveryValues {
+  estPremium?: number | null;
+  familySize?: number | null;
+  productInterest?: string | null;
+  coverageTier?: string | null;
+}
+
+export function discoveryChecklist(values: DiscoveryValues): { label: string; done: boolean }[] {
+  return [
+    { label: "Budget", done: values.estPremium != null },
+    // A zero-person household isn't a real answer, so require at least one.
+    { label: "Family size", done: values.familySize != null && values.familySize >= 1 },
+    { label: "Product", done: !!values.productInterest },
+    { label: "Coverage tier", done: !!values.coverageTier },
+  ];
+}
+
+/** Labels of the fields still missing; empty means the lead is quotable. */
+export function discoveryGaps(values: DiscoveryValues): string[] {
+  return discoveryChecklist(values).filter((item) => !item.done).map((item) => item.label);
+}
+
+/** "budget", "budget and family size", "budget, family size and product" — for error copy. */
+export function formatGaps(gaps: string[]): string {
+  const lower = gaps.map((gap) => gap.toLowerCase());
+  if (lower.length <= 1) return lower[0] ?? "";
+  return `${lower.slice(0, -1).join(", ")} and ${lower[lower.length - 1]}`;
+}
+
 export const STAGE_META: Record<string, { color: string; health: "good" | "watch" | "risk" }> = {
   "New Lead": { color: "#64748b", health: "good" },
   Contacted: { color: "#2563eb", health: "good" },

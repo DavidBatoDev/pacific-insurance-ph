@@ -10,7 +10,6 @@ import {
 } from "@/app/(app)/clients/actions";
 import {
   addNoteAction,
-  completeDiscoveryAction,
   logCallAction,
   logMessageAction,
   sendEmailAction,
@@ -28,7 +27,7 @@ import type { Application } from "@/lib/repositories/applications";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
-import type { Tone } from "../data";
+import { peso, type Tone } from "../data";
 import { I, type IconName } from "../icons";
 import { STAGE_TONE, STATUS_TONE } from "../lead-config";
 import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
@@ -126,8 +125,10 @@ export function ContactProfile({
   const [msgText, setMsgText] = useState("");
   const [outcome, setOutcome] = useState("Reached");
   const [callNote, setCallNote] = useState("");
-  const [callBudget, setCallBudget] = useState("");
-  const [callFamily, setCallFamily] = useState("");
+  // Prefilled from the record so the form shows what is already on file rather than blanks
+  // (logCallAction patches each field only when non-null, so re-sending them is harmless).
+  const [callBudget, setCallBudget] = useState(client.estPremium != null ? String(client.estPremium) : "");
+  const [callFamily, setCallFamily] = useState(client.familySize != null ? String(client.familySize) : "");
   const [callInterest, setCallInterest] = useState(client.productInterest ?? "");
   const [callTier, setCallTier] = useState(client.coverageTier ?? "");
   const [callFollow, setCallFollow] = useState("");
@@ -154,8 +155,10 @@ export function ContactProfile({
     if (templateName) applyTemplate(templateName);
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  /** Land on the discovery inputs: they only render for a Reached call, so preset the outcome. */
   const focusCall = () => {
     setTab("Log Call");
+    setOutcome("Reached");
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -217,15 +220,6 @@ export function ContactProfile({
       toast("Call logged", reached ? `Discovery details saved to ${client.fullName}’s record.` : `Call with ${client.fullName} saved to the timeline.`);
       setCallNote("");
       setCallFollow("");
-      router.refresh();
-      if (res.data.advance) setAdvanceOpen(res.data.advance);
-    });
-
-  const completeDiscovery = () =>
-    startTransition(async () => {
-      const res = await completeDiscoveryAction(client.id);
-      if (!res.ok) return toast("Couldn’t complete discovery", res.error);
-      toast("Discovery completed", `${client.fullName} is now qualified.`);
       router.refresh();
       if (res.data.advance) setAdvanceOpen(res.data.advance);
     });
@@ -334,14 +328,6 @@ export function ContactProfile({
                   <Btn size="sm" onClick={() => setAdvanceOpen({ label: "Advance from profile" })}>
                     <I.trendUp size={14} /> Advance
                   </Btn>
-                  {client.leadStage === "Discovery" && (
-                    <Btn
-                      size="sm"
-                      onClick={completeDiscovery}
-                    >
-                      <I.check size={14} /> Mark Discovery Complete
-                    </Btn>
-                  )}
                 </>
               )}
             </div>
@@ -439,7 +425,12 @@ export function ContactProfile({
                   ["Phone", client.mobileNumber],
                   ["Preferred channel", client.preferredChannel],
                   ["Source", client.leadSource],
+                  // The four discovery answers a quote needs, shown together so it is obvious
+                  // at a glance which are still outstanding (they gate the move to Proposal).
                   ["Product interest", client.productInterest],
+                  ["Budget / est. premium", client.estPremium != null ? peso(client.estPremium) : null],
+                  ["Family size", client.familySize != null ? String(client.familySize) : null],
+                  ["Coverage tier", client.coverageTier],
                   ["Lifecycle stage", client.lifecycleStage],
                   ["Date of birth", fmtDate(client.dateOfBirth)],
                   ["Address", client.address],
@@ -927,9 +918,14 @@ export function ContactProfile({
             referenceNo: client.referenceNo,
             stage: advanceOpen.currentStage ?? client.leadStage,
             status: advanceOpen.currentStatus ?? client.leadStatus,
+            estPremium: client.estPremium,
+            familySize: client.familySize,
+            productInterest: client.productInterest,
+            coverageTier: client.coverageTier,
           }}
           preset={advanceOpen}
           onClose={() => setAdvanceOpen(null)}
+          onCompleteDiscovery={focusCall}
         />
       )}
       {proposalOpen && (
