@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { LEAD_STAGES, nextLeadStage, type LeadStage } from "@/components/hub/lead-config";
 import {
   getClientsRepository,
   type Client,
@@ -41,6 +42,24 @@ export async function advanceLeadAction(
     if (!lead) return { ok: false, error: "Lead not found." };
     if (lead.lifecycleStage !== "Lead")
       return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+
+    // Forward-only spine (docs/lead-stage-status.md): a lead may hold its stage or move to
+    // the immediately following one. Backward moves and skips are rejected here as well as
+    // in the UI, so the rule holds for any caller. Lost travels via markLost, not `stage`.
+    if (!input.markLost) {
+      const current = lead.leadStage ?? LEAD_STAGES[0];
+      const currentIndex = LEAD_STAGES.indexOf(current as LeadStage);
+      const next = nextLeadStage(current);
+      if (!LEAD_STAGES.includes(input.stage as LeadStage))
+        return { ok: false, error: `Unknown lead stage "${input.stage}".` };
+      if (currentIndex !== -1 && input.stage !== current && input.stage !== next)
+        return {
+          ok: false,
+          error: next
+            ? `Leads advance one stage at a time — from ${current} you can only stay or move to ${next}.`
+            : `${current} is the final lead stage; convert the application instead.`,
+        };
+    }
 
     const patch: ClientUpdate = {};
     if (input.markLost) {

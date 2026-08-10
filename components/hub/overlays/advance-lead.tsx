@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { advanceLeadAction } from "@/app/(app)/prospects/actions";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { LEAD_STAGES, LEAD_STATUSES, STAGE_TONE, STATUS_TONE } from "../lead-config";
+import { LEAD_STATUSES, STAGE_TONE, STATUS_TONE, allowedLeadStages, nextLeadStage } from "../lead-config";
 import { Avatar, Btn, TONE_BADGE } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
@@ -47,11 +47,24 @@ export function AdvanceLeadModal({
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
 
-  const [stage, setStage] = useState(preset?.stage ?? lead.stage ?? "New Lead");
+  // Open on the move this popup is named after: an action-supplied stage wins, otherwise
+  // suggest the next stage. At the final stage there is nothing to advance to, so hold.
+  const [stage, setStage] = useState(
+    preset?.stage ?? nextLeadStage(lead.stage) ?? lead.stage ?? "New Lead",
+  );
   const [status, setStatus] = useState(preset?.status ?? lead.status ?? "New");
   const [note, setNote] = useState("");
   const [follow, setFollow] = useState("");
   const [markLost, setMarkLost] = useState(false);
+
+  // Stage is forward-only: offer the current stage and the next one, never a skip or a
+  // backward move. An action-suggested preset stays selectable even if it isn't the
+  // immediate next stage, so a triggered suggestion never renders an empty select.
+  const stageOptions = useMemo(() => {
+    const options = allowedLeadStages(lead.stage);
+    if (preset?.stage && !options.includes(preset.stage)) options.push(preset.stage);
+    return options;
+  }, [lead.stage, preset?.stage]);
 
   const confirm = () => {
     startTransition(async () => {
@@ -87,9 +100,6 @@ export function AdvanceLeadModal({
         </div>
         <div>
           <h3 className="text-[16px] font-bold tracking-[-0.01em]">Advance lead</h3>
-          <div className="text-[12.5px] text-muted-foreground">
-            {preset?.label ?? "Confirm the stage / status change"} — nothing moves silently.
-          </div>
         </div>
       </div>
 
@@ -123,7 +133,7 @@ export function AdvanceLeadModal({
             value={stage}
             onChange={(e) => setStage(e.target.value)}
           >
-            {LEAD_STAGES.map((s) => (
+            {stageOptions.map((s) => (
               <option key={s}>{s}</option>
             ))}
           </select>
