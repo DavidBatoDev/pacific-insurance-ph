@@ -90,17 +90,22 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
   });
   const awaiting = rows.filter((a) => a.status === "Awaiting Payment").length;
   const missing = viewRows.filter((a) => a.completenessState === "Missing").length;
+  // Drafts stay on the register — they're upcoming work Eman needs to see — but they are not
+  // applications in progress: nothing has been submitted, and the contact is still a Lead
+  // (../docs/lead-stage-status-example.md Step 6). Counted on their own so neither number lies.
+  const drafts = rows.filter((a) => a.status === "Lead").length;
+  const inProgress = rows.length - drafts;
 
   return (
     <ListScreen
       title="Applications"
-      sub={`${rows.length} applications in progress · ${awaiting} awaiting payment`}
+      sub={`${inProgress} application${inProgress === 1 ? "" : "s"} in progress${drafts ? ` · ${drafts} draft${drafts === 1 ? "" : "s"}` : ""} · ${awaiting} awaiting payment`}
       icon={I.fileText}
       draft={false}
       primaryAction="New application"
       onPrimary={() => overlays.openWizard()}
       stats={[
-        { val: rows.length, label: "In progress" },
+        { val: inProgress, label: "In progress" },
         { val: awaiting, label: "Awaiting payment", color: "var(--amber)" },
         { val: missing, label: "Missing requirements", color: "var(--red)" },
         { val: rows.filter((a) => a.status === "Under Review").length, label: "Under review", color: "var(--blue)" },

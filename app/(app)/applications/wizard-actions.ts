@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  APPLICATION_STARTED_STAGE,
   CONVERT_READY_STAGE,
   canConvertLead,
   stagesSkippedByConvert,
@@ -12,7 +13,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getApplicationRequirementsRepository, type NewApplicationRequirement } from "@/lib/repositories/application-requirements";
-import { getClientsRepository, type ClientUpdate } from "@/lib/repositories/clients";
+import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
 import { getGroupsRepository } from "@/lib/repositories/groups";
@@ -290,11 +291,24 @@ export async function createFromWizardAction(
           : "Name, a contact method, and a product category are required.",
     };
 
+  /**
+   * Whether this save actually starts an application. A draft has started nothing — it is a parked
+   * wizard, resumable later — and an "Inquiry / Lead Only" application is not one either (the
+   * wizard derives `status = "Lead"` for it). Everything that takes a contact off the lead board
+   * hangs off this.
+   */
+  const startsApplication = mode !== "draft" && form.status !== "Lead";
+
   try {
     /* ---------- 1. resolve the contact record ---------- */
     let clientId: string | null = null;
     let clientName = "";
     let resumingDraft = false;
+    /**
+     * The contact this save is about, when it is still sitting on the lead board. A draft leaves it
+     * alone; a completing save hands it off to Applicant in step 1b.
+     */
+    let leadAwaitingHandOff: Client | null = null;
     const applicationsRepo = getApplicationsRepository();
 
     if (form.draftApplicationId) {
@@ -329,42 +343,35 @@ export async function createFromWizardAction(
       clientId = draft.clientId;
       clientName = [clientPatch.firstName, clientPatch.lastName].filter(Boolean).join(" ") || existingClient.fullName;
       resumingDraft = true;
+      // The draft that opened this wizard never converted the contact, so finishing it is what
+      // does. Re-saving it as a draft still leaves the record on the lead board.
+      if (existingClient.lifecycleStage === "Lead") leadAwaitingHandOff = existingClient;
     }
 
     if (!resumingDraft && form.convertClientId) {
-      // Convert-from-lead commit: flip the SAME record to Applicant.
+      // Convert-from-lead: the SAME record is used, but nothing about it changes yet — the flip to
+      // Applicant happens in step 1b, and only for a completing save.
       const lead = await clientsRepo.findById(form.convertClientId);
       if (!lead) return { ok: false, error: "The lead being converted no longer exists." };
-      // Converting is the Product-Selected payoff (docs/lead-stage-status-example.md Step 5), and
-      // this branch runs for every mode — a Save as Draft on step 1 converts just as hard as a
-      // Create. Only the skip-ahead confirm dialog can authorise an earlier one; a stale tab or a
-      // direct call cannot.
-      const skippedStages = stagesSkippedByConvert(lead.leadStage);
+      // Converting is the Product-Selected payoff (docs/lead-stage-status-example.md Step 5). The
+      // check runs for every mode, draft included: a draft saved here is resumable later without
+      // re-confirming, so an unauthorised entry must be refused at the door rather than parked.
       if (!canConvertLead(lead.leadStage) && !options?.confirmedSkip)
         return {
           ok: false,
           error: `Advance ${lead.fullName} to ${CONVERT_READY_STAGE} before converting to an application.`,
         };
-      await clientsRepo.update(lead.id, {
-        lifecycleStage: "Applicant",
-        leadStage: "Converted",
-        clientType: form.category === "hmo" ? "Corporate Contact" : lead.clientType,
-      });
-      await recordActivity({
-        scopeType: "client",
-        scopeId: lead.id,
-        activityType: "lead.converted",
-        summary:
-          `Converted to Applicant — application started (${form.productName || "product"})` +
-          // A shortcut past the pipeline should be reviewable later, not invisible.
-          (skippedStages.length ? ` — skipped ${skippedStages.join(", ")}` : ""),
-        actorId: actor.id,
-      });
       clientId = lead.id;
       clientName = lead.fullName;
+      if (lead.lifecycleStage === "Lead") leadAwaitingHandOff = lead;
     } else if (!resumingDraft && form.clientMode === "existing" && form.existingClientId) {
-      clientId = form.existingClientId;
-      clientName = form.existingClientName;
+      const existing = await clientsRepo.findById(form.existingClientId);
+      if (!existing) return { ok: false, error: "The selected client record no longer exists." };
+      clientId = existing.id;
+      clientName = existing.fullName;
+      // Picking a lead out of the client search is the same hand-off as the Convert button, so it
+      // has to leave the board too — otherwise a lead ends up with a live application on it.
+      if (existing.lifecycleStage === "Lead") leadAwaitingHandOff = existing;
     } else if (!resumingDraft && form.category === "hmo") {
       // Group HMO: the primary contact person becomes the contact record.
       const contactName = (form.companyContact || form.companyName).trim();
@@ -375,7 +382,10 @@ export async function createFromWizardAction(
         email: form.email || null,
         mobileNumber: form.mobile || null,
         clientType: "Corporate Contact",
-        lifecycleStage: "Applicant",
+        lifecycleStage: startsApplication ? "Applicant" : "Lead",
+        ...(startsApplication
+          ? {}
+          : { leadStage: mode === "draft" ? APPLICATION_STARTED_STAGE : "New Lead", leadStatus: "New" }),
         leadSource: form.source || null,
         assignedUserId: form.assignedUserId || actor.id,
         address: form.address || null,
@@ -394,9 +404,19 @@ export async function createFromWizardAction(
         address: form.address || null,
         preferredChannel: clientChannel(form.channels[0]),
         clientType: "Prospect",
-        lifecycleStage: mode === "draft" && form.status === "Lead" ? "Lead" : "Applicant",
-        leadStage: mode === "draft" && form.status === "Lead" ? "New Lead" : "Converted",
-        leadStatus: mode === "draft" && form.status === "Lead" ? "New" : null,
+        // A draft stays a Lead even when step 6 already names an Applicant status: that status
+        // describes the application being drafted, not a submission that has happened. The record
+        // is handed off in step 1b when the wizard is actually completed.
+        lifecycleStage: startsApplication ? "Applicant" : "Lead",
+        // A draft saved for a brand-new walk-in lands in `Application Started` too — the column
+        // means "a draft is waiting to be finished", and leaving them at `New Lead` would hide
+        // real work behind a label that says nobody has touched it.
+        leadStage: startsApplication
+          ? "Converted"
+          : mode === "draft"
+            ? APPLICATION_STARTED_STAGE
+            : "New Lead",
+        leadStatus: startsApplication ? null : "New",
         productInterest: form.productName || null,
         estPremium: parseAmount(form.premium),
         leadSource: form.source || null,
@@ -410,6 +430,46 @@ export async function createFromWizardAction(
     if (!clientId) return { ok: false, error: "Could not resolve the application contact." };
     const resolvedClientId = clientId;
     const result: WizardResult = { clientId: resolvedClientId, summary: "" };
+
+    /* ---------- 1b. lead stage / applicant hand-off ---------- */
+    // Two different moments, two different consequences (docs/lead-stage-status-example.md Steps
+    // 6-7): `Save as Draft` moves the STAGE to `Application Started` and the contact stays a Lead
+    // on the board; only a completing save moves the LIFECYCLE and hands the record to the
+    // Applicant track. Opening the wizard on its own writes neither.
+    if (leadAwaitingHandOff && startsApplication) {
+      const skippedStages = stagesSkippedByConvert(leadAwaitingHandOff.leadStage);
+      await clientsRepo.update(leadAwaitingHandOff.id, {
+        lifecycleStage: "Applicant",
+        leadStage: "Converted",
+        clientType: form.category === "hmo" ? "Corporate Contact" : leadAwaitingHandOff.clientType,
+      });
+      await recordActivity({
+        scopeType: "client",
+        scopeId: leadAwaitingHandOff.id,
+        activityType: "lead.converted",
+        summary:
+          `Converted to Applicant — application started (${form.productName || "product"})` +
+          // A shortcut past the pipeline should be reviewable later, not invisible.
+          (skippedStages.length ? ` — skipped ${skippedStages.join(", ")}` : ""),
+        actorId: actor.id,
+      });
+    } else if (
+      leadAwaitingHandOff &&
+      mode === "draft" &&
+      leadAwaitingHandOff.leadStage !== APPLICATION_STARTED_STAGE
+    ) {
+      // A saved draft IS the `Application Started` milestone. The card stays on the board — it just
+      // moves to the column that says the paperwork is underway. Re-saving is a no-op.
+      const previousStage = leadAwaitingHandOff.leadStage;
+      await clientsRepo.update(leadAwaitingHandOff.id, { leadStage: APPLICATION_STARTED_STAGE });
+      await recordActivity({
+        scopeType: "client",
+        scopeId: leadAwaitingHandOff.id,
+        activityType: "lead.stage_changed",
+        summary: `Stage changed — ${previousStage ?? "—"} → ${APPLICATION_STARTED_STAGE} (application draft saved)`,
+        actorId: actor.id,
+      });
+    }
 
     const hasSeniorApplicant = [form.dob, ...form.healthDependents.map((person) => person.dob)]
       .some((dob) => { const age = ageFromDob(dob); return typeof age === "number" && age >= 71; });
@@ -577,13 +637,16 @@ export async function createFromWizardAction(
       await recordActivity({
         scopeType: "client",
         scopeId: resolvedClientId,
-        activityType: "application.created",
-        summary: `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
+        activityType: mode === "draft" ? "application.draft_saved" : "application.created",
+        summary:
+          mode === "draft"
+            ? `Application draft saved — ${application.referenceNo ?? ""} (${form.productName || "product"}) · contact stays a Lead`
+            : `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
         actorId: actor.id,
       });
       await recordAudit({
         actorId: actor.id,
-        action: "create",
+        action: mode === "draft" ? "create_draft" : "create",
         tableName: "applications",
         recordId: application.id,
         newValue: application as unknown as Json,

@@ -229,7 +229,7 @@ export function Step2({ f, set, linkedClientName }: StepProps & { linkedClientNa
               {resumedDraft
                 ? "Linked lead/client · the same record is updated when this draft is saved."
                 : f.convertClientId
-                ? "Converting from Lead → Applicant. The same record is used — no duplicate is created."
+                ? "Converting from Lead → Applicant when the application is created. The same record is used — no duplicate."
                 : "Linked existing client · profile pulled in automatically."}
             </div>
           </div>

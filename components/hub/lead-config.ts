@@ -42,6 +42,13 @@ export function allowedLeadStages(stage: string | null | undefined): string[] {
  */
 export const CONVERT_READY_STAGE: LeadStage = "Product Selected";
 
+/**
+ * The stage a saved wizard draft puts a lead in (`docs/lead-stage-status-example.md` Step 6).
+ * It moves the *stage* only — `lifecycle_stage` stays `Lead` and the card stays on the board.
+ * The lifecycle hand-off is Step 7, when the wizard is actually completed.
+ */
+export const APPLICATION_STARTED_STAGE: LeadStage = "Application Started";
+
 export function canConvertLead(stage: string | null | undefined): boolean {
   const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
   // An unknown or terminal stage (Converted / Lost) is never "ready" — those records aren't leads.

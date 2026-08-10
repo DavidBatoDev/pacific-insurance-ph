@@ -346,7 +346,8 @@ export function NewApplicationWizard({
               <I.user size={15} className="mt-0.5 shrink-0 text-brand" />
               <div>
                 Converting <b>{f.convertClientName}</b> from Lead → Applicant. The same record is
-                used — <b>no duplicate is created.</b> Nothing changes until you save.
+                used — <b>no duplicate is created.</b> The conversion happens when you create the
+                application; <b>Save draft keeps them a lead</b> and you can pick this up later.
               </div>
             </div>
           )}

@@ -70,8 +70,9 @@ export function ConvertConfirmModal({
       </div>
 
       <p className="mt-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        The record flips to <span className="font-[650]">Applicant</span> once the wizard saves, and
-        the lead leaves the pipeline board. Do this only if {lead.name} has already chosen a plan.
+        The record flips to <span className="font-[650]">Applicant</span> once the wizard creates the
+        application, and the lead leaves the pipeline board. Saving a draft along the way changes
+        nothing. Do this only if {lead.name} has already chosen a plan.
       </p>
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
