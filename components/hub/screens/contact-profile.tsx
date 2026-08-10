@@ -29,8 +29,9 @@ import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merg
 import { cn } from "@/lib/utils";
 import { peso, type Tone } from "../data";
 import { I, type IconName } from "../icons";
-import { STAGE_TONE, STATUS_TONE } from "../lead-config";
+import { STAGE_TONE, STATUS_TONE, canConvertLead } from "../lead-config";
 import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
+import { ConvertConfirmModal } from "../overlays/convert-confirm";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "../overlays/library-attachment-picker";
@@ -138,7 +139,20 @@ export function ContactProfile({
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
+
+  // Converting is the Product-Selected payoff; earlier is possible but has to be deliberate.
+  const convertReady = canConvertLead(client.leadStage);
+  /** `skipAhead` is set only by the confirm dialog — the server rejects the convert without it. */
+  const openConvertWizard = (skipAhead = false) =>
+    overlays.openWizard({
+      convertClientId: client.id,
+      convertClientName: client.fullName,
+      productInterest: client.productInterest,
+      email: client.email,
+      ...(skipAhead ? { confirmedSkip: true } : {}),
+    });
   const [timelineFilter, setTimelineFilter] = useState("All");
 
   const applyTemplate = (name: string) => {
@@ -330,6 +344,17 @@ export function ContactProfile({
                 >
                   <I.edit size={15} className="text-subtle" /> Edit
                 </Link>
+                {isLead && !convertReady && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConvertConfirmOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
+                  >
+                    <I.arrowRight size={15} className="text-subtle" /> Convert to Application…
+                  </button>
+                )}
                 <DeleteClientButton
                   id={client.id}
                   className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] text-red transition-colors hover:bg-red-soft disabled:opacity-60"
@@ -386,18 +411,10 @@ export function ContactProfile({
             <Btn onClick={focusCall}>
               <I.phone size={15} /> Log Call
             </Btn>
-            {isLead && (
-              <Btn
-                variant="primary"
-                onClick={() =>
-                  overlays.openWizard({
-                    convertClientId: client.id,
-                    convertClientName: client.fullName,
-                    productInterest: client.productInterest,
-                    email: client.email,
-                  })
-                }
-              >
+            {/* Only the sanctioned convert (at Product Selected or later) gets to be the primary
+                action; before that it lives in the ⋮ menu behind a skip confirmation. */}
+            {isLead && convertReady && (
+              <Btn variant="primary" onClick={() => openConvertWizard()}>
                 <I.arrowRight size={15} /> Convert to Application
               </Btn>
             )}
@@ -972,6 +989,17 @@ export function ContactProfile({
           preset={advanceOpen}
           onClose={() => setAdvanceOpen(null)}
           onCompleteDiscovery={focusCall}
+        />
+      )}
+      {convertConfirmOpen && (
+        <ConvertConfirmModal
+          lead={{
+            name: client.fullName,
+            stage: client.leadStage,
+            proposalStatus: client.proposalStatus,
+          }}
+          onClose={() => setConvertConfirmOpen(false)}
+          onConfirm={() => openConvertWizard(true)}
         />
       )}
       {proposalOpen && (

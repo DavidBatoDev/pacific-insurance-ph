@@ -35,6 +35,27 @@ export function allowedLeadStages(stage: string | null | undefined): string[] {
 }
 
 /**
+ * Conversion readiness (`docs/lead-stage-status-example.md` Step 5): converting is the payoff of a
+ * lead the client has already committed to, so it belongs at `Product Selected` — not at `New Lead`,
+ * where it would skip discovery and the proposal entirely. Shared by the Contact Profile and the
+ * wizard's server action so the UI and the rule cannot drift.
+ */
+export const CONVERT_READY_STAGE: LeadStage = "Product Selected";
+
+export function canConvertLead(stage: string | null | undefined): boolean {
+  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  // An unknown or terminal stage (Converted / Lost) is never "ready" — those records aren't leads.
+  return index !== -1 && index >= LEAD_STAGES.indexOf(CONVERT_READY_STAGE);
+}
+
+/** Stages a convert from `stage` jumps over, e.g. Discovery → ["Proposal", "Product Selected"]. */
+export function stagesSkippedByConvert(stage: string | null | undefined): string[] {
+  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  if (index === -1) return [];
+  return LEAD_STAGES.slice(index + 1, LEAD_STAGES.indexOf(CONVERT_READY_STAGE) + 1);
+}
+
+/**
  * Discovery readiness — the four answers a quote needs (docs/lead-stage-status.md: `Qualified`
  * means budget, family size, product and tier are actually on file, not just discussed).
  * Defined once and shared by the Advance popup's checklist and the server guard, so the UI and

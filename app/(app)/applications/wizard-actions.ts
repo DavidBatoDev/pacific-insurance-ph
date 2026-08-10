@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  CONVERT_READY_STAGE,
+  canConvertLead,
+  stagesSkippedByConvert,
+} from "@/components/hub/lead-config";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
@@ -269,6 +274,7 @@ export async function getDraftResumeAction(
 export async function createFromWizardAction(
   form: WizardForm,
   mode: WizardMode,
+  options?: { confirmedSkip?: boolean },
 ): Promise<ActionResult<WizardResult>> {
   const actor = await getActor();
   const clientsRepo = getClientsRepository();
@@ -329,6 +335,16 @@ export async function createFromWizardAction(
       // Convert-from-lead commit: flip the SAME record to Applicant.
       const lead = await clientsRepo.findById(form.convertClientId);
       if (!lead) return { ok: false, error: "The lead being converted no longer exists." };
+      // Converting is the Product-Selected payoff (docs/lead-stage-status-example.md Step 5), and
+      // this branch runs for every mode — a Save as Draft on step 1 converts just as hard as a
+      // Create. Only the skip-ahead confirm dialog can authorise an earlier one; a stale tab or a
+      // direct call cannot.
+      const skippedStages = stagesSkippedByConvert(lead.leadStage);
+      if (!canConvertLead(lead.leadStage) && !options?.confirmedSkip)
+        return {
+          ok: false,
+          error: `Advance ${lead.fullName} to ${CONVERT_READY_STAGE} before converting to an application.`,
+        };
       await clientsRepo.update(lead.id, {
         lifecycleStage: "Applicant",
         leadStage: "Converted",
@@ -338,7 +354,10 @@ export async function createFromWizardAction(
         scopeType: "client",
         scopeId: lead.id,
         activityType: "lead.converted",
-        summary: `Converted to Applicant — application started (${form.productName || "product"})`,
+        summary:
+          `Converted to Applicant — application started (${form.productName || "product"})` +
+          // A shortcut past the pipeline should be reviewable later, not invisible.
+          (skippedStages.length ? ` — skipped ${skippedStages.join(", ")}` : ""),
         actorId: actor.id,
       });
       clientId = lead.id;

@@ -45,6 +45,11 @@ export interface WizardPrefill {
   productInterest?: string | null;
   email?: string | null;
   draftApplicationId?: string;
+  /**
+   * Set only by the skip-ahead confirm dialog, never by the sanctioned convert button. Kept off
+   * `WizardForm` so it can't be persisted into a draft's `wizardState` and replayed later.
+   */
+  confirmedSkip?: boolean;
 }
 
 const AUTO_FILLED_LABEL: Record<AutoFilledWizardField, string> = {
@@ -241,7 +246,7 @@ export function NewApplicationWizard({
       if (!confirmed) return;
     }
     startTransition(async () => {
-      const res = await createFromWizardAction(f, mode);
+      const res = await createFromWizardAction(f, mode, { confirmedSkip: prefill?.confirmedSkip });
       if (res.ok) {
         const titles: Record<WizardMode, string> = {
           draft: "Draft saved",
