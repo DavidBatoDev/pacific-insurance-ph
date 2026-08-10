@@ -79,34 +79,57 @@ export function BrandGlyph({ size = 18 }: { size?: number }) {
   );
 }
 
-function NavItem({ item, active }: { item: NavEntry; active: boolean }) {
+function NavItem({
+  item,
+  active,
+  collapsed = false,
+}: {
+  item: NavEntry;
+  active: boolean;
+  collapsed?: boolean;
+}) {
   const Ico = I[item.icon];
   return (
     <Link
       href={SCREEN_PATH[item.id]}
+      // On the rail the icon is the only label, so carry the name in the tooltip and
+      // the accessible name instead of dropping it.
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
       className={cn(
-        "group relative mb-px flex h-[37px] items-center gap-[11px] rounded-sm px-[11px] text-[13.5px] font-[550] transition-colors",
+        "group relative mb-px flex h-[37px] items-center rounded-sm text-[13.5px] font-[550] transition-colors",
+        collapsed ? "justify-center px-0" : "gap-[11px] px-[11px]",
         active
           ? "bg-brand-soft font-[650] text-brand-hover"
           : "text-muted-foreground hover:bg-hover hover:text-foreground",
       )}
     >
       <Ico size={18} className={cn("shrink-0", active ? "text-brand" : "text-subtle group-hover:text-muted-foreground")} />
-      {item.label}
-      {item.badge && (
-        <span
-          className={cn(
-            "ml-auto grid h-[19px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold",
-            active
-              ? "bg-brand text-white"
-              : item.alert
-                ? "bg-red text-white"
-                : "bg-surface-3 text-muted-foreground",
-          )}
-        >
-          {item.badge}
-        </span>
-      )}
+      {!collapsed && item.label}
+      {item.badge &&
+        (collapsed ? (
+          // No room for a count — keep only the fact that there is something waiting.
+          <span
+            aria-hidden
+            className={cn(
+              "absolute right-1.5 top-1.5 size-[7px] rounded-full ring-2 ring-sidebar",
+              item.alert ? "bg-red" : active ? "bg-brand" : "bg-subtle",
+            )}
+          />
+        ) : (
+          <span
+            className={cn(
+              "ml-auto grid h-[19px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold",
+              active
+                ? "bg-brand text-white"
+                : item.alert
+                  ? "bg-red text-white"
+                  : "bg-surface-3 text-muted-foreground",
+            )}
+          >
+            {item.badge}
+          </span>
+        ))}
     </Link>
   );
 }
@@ -116,12 +139,28 @@ function NavSection({
   label,
   items,
   isActive,
+  collapsed = false,
 }: {
   label: string;
   items: NavEntry[];
   isActive: (id: ScreenId) => boolean;
+  collapsed?: boolean;
 }) {
   const [open, setOpen] = useState(true);
+
+  // A rail has no room for the group name, and a toggle whose label you can't read is a
+  // trap — so the group becomes a plain divider and its items stay reachable.
+  if (collapsed) {
+    return (
+      <>
+        <div role="separator" aria-label={label} className="mx-2 my-1.5 h-px bg-border-soft" />
+        {items.map((it) => (
+          <NavItem key={it.id} item={it} active={isActive(it.id)} collapsed />
+        ))}
+      </>
+    );
+  }
+
   return (
     <>
       <button
@@ -139,22 +178,27 @@ function NavSection({
   );
 }
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const isActive = (id: ScreenId) => {
-    const p = SCREEN_PATH[id];
-    return pathname === p || pathname.startsWith(p + "/");
-  };
-
+/**
+ * The nav itself — one definition for the docked sidebar, the desktop icon rail and the
+ * mobile drawer. `collapsed` strips it to icons only.
+ */
+function SidebarNav({
+  isActive,
+  collapsed = false,
+}: {
+  isActive: (id: ScreenId) => boolean;
+  collapsed?: boolean;
+}) {
   return (
-    <aside className="col-start-1 row-start-2 flex flex-col overflow-y-auto border-r border-border bg-sidebar px-3 pb-3.5 pt-2.5 max-[900px]:hidden">
+    <>
       {NAV_MAIN.map((it) => (
-        <NavItem key={it.id} item={it} active={isActive(it.id)} />
+        <NavItem key={it.id} item={it} active={isActive(it.id)} collapsed={collapsed} />
       ))}
-      <NavSection label="Workspace" items={NAV_WORK} isActive={isActive} />
-      <NavSection label="System" items={NAV_SYS} isActive={isActive} />
+      <NavSection label="Workspace" items={NAV_WORK} isActive={isActive} collapsed={collapsed} />
+      <NavSection label="System" items={NAV_SYS} isActive={isActive} collapsed={collapsed} />
 
-      <div className="mt-auto pt-3">
+      {/* Prose can't survive a 48px column, so the close-out card sits out the rail. */}
+      <div className={cn("mt-auto pt-3", collapsed && "hidden")}>
         <div className="rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
           <h5 className="mb-[3px] text-[12.5px] font-semibold">June close-out</h5>
           <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
@@ -165,7 +209,94 @@ export function Sidebar() {
           </Link>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+/**
+ * Navigation in all three of its forms. On desktop it stays docked in the grid's first
+ * column, which `collapsed` narrows to an icon-only rail. At ≤900px that column is 0-wide,
+ * so the nav can only appear as an overlay drawer opened from the topbar burger — before
+ * this, it was simply unreachable. All three render the same `SidebarNav`, so they can
+ * never drift apart.
+ */
+export function Sidebar({
+  collapsed = false,
+  mobileOpen = false,
+  onClose,
+}: {
+  collapsed?: boolean;
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
+  const pathname = usePathname();
+  const isActive = (id: ScreenId) => {
+    const p = SCREEN_PATH[id];
+    return pathname === p || pathname.startsWith(p + "/");
+  };
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen, onClose]);
+
+  return (
+    <>
+      <aside
+        className={cn(
+          "col-start-1 row-start-2 flex flex-col overflow-y-auto border-r border-border bg-sidebar pb-3.5 pt-2.5 max-[900px]:hidden",
+          collapsed ? "px-2" : "px-3",
+        )}
+      >
+        <SidebarNav isActive={isActive} collapsed={collapsed} />
+      </aside>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] min-[901px]:hidden">
+          <button
+            aria-label="Close navigation"
+            onClick={onClose}
+            className="absolute inset-0 cursor-default bg-black/45"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Main navigation"
+            // Following a link is the drawer's whole purpose, so dismiss on link clicks —
+            // but not on the section toggles, which are meant to be used in place.
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a")) onClose?.();
+            }}
+            className="absolute inset-y-0 left-0 flex w-[262px] max-w-[85vw] flex-col overflow-y-auto border-r border-border bg-sidebar px-3 pb-3.5 pt-2.5 shadow-pop"
+          >
+            {/* The desktop brand corner is hidden at this width, so the drawer carries it. */}
+            <div className="mb-1.5 flex items-center gap-[11px] px-1">
+              <div className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-gradient-to-br from-[#10b981] to-[#047857] shadow-[0_2px_6px_rgba(4,120,87,0.35),inset_0_1px_0_rgba(255,255,255,0.25)]">
+                <BrandGlyph size={19} />
+              </div>
+              <div className="flex flex-col leading-[1.05]">
+                <b className="text-[15px] font-bold tracking-[-0.02em]">Pacific</b>
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-subtle">
+                  Insurance PH
+                </span>
+              </div>
+              <button
+                aria-label="Close navigation"
+                onClick={onClose}
+                className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <I.x size={17} />
+              </button>
+            </div>
+            <SidebarNav isActive={isActive} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -176,10 +307,19 @@ export function Topbar({
   dark,
   setDark,
   userName,
+  navCollapsed = false,
+  onToggleNav,
+  onOpenNav,
 }: {
   dark: boolean;
   setDark: (v: boolean) => void;
   userName: string;
+  /** Desktop only — whether the docked sidebar column is currently emptied. */
+  navCollapsed?: boolean;
+  /** Desktop only — collapse/expand the docked sidebar. */
+  onToggleNav?: () => void;
+  /** ≤900px only — open the nav drawer. */
+  onOpenNav?: () => void;
   /** @deprecated display role now comes from the persona context. */
   userRole?: string;
 }) {
@@ -217,6 +357,24 @@ export function Topbar({
       ref={wrapRef}
       className="relative z-30 col-start-2 row-start-1 flex items-center gap-3.5 border-b border-border bg-surface px-5"
     >
+      {/* Two controls for the same nav, one per layout: the burger is the *only* way in
+          below 900px, where the sidebar column has no width to occupy. */}
+      <button
+        aria-label="Open navigation"
+        onClick={onOpenNav}
+        className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground min-[901px]:hidden"
+      >
+        <I.menu size={19} />
+      </button>
+      <button
+        aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!navCollapsed}
+        onClick={onToggleNav}
+        className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground max-[900px]:hidden"
+      >
+        <I.panelLeft size={18} />
+      </button>
+
       <div className="relative max-w-[460px] flex-1">
         <form
           onSubmit={(e) => {

@@ -27,8 +27,10 @@ import {
   LayoutGrid,
   LogOut,
   Mail,
+  Menu,
   Moon,
   PhilippinePeso,
+  PanelLeft,
   Phone,
   Plane,
   Plus,
@@ -47,6 +49,7 @@ import {
   User,
   Users,
   Wallet,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +94,9 @@ export const I = {
   plus: Plus,
   download: Download,
   more: EllipsisVertical,
+  menu: Menu,
+  panelLeft: PanelLeft,
+  x: X,
   phone: Phone,
   mail: Mail,
   doc2: File,
