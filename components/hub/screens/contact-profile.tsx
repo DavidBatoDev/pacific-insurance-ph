@@ -78,15 +78,6 @@ const INPUT =
 const AREA =
   "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
-const LIFECYCLE_TONE: Record<string, Tone> = {
-  Lead: "blue",
-  Applicant: "violet",
-  Client: "green",
-  Policyholder: "green",
-  Renewal: "amber",
-  Lost: "red",
-};
-
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
@@ -326,9 +317,10 @@ export function ContactProfile({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-[22px] font-bold tracking-[-0.02em]">{client.fullName}</h1>
-              <span className="font-mono text-[12px] text-subtle">#{client.referenceNo ?? client.id.slice(0, 6)}</span>
-              <span className={cn("inline-flex h-[22px] items-center rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[LIFECYCLE_TONE[client.lifecycleStage] ?? "slate"])}>
-                {client.lifecycleStage}
+              {/* Lifecycle type sits inline with the ID as subtle gray text — deliberately
+                  NOT a colored pill, so it doesn't compete with the lead stage/status chips. */}
+              <span className="font-mono text-[12px] text-subtle">
+                #{client.referenceNo ?? client.id.slice(0, 6)} · {client.lifecycleStage}
               </span>
               {isLead && (
                 <>
@@ -366,7 +358,9 @@ export function ContactProfile({
               )}
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* On narrower widths (tablet) the action cluster drops to its own full-width row
+              instead of crushing the identity column; it sits inline only when there's room (xl). */}
+          <div className="flex w-full shrink-0 flex-wrap items-center gap-2 xl:w-auto">
             <Btn onClick={() => focusEmail()}>
               <I.mail size={15} /> Email
             </Btn>
