@@ -137,6 +137,8 @@ export function ContactProfile({
 
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [timelineFilter, setTimelineFilter] = useState("All");
 
   const applyTemplate = (name: string) => {
@@ -305,8 +307,39 @@ export function ContactProfile({
       </Link>
 
       {/* ---------- header ---------- */}
-      <div className="mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
-        <div className="flex flex-wrap items-start gap-4">
+      <div className="relative mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        {/* Record-level actions (edit / delete) live behind the ⋮ so they don't sit next to the
+            everyday ones — pr-9 keeps the row clear of the absolutely-placed trigger. */}
+        <div className="absolute right-4 top-4 z-30">
+          <button
+            aria-label="More actions"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+          >
+            <I.more size={17} />
+          </button>
+          {menuOpen && (
+            <>
+              {/* Click-away catcher, below the menu but above the page. */}
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-9 z-40 w-[200px] overflow-hidden rounded-md border border-border bg-card py-1 shadow-pop">
+                <Link
+                  href={`/clients/${client.id}/edit${origin === "prospects" ? "?from=prospects" : ""}`}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
+                >
+                  <I.edit size={15} className="text-subtle" /> Edit
+                </Link>
+                <DeleteClientButton
+                  id={client.id}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] text-red transition-colors hover:bg-red-soft disabled:opacity-60"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-start gap-4 pr-9">
           <Avatar name={client.fullName} size={56} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -386,13 +419,6 @@ export function ContactProfile({
                 <I.arrowRight size={15} /> Continue Application
               </Btn>
             )}
-            <Link
-              href={`/clients/${client.id}/edit${origin === "prospects" ? "?from=prospects" : ""}`}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3.5 text-[13px] font-semibold transition-colors hover:bg-hover"
-            >
-              <I.edit size={15} /> Edit
-            </Link>
-            <DeleteClientButton id={client.id} />
           </div>
         </div>
 
@@ -417,8 +443,28 @@ export function ContactProfile({
         {/* ---------- left: identity ---------- */}
         <div className="col-span-3 flex flex-col gap-4 max-[1200px]:col-span-1">
           <Card>
-            <CardHead iconName="user" title="Contact properties" />
-            <dl className="flex flex-col gap-3 px-[18px] py-4">
+            <CardHead
+              iconName="user"
+              title="Contact properties"
+              action={
+                <button
+                  aria-label={propertiesOpen ? "Collapse contact properties" : "Expand contact properties"}
+                  aria-expanded={propertiesOpen}
+                  onClick={() => setPropertiesOpen((open) => !open)}
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  <I.chevDown size={16} className={cn("transition-transform", propertiesOpen && "rotate-180")} />
+                </button>
+              }
+            />
+            {/* One column while the card sits in the narrow sidebar; two once the profile grid
+                collapses to full width at ≤1200px, so the list doesn't become a long scroll. */}
+            <dl
+              className={cn(
+                "grid grid-cols-1 gap-3 px-[18px] py-4 max-[1200px]:grid-cols-2",
+                !propertiesOpen && "hidden",
+              )}
+            >
               {(
                 [
                   ["Email", client.email],

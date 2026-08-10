@@ -4,7 +4,11 @@ import { useActionState } from "react";
 
 import { deleteClientAction, type ClientFormState } from "@/app/(app)/clients/actions";
 
-export function DeleteClientButton({ id }: { id: string }) {
+const DEFAULT_CLASS =
+  "inline-flex h-9 items-center rounded-md border border-red-border bg-red-soft px-3.5 text-[13px] font-semibold text-red transition-colors hover:opacity-90 disabled:opacity-60";
+
+/** `className` lets callers render this as a menu row; the confirm + error handling stay put. */
+export function DeleteClientButton({ id, className }: { id: string; className?: string }) {
   const [state, action, pending] = useActionState<ClientFormState, FormData>(
     deleteClientAction,
     {},
@@ -21,11 +25,11 @@ export function DeleteClientButton({ id }: { id: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex h-9 items-center rounded-md border border-red-border bg-red-soft px-3.5 text-[13px] font-semibold text-red transition-colors hover:opacity-90 disabled:opacity-60"
+        className={className ?? DEFAULT_CLASS}
       >
         {pending ? "Deleting…" : "Delete"}
       </button>
-      {state?.error ? <p className="mt-1.5 text-[13px] text-red">{state.error}</p> : null}
+      {state?.error ? <p className="px-3.5 py-1.5 text-[12px] leading-snug text-red">{state.error}</p> : null}
     </form>
   );
 }
