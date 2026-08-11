@@ -344,7 +344,10 @@ export function ContactProfile({
                 >
                   <I.edit size={15} className="text-subtle" /> Edit
                 </Link>
-                {isLead && !convertReady && (
+                {/* A draft already resuming this same lead is the one path forward — starting a
+                    second, unrelated wizard here would leave two open application rows on one
+                    person instead of continuing the one that exists. */}
+                {isLead && !convertReady && draftApplications.length === 0 && (
                   <button
                     onClick={() => {
                       setMenuOpen(false);
@@ -412,8 +415,11 @@ export function ContactProfile({
               <I.phone size={15} /> Log Call
             </Btn>
             {/* Only the sanctioned convert (at Product Selected or later) gets to be the primary
-                action; before that it lives in the ⋮ menu behind a skip confirmation. */}
-            {isLead && convertReady && (
+                action; before that it lives in the ⋮ menu behind a skip confirmation. Hidden once
+                a draft exists — Convert starts a brand-new wizard with no draftApplicationId, so
+                saving it would create a second application row instead of continuing the one
+                already open; Continue Application below is the only path in that case. */}
+            {isLead && convertReady && draftApplications.length === 0 && (
               <Btn variant="primary" onClick={() => openConvertWizard()}>
                 <I.arrowRight size={15} /> Convert to Application
               </Btn>
