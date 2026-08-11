@@ -600,7 +600,9 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
           { label: "Send Brochure", icon: "folder", action: "Send Brochure" },
           // Request Proposal is its OWN modal (modals.md §14), not an email composer action.
           { label: "Request Proposal", icon: "fileText", proposal: true },
-          { label: "Log Discovery Call", icon: "phone", action: "Log Discovery Call" },
+          // Log Call is the structured discovery form, not an Engage composer action — same form
+          // the Contact Profile composer tab renders (../docs/web/lead-workflow.md §4).
+          { label: "Log Call", icon: "phone", logCall: true },
         ].map((q) => {
           const Ico = I[q.icon as keyof typeof I];
           return (
@@ -609,7 +611,9 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
               onClick={() =>
                 "proposal" in q && q.proposal
                   ? overlays.openPageModal("request-proposal")
-                  : overlays.openEngage(q.action as string)
+                  : "logCall" in q && q.logCall
+                    ? overlays.openLogCall()
+                    : overlays.openEngage(q.action as string)
               }
             >
               <Ico size={15} /> {q.label}

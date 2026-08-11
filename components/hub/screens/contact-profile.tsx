@@ -10,7 +10,6 @@ import {
 } from "@/app/(app)/clients/actions";
 import {
   addNoteAction,
-  logCallAction,
   logMessageAction,
   sendEmailAction,
   toggleContactFlagAction,
@@ -35,6 +34,7 @@ import { ConvertConfirmModal } from "../overlays/convert-confirm";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "../overlays/library-attachment-picker";
+import { LogCallForm } from "../overlays/log-call";
 import { usePersona } from "../persona";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
@@ -124,15 +124,8 @@ export function ContactProfile({
   const [msgChannel, setMsgChannel] = useState("WhatsApp");
   const [msgAt, setMsgAt] = useState("");
   const [msgText, setMsgText] = useState("");
-  const [outcome, setOutcome] = useState("Reached");
-  const [callNote, setCallNote] = useState("");
-  // Prefilled from the record so the form shows what is already on file rather than blanks
-  // (logCallAction patches each field only when non-null, so re-sending them is harmless).
-  const [callBudget, setCallBudget] = useState(client.estPremium != null ? String(client.estPremium) : "");
-  const [callFamily, setCallFamily] = useState(client.familySize != null ? String(client.familySize) : "");
-  const [callInterest, setCallInterest] = useState(client.productInterest ?? "");
-  const [callTier, setCallTier] = useState(client.coverageTier ?? "");
-  const [callFollow, setCallFollow] = useState("");
+  // The call form owns its own state (LogCallForm); focusCall bumps this to remount it fresh.
+  const [callFormKey, setCallFormKey] = useState(0);
   const [note, setNote] = useState("");
   const [libraryDocumentId, setLibraryDocumentId] = useState("");
 
@@ -171,10 +164,10 @@ export function ContactProfile({
     if (templateName) applyTemplate(templateName);
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  /** Land on the discovery inputs: they only render for a Reached call, so preset the outcome. */
+  /** Land on the discovery inputs: they only render for a Reached call, so remount preset to it. */
   const focusCall = () => {
     setTab("Log Call");
-    setOutcome("Reached");
+    setCallFormKey((k) => k + 1);
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -210,32 +203,6 @@ export function ContactProfile({
       if (!res.ok) return toast("Couldn’t log message", res.error);
       toast("Message logged", `Inbound ${msgChannel} message saved to ${client.fullName}’s timeline.`);
       setMsgText("");
-      router.refresh();
-      if (res.data.advance) setAdvanceOpen(res.data.advance);
-    });
-
-  const logCall = () =>
-    startTransition(async () => {
-      const reached = outcome === "Reached";
-      const res = await logCallAction({
-        clientId: client.id,
-        outcome,
-        notes: callNote || null,
-        // Structured discovery (design contact-profile.jsx) — Reached calls only.
-        discovery: reached
-          ? {
-              estPremium: callBudget ? Number(callBudget) : null,
-              familySize: callFamily ? Number(callFamily) : null,
-              productInterest: callInterest || null,
-              coverageTier: callTier || null,
-            }
-          : undefined,
-        followUpDate: callFollow || null,
-      });
-      if (!res.ok) return toast("Couldn’t log call", res.error);
-      toast("Call logged", reached ? `Discovery details saved to ${client.fullName}’s record.` : `Call with ${client.fullName} saved to the timeline.`);
-      setCallNote("");
-      setCallFollow("");
       router.refresh();
       if (res.data.advance) setAdvanceOpen(res.data.advance);
     });
@@ -296,7 +263,8 @@ export function ContactProfile({
     { label: "Send Brochure", icon: "folder", run: () => focusEmail("Send brochure") },
     { label: "Send Intake Form", icon: "clipboard", run: () => focusEmail("Send application form") },
     { label: "Request Proposal", icon: "fileText", run: () => setProposalOpen(true) },
-    { label: "Log Discovery Call", icon: "phone", run: focusCall },
+    // One `Log Call`, not three (../docs/web/lead-workflow.md §4) — same form the composer tab uses.
+    { label: "Log Call", icon: "phone", run: focusCall },
   ];
   if (isLead && client.proposalStatus === "Received") {
     NURTURE.splice(4, 0, {
@@ -408,12 +376,9 @@ export function ContactProfile({
           {/* On narrower widths (tablet) the action cluster drops to its own full-width row
               instead of crushing the identity column; it sits inline only when there's room (xl). */}
           <div className="flex w-full shrink-0 flex-wrap items-center gap-2 xl:w-auto">
-            <Btn onClick={() => focusEmail()}>
-              <I.mail size={15} /> Email
-            </Btn>
-            <Btn onClick={focusCall}>
-              <I.phone size={15} /> Log Call
-            </Btn>
+            {/* No `Email` / `Log Call` buttons here: the nurture chip row directly below already
+                surfaces both, and two controls for one action is the duplication this header had
+                (../docs/web/contact-profile.md — "One set of buttons, not two"). */}
             {/* Only the sanctioned convert (at Product Selected or later) gets to be the primary
                 action; before that it lives in the ⋮ menu behind a skip confirmation. Hidden once
                 a draft exists — Convert starts a brand-new wizard with no draftApplicationId, so
@@ -672,63 +637,20 @@ export function ContactProfile({
               )}
 
               {tab === "Log Call" && (
-                <>
-                  <ComposerField label="Outcome" required>
-                    <select className={INPUT} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
-                      {["Reached", "No answer", "Voicemail", "Wrong number"].map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  </ComposerField>
-                  {outcome === "Reached" && (
-                    <>
-                      <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-                        <ComposerField label="Budget / est. premium">
-                          <input className={INPUT} type="number" value={callBudget} onChange={(e) => setCallBudget(e.target.value)} placeholder="₱ annual premium" />
-                        </ComposerField>
-                        <ComposerField label="Family size / dependents">
-                          <input className={INPUT} type="number" value={callFamily} onChange={(e) => setCallFamily(e.target.value)} placeholder="# people to cover" />
-                        </ComposerField>
-                      </div>
-                      <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-                        <ComposerField label="Product interest">
-                          <input className={INPUT} value={callInterest} onChange={(e) => setCallInterest(e.target.value)} placeholder="e.g. Blue Royale" />
-                        </ComposerField>
-                        <ComposerField label="Coverage tier / room">
-                          <select className={INPUT} value={callTier} onChange={(e) => setCallTier(e.target.value)}>
-                            {["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"].map((t) => (
-                              <option key={t} value={t}>{t || "— not captured —"}</option>
-                            ))}
-                          </select>
-                        </ComposerField>
-                      </div>
-                    </>
-                  )}
-                  <ComposerField label="Call notes" className="mt-3.5">
-                    <textarea
-                      className={cn(AREA, "min-h-[120px]")}
-                      value={callNote}
-                      onChange={(e) => setCallNote(e.target.value)}
-                      placeholder={outcome === "Reached" ? "Anything the fields above don’t capture…" : "What happened on the attempt…"}
-                    />
-                  </ComposerField>
-                  <ComposerField label="Next follow-up" className="mt-3.5">
-                    <input className={INPUT} type="date" value={callFollow} onChange={(e) => setCallFollow(e.target.value)} />
-                  </ComposerField>
-                  <div className="mt-3.5 flex items-center justify-between gap-3">
-                    {outcome === "Reached" ? (
-                      <span className="flex items-center gap-1.5 text-[11.5px] text-faint">
-                        <I.check size={12} /> Structured discovery writes to the record — budget &amp; product
-                        interest carry into Convert to Application.
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    <Btn variant="primary" disabled={pending} onClick={logCall}>
-                      <I.phone size={15} /> Log call
-                    </Btn>
-                  </div>
-                </>
+                <LogCallForm
+                  key={callFormKey}
+                  target={{
+                    clientId: client.id,
+                    name: client.fullName,
+                    estPremium: client.estPremium,
+                    familySize: client.familySize,
+                    productInterest: client.productInterest,
+                    coverageTier: client.coverageTier,
+                  }}
+                  onLogged={(advance) => {
+                    if (advance) setAdvanceOpen(advance);
+                  }}
+                />
               )}
 
               {tab === "Note" && (

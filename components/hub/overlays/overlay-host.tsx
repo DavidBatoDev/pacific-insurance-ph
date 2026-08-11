@@ -10,12 +10,13 @@ import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
 import { IssuePolicyDrawer } from "./issue-policy";
+import { LogCallModal } from "./log-call";
 import { NewCampaignDrawer } from "./new-campaign";
 import { NewLeadDrawer } from "./new-lead";
 import { PaymentLinksDrawer } from "./payment-links";
 import { RequestProposalModal } from "./request-proposal";
 import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
-import type { OverlayState } from "./overlay-provider";
+import { useOverlays, type OverlayState } from "./overlay-provider";
 
 /**
  * Renders the active overlay for the app. Each build phase extends the switch
@@ -29,6 +30,7 @@ export function OverlayHost({
   overlay: OverlayState;
   close: () => void;
 }) {
+  const overlays = useOverlays();
   switch (overlay.kind) {
     case "command-palette":
       return <CommandPalette onClose={close} />;
@@ -58,6 +60,8 @@ export function OverlayHost({
           onClose={close}
         />
       );
+    case "log-call":
+      return <LogCallModal target={overlay.target} onClose={close} />;
     case "advance-lead":
       return (
         <AdvanceLeadModal
@@ -70,6 +74,14 @@ export function OverlayHost({
           }}
           preset={overlay.suggestion}
           onClose={close}
+          // Discovery is captured in the Log Call form, so the "Add missing details" escape hatch
+          // has somewhere to go from here too — not just from the Contact Profile's own copy.
+          onCompleteDiscovery={() =>
+            overlays.openLogCall({
+              clientId: overlay.suggestion.clientId,
+              name: overlay.suggestion.name,
+            })
+          }
         />
       );
     case "page-modal":
@@ -95,6 +107,7 @@ const LABEL: Record<OverlayState["kind"], string> = {
   "page-modal": "This form",
   wizard: "The New Application wizard",
   engage: "The Engage composer",
+  "log-call": "The Log Call form",
   "advance-lead": "The Advance Lead popup",
   "add-task": "The Add Task drawer",
   "payment-links": "The Send Payment Links drawer",

@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
+import type { LogCallTarget } from "./log-call";
 import { ConfirmDialog, type ConfirmOptions } from "./modal";
 import { ToastStack, type ToastData } from "./toast";
 
@@ -57,6 +58,7 @@ export type OverlayState =
   | { kind: "page-modal"; modal: PageModalKind; prefill?: Record<string, unknown> }
   | { kind: "wizard"; prefill?: Record<string, unknown> }
   | { kind: "engage"; action: string; contact?: EngageContact; onSent?: () => void }
+  | { kind: "log-call"; target?: LogCallTarget }
   | { kind: "advance-lead"; suggestion: AdvanceLeadOverlay }
   | { kind: "add-task"; prefill?: Record<string, unknown> }
   | { kind: "payment-links" }
@@ -72,6 +74,8 @@ interface OverlayApi {
   openPageModal: (modal: PageModalKind, prefill?: Record<string, unknown>) => void;
   openWizard: (prefill?: Record<string, unknown>) => void;
   openEngage: (action: string, contact?: EngageContact, onSent?: () => void) => void;
+  /** The one `Log Call` form. Without a target the modal resolves the contact itself. */
+  openLogCall: (target?: LogCallTarget) => void;
   openAdvanceLead: (suggestion: AdvanceLeadOverlay) => void;
   openAddTask: (prefill?: Record<string, unknown>) => void;
   openPaymentLinks: () => void;
@@ -127,6 +131,7 @@ export function OverlayProvider({
       openPageModal: (modal, prefill) => open({ kind: "page-modal", modal, prefill }),
       openWizard: (prefill) => open({ kind: "wizard", prefill }),
       openEngage: (action, contact, onSent) => open({ kind: "engage", action, contact, onSent }),
+      openLogCall: (target) => open({ kind: "log-call", target }),
       openAdvanceLead: (suggestion) => open({ kind: "advance-lead", suggestion }),
       openAddTask: (prefill) => open({ kind: "add-task", prefill }),
       openPaymentLinks: () => open({ kind: "payment-links" }),

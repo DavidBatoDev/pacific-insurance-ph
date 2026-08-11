@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
-import { logCallAction, sendEmailAction } from "@/app/(app)/clients/engage-actions";
+import { sendEmailAction } from "@/app/(app)/clients/engage-actions";
 import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/search/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
@@ -16,31 +16,33 @@ import { useOverlays, type EngageContact } from "./overlay-provider";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 
 /**
- * Engage drawer — the shared human-in-the-loop composer opened from anywhere
+ * Engage drawer — the shared human-in-the-loop **email** composer opened from anywhere
  * WITHOUT an open Contact Profile (design engage.jsx; on the profile the same
  * fields render inline as the Email tab). Until a provider is connected,
  * email actions create a communications row + timeline entry only.
+ *
+ * Calls are deliberately not here. `Log Call` is a structured discovery form with no recipient,
+ * template or body (`../overlays/log-call.tsx`, ../docs/web/lead-workflow.md §4); it used to be
+ * two of this drawer's actions, which meant the board's call form silently dropped the four
+ * discovery fields the templated composer has no place for.
  */
 
 interface ActionCfg {
-  kind: "email" | "call";
   tpl?: string;
   icon: IconName;
   sub: string;
 }
 
 export const ENGAGE_ACTIONS: Record<string, ActionCfg> = {
-  "Send Email": { kind: "email", tpl: "New inquiry response", icon: "mail", sub: "Compose from a template and log the intended email." },
-  "Send Brochure": { kind: "email", tpl: "Send brochure", icon: "mail", sub: "Choose the approved plan brochure and log the intended email." },
-  "Send Intake / Application Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
-  "Send Intake Form": { kind: "email", tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
-  "Send Payment Instruction": { kind: "email", tpl: "Payment instruction", icon: "peso", sub: "Log the intended payment-options email." },
-  "Send Renewal Notice": { kind: "email", tpl: "Renewal reminder", icon: "refresh", sub: "Log the intended renewal-notice email." },
-  "Send Proposal": { kind: "email", tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
-  "Request Commission Voucher": { kind: "email", tpl: "Commission Voucher Request", icon: "mail", sub: "Email the Pacific Cross commission contact to request the voucher." },
-  "Log Commission Follow-Up": { kind: "email", tpl: "Commission Follow-Up", icon: "mail", sub: "Chase a commission voucher that hasn't arrived yet." },
-  "Log Discovery Call": { kind: "call", icon: "phone", sub: "Log the discovery conversation — outcome + notes to the timeline." },
-  "Log Call": { kind: "call", icon: "phone", sub: "Log a call — outcome + notes to the timeline." },
+  "Send Email": { tpl: "New inquiry response", icon: "mail", sub: "Compose from a template and log the intended email." },
+  "Send Brochure": { tpl: "Send brochure", icon: "mail", sub: "Choose the approved plan brochure and log the intended email." },
+  "Send Intake / Application Form": { tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
+  "Send Intake Form": { tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
+  "Send Payment Instruction": { tpl: "Payment instruction", icon: "peso", sub: "Log the intended payment-options email." },
+  "Send Renewal Notice": { tpl: "Renewal reminder", icon: "refresh", sub: "Log the intended renewal-notice email." },
+  "Send Proposal": { tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
+  "Request Commission Voucher": { tpl: "Commission Voucher Request", icon: "mail", sub: "Email the Pacific Cross commission contact to request the voucher." },
+  "Log Commission Follow-Up": { tpl: "Commission Follow-Up", icon: "mail", sub: "Chase a commission voucher that hasn't arrived yet." },
 };
 
 const INPUT =
@@ -69,8 +71,6 @@ export function EngageDrawer({
   const [recipient, setRecipient] = useState(initialContact?.email ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [outcome, setOutcome] = useState("Reached");
-  const [callNote, setCallNote] = useState("");
   const [libraryDocumentId, setLibraryDocumentId] = useState("");
   const seededRef = useRef(false);
 
@@ -90,14 +90,14 @@ export function EngageDrawer({
 
   // Seed subject/body once templates + contact are available.
   useEffect(() => {
-    if (cfg.kind !== "email" || seededRef.current || !contact || templates.length === 0) return;
+    if (seededRef.current || !contact || templates.length === 0) return;
     const t = templates.find((x) => x.name === tpl);
     if (t) {
       seededRef.current = true;
       setSubject(fillTemplate(t.subject, ctx));
       setBody(fillTemplate(t.body, ctx));
     }
-  }, [templates, contact, tpl, ctx, cfg.kind]);
+  }, [templates, contact, tpl, ctx]);
 
   const applyTemplate = (name: string) => {
     setTpl(name);
@@ -116,33 +116,25 @@ export function EngageDrawer({
     seededRef.current = false;
   };
 
-  const canSend =
-    !!contact?.clientId &&
-    !pending &&
-    (cfg.kind === "email" ? !!recipient.trim() && !!subject.trim() : !!outcome);
+  const canSend = !!contact?.clientId && !pending && !!recipient.trim() && !!subject.trim();
   const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!libraryDocumentId);
 
   const send = () => {
     if (!contact?.clientId) return;
     startTransition(async () => {
-      const res =
-        cfg.kind === "email"
-          ? await sendEmailAction({
-              clientId: contact.clientId!,
-              recipient,
-              subject,
-              body,
-              templateName: tpl || null,
-              externalContactId: contact.externalContactId ?? null,
-              libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
-            })
-          : await logCallAction({ clientId: contact.clientId!, outcome, notes: callNote || null });
+      const res = await sendEmailAction({
+        clientId: contact.clientId!,
+        recipient,
+        subject,
+        body,
+        templateName: tpl || null,
+        externalContactId: contact.externalContactId ?? null,
+        libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
+      });
       if (res.ok) {
         overlays.toast(
-          cfg.kind === "email" ? "Email logged" : "Call logged",
-          cfg.kind === "email"
-            ? `“${tpl || "Email"}” recorded for ${contact.name}; nothing was delivered.`
-            : `Call with ${contact.name} saved to the timeline.`,
+          "Email logged",
+          `“${tpl || "Email"}” recorded for ${contact.name}; nothing was delivered.`,
         );
         router.refresh();
         onSent?.();
@@ -160,14 +152,14 @@ export function EngageDrawer({
   return (
     <Drawer
       icon={cfg.icon}
-      title={cfg.kind === "email" ? action.replace(/^Send /, "Log ") : action}
+      title={action.replace(/^Send /, "Log ")}
       sub={cfg.sub}
       onClose={onClose}
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn variant="primary" disabled={!canComplete} onClick={send}>
-            <I.send size={15} /> {pending ? "Logging…" : cfg.kind === "email" ? "Log email" : "Log call"}
+            <I.send size={15} /> {pending ? "Logging…" : "Log email"}
           </Btn>
         </>
       }
@@ -175,7 +167,7 @@ export function EngageDrawer({
       <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed text-foreground">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
         <div>
-          <b>Human-in-the-loop.</b> Review the draft, then click <b>{cfg.kind === "email" ? "Log email" : "Log call"}</b>. Emails and attachments are recorded only and are not delivered. The touch is logged to{" "}
+          <b>Human-in-the-loop.</b> Review the draft, then click <b>Log email</b>. Emails and attachments are recorded only and are not delivered. The touch is logged to{" "}
           {contact ? contact.name + "’s" : "the contact’s"} timeline.
         </div>
       </div>
@@ -186,11 +178,9 @@ export function EngageDrawer({
           <Avatar name={contact.name} size={30} />
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-[650]">{contact.name}</div>
-            {cfg.kind === "email" && (
-              <div className="truncate text-[11.5px] text-subtle">
-                Merge: {ctx.first_name ?? "—"} · {ctx.product ?? "your plan"} · {persona.userName}
-              </div>
-            )}
+            <div className="truncate text-[11.5px] text-subtle">
+              Merge: {ctx.first_name ?? "—"} · {ctx.product ?? "your plan"} · {persona.userName}
+            </div>
           </div>
           {!initialContact && (
             <button
@@ -203,7 +193,7 @@ export function EngageDrawer({
         </div>
       )}
 
-      {contact && cfg.kind === "email" && (
+      {contact && (
         <>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Template" required>
@@ -255,25 +245,6 @@ export function EngageDrawer({
         </>
       )}
 
-      {contact && cfg.kind === "call" && (
-        <>
-          <Field label="Outcome" required>
-            <select className={INPUT} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
-              {["Reached", "No answer", "Voicemail", "Wrong number"].map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Call notes" className="mt-4">
-            <textarea
-              className="min-h-[130px] w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] outline-none focus:border-brand"
-              value={callNote}
-              onChange={(e) => setCallNote(e.target.value)}
-              placeholder="Summary of the discovery conversation…"
-            />
-          </Field>
-        </>
-      )}
     </Drawer>
   );
 }

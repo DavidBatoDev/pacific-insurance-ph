@@ -206,6 +206,6 @@ export const PP_QUICK: QuickAction[] = [
   { label: "Send Intake Form", icon: "clipboard" },
   { label: "Send Brochure", icon: "mail" },
   { label: "Request Proposal", icon: "fileText" },
-  { label: "Log Discovery Call", icon: "phone" },
+  { label: "Log Call", icon: "phone" },
   { label: "Convert to Application", icon: "arrowRight" },
 ];
