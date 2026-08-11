@@ -10,6 +10,7 @@ export interface PickedClient {
   id: string;
   name: string;
   sub?: string;
+  email?: string;
 }
 
 /** Debounced real-record contact search used by the operation drawers. */
@@ -82,6 +83,7 @@ export function ClientPicker({
               id: r.id,
               name: r.name,
               sub: [r.clientType, r.email].filter(Boolean).join(" · "),
+              email: r.email ?? undefined,
             });
             setQ("");
           }}

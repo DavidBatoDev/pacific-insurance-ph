@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
   addDependentAction,
@@ -11,7 +11,6 @@ import {
 import {
   addNoteAction,
   logMessageAction,
-  sendEmailAction,
   toggleContactFlagAction,
   type LeadAdvanceSuggestion,
 } from "@/app/(app)/clients/engage-actions";
@@ -24,7 +23,6 @@ import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import type { Application } from "@/lib/repositories/applications";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
-import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { peso, type Tone } from "../data";
 import { I, type IconName } from "../icons";
@@ -33,9 +31,8 @@ import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-le
 import { ConvertConfirmModal } from "../overlays/convert-confirm";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
-import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "../overlays/library-attachment-picker";
 import { LogCallForm } from "../overlays/log-call";
-import { usePersona } from "../persona";
+import { EmailForm } from "../overlays/send-email";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
 /**
@@ -98,7 +95,6 @@ export function ContactProfile({
 }: Props) {
   const router = useRouter();
   const overlays = useOverlays();
-  const persona = usePersona();
   const [pending, startTransition] = useTransition();
 
   const isLead = client.lifecycleStage === "Lead";
@@ -107,27 +103,16 @@ export function ContactProfile({
   /* ---------- composer state ---------- */
   const composerRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<ComposerTab>("Email");
-  const ctx = useMemo<MergeContext>(
-    () => ({
-      first_name: client.firstName,
-      product: client.productInterest ?? undefined,
-      premium: pesoMerge(client.estPremium),
-      agent: persona.userName,
-    }),
-    [client, persona.userName],
-  );
 
-  const [tpl, setTpl] = useState("");
-  const [recipient, setRecipient] = useState(client.email ?? "");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
   const [msgChannel, setMsgChannel] = useState("WhatsApp");
   const [msgAt, setMsgAt] = useState("");
   const [msgText, setMsgText] = useState("");
-  // The call form owns its own state (LogCallForm); focusCall bumps this to remount it fresh.
+  // The call and email forms own their own state (LogCallForm / EmailForm); focusCall/focusEmail
+  // bump these to remount them fresh, same mechanism.
   const [callFormKey, setCallFormKey] = useState(0);
+  const [emailFormKey, setEmailFormKey] = useState(0);
+  const [initialEmailTemplate, setInitialEmailTemplate] = useState<string | undefined>(undefined);
   const [note, setNote] = useState("");
-  const [libraryDocumentId, setLibraryDocumentId] = useState("");
 
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
@@ -148,20 +133,11 @@ export function ContactProfile({
     });
   const [timelineFilter, setTimelineFilter] = useState("All");
 
-  const applyTemplate = (name: string) => {
-    setTpl(name);
-    setLibraryDocumentId("");
-    const t = templates.find((x) => x.name === name);
-    if (t) {
-      setSubject(fillTemplate(t.subject, ctx));
-      setBody(fillTemplate(t.body, ctx));
-    }
-  };
-
   /** Nurture chips: focus the inline composer with a template preselected. */
   const focusEmail = (templateName?: string) => {
     setTab("Email");
-    if (templateName) applyTemplate(templateName);
+    setInitialEmailTemplate(templateName);
+    setEmailFormKey((k) => k + 1);
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   /** Land on the discovery inputs: they only render for a Reached call, so remount preset to it. */
@@ -172,25 +148,6 @@ export function ContactProfile({
   };
 
   const toast = overlays.toast;
-
-  const sendEmail = () =>
-    startTransition(async () => {
-      const res = await sendEmailAction({
-        clientId: client.id,
-        recipient,
-        subject,
-        body,
-        templateName: tpl || null,
-        libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
-      });
-      if (!res.ok) return toast("Couldn’t log email", res.error);
-      toast("Email logged", `“${tpl || subject}” recorded for ${client.fullName}; nothing was delivered.`);
-      setSubject("");
-      setBody("");
-      setTpl("");
-      router.refresh();
-      if (res.data.advance) setAdvanceOpen(res.data.advance);
-    });
 
   const logMessage = () =>
     startTransition(async () => {
@@ -573,36 +530,22 @@ export function ContactProfile({
             </div>
             <div className="px-[18px] py-4">
               {tab === "Email" && (
-                <>
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <ComposerField label="Template">
-                      <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
-                        <option value="">Select…</option>
-                        {templates.map((t) => (
-                          <option key={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-                    </ComposerField>
-                    <ComposerField label="Recipient" required>
-                      <input className={INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
-                    </ComposerField>
-                  </div>
-                  <ComposerField label="Subject" required className="mt-3.5">
-                    <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
-                  </ComposerField>
-                  <ComposerField label="Message" className="mt-3.5">
-                    <textarea className={cn(AREA, "min-h-[150px]")} value={body} onChange={(e) => setBody(e.target.value)} />
-                  </ComposerField>
-                  <LibraryAttachmentPicker clientId={client.id} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
-                  <div className="mt-3.5 flex items-center justify-between">
-                    <span className="text-[11.5px] text-faint">
-                      Logged only — neither the email nor selected attachments are delivered. Actor: {persona.userName}.
-                    </span>
-                    <Btn variant="primary" disabled={pending || !recipient.trim() || !subject.trim() || (templateNeedsLibraryAttachment(tpl) && !libraryDocumentId)} onClick={sendEmail}>
-                      <I.send size={15} /> {pending ? "Logging…" : "Log email"}
-                    </Btn>
-                  </div>
-                </>
+                <EmailForm
+                  key={emailFormKey}
+                  target={{
+                    clientId: client.id,
+                    name: client.fullName,
+                    email: client.email,
+                    product: client.productInterest,
+                    premium: client.estPremium,
+                  }}
+                  templates={templates}
+                  initialTemplate={initialEmailTemplate}
+                  onSent={(advance, sent) => {
+                    toast("Email logged", `“${sent.template || sent.subject}” recorded for ${client.fullName}; nothing was delivered.`);
+                    if (advance) setAdvanceOpen(advance);
+                  }}
+                />
               )}
 
               {tab === "Log Message" && (
