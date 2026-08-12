@@ -7,10 +7,10 @@ import { advanceLeadAction } from "@/app/(app)/prospects/actions";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import {
-  LEAD_STATUSES,
   STAGE_TONE,
   STATUS_TONE,
   allowedLeadStages,
+  allowedLeadStatuses,
   discoveryChecklist,
   formatGaps,
   nextLeadStage,
@@ -82,6 +82,16 @@ export function AdvanceLeadModal({
     if (preset?.stage && !options.includes(preset.stage)) options.push(preset.stage);
     return options;
   }, [lead.stage, preset?.stage]);
+
+  // `Nurturing` is not settable here — it needs a re-engagement date this popup has no field for,
+  // so it goes through `Mark as Nurturing` instead (shared rule: `allowedLeadStatuses`). A lead
+  // already on hold keeps its own value in the list, otherwise advancing their stage would
+  // silently reassign the status out from under them.
+  const statusOptions = useMemo(() => {
+    const options = allowedLeadStatuses();
+    if (lead.status && !options.includes(lead.status)) options.unshift(lead.status);
+    return options;
+  }, [lead.status]);
 
   // Moving to Proposal or marking Qualified both claim the lead is quotable, so both have to
   // stand on the four discovery answers. The server enforces this too; showing it here turns
@@ -184,10 +194,15 @@ export function AdvanceLeadModal({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            {LEAD_STATUSES.map((s) => (
+            {statusOptions.map((s) => (
               <option key={s}>{s}</option>
             ))}
           </select>
+          {lead.status !== "Nurturing" && (
+            <div className="mt-1 text-[11px] text-faint">
+              On hold? Use <b>Mark as Nurturing</b> on the profile — it sets the re-engagement date.
+            </div>
+          )}
         </div>
       </div>
 

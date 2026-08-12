@@ -188,7 +188,12 @@ export async function logMessageAction(input: {
           stage: "Discovery",
           label: "Inbound response logged",
         })
-      : {};
+      : // Coming out of a nurture hold: the lead signalled they're ready. Discovery data is already
+        // on file, so this returns straight to `Qualified` with no re-asking, and the stage never
+        // moved — so there is nothing to suggest advancing (docs/lead-stage-status.md).
+        client.leadStatus === "Nurturing"
+        ? await updateLeadStatus(client, actor.id, "Qualified", "Re-engaged during nurture hold")
+        : {};
   refresh(input.clientId);
   return { ok: true, data: result };
 }
@@ -260,9 +265,13 @@ export async function logCallAction(input: {
           "Reached call logged",
           { stage: "Discovery", label: "Reached call logged" },
         )
-      : input.outcome === "No answer" && client.leadStatus === "Connected"
-        ? await updateLeadStatus(client, actor.id, "Attempted", "No-answer call logged")
-        : {};
+      : // Reaching a lead on nurture hold ends the hold — back to `Qualified`, discovery already on
+        // file, stage unchanged so no advance suggestion (docs/lead-stage-status.md).
+        input.outcome === "Reached" && client.leadStatus === "Nurturing"
+        ? await updateLeadStatus(client, actor.id, "Qualified", "Re-engaged during nurture hold")
+        : input.outcome === "No answer" && client.leadStatus === "Connected"
+          ? await updateLeadStatus(client, actor.id, "Attempted", "No-answer call logged")
+          : {};
 
   refresh(input.clientId);
   return { ok: true, data: result };

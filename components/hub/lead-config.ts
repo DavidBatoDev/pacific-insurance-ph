@@ -132,6 +132,26 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+/**
+ * Statuses reachable from the Advance-Lead popup's dropdown.
+ *
+ * `Nurturing` is excluded on purpose (`docs/lead-stage-status.md`): it "only ever gets set by Eman
+ * deliberately clicking `Mark as Nurturing` — it's a choice, not a decay", and it carries a
+ * **required re-engagement follow-up date** a bare dropdown cannot capture. Setting it from here
+ * would produce a hold nothing ever resurfaces, so it goes through `markNurturingAction` instead.
+ *
+ * `Unresponsive` is still listed even though the spec says it too is system-inferred ("N follow-ups
+ * with no reply — no button, an automatic count"). That count is **not built anywhere yet**, so
+ * dropping it here would make the status unreachable and strand the `Mark Lost` gating that depends
+ * on it. Remove it from this list once the inference exists.
+ *
+ * Shared by the popup and `advanceLeadAction`'s guard so the UI and the rule cannot drift, the same
+ * way {@link allowedLeadStages} and {@link discoveryGaps} already are.
+ */
+export function allowedLeadStatuses(): string[] {
+  return LEAD_STATUSES.filter((status) => status !== "Nurturing");
+}
+
 export const STATUS_TONE: Record<string, Tone> = {
   New: "slate",
   Attempted: "amber",

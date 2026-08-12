@@ -32,6 +32,7 @@ import { ConvertConfirmModal } from "../overlays/convert-confirm";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LogCallForm } from "../overlays/log-call";
+import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
@@ -116,6 +117,7 @@ export function ContactProfile({
 
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [nurturingOpen, setNurturingOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
@@ -302,6 +304,9 @@ export function ContactProfile({
               <span className="font-mono text-[12px] text-subtle">
                 #{client.referenceNo ?? client.id.slice(0, 6)} · {client.lifecycleStage}
               </span>
+              {/* Identity only — name, record id, and the two read-only chips. Every button lives
+                  in the action cluster below, so this row never mixes controls with the chips and
+                  never strands one on its own line when it wraps. */}
               {isLead && (
                 <>
                   <span className={cn("inline-flex h-[22px] items-center rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[STAGE_TONE[client.leadStage ?? ""] ?? "slate"])}>
@@ -311,9 +316,6 @@ export function ContactProfile({
                     <span className="size-1.5 rounded-full bg-current" />
                     {client.leadStatus}
                   </span>
-                  <Btn size="sm" onClick={() => setAdvanceOpen({ label: "Advance from profile" })}>
-                    <I.trendUp size={14} /> Advance
-                  </Btn>
                 </>
               )}
             </div>
@@ -330,12 +332,29 @@ export function ContactProfile({
               )}
             </div>
           </div>
-          {/* On narrower widths (tablet) the action cluster drops to its own full-width row
-              instead of crushing the identity column; it sits inline only when there's room (xl). */}
+          {/* Every action for this record, in one cluster: the lead-lifecycle ones first, then the
+              application CTAs. On narrower widths (tablet) the whole cluster drops to its own
+              full-width row instead of crushing the identity column; it sits inline only when
+              there's room (xl). */}
           <div className="flex w-full shrink-0 flex-wrap items-center gap-2 xl:w-auto">
             {/* No `Email` / `Log Call` buttons here: the nurture chip row directly below already
                 surfaces both, and two controls for one action is the duplication this header had
                 (../docs/web/contact-profile.md — "One set of buttons, not two"). */}
+            {isLead && (
+              <>
+                <Btn onClick={() => setAdvanceOpen({ label: "Advance from profile" })}>
+                  <I.trendUp size={15} /> Advance
+                </Btn>
+                {/* Contextual at `Qualified` only (../docs/web/contact-profile.md): a hold is a
+                    deliberate call on a lead who is ready but not now, and it is the sole route
+                    into `Nurturing` — the Advance popup can't capture the re-engagement date. */}
+                {client.leadStatus === "Qualified" && (
+                  <Btn onClick={() => setNurturingOpen(true)}>
+                    <I.clock size={15} /> Mark as Nurturing
+                  </Btn>
+                )}
+              </>
+            )}
             {/* Only the sanctioned convert (at Product Selected or later) gets to be the primary
                 action; before that it lives in the ⋮ menu behind a skip confirmation. Hidden once
                 a draft exists — Convert starts a brand-new wizard with no draftApplicationId, so
@@ -879,6 +898,13 @@ export function ContactProfile({
           clientName={client.fullName}
           onClose={() => setProposalOpen(false)}
           onDone={() => router.refresh()}
+        />
+      )}
+      {nurturingOpen && (
+        <MarkNurturingModal
+          clientId={client.id}
+          clientName={client.fullName}
+          onClose={() => setNurturingOpen(false)}
         />
       )}
     </div>

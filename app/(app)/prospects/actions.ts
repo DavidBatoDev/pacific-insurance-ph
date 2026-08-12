@@ -7,10 +7,13 @@ import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import {
   LEAD_STAGES,
+  LEAD_STATUSES,
+  allowedLeadStatuses,
   discoveryGaps,
   formatGaps,
   nextLeadStage,
   type LeadStage,
+  type LeadStatus,
 } from "@/components/hub/lead-config";
 import {
   getClientsRepository,
@@ -64,6 +67,18 @@ export async function advanceLeadAction(
           error: next
             ? `Leads advance one stage at a time — from ${current} you can only stay or move to ${next}.`
             : `${current} is the final lead stage; convert the application instead.`,
+        };
+
+      // Status was previously written through unchecked — unlike `stage` above, which has always
+      // been validated. `Nurturing` in particular must not be settable from here: it is defined by
+      // a re-engagement follow-up date this input has no field for, so a lead set Nurturing through
+      // the popup would be parked with nothing to resurface it (docs/lead-stage-status.md).
+      if (!LEAD_STATUSES.includes(input.status as LeadStatus))
+        return { ok: false, error: `Unknown lead status "${input.status}".` };
+      if (!allowedLeadStatuses().includes(input.status) && input.status !== lead.leadStatus)
+        return {
+          ok: false,
+          error: `Use “Mark as Nurturing” to put ${lead.fullName} on hold — it captures the re-engagement date this popup can't.`,
         };
 
       // Discovery readiness. `Qualified` and the Proposal stage both assert the lead is quotable,
@@ -132,6 +147,77 @@ export async function advanceLeadAction(
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to advance lead." };
+  }
+}
+
+/**
+ * `Mark as Nurturing` — the one way into `lead_status = Nurturing`
+ * (`docs/lead-stage-status.md`: "a deliberate hold, not a decay"; `docs/web/contact-profile.md`
+ * places the button on the profile header at `Qualified`).
+ *
+ * The re-engagement date is required rather than optional because it is what the state is *for*:
+ * `nextFollowUpDate` is the field the Prospects follow-up queue reads, so a hold saved without one
+ * would drop off Eman's radar entirely — the opposite of parking a lead you intend to come back to.
+ * The stage deliberately does not move; only the disposition changes.
+ */
+export async function markNurturingAction(input: {
+  clientId: string;
+  reEngagementDate: string;
+  note?: string;
+}): Promise<ActionResult<Client>> {
+  const actor = await getActor();
+  const repo = getClientsRepository();
+
+  try {
+    if (!input.reEngagementDate)
+      return { ok: false, error: "A re-engagement date is required to put a lead on hold." };
+
+    const lead = await repo.findById(input.clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    if (lead.lifecycleStage !== "Lead")
+      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+    // Spec spine: `Qualified → Nurturing` is the only entry. Holding a lead you haven't yet
+    // qualified isn't nurturing, it's an un-worked lead.
+    if (lead.leadStatus !== "Qualified")
+      return {
+        ok: false,
+        error: `Only a Qualified lead can be put on hold — ${lead.fullName} is ${lead.leadStatus ?? "unset"}.`,
+      };
+
+    const updated = await repo.update(lead.id, {
+      leadStatus: "Nurturing",
+      nextFollowUpDate: input.reEngagementDate,
+    });
+
+    if (input.note)
+      await recordActivity({
+        scopeType: "client",
+        scopeId: lead.id,
+        activityType: "lead.note",
+        summary: `Nurture note — ${input.note}`,
+        actorId: actor.id,
+      });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: lead.id,
+      activityType: "lead.status_changed",
+      summary: `Status changed — ${lead.leadStatus ?? "—"} → Nurturing (re-engage ${input.reEngagementDate})`,
+      actorId: actor.id,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "lead_nurturing",
+      tableName: "clients",
+      recordId: lead.id,
+      previousValue: lead as unknown as Json,
+      newValue: updated as unknown as Json,
+    });
+
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${lead.id}`);
+    return { ok: true, data: updated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to mark the lead as nurturing." };
   }
 }
 
