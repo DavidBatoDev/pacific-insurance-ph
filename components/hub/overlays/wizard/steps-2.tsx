@@ -1,10 +1,15 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
+import { listWizardEmailAttachmentsAction } from "@/app/(app)/applications/wizard-actions";
+import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
 import { DRAWER_INPUT, DrawerField } from "../client-picker";
+import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { Section, type StepProps } from "./steps-1";
 import {
   ageFromDob,
@@ -366,8 +371,10 @@ export function Step5({
 }: StepProps & { templates: EmailTemplate[]; agentName: string }) {
   const applyTemplate = (name: string) => {
     const t = templates.find((x) => x.name === name);
+    // A staged carrier asset belongs to the template that required it — clear it on every switch,
+    // the same way `EmailForm` (../send-email.tsx) does.
     if (!t) {
-      set({ emailTemplate: name });
+      set({ emailTemplate: name, emailLibraryDocumentId: "" });
       return;
     }
     const ctx = {
@@ -381,6 +388,7 @@ export function Step5({
       emailSubject: fillTemplate(t.subject, ctx),
       emailBody: fillTemplate(t.body, ctx),
       emailRecipient: f.emailRecipient || f.email,
+      emailLibraryDocumentId: "",
     });
   };
 
@@ -413,6 +421,13 @@ export function Step5({
             <DrawerField label="Message" className="mt-4">
               <textarea className={cn(AREA, "min-h-[130px]")} value={f.emailBody} onChange={(e) => set({ emailBody: e.target.value })} />
             </DrawerField>
+            <WizardAttachmentPicker
+              templateName={f.emailTemplate}
+              productName={f.productName}
+              dob={f.dob}
+              value={f.emailLibraryDocumentId}
+              onChange={(id) => set({ emailLibraryDocumentId: id })}
+            />
           </div>
         )}
       </Section>
@@ -432,6 +447,74 @@ export function Step5({
           <textarea className={AREA} value={f.internalNote} onChange={(e) => set({ internalNote: e.target.value })} />
         </DrawerField>
       </Section>
+    </div>
+  );
+}
+
+/**
+ * Step 5's carrier-attachment picker — the wizard's half of the gate `sendEmailAction` enforces
+ * everywhere else. Not `../library-attachment-picker`'s `LibraryAttachmentPicker`, which resolves
+ * eligibility from a `clientId`: the contact this email is about may not exist until Create, so
+ * this one asks against the form's product and birthdate instead. Same markup and copy, so the two
+ * surfaces read identically. `createFromWizardAction` re-checks the choice before it logs anything.
+ */
+function WizardAttachmentPicker({
+  templateName,
+  productName,
+  dob,
+  value,
+  onChange,
+}: {
+  templateName: string;
+  productName: string;
+  dob: string;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [documents, setDocuments] = useState<LibraryDocument[]>([]);
+  const [reason, setReason] = useState<string | null>(null);
+  // Read inside the async callback only, so the lookup keys off the query inputs alone — `onChange`
+  // is an inline closure here and would otherwise re-fire the effect on every render.
+  const latest = useRef({ value, onChange });
+  useEffect(() => {
+    latest.current = { value, onChange };
+  });
+
+  useEffect(() => {
+    if (!templateNeedsLibraryAttachment(templateName)) return;
+    let current = true;
+    listWizardEmailAttachmentsAction({ templateName, productName, dob }).then((result) => {
+      if (!current) return;
+      const found = result.ok ? result.data.documents : [];
+      setDocuments(found);
+      setReason(result.ok ? result.data.reason : result.error);
+      // Drop a pick the product or age band no longer makes eligible.
+      if (latest.current.value && !found.some((doc) => doc.id === latest.current.value)) latest.current.onChange("");
+    });
+    return () => {
+      current = false;
+    };
+  }, [templateName, productName, dob]);
+
+  if (!templateNeedsLibraryAttachment(templateName)) return null;
+  return (
+    <div className="mt-4 rounded-md border border-border-soft bg-surface-2 p-3.5">
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.05em] text-subtle">
+        <I.folder size={13} /> Carrier attachment <span className="text-red">*</span>
+      </div>
+      {reason ? (
+        <div className="rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">{reason}</div>
+      ) : (
+        <select className="h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[12.5px]" value={value} onChange={(event) => onChange(event.target.value)}>
+          <option value="">Select approved asset…</option>
+          {documents.map((doc) => (
+            <option key={doc.id} value={doc.id}>
+              {doc.documentName} · {doc.versionLabel}{doc.variant ? ` · ${doc.variant}` : ""} · {doc.ageBand}
+            </option>
+          ))}
+        </select>
+      )}
+      <p className="mt-2 text-[11.5px] text-faint">Logged for audit only — this file and email are not delivered.</p>
     </div>
   );
 }
@@ -468,8 +551,15 @@ export function Step6({ f, set }: StepProps) {
     `Document checklist (${f.checklist.length} items)`,
     `Timeline entry — application created`,
   ];
+  // Matches `createFromWizardAction`'s pre-flight condition: no recipient means no email is
+  // logged, so nothing to attach to.
+  const needsAttachment = f.sendEmail && !!(f.emailRecipient || f.email) && templateNeedsLibraryAttachment(f.emailTemplate);
+  const attachmentMissing = needsAttachment && !f.emailLibraryDocumentId;
   if (f.createTask) willCreate.push("Follow-up task on the board + dashboard");
-  if (f.sendEmail) willCreate.push(`Logged email — ${f.emailTemplate || "initial email"} (not delivered)`);
+  if (f.sendEmail)
+    willCreate.push(
+      `Logged email — ${f.emailTemplate || "initial email"} (not delivered)${needsAttachment && !attachmentMissing ? " · with its carrier attachment" : ""}`,
+    );
   if (f.preExisting === "Yes") willCreate.push("Medical Evaluation type — records + questionnaire required");
 
   return (
@@ -508,6 +598,16 @@ export function Step6({ f, set }: StepProps) {
             </div>
           ))}
         </div>
+        {attachmentMissing && (
+          <div className="mt-3 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
+            <I.alertTri size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <b>Carrier attachment required.</b> “{f.emailTemplate}” must carry an approved carrier asset before
+              this application can be created. Go back to <b>Step 5</b> to select one, or pick a template that
+              doesn’t need an attachment.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
