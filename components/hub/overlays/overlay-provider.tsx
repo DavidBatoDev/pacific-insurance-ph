@@ -31,7 +31,8 @@ export type PageModalKind =
   | "upload-document"
   | "advance-lead"
   | "add-member"
-  | "request-proposal";
+  | "request-proposal"
+  | "generate-proposal";
 
 /** Contact context handed to composers/modals (resolved from real records). */
 export interface EngageContact {

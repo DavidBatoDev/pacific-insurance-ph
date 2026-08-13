@@ -29,6 +29,7 @@ import { I, type IconName } from "../icons";
 import { STAGE_TONE, STATUS_TONE, canConvertLead } from "../lead-config";
 import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
 import { ConvertConfirmModal } from "../overlays/convert-confirm";
+import { GenerateProposalModal } from "../overlays/generate-proposal";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LogCallForm } from "../overlays/log-call";
@@ -81,6 +82,9 @@ const fmtDate = (iso: string | null) =>
 
 type ComposerTab = "Email" | "Log Message" | "Log Call" | "Note" | "Task";
 
+const isIndividualProposalProduct = (product: string | null) =>
+  ["select", "blue royale"].includes(product?.trim().toLowerCase() ?? "");
+
 export function ContactProfile({
   client,
   counts,
@@ -117,6 +121,7 @@ export function ContactProfile({
 
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [generateProposalOpen, setGenerateProposalOpen] = useState(false);
   const [nurturingOpen, setNurturingOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
@@ -221,7 +226,11 @@ export function ContactProfile({
     { label: "Log Email", icon: "mail", run: () => focusEmail("New inquiry response") },
     { label: "Send Brochure", icon: "folder", run: () => focusEmail("Send brochure") },
     { label: "Send Intake Form", icon: "clipboard", run: () => focusEmail("Send application form") },
-    { label: "Request Proposal", icon: "fileText", run: () => setProposalOpen(true) },
+    {
+      label: isIndividualProposalProduct(client.productInterest) ? "Generate Proposal" : "Request Proposal",
+      icon: "fileText",
+      run: () => isIndividualProposalProduct(client.productInterest) ? setGenerateProposalOpen(true) : setProposalOpen(true),
+    },
     // One `Log Call`, not three (../docs/web/lead-workflow.md §4) — same form the composer tab uses.
     { label: "Log Call", icon: "phone", run: focusCall },
   ];
@@ -720,7 +729,7 @@ export function ContactProfile({
                 <div className="mb-3 text-[12.5px] text-muted-foreground">
                   {client.proposalStatus
                     ? `Proposal ${client.proposalStatus.toLowerCase()} — ${client.productInterest ?? "carrier"} quote.`
-                    : "No proposal requested yet."}
+                    : `No proposal ${isIndividualProposalProduct(client.productInterest) ? "generated" : "requested"} yet.`}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {pacificCrossPortalUrl && (
@@ -733,9 +742,17 @@ export function ContactProfile({
                       <I.arrowUpRight size={14} /> Open Pacific Cross portal
                     </a>
                   )}
+                  {!pacificCrossPortalUrl && isIndividualProposalProduct(client.productInterest) && (
+                    <Link
+                      href="/settings"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-amber-border bg-amber-soft px-3 text-[12.5px] font-semibold text-amber transition-colors hover:bg-hover"
+                    >
+                      <I.settings size={14} /> Configure portal in Settings
+                    </Link>
+                  )}
                   {!client.proposalStatus && (
-                    <Btn size="sm" onClick={() => setProposalOpen(true)}>
-                      Request proposal
+                    <Btn size="sm" onClick={() => isIndividualProposalProduct(client.productInterest) ? setGenerateProposalOpen(true) : setProposalOpen(true)}>
+                      {isIndividualProposalProduct(client.productInterest) ? "Generate proposal" : "Request proposal"}
                     </Btn>
                   )}
                   {client.proposalStatus === "Requested" && (
@@ -897,6 +914,14 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setProposalOpen(false)}
+          onDone={() => router.refresh()}
+        />
+      )}
+      {generateProposalOpen && (
+        <GenerateProposalModal
+          clientId={client.id}
+          clientName={client.fullName}
+          onClose={() => setGenerateProposalOpen(false)}
           onDone={() => router.refresh()}
         />
       )}

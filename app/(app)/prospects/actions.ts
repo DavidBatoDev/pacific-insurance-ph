@@ -20,7 +20,12 @@ import {
   type Client,
   type ClientUpdate,
 } from "@/lib/repositories/clients";
+import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import type { Json } from "@/lib/supabase/types";
+
+const INDIVIDUAL_PROPOSAL_PRODUCTS = new Set(["select", "blue royale"]);
+
+const normaliseProductName = (product: string | null) => product?.trim().toLowerCase() ?? "";
 
 /**
  * Lead Lifecycle mutations. advanceLeadAction is the SINGLE transition used by
@@ -312,5 +317,64 @@ export async function setProposalStatusAction(
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update proposal." };
+  }
+}
+
+/**
+ * Individual Select / Blue Royale proposals are created in the Pacific Cross
+ * portal. A completed handoff means an illustration is available to send, so
+ * it enters the existing proposal artifact machine at Received rather than
+ * introducing a parallel Generated status.
+ */
+export async function generateProposalAction(
+  clientId: string,
+): Promise<ActionResult<{ portalUrl: string }>> {
+  const actor = await getActor();
+  try {
+    const repo = getClientsRepository();
+    const lead = await repo.findById(clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    if (lead.lifecycleStage !== "Lead")
+      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+    if (!INDIVIDUAL_PROPOSAL_PRODUCTS.has(normaliseProductName(lead.productInterest)))
+      return {
+        ok: false,
+        error: "Generate Proposal is available for Select and Blue Royale. Use Request Proposal for HMO products.",
+      };
+    if (lead.proposalStatus && lead.proposalStatus !== "Requested")
+      return {
+        ok: false,
+        error: `This proposal is already ${lead.proposalStatus.toLowerCase()}. Continue it from proposal tracking.`,
+      };
+
+    const portalUrl = (await getIntegrationSettingsRepository().getPacificCross())?.portalUrl;
+    if (!portalUrl)
+      return {
+        ok: false,
+        error: "The Pacific Cross portal URL has not been configured. Open Settings → Integrations to add it.",
+      };
+
+    const updated = await repo.update(clientId, { proposalStatus: "Received" });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: clientId,
+      activityType: "lead.proposal",
+      summary: `Proposal generated in Pacific Cross — ${lead.productInterest} illustration ready to send`,
+      actorId: actor.id,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "proposal_generated",
+      tableName: "clients",
+      recordId: clientId,
+      previousValue: lead as unknown as Json,
+      newValue: updated as unknown as Json,
+    });
+
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true, data: { portalUrl } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to generate proposal." };
   }
 }

@@ -9,6 +9,7 @@ import { TravelWorkflowModal } from "./travel-workflow";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
 import { FileClaimDrawer } from "./file-claim";
+import { GenerateProposalModal } from "./generate-proposal";
 import { IssuePolicyDrawer } from "./issue-policy";
 import { LogCallModal } from "./log-call";
 import { NewCampaignDrawer } from "./new-campaign";
@@ -92,6 +93,14 @@ export function OverlayHost({
       if (overlay.modal === "request-proposal")
         return (
           <RequestProposalModal
+            clientId={overlay.prefill?.clientId as string | undefined}
+            clientName={overlay.prefill?.clientName as string | undefined}
+            onClose={close}
+          />
+        );
+      if (overlay.modal === "generate-proposal")
+        return (
+          <GenerateProposalModal
             clientId={overlay.prefill?.clientId as string | undefined}
             clientName={overlay.prefill?.clientName as string | undefined}
             onClose={close}
