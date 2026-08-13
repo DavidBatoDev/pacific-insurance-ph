@@ -9,6 +9,7 @@ import { I } from "../icons";
 import {
   STAGE_TONE,
   STATUS_TONE,
+  advanceLeadActionDefaults,
   allowedLeadStages,
   allowedLeadStatuses,
   discoveryChecklist,
@@ -70,8 +71,10 @@ export function AdvanceLeadModal({
     preset?.status ??
       (initialStage === "Proposal" && initialStage !== lead.stage ? "Qualified" : lead.status ?? "New"),
   );
-  const [note, setNote] = useState("");
-  const [follow, setFollow] = useState("");
+  const actionDefaults = advanceLeadActionDefaults(preset?.label);
+  const [note, setNote] = useState(actionDefaults.note);
+  const [follow, setFollow] = useState(actionDefaults.followUpDate);
+  const [adjusting, setAdjusting] = useState(false);
   const [markLost, setMarkLost] = useState(false);
 
   // Stage is forward-only: offer the current stage and the next one, never a skip or a
@@ -165,46 +168,103 @@ export function AdvanceLeadModal({
         </div>
       </div>
 
-      <div className={cn("grid grid-cols-2 gap-3.5", markLost && "pointer-events-none opacity-40")}>
-        <div>
-          <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-            Stage
-          </label>
-          <select
-            className="h-9 w-full rounded-md border border-border-strong bg-card px-2.5 text-[13.5px] outline-none focus:border-brand"
-            value={stage}
-            onChange={(e) => {
-              const value = e.target.value;
-              setStage(value);
-              // Keep the implied status visible rather than overriding it silently at confirm.
-              if (value === "Proposal" && value !== lead.stage) setStatus("Qualified");
-            }}
-          >
-            {stageOptions.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+      <div className="rounded-md border border-border-strong bg-card px-4 py-3.5">
+        <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+          {markLost ? "Disposition" : "Suggested transition"}
         </div>
-        <div>
-          <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-            Status
-          </label>
-          <select
-            className="h-9 w-full rounded-md border border-border-strong bg-card px-2.5 text-[13.5px] outline-none focus:border-brand"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {statusOptions.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          {lead.status !== "Nurturing" && (
-            <div className="mt-1 text-[11px] text-faint">
-              On hold? Use <b>Mark as Nurturing</b> on the profile — it sets the re-engagement date.
-            </div>
+        <div className={cn("mt-1.5 text-[15px] font-[650]", markLost && "text-red")}>
+          {markLost ? (
+            <>{lead.name} → Lost — archive from active queues</>
+          ) : (
+            <>
+              {lead.stage ?? "—"} → {stage} — {lead.name} is {status}
+            </>
           )}
         </div>
+        {!markLost && (note || follow) && (
+          <div className="mt-2 space-y-1 text-[12px] text-muted-foreground">
+            {note && (
+              <div>
+                <span className="font-semibold text-subtle">Outcome:</span> {note}
+              </div>
+            )}
+            {follow && (
+              <div>
+                <span className="font-semibold text-subtle">Next follow-up:</span> {follow}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {adjusting && (
+        <>
+          <div className={cn("mt-3.5 grid grid-cols-2 gap-3.5", markLost && "pointer-events-none opacity-40")}>
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+                Stage
+              </label>
+              <select
+                className="h-9 w-full rounded-md border border-border-strong bg-card px-2.5 text-[13.5px] outline-none focus:border-brand"
+                value={stage}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setStage(value);
+                  // Keep the implied status visible rather than overriding it silently at confirm.
+                  if (value === "Proposal" && value !== lead.stage) setStatus("Qualified");
+                }}
+              >
+                {stageOptions.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+                Status
+              </label>
+              <select
+                className="h-9 w-full rounded-md border border-border-strong bg-card px-2.5 text-[13.5px] outline-none focus:border-brand"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                {statusOptions.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+              {lead.status !== "Nurturing" && (
+                <div className="mt-1 text-[11px] text-faint">
+                  On hold? Use <b>Mark as Nurturing</b> on the profile — it sets the re-engagement date.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3.5">
+            <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+              Outcome note
+            </label>
+            <textarea
+              className="min-h-[70px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
+              placeholder="What happened? Logged to the timeline…"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+
+          <div className={cn("mt-3.5", markLost && "pointer-events-none opacity-40")}>
+            <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+              Next follow-up
+            </label>
+            <input
+              type="date"
+              className="h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none focus:border-brand"
+              value={follow}
+              onChange={(e) => setFollow(e.target.value)}
+            />
+          </div>
+        </>
+      )}
 
       {!markLost && assertsDiscovery && (
         <div
@@ -255,30 +315,6 @@ export function AdvanceLeadModal({
         </div>
       )}
 
-      <div className="mt-3.5">
-        <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-          Outcome note
-        </label>
-        <textarea
-          className="min-h-[70px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
-          placeholder="What happened? Logged to the timeline…"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-      </div>
-
-      <div className={cn("mt-3.5", markLost && "pointer-events-none opacity-40")}>
-        <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-          Next follow-up
-        </label>
-        <input
-          type="date"
-          className="h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none focus:border-brand"
-          value={follow}
-          onChange={(e) => setFollow(e.target.value)}
-        />
-      </div>
-
       <button
         onClick={() => setMarkLost(!markLost)}
         className={cn(
@@ -301,13 +337,22 @@ export function AdvanceLeadModal({
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => setAdjusting(!adjusting)}>
+          {adjusting ? "Done adjusting" : "Adjust details"}
+        </Btn>
         <Btn
           variant="primary"
           disabled={pending || blocked}
           onClick={confirm}
           className={markLost ? "border-transparent bg-red text-white hover:bg-red/90" : undefined}
         >
-          {pending ? "Saving…" : markLost ? "Mark Lost" : "Confirm advance"}
+          {pending
+            ? "Saving…"
+            : markLost
+              ? "Mark Lost"
+              : blocked
+                ? "Complete discovery first"
+                : "Accept suggestion"}
         </Btn>
       </div>
     </Modal>
