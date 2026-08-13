@@ -11,11 +11,12 @@ import {
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { can, toAppRole } from "@/lib/auth/permissions";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getApplicationRequirementsRepository, type NewApplicationRequirement } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
-import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
+import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
@@ -163,6 +164,72 @@ async function matchCarrierForm(form: WizardForm, ageBand: "0-70" | "71-100" | "
   return { variant, document: docs[0] ?? null };
 }
 
+/* ------------- Step 5 initial email — carrier-attachment gate ------------- */
+/**
+ * Step 5 composes an email that isn't logged until Create, so it can't go through
+ * `sendEmailAction` (`clients/engage-actions.ts`) the way every send-now composer does — and until
+ * now it therefore skipped that action's attachment requirement entirely, which is what let
+ * `Send brochure` be logged from the wizard with nothing attached.
+ *
+ * The gate is re-implemented here against *form* values rather than a client record, because the
+ * contact may not exist until `createFromWizardAction` creates it. Eligibility resolution below is
+ * kept deliberately identical to `resolveEligibleLibraryDocuments` in `engage-actions.ts` so the
+ * wizard and the Contact Profile composer never disagree about what may be attached.
+ */
+
+type RequiredLibraryType = "Brochure" | "Application Form";
+
+/** Canonical twin: `attachmentRequirement` in `app/(app)/clients/engage-actions.ts` (not exported). */
+function wizardAttachmentRequirement(templateName: string): RequiredLibraryType | null {
+  if (templateName === "Send brochure") return "Brochure";
+  if (templateName === "Send application form") return "Application Form";
+  return null;
+}
+
+async function resolveWizardAttachments(
+  documentType: RequiredLibraryType,
+  productName: string,
+  dob: string,
+): Promise<{ documents: LibraryDocument[]; reason: string | null }> {
+  if (!productName.trim())
+    return { documents: [], reason: "Select a product in Step 1 before choosing a carrier asset." };
+  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
+  if (documentType === "Application Form") {
+    if (!dob) return { documents: [], reason: "Add the applicant’s date of birth in Step 2 before selecting an application form." };
+    const age = ageFromDob(dob);
+    // Bounds-checked rather than reusing `ageBandFor`, which folds any age over 100 into `71-100`;
+    // `engage-actions.ts` refuses it, and the two surfaces must agree on what is eligible.
+    if (age === "" || age > 100) return { documents: [], reason: "No supported application-form age band matches this applicant." };
+    ageBand = age <= 70 ? "0-70" : "71-100";
+  }
+  // Only product + type + age band — no `productVersionId` / `variant` narrowing, unlike
+  // `matchCarrierForm` above, which picks the application's own carrier forms. This list must match
+  // what the Contact Profile composer offers for the same person and product.
+  const documents = await getDocumentLibraryRepository().listEligible({ productName, documentType, ageBand });
+  return {
+    documents,
+    reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${productName}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.`,
+  };
+}
+
+/** Feeds Step 5's carrier-attachment picker. Mirrors `listEligibleLibraryDocumentsAction`. */
+export async function listWizardEmailAttachmentsAction(input: {
+  templateName: string;
+  productName: string;
+  dob: string;
+}): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
+  try {
+    const actor = await getActor();
+    if (!can(toAppRole(actor.role), "documentLibrary", "view"))
+      return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    const requirement = wizardAttachmentRequirement(input.templateName);
+    if (!requirement) return { ok: true, data: { documents: [], reason: null } };
+    return { ok: true, data: await resolveWizardAttachments(requirement, input.productName, input.dob) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." };
+  }
+}
+
 async function persistHealthWorkflow(applicationId: string, clientId: string, form: WizardForm) {
   const workflows = getCarrierWorkflowsRepository();
   const dependents = await workflows.saveApplicationDependents(applicationId, clientId, form.healthDependents.map((person) => ({
@@ -298,6 +365,32 @@ export async function createFromWizardAction(
    * hangs off this.
    */
   const startsApplication = mode !== "draft" && form.status !== "Lead";
+
+  /**
+   * Whether Step 5's composed email actually gets logged by this save. `mode === "email"` sends
+   * regardless of the toggle; a draft never sends, which is why a draft is never gated below.
+   */
+  const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
+  const loggingEmail = sendingEmail && !!(form.emailRecipient || form.email);
+
+  /* ---------- 0. carrier-attachment pre-flight ---------- */
+  // Runs before the `try` and before any write: the wizard creates a client, an application, a
+  // checklist and a task in one pass, so refusing here is the only way a rejected email doesn't
+  // leave a half-built application behind. Step 5's picker is where the user satisfies it.
+  if (loggingEmail) {
+    const requirement = wizardAttachmentRequirement(form.emailTemplate);
+    const attachmentId = form.emailLibraryDocumentId?.trim() ?? "";
+    if (requirement) {
+      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
+        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+      const eligible = await resolveWizardAttachments(requirement, form.productName, form.dob);
+      if (eligible.reason) return { ok: false, error: eligible.reason };
+      if (!attachmentId || !eligible.documents.some((doc) => doc.id === attachmentId))
+        return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this application in Step 5.` };
+    } else if (attachmentId) {
+      return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
+    }
+  }
 
   try {
     /* ---------- 1. resolve the contact record ---------- */
@@ -671,10 +764,12 @@ export async function createFromWizardAction(
     }
 
     /* ---------- 4. initial email ---------- */
-    const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
-    if (sendingEmail && (form.emailRecipient || form.email)) {
-      await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id });
-      result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered).`;
+    // Validated in step 0 above; `logOutboundEmail` links the chosen carrier asset to the
+    // communication and rolls its own row back if that link fails.
+    if (loggingEmail) {
+      const attachmentIds = form.emailLibraryDocumentId?.trim() ? [form.emailLibraryDocumentId.trim()] : [];
+      await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id, libraryDocumentIds: attachmentIds });
+      result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? " with its carrier attachment" : ""}.`;
     }
     // Travel lives in its own lane: it already persists travel requirements
     // (replaceTravelRequirements) and logs a `travel.quoted` activity, so the generic

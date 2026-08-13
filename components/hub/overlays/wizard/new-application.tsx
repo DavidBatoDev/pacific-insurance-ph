@@ -20,6 +20,7 @@ import { I } from "../../icons";
 import { usePersona } from "../../persona";
 import { BrandGlyph } from "../../shell";
 import { Btn } from "../../primitives";
+import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { useOverlays } from "../overlay-provider";
 import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
@@ -215,7 +216,12 @@ export function NewApplicationWizard({
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
   const travelMissing = f.category === "travel" && (!f.destination || !f.departure || !f.returnDate || !f.travelers.some((traveler) => traveler.name.trim()));
   const healthMissing = f.category === "health" && (!f.planOptionId || !f.coverage);
-  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew && !travelMissing && !healthMissing;
+  // Step 5's carrier-attachment gate, mirrored client-side so Create greys out instead of bouncing
+  // off `createFromWizardAction`'s pre-flight check. That check remains the enforcement; this only
+  // blocks when an email is genuinely going to be logged, matching the server's own condition.
+  const hasEmailTarget = !!(f.emailRecipient || f.email);
+  const attachmentMissing = hasEmailTarget && templateNeedsLibraryAttachment(f.emailTemplate) && !f.emailLibraryDocumentId;
+  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew && !travelMissing && !healthMissing && !(f.sendEmail && attachmentMissing);
 
   const go = (n: number) => {
     const next = Math.max(1, Math.min(6, n));
@@ -419,14 +425,19 @@ export function NewApplicationWizard({
                     ] as const
                   ).map(([mode, label, icon]) => {
                     const Ico = I[icon];
+                    // `Create & log email` sends whether or not the Step 5 toggle is on, so it has
+                    // to answer to the attachment gate on its own rather than via `canCreate`.
+                    const blocked = mode === "email" && attachmentMissing;
                     return (
                       <button
                         key={mode}
+                        disabled={blocked}
+                        title={blocked ? "Select the carrier attachment in Step 5 first." : undefined}
                         onClick={() => {
                           setSplitOpen(false);
                           finish(mode);
                         }}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                       >
                         <Ico size={15} className="text-subtle" /> {label}
                       </button>

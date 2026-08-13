@@ -109,6 +109,12 @@ export interface WizardForm {
   emailRecipient: string;
   emailSubject: string;
   emailBody: string;
+  /**
+   * Carrier-library asset staged for the initial email. Lives on the form rather than in Step 5's
+   * own state because Step 5 unmounts whenever the wizard changes step, and because
+   * `createFromWizardAction` re-validates it server-side before it logs anything.
+   */
+  emailLibraryDocumentId: string;
   createTask: boolean;
   followDate: string;
   internalNote: string;
@@ -258,6 +264,7 @@ export function emptyWizardForm(): WizardForm {
     emailRecipient: "",
     emailSubject: "",
     emailBody: "",
+    emailLibraryDocumentId: "",
     createTask: true,
     followDate: "",
     internalNote: "",

@@ -76,6 +76,27 @@ history. Shared decisions must be reflected here or in the canonical documentati
 - Store approved library files in the private `documents` bucket under `library/`.
 - A communication records the exact selected library versions, but that record is not proof of
   delivery.
+- **Required attachments on `Send brochure` / `Send application form` are an implementation rule
+  with no canonical source (recorded 2026-08-13).** `../../docs/web/pages.md:321` and `:361` grant
+  composers the *capability* to select "active, approved Carrier Library assets" and constrain
+  *which* versions qualify — neither the canonical repository nor this one states that an
+  attachment is *mandatory*. The code nonetheless refuses those two templates without one
+  (`attachmentRequirement`, `app/(app)/clients/engage-actions.ts`). As of 2026-08-13 that rule is
+  enforced uniformly on every composer, the New Client Application wizard's Step 5 included
+  (`app/(app)/applications/wizard-actions.ts`) — previously the wizard was the sole ungated path.
+  Keeping one surface exempt was the larger divergence, since `pages.md:321` names "the application
+  wizard" among the composers that select library assets. If the client intends these templates to
+  be sendable without an attachment, the requirement — not the wizard — is what should be relaxed.
+- `document_library` ships empty by design, not by oversight: `../../app/TO-BE-UPDATE-PLAN.md:46`
+  calls it "the intentional pre-clearance state" and `:191` "the library ships empty pending
+  distribution clearance" (R4, `:89-92`). Confirmed still empty on the shared dev project
+  2026-08-13. Consequence for the rule above: both gated templates are currently unusable on
+  **every** composer, and each one explains why in place rather than failing silently.
+  Source assets live in `../../docs/attachments/` and are mostly already received — the Select and
+  Blue Royale brochures and both application-form age bands are ticked in that folder's
+  `checklist.md`. What blocks ingestion is the unchecked distribution clearance
+  (`checklist.md:70-71`), not missing files; only the FlexiShield and Travel brochures are
+  genuinely outstanding (`checklist.md:112`, `:115`).
 
 ## Reconciliation checklist
 
