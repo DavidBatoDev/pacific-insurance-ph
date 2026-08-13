@@ -9,6 +9,10 @@ export interface ToastData {
   id: number;
   title: string;
   sub?: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 /** Bottom-of-screen success toast stack; each auto-dismisses after 5s (design: NAToast). */
@@ -45,8 +49,20 @@ function ToastCard({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: num
         <div className="text-[13.5px] font-[650] leading-snug">{toast.title}</div>
         {toast.sub && <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{toast.sub}</div>}
       </div>
+      {toast.action && (
+        <button
+          onClick={() => {
+            onDismiss(toast.id);
+            toast.action?.onClick();
+          }}
+          className="shrink-0 rounded-md px-2.5 py-1.5 text-[12.5px] font-semibold text-brand transition-colors hover:bg-brand-soft hover:text-brand-hover"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={() => onDismiss(toast.id)}
+        aria-label="Dismiss notification"
         className="grid size-[30px] shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
       >
         <I.plus size={16} className="rotate-45" />

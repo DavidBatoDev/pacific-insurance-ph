@@ -85,7 +85,7 @@ interface OverlayApi {
   openApplicationRequirements: (applicationId: string) => void;
   openTravelWorkflow: (travelRequestId: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
-  toast: (title: string, sub?: string) => void;
+  toast: (title: string, sub?: string, action?: ToastData["action"]) => void;
 }
 
 const OverlayContext = createContext<OverlayApi | null>(null);
@@ -109,9 +109,9 @@ export function OverlayProvider({
   const open = useCallback((overlay: OverlayState) => setActive(overlay), []);
   const close = useCallback(() => setActive(null), []);
 
-  const toast = useCallback((title: string, sub?: string) => {
+  const toast = useCallback((title: string, sub?: string, action?: ToastData["action"]) => {
     const id = ++toastSeq.current;
-    setToasts((t) => [...t, { id, title, sub }]);
+    setToasts((t) => [...t, { id, title, sub, action }]);
   }, []);
   const dismissToast = useCallback(
     (id: number) => setToasts((t) => t.filter((x) => x.id !== id)),
