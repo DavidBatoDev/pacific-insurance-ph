@@ -140,6 +140,14 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
       router.refresh();
     });
 
+  const markProposalSent = (l: Client) =>
+    startTransition(async () => {
+      const res = await setProposalStatusAction(l.id, "Sent");
+      if (res.ok) overlays.toast("Proposal sent", `${l.fullName} — proposal marked Sent.`);
+      else overlays.toast("Couldn’t update proposal", res.error);
+      router.refresh();
+    });
+
   /* ---------- board ---------- */
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -296,6 +304,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
           <ProposalTracking
             leads={leads}
             onMarkReceived={markProposalReceived}
+            onMarkSent={markProposalSent}
             onGenerate={(lead) =>
               overlays.openPageModal("generate-proposal", { clientId: lead.id, clientName: lead.fullName })
             }
@@ -676,10 +685,12 @@ const SEL =
 function ProposalTracking({
   leads,
   onMarkReceived,
+  onMarkSent,
   onGenerate,
 }: {
   leads: Client[];
   onMarkReceived: (l: Client) => void;
+  onMarkSent: (l: Client) => void;
   onGenerate: (l: Client) => void;
 }) {
   const steps = ["Requested", "Received", "Sent", "Decision"];
@@ -730,6 +741,11 @@ function ProposalTracking({
                 {l.proposalStatus === "Requested" && (
                   <Btn size="sm" onClick={() => onMarkReceived(l)}>
                     Mark Received
+                  </Btn>
+                )}
+                {l.proposalStatus === "Received" && (
+                  <Btn size="sm" onClick={() => onMarkSent(l)}>
+                    Mark Sent
                   </Btn>
                 )}
                 {!l.proposalStatus && isIndividualProposalProduct(l.productInterest) && (

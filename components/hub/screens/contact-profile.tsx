@@ -761,9 +761,14 @@ export function ContactProfile({
                     </Btn>
                   )}
                   {client.proposalStatus === "Received" && (
-                    <Btn size="sm" variant="primary" onClick={() => focusEmail("Proposal / Quote Delivery")}>
-                      Log Proposal Email
-                    </Btn>
+                    <>
+                      <Btn size="sm" variant="primary" onClick={() => focusEmail("Proposal / Quote Delivery")}>
+                        Log Proposal Email
+                      </Btn>
+                      <Btn size="sm" onClick={() => markProposal("Sent")}>
+                        Mark Sent
+                      </Btn>
+                    </>
                   )}
                   {client.proposalStatus === "Sent" && (
                     <Btn size="sm" onClick={() => markProposal("Decision")}>
@@ -771,6 +776,13 @@ export function ContactProfile({
                     </Btn>
                   )}
                 </div>
+                {client.proposalStatus === "Received" && (
+                  <p className="mt-2 text-[11.5px] text-faint">
+                    Click <b>Mark Sent</b>{" "}
+                    once you&apos;ve actually sent this to the client yourself — the app doesn&apos;t deliver
+                    emails yet.
+                  </p>
+                )}
               </div>
             </Card>
           )}
