@@ -35,6 +35,34 @@ export function allowedLeadStages(stage: string | null | undefined): string[] {
 }
 
 /**
+ * Defaults attached to the lifecycle action that opened the Advance popup. Generic UI actions
+ * (profile/list Advance and board drag) deliberately are not listed: they do not describe an
+ * interaction worth writing to the permanent timeline, and they do not imply a follow-up cadence.
+ */
+const ADVANCE_ACTION_DEFAULTS: Record<string, { note: string; followUpDays: number }> = {
+  "First outreach sent": { note: "First outreach sent", followUpDays: 3 },
+  "Inbound response logged": { note: "Inbound response logged", followUpDays: 1 },
+  "Reached call logged": { note: "Reached call logged", followUpDays: 1 },
+};
+
+/** Resolve an action suggestion into editable popup defaults, using local calendar days. */
+export function advanceLeadActionDefaults(
+  label: string | null | undefined,
+  today = new Date(),
+): { note: string; followUpDate: string } {
+  const defaults = label ? ADVANCE_ACTION_DEFAULTS[label] : undefined;
+  if (!defaults) return { note: "", followUpDate: "" };
+
+  const due = new Date(today);
+  due.setHours(12, 0, 0, 0);
+  due.setDate(due.getDate() + defaults.followUpDays);
+  const year = due.getFullYear();
+  const month = String(due.getMonth() + 1).padStart(2, "0");
+  const day = String(due.getDate()).padStart(2, "0");
+  return { note: defaults.note, followUpDate: `${year}-${month}-${day}` };
+}
+
+/**
  * Conversion readiness (`docs/lead-stage-status-example.md` Step 5): converting is the payoff of a
  * lead the client has already committed to, so it belongs at `Product Selected` — not at `New Lead`,
  * where it would skip discovery and the proposal entirely. Shared by the Contact Profile and the
