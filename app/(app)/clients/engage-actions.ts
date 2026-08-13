@@ -14,6 +14,7 @@ import type { Json } from "@/lib/supabase/types";
 import { can, toAppRole } from "@/lib/auth/permissions";
 import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { nextLeadStage } from "@/components/hub/lead-config";
 
 /**
  * Engage composer mutations (contact-profile.md; human-in-the-loop). Emails,
@@ -114,7 +115,11 @@ export async function sendEmailAction(input: {
     await logOutboundEmail({ clientId: input.clientId, subject: input.subject, summary: input.body.split("\n").find(Boolean) ?? "", notes: input.body, actorId: actor.id, externalContactId: input.externalContactId, libraryDocumentIds: ids });
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to log email." }; }
 
-  const result = {};
+  // First touch (docs/lead-stage-status.md): Eman's send sets Attempted, no Lead reply required yet.
+  const result =
+    client.leadStatus === "New"
+      ? await updateLeadStatus(client, actor.id, "Attempted", "Email logged", { stage: nextLeadStage(client.leadStage) ?? "Contacted", label: "Email logged" })
+      : {};
   refresh(input.clientId);
   return { ok: true, data: result };
 }
@@ -182,12 +187,18 @@ export async function logMessageAction(input: {
   });
   if (error) return { ok: false, error: error.message };
 
+  const canSuggestAdvance = client.leadStage === "New Lead" || client.leadStage === "Contacted";
   const result =
     client.leadStatus === "New" || client.leadStatus === "Attempted"
-      ? await updateLeadStatus(client, actor.id, "Connected", "Inbound message logged", {
-          stage: "Discovery",
-          label: "Inbound response logged",
-        })
+      ? await updateLeadStatus(
+          client,
+          actor.id,
+          "Connected",
+          "Inbound message logged",
+          canSuggestAdvance
+            ? { stage: nextLeadStage(client.leadStage) ?? "Discovery", label: "Inbound response logged" }
+            : undefined,
+        )
       : // Coming out of a nurture hold: the lead signalled they're ready. Discovery data is already
         // on file, so this returns straight to `Qualified` with no re-asking, and the stage never
         // moved — so there is nothing to suggest advancing (docs/lead-stage-status.md).
@@ -256,6 +267,7 @@ export async function logCallAction(input: {
     });
   }
 
+  const canSuggestAdvance = client.leadStage === "New Lead" || client.leadStage === "Contacted";
   const result =
     input.outcome === "Reached" && (client.leadStatus === "New" || client.leadStatus === "Attempted")
       ? await updateLeadStatus(
@@ -263,7 +275,9 @@ export async function logCallAction(input: {
           actor.id,
           "Connected",
           "Reached call logged",
-          { stage: "Discovery", label: "Reached call logged" },
+          canSuggestAdvance
+            ? { stage: nextLeadStage(client.leadStage) ?? "Discovery", label: "Reached call logged" }
+            : undefined,
         )
       : // Reaching a lead on nurture hold ends the hold — back to `Qualified`, discovery already on
         // file, stage unchanged so no advance suggestion (docs/lead-stage-status.md).

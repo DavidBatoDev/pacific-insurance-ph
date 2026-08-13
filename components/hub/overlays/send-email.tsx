@@ -165,6 +165,16 @@ export function EmailForm({
         </div>
       </div>
 
+      {templateNeedsLibraryAttachment(tpl) && !libraryDocumentId && (
+        <div className="mt-3.5 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
+          <I.alertTri size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <b>Carrier attachment required.</b> Select an approved asset above, or choose a template
+            that doesn&apos;t need one.
+          </div>
+        </div>
+      )}
+
       <div className="mt-3.5 flex items-center justify-between gap-3">
         <span className="text-[11.5px] text-faint">
           Logged only — neither the email nor selected attachments are delivered. Actor: {persona.userName}.
