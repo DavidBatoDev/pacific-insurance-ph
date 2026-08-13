@@ -48,6 +48,9 @@ interface Props {
 
 type ViewId = "Board" | "List" | "Forecast";
 
+const isIndividualProposalProduct = (product: string | null) =>
+  ["select", "blue royale"].includes(product?.trim().toLowerCase() ?? "");
+
 const followDays = (d: string | null): number | null => {
   if (!d) return null;
   const today = new Date();
@@ -290,7 +293,13 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
       {/* Lower grid */}
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ProposalTracking leads={leads} onMarkReceived={markProposalReceived} />
+          <ProposalTracking
+            leads={leads}
+            onMarkReceived={markProposalReceived}
+            onGenerate={(lead) =>
+              overlays.openPageModal("generate-proposal", { clientId: lead.id, clientName: lead.fullName })
+            }
+          />
           <FollowUpQueue leads={leads} userNames={userNames} onOpen={(id) => openContact(id, "prospects")} />
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
@@ -600,6 +609,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
           { label: "Send Brochure", icon: "folder", action: "Send Brochure" },
           // Request Proposal is its OWN modal (modals.md §14), not an email composer action.
           { label: "Request Proposal", icon: "fileText", proposal: true },
+          { label: "Generate Proposal", icon: "fileText", generate: true },
           // Log Call is the structured discovery form, not an Engage composer action — same form
           // the Contact Profile composer tab renders (../docs/web/lead-workflow.md §4).
           { label: "Log Call", icon: "phone", logCall: true },
@@ -611,6 +621,8 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
               onClick={() =>
                 "proposal" in q && q.proposal
                   ? overlays.openPageModal("request-proposal")
+                  : "generate" in q && q.generate
+                    ? overlays.openPageModal("generate-proposal")
                   : "logCall" in q && q.logCall
                     ? overlays.openLogCall()
                     : overlays.openEngage(q.action as string)
@@ -664,9 +676,11 @@ const SEL =
 function ProposalTracking({
   leads,
   onMarkReceived,
+  onGenerate,
 }: {
   leads: Client[];
   onMarkReceived: (l: Client) => void;
+  onGenerate: (l: Client) => void;
 }) {
   const steps = ["Requested", "Received", "Sent", "Decision"];
   const rows = leads.filter((l) => l.leadStage === "Proposal");
@@ -716,6 +730,11 @@ function ProposalTracking({
                 {l.proposalStatus === "Requested" && (
                   <Btn size="sm" onClick={() => onMarkReceived(l)}>
                     Mark Received
+                  </Btn>
+                )}
+                {!l.proposalStatus && isIndividualProposalProduct(l.productInterest) && (
+                  <Btn size="sm" onClick={() => onGenerate(l)}>
+                    Generate Proposal
                   </Btn>
                 )}
               </div>
