@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { Popover } from "@base-ui/react/popover";
 import { useRouter } from "next/navigation";
 
-import { advanceLeadAction, setProposalStatusAction } from "@/app/(app)/prospects/actions";
+import { setProposalStatusAction } from "@/app/(app)/prospects/actions";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { peso, pesoShort } from "../data";
@@ -15,7 +16,6 @@ import {
   STAGE_META,
   STAGE_PROB,
   STAGE_TONE,
-  STATUS_HINT,
   STATUS_TONE,
   nextStage,
   weightedValue,
@@ -23,7 +23,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, CountPill, DraftBadge, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, DraftBadge, TONE_BADGE } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -47,6 +47,9 @@ interface Props {
 }
 
 type ViewId = "Board" | "List" | "Forecast";
+
+const toggleFilterValue = (values: string[], value: string) =>
+  values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
 const isIndividualProposalProduct = (product: string | null) =>
   ["select", "blue royale"].includes(product?.trim().toLowerCase() ?? "");
@@ -85,17 +88,166 @@ const StatusChip = ({ status }: { status: string | null }) => (
   </span>
 );
 
+function LeadFilters({
+  statuses,
+  products,
+  overdueOnly,
+  productOptions,
+  onToggleStatus,
+  onToggleProduct,
+  onToggleOverdue,
+  onClear,
+}: {
+  statuses: string[];
+  products: string[];
+  overdueOnly: boolean;
+  productOptions: string[];
+  onToggleStatus: (status: string) => void;
+  onToggleProduct: (product: string) => void;
+  onToggleOverdue: () => void;
+  onClear: () => void;
+}) {
+  const activeCount = Number(statuses.length > 0) + Number(products.length > 0) + Number(overdueOnly);
+  const optionClass =
+    "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-hover focus-within:bg-hover";
+
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        aria-label={activeCount ? `Filter leads, ${activeCount} active` : "Filter leads"}
+        title="Filter leads"
+        className={cn(
+          "relative grid size-[34px] shrink-0 place-items-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20",
+          activeCount
+            ? "border-brand bg-brand-soft text-brand-hover"
+            : "border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground",
+        )}
+      >
+        <I.filter size={15} />
+        {activeCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 grid size-[17px] place-items-center rounded-full bg-brand text-[10px] font-bold text-white ring-2 ring-background">
+            {activeCount}
+          </span>
+        )}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50 outline-none">
+          <Popover.Popup className="w-[320px] max-w-[calc(100vw-24px)] rounded-lg border border-border bg-card shadow-pop outline-none">
+            <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+              <Popover.Title className="text-[13.5px] font-bold">Filter leads</Popover.Title>
+              {activeCount > 0 && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="text-[12px] font-semibold text-brand-hover hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <div className="max-h-[min(520px,calc(100vh-120px))] overflow-y-auto p-3">
+              <fieldset>
+                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                  Status
+                </legend>
+                <div className="grid grid-cols-2 gap-0.5">
+                  {LEAD_STATUSES.map((status) => (
+                    <label key={status} className={optionClass}>
+                      <input
+                        type="checkbox"
+                        checked={statuses.includes(status)}
+                        onChange={() => onToggleStatus(status)}
+                        className="size-3.5 rounded border-border-strong accent-brand"
+                      />
+                      <span className="size-2 rounded-full" style={{ background: `var(--${STATUS_TONE[status]})` }} />
+                      {status}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-3 border-t border-border-soft pt-3">
+                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                  Product interest
+                </legend>
+                {productOptions.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-0.5">
+                    {productOptions.map((product) => (
+                      <label key={product} className={optionClass}>
+                        <input
+                          type="checkbox"
+                          checked={products.includes(product)}
+                          onChange={() => onToggleProduct(product)}
+                          className="size-3.5 rounded border-border-strong accent-brand"
+                        />
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ background: PRODUCT_COLORS[product] ?? "var(--slate)" }}
+                        />
+                        <span className="truncate">{product}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-2 py-1 text-[12px] text-subtle">No product interests recorded.</p>
+                )}
+              </fieldset>
+
+              <fieldset className="mt-3 border-t border-border-soft pt-3">
+                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                  Follow-up date
+                </legend>
+                <label className={optionClass}>
+                  <input
+                    type="checkbox"
+                    checked={overdueOnly}
+                    onChange={onToggleOverdue}
+                    className="size-3.5 rounded border-border-strong accent-brand"
+                  />
+                  <I.clock size={14} className="text-red" />
+                  Overdue only
+                </label>
+              </fieldset>
+            </div>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
   const [view, setView] = useState<ViewId>("Board");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [renderedAt] = useState(() => Date.now());
   const [advance, setAdvance] = useState<{ lead: AdvanceLeadTarget; preset?: AdvanceLeadPreset } | null>(null);
   const [drillStage, setDrillStage] = useState<string | null>(null);
   const [drillMonth, setDrillMonth] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  const productOptions = useMemo(
+    () =>
+      [...new Set(leads.map((lead) => lead.productInterest?.trim()).filter((value): value is string => !!value))].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [leads],
+  );
+
+  const filteredLeads = useMemo(
+    () =>
+      leads.filter((lead) => {
+        if (selectedStatuses.length > 0 && !selectedStatuses.includes(lead.leadStatus ?? "New")) return false;
+        if (selectedProducts.length > 0 && !selectedProducts.includes(lead.productInterest?.trim() ?? "")) return false;
+        if (overdueOnly && (followDays(lead.nextFollowUpDate) ?? 0) >= 0) return false;
+        return true;
+      }),
+    [leads, overdueOnly, selectedProducts, selectedStatuses],
+  );
   const target = (l: Client): AdvanceLeadTarget => ({
     clientId: l.id,
     name: l.fullName,
@@ -105,8 +257,8 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   });
 
   /* ---------- derived numbers ---------- */
-  const weightedTotal = leads.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0);
-  const rawTotal = leads.reduce((a, l) => a + (l.estPremium ?? 0), 0);
+  const weightedTotal = filteredLeads.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0);
+  const rawTotal = filteredLeads.reduce((a, l) => a + (l.estPremium ?? 0), 0);
   const overdue = leads.filter((l) => (followDays(l.nextFollowUpDate) ?? 1) < 0).length;
   const dueToday = leads.filter((l) => followDays(l.nextFollowUpDate) === 0).length;
 
@@ -177,30 +329,22 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                 <div
                   key={s}
                   title={`${s}: ${c}`}
-                  style={{ width: (c / leads.length) * 100 + "%", background: `var(--${STATUS_TONE[s]})`, opacity: statusFilter === "All" || statusFilter === s ? 1 : 0.28 }}
+                  style={{ width: (c / leads.length) * 100 + "%", background: `var(--${STATUS_TONE[s]})` }}
                 />
               );
             })}
           </div>
           <div className="flex flex-wrap gap-2">
-            {LEAD_STATUSES.map((s) => {
-              const on = statusFilter === s;
-              return (
-                <button
-                  key={s}
-                  title={STATUS_HINT[s]}
-                  onClick={() => setStatusFilter(on ? "All" : s)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
-                    on ? "border-brand bg-brand-soft text-brand-hover" : "border-border bg-card text-muted-foreground hover:bg-hover",
-                  )}
-                >
-                  <span className="size-2 rounded-full" style={{ background: `var(--${STATUS_TONE[s]})` }} />
-                  {s}
-                  <span className="tabular-nums text-subtle">{statusCounts[s] ?? 0}</span>
-                </button>
-              );
-            })}
+            {LEAD_STATUSES.map((s) => (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground"
+              >
+                <span className="size-2 rounded-full" style={{ background: `var(--${STATUS_TONE[s]})` }} />
+                {s}
+                <span className="tabular-nums text-subtle">{statusCounts[s] ?? 0}</span>
+              </span>
+            ))}
           </div>
         </div>
       </Card>
@@ -210,13 +354,22 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         <CardHead
           iconName="grid"
           title="Lead board"
-          count={leads.length}
-          action={<span className="text-[12.5px] font-semibold text-brand-hover">{leads.length} active · {peso(weightedTotal)} weighted</span>}
+          count={filteredLeads.length}
+          action={
+            <span className="text-[12.5px] font-semibold text-brand-hover">
+              {filteredLeads.length} of {leads.length} · {peso(weightedTotal)} weighted
+            </span>
+          }
         />
         <div className="overflow-x-auto px-4 pb-4 pt-3.5">
+          {filteredLeads.length === 0 && (
+            <div className="mb-3 rounded-md border border-border-soft bg-surface-2 px-4 py-3 text-[12.5px] text-subtle">
+              No leads match these filters. Clear or adjust the filters to see more leads.
+            </div>
+          )}
           <div className="grid min-w-[1080px] grid-cols-6 gap-3">
             {LEAD_STAGES.map((stage) => {
-              const items = leads.filter((l) => l.leadStage === stage);
+              const items = filteredLeads.filter((l) => l.leadStage === stage);
               const val = items.reduce((a, l) => a + (l.estPremium ?? 0), 0);
               const meta = STAGE_META[stage];
               return (
@@ -241,7 +394,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                     )}
                   >
                     {items.map((l) => {
-                      const dim = statusFilter !== "All" && l.leadStatus !== statusFilter;
                       const color = PRODUCT_COLORS[l.productInterest ?? ""] ?? "var(--slate)";
                       return (
                         <div
@@ -250,7 +402,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                           onDragStart={() => setDragId(l.id)}
                           onClick={() => openContact(l.id, "prospects")}
                           className="cursor-pointer rounded-md border border-border bg-card p-2.5 shadow-xs transition-all hover:-translate-y-px hover:shadow-md"
-                          style={{ opacity: dim ? 0.32 : 1 }}
                         >
                           <div className="flex items-start justify-between gap-1.5">
                             <span className="text-[12.5px] font-[650] leading-snug">{l.fullName}</span>
@@ -338,9 +489,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
 
   /* ---------- list ---------- */
   const [ownerF, setOwnerF] = useState("All");
-  const [productF, setProductF] = useState("All");
   const owners = ["All", ...new Set(leads.map((l) => l.assignedUserId ?? ""))].filter(Boolean);
-  const products = ["All", ...new Set(leads.map((l) => l.productInterest ?? "").filter(Boolean))];
 
   const monthBucket = (iso: string | null): string => {
     if (!iso) return "Later";
@@ -349,16 +498,13 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
     return k <= 0 ? "This month" : k === 1 ? "Next month" : "Later";
   };
 
-  let listRows = leads;
+  let listRows = filteredLeads;
   if (ownerF !== "All") listRows = listRows.filter((l) => l.assignedUserId === ownerF);
-  if (productF !== "All") listRows = listRows.filter((l) => l.productInterest === productF);
   if (drillStage) listRows = listRows.filter((l) => l.leadStage === drillStage);
   if (drillMonth) listRows = listRows.filter((l) => monthBucket(l.expectedCloseDate) === drillMonth);
-  if (statusFilter !== "All" && view === "List")
-    listRows = listRows.filter((l) => l.leadStatus === statusFilter);
 
   const ageDays = (l: Client) =>
-    Math.max(0, Math.round((Date.now() - new Date(l.updatedAt).getTime()) / 86_400_000));
+    Math.max(0, Math.round((renderedAt - new Date(l.updatedAt).getTime()) / 86_400_000));
 
   const list = (
     <Card>
@@ -369,18 +515,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
             <option key={o} value={o}>
               {userNames[o] ?? o}
             </option>
-          ))}
-        </select>
-        <select className={SEL} value={productF} onChange={(e) => setProductF(e.target.value)}>
-          <option value="All">All products</option>
-          {products.filter((p) => p !== "All").map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-        <select className={SEL} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="All">All statuses</option>
-          {LEAD_STATUSES.map((s) => (
-            <option key={s}>{s}</option>
           ))}
         </select>
         {(drillStage || drillMonth) && (
@@ -462,8 +596,8 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
 
   /* ---------- forecast ---------- */
   const TARGET = 2_500_000;
-  const thisMonthLeads = leads.filter((l) => monthBucket(l.expectedCloseDate) === "This month");
-  const quarterLeads = leads.filter((l) => {
+  const thisMonthLeads = filteredLeads.filter((l) => monthBucket(l.expectedCloseDate) === "This month");
+  const quarterLeads = filteredLeads.filter((l) => {
     if (!l.expectedCloseDate) return false;
     const d = new Date(l.expectedCloseDate);
     const now = new Date();
@@ -472,7 +606,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   const wThisMonth = thisMonthLeads.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0);
   const targetPct = Math.min(100, Math.round((wThisMonth / TARGET) * 100));
   const funnel = LEAD_STAGES.map((s) => {
-    const items = leads.filter((l) => l.leadStage === s);
+    const items = filteredLeads.filter((l) => l.leadStage === s);
     return {
       stage: s,
       count: items.length,
@@ -482,7 +616,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   });
   const maxW = Math.max(...funnel.map((f) => f.weighted), 1);
   const buckets = ["This month", "Next month", "Later"].map((b) => {
-    const items = leads.filter((l) => monthBucket(l.expectedCloseDate) === b);
+    const items = filteredLeads.filter((l) => monthBucket(l.expectedCloseDate) === b);
     return { bucket: b, count: items.length, weighted: items.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0) };
   });
   const maxB = Math.max(...buckets.map((b) => b.weighted), 1);
@@ -578,7 +712,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="mb-[18px] flex items-end justify-between gap-4">
+      <div className="mb-[18px] flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-[11px] text-[23px] font-bold tracking-[-0.025em]">
             Lead Lifecycle
@@ -592,19 +726,39 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
             popup.
           </p>
         </div>
-        <div className="flex shrink-0 items-center rounded-md border border-border bg-surface-3 p-0.5">
-          {(["Board", "List", "Forecast"] as ViewId[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={cn(
-                "rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-                view === v ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {v}
-            </button>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <LeadFilters
+            statuses={selectedStatuses}
+            products={selectedProducts}
+            overdueOnly={overdueOnly}
+            productOptions={productOptions}
+            onToggleStatus={(status) =>
+              setSelectedStatuses((current) => toggleFilterValue(current, status))
+            }
+            onToggleProduct={(product) =>
+              setSelectedProducts((current) => toggleFilterValue(current, product))
+            }
+            onToggleOverdue={() => setOverdueOnly((current) => !current)}
+            onClear={() => {
+              setSelectedStatuses([]);
+              setSelectedProducts([]);
+              setOverdueOnly(false);
+            }}
+          />
+          <div className="flex items-center rounded-md border border-border bg-surface-3 p-0.5">
+            {(["Board", "List", "Forecast"] as ViewId[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  "rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
+                  view === v ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
