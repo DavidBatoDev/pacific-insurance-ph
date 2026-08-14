@@ -516,6 +516,9 @@ export function ContactProfile({
           <Card>
             <CardHead iconName="users" title="Dependents" count={dependents.length} />
             <div>
+              {dependents.length === 0 && (
+                <p className="px-[18px] py-3 text-[12.5px] text-subtle">No dependents added yet.</p>
+              )}
               {dependents.map((d) => (
                 <div key={d.id} className="flex items-center gap-2.5 border-b border-border-soft px-[18px] py-2.5 last:border-0">
                   <Avatar name={d.fullName} size={28} />
@@ -678,7 +681,9 @@ export function ContactProfile({
             </div>
             <div className="py-1.5">
               {visibleTimeline.length === 0 && (
-                <p className="px-[18px] py-4 text-[13px] text-muted-foreground">Nothing here yet.</p>
+                <p className="px-[18px] py-4 text-[13px] text-muted-foreground">
+                  {timeline.length === 0 ? "No calls logged yet — log the first touch." : "Nothing here yet."}
+                </p>
               )}
               {visibleTimeline.map((e, idx) => {
                 const meta = TL_META[e.kind];
@@ -871,6 +876,9 @@ export function ContactProfile({
           <Card>
             <CardHead iconName="folder" title="Documents" count={documents.length} />
             <div>
+              {documents.length === 0 && (
+                <p className="px-[18px] py-3 text-[12.5px] text-subtle">No documents uploaded yet.</p>
+              )}
               {documents.map((d) => (
                 <div key={d.id} className="flex items-center gap-2.5 border-b border-border-soft px-[18px] py-2.5 last:border-0">
                   <span className="grid size-[28px] shrink-0 place-items-center rounded-[8px] bg-surface-3 text-muted-foreground">
