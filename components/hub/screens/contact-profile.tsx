@@ -189,13 +189,16 @@ export function ContactProfile({
       router.refresh();
     });
 
-  const markProposal = (status: string) =>
+  const [proposalMarking, setProposalMarking] = useState<string | null>(null);
+  const markProposal = (status: string) => {
+    setProposalMarking(status);
     startTransition(async () => {
       const res = await setProposalStatusAction(client.id, status);
       if (res.ok) toast(`Proposal ${status.toLowerCase()}`, `${client.fullName} — proposal marked ${status}.`);
       else toast("Couldn’t update proposal", res.error);
       router.refresh();
     });
+  };
 
   /* ---------- timeline ---------- */
   const FILTERS: { label: string; kinds: TimelineKind[] | null }[] = [
@@ -769,8 +772,8 @@ export function ContactProfile({
                     </Btn>
                   )}
                   {client.proposalStatus === "Requested" && (
-                    <Btn size="sm" onClick={() => markProposal("Received")}>
-                      Mark Received
+                    <Btn size="sm" disabled={pending} onClick={() => markProposal("Received")}>
+                      {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received"}
                     </Btn>
                   )}
                   {client.proposalStatus === "Received" && (
@@ -778,14 +781,14 @@ export function ContactProfile({
                       <Btn size="sm" variant="primary" onClick={() => focusEmail("Proposal / Quote Delivery")}>
                         Log Proposal Email
                       </Btn>
-                      <Btn size="sm" onClick={() => markProposal("Sent")}>
-                        Mark Sent
+                      <Btn size="sm" disabled={pending} onClick={() => markProposal("Sent")}>
+                        {pending && proposalMarking === "Sent" ? "Marking sent…" : "Mark Sent"}
                       </Btn>
                     </>
                   )}
                   {client.proposalStatus === "Sent" && (
-                    <Btn size="sm" onClick={() => markProposal("Decision")}>
-                      Record decision
+                    <Btn size="sm" disabled={pending} onClick={() => markProposal("Decision")}>
+                      {pending && proposalMarking === "Decision" ? "Recording…" : "Record decision"}
                     </Btn>
                   )}
                 </div>
