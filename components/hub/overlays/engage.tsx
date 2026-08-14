@@ -32,9 +32,6 @@ interface ActionCfg {
 
 export const ENGAGE_ACTIONS: Record<string, ActionCfg> = {
   "Send Email": { tpl: "New inquiry response", icon: "mail", sub: "Compose from a template and log the intended email." },
-  "Send Brochure": { tpl: "Send brochure", icon: "mail", sub: "Choose the approved plan brochure and log the intended email." },
-  "Send Intake / Application Form": { tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
-  "Send Intake Form": { tpl: "Send application form", icon: "fileText", sub: "Choose the approved application form and log the intended email." },
   "Send Payment Instruction": { tpl: "Payment instruction", icon: "peso", sub: "Log the intended payment-options email." },
   "Send Renewal Notice": { tpl: "Renewal reminder", icon: "refresh", sub: "Log the intended renewal-notice email." },
   "Send Proposal": { tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
