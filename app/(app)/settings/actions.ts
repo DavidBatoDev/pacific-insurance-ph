@@ -184,7 +184,9 @@ export async function savePacificCrossPortalAction(
       return { ok: false, error: "Enter a valid HTTPS URL." };
     }
 
-    const saved = await getIntegrationSettingsRepository().savePacificCross({
+    const repository = getIntegrationSettingsRepository();
+    const previous = await repository.getPacificCross();
+    const saved = await repository.savePacificCross({
       portalUrl: normalizedUrl,
     });
     await recordAudit({
@@ -192,6 +194,7 @@ export async function savePacificCrossPortalAction(
       action: "update",
       tableName: "integration_settings",
       recordId: saved.id,
+      previousValue: previous as unknown as Json,
       newValue: saved as unknown as Json,
     });
     revalidatePath("/settings");
@@ -199,6 +202,33 @@ export async function savePacificCrossPortalAction(
     return { ok: true, data: saved };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save Pacific Cross portal." };
+  }
+}
+
+/** Remove the shared portal link while keeping the integration row available for later setup. */
+export async function removePacificCrossPortalAction(): Promise<
+  ActionResult<{ settings: PacificCrossIntegrationSettings; removedUrl: string }>
+> {
+  try {
+    const actor = await requireAdmin();
+    const repository = getIntegrationSettingsRepository();
+    const previous = await repository.getPacificCross();
+    if (!previous?.portalUrl) return { ok: false, error: "The Pacific Cross portal URL has already been removed." };
+
+    const saved = await repository.savePacificCross({ portalUrl: null });
+    await recordAudit({
+      actorId: actor.id,
+      action: "update",
+      tableName: "integration_settings",
+      recordId: saved.id,
+      previousValue: previous as unknown as Json,
+      newValue: saved as unknown as Json,
+    });
+    revalidatePath("/settings");
+    revalidatePath("/clients", "layout");
+    return { ok: true, data: { settings: saved, removedUrl: previous.portalUrl } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to remove Pacific Cross portal." };
   }
 }
 

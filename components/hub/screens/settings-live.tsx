@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
+  removePacificCrossPortalAction,
   savePacificCrossPortalAction,
   savePaymentChannelAction,
   togglePaymentChannelAction,
@@ -323,20 +324,66 @@ function IntegrationsTab({
   const router = useRouter();
   const overlays = useOverlays();
   const [portalUrl, setPortalUrl] = useState(pacificCross?.portalUrl ?? "");
+  const [configuredUrl, setConfiguredUrl] = useState(pacificCross?.portalUrl ?? null);
   const [pending, startTransition] = useTransition();
-  const configuredUrl = pacificCross?.portalUrl ?? null;
 
   const save = () =>
     startTransition(async () => {
       const res = await savePacificCrossPortalAction(portalUrl);
       if (res.ok) {
         setPortalUrl(res.data.portalUrl ?? "");
+        setConfiguredUrl(res.data.portalUrl);
         overlays.toast("Pacific Cross portal saved", "Staff can now open the configured portal from Settings and proposal tracking.");
         router.refresh();
       } else {
         overlays.toast("Couldn’t save portal", res.error);
       }
     });
+
+  const restore = (removedUrl: string) =>
+    startTransition(async () => {
+      const res = await savePacificCrossPortalAction(removedUrl);
+      if (res.ok) {
+        setPortalUrl(res.data.portalUrl ?? "");
+        setConfiguredUrl(res.data.portalUrl);
+        overlays.toast("Pacific Cross portal restored", "Proposal generation can use the portal URL again.");
+        router.refresh();
+      } else {
+        overlays.toast("Couldn’t restore portal", res.error);
+      }
+    });
+
+  const remove = async () => {
+    if (!configuredUrl) return;
+    const confirmed = await overlays.confirm({
+      kind: "danger",
+      title: "Remove Pacific Cross portal URL?",
+      message: (
+        <>
+          You’re about to remove <span className="break-all font-semibold text-foreground">{configuredUrl}</span>.
+          {" "}Proposal generation will be unavailable until an admin adds or restores a portal URL.
+        </>
+      ),
+      confirmLabel: "Remove URL",
+    });
+    if (!confirmed) return;
+
+    startTransition(async () => {
+      const res = await removePacificCrossPortalAction();
+      if (res.ok) {
+        setPortalUrl("");
+        setConfiguredUrl(null);
+        overlays.toast(
+          "Pacific Cross portal URL removed",
+          "Proposal generation is unavailable until a portal URL is configured.",
+          { label: "Undo", onClick: () => restore(res.data.removedUrl) },
+        );
+        router.refresh();
+      } else {
+        overlays.toast("Couldn’t remove portal", res.error);
+      }
+    });
+  };
 
   return (
     <div className="max-w-[640px]">
@@ -350,14 +397,26 @@ function IntegrationsTab({
             Open the carrier portal in a separate tab when preparing or generating a proposal.
           </p>
           {configuredUrl ? (
-            <a
-              href={configuredUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-            >
-              <I.arrowUpRight size={14} /> Open Pacific Cross portal
-            </a>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <a
+                href={configuredUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <I.arrowUpRight size={14} /> Open Pacific Cross portal
+              </a>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={remove}
+                  disabled={pending}
+                  className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-semibold text-red transition-colors hover:bg-red-soft disabled:opacity-50"
+                >
+                  Remove URL
+                </button>
+              )}
+            </div>
           ) : (
             <p className="mt-3 text-[12px] text-subtle">
               {canEdit
