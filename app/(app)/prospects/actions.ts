@@ -29,8 +29,8 @@ const normaliseProductName = (product: string | null) => product?.trim().toLower
 
 /**
  * Lead Lifecycle mutations. advanceLeadAction is the SINGLE transition used by
- * every path — Kanban drag, list-row Advance, nurture-action chaining, Mark
- * Lost — so stage/status changes are always confirmed and always logged
+ * every path — Kanban drag, list-row Advance, nurture-action chaining — so
+ * stage/status changes are always confirmed and always logged
  * (lead-workflow.md §4: nothing moves silently).
  */
 
@@ -42,7 +42,6 @@ export interface AdvanceLeadInput {
   nextFollowUpDate?: string | null;
   estPremium?: number | null;
   expectedCloseDate?: string | null;
-  markLost?: boolean;
 }
 
 export async function advanceLeadAction(
@@ -59,61 +58,56 @@ export async function advanceLeadAction(
 
     // Forward-only spine (docs/lead-stage-status.md): a lead may hold its stage or move to
     // the immediately following one. Backward moves and skips are rejected here as well as
-    // in the UI, so the rule holds for any caller. Lost travels via markLost, not `stage`.
-    if (!input.markLost) {
-      const current = lead.leadStage ?? LEAD_STAGES[0];
-      const currentIndex = LEAD_STAGES.indexOf(current as LeadStage);
-      const next = nextLeadStage(current);
-      if (!LEAD_STAGES.includes(input.stage as LeadStage))
-        return { ok: false, error: `Unknown lead stage "${input.stage}".` };
-      if (currentIndex !== -1 && input.stage !== current && input.stage !== next)
+    // in the UI, so the rule holds for any caller. `Lost` is not a reachable value here at
+    // all — it's a separate lifecycle transition (markLostAction).
+    const current = lead.leadStage ?? LEAD_STAGES[0];
+    const currentIndex = LEAD_STAGES.indexOf(current as LeadStage);
+    const next = nextLeadStage(current);
+    if (!LEAD_STAGES.includes(input.stage as LeadStage))
+      return { ok: false, error: `Unknown lead stage "${input.stage}".` };
+    if (currentIndex !== -1 && input.stage !== current && input.stage !== next)
+      return {
+        ok: false,
+        error: next
+          ? `Leads advance one stage at a time — from ${current} you can only stay or move to ${next}.`
+          : `${current} is the final lead stage; convert the application instead.`,
+      };
+
+    // Status was previously written through unchecked — unlike `stage` above, which has always
+    // been validated. `Nurturing` in particular must not be settable from here: it is defined by
+    // a re-engagement follow-up date this input has no field for, so a lead set Nurturing through
+    // the popup would be parked with nothing to resurface it (docs/lead-stage-status.md).
+    if (!LEAD_STATUSES.includes(input.status as LeadStatus))
+      return { ok: false, error: `Unknown lead status "${input.status}".` };
+    if (!allowedLeadStatuses().includes(input.status) && input.status !== lead.leadStatus)
+      return {
+        ok: false,
+        error: `Use “Mark as Nurturing” to put ${lead.fullName} on hold — it captures the re-engagement date this popup can't.`,
+      };
+
+    // Discovery readiness. `Qualified` and the Proposal stage both assert the lead is quotable,
+    // so neither is reachable until budget, family size, product and tier are on the record
+    // (docs/lead-stage-status.md). Enforced here so no client path — this popup, a stale tab,
+    // a direct call — can set the state without the data behind it.
+    const gaps = discoveryGaps(lead);
+    if (gaps.length) {
+      const movingToProposal = input.stage === "Proposal" && input.stage !== current;
+      const qualifying = input.status === "Qualified" && input.status !== lead.leadStatus;
+      if (movingToProposal || qualifying)
         return {
           ok: false,
-          error: next
-            ? `Leads advance one stage at a time — from ${current} you can only stay or move to ${next}.`
-            : `${current} is the final lead stage; convert the application instead.`,
+          error: `Add ${formatGaps(gaps)} before ${
+            movingToProposal
+              ? `moving ${lead.fullName} to Proposal`
+              : `marking ${lead.fullName} Qualified`
+          }.`,
         };
-
-      // Status was previously written through unchecked — unlike `stage` above, which has always
-      // been validated. `Nurturing` in particular must not be settable from here: it is defined by
-      // a re-engagement follow-up date this input has no field for, so a lead set Nurturing through
-      // the popup would be parked with nothing to resurface it (docs/lead-stage-status.md).
-      if (!LEAD_STATUSES.includes(input.status as LeadStatus))
-        return { ok: false, error: `Unknown lead status "${input.status}".` };
-      if (!allowedLeadStatuses().includes(input.status) && input.status !== lead.leadStatus)
-        return {
-          ok: false,
-          error: `Use “Mark as Nurturing” to put ${lead.fullName} on hold — it captures the re-engagement date this popup can't.`,
-        };
-
-      // Discovery readiness. `Qualified` and the Proposal stage both assert the lead is quotable,
-      // so neither is reachable until budget, family size, product and tier are on the record
-      // (docs/lead-stage-status.md). Enforced here so no client path — this popup, a stale tab,
-      // a direct call — can set the state without the data behind it.
-      const gaps = discoveryGaps(lead);
-      if (gaps.length) {
-        const movingToProposal = input.stage === "Proposal" && input.stage !== current;
-        const qualifying = input.status === "Qualified" && input.status !== lead.leadStatus;
-        if (movingToProposal || qualifying)
-          return {
-            ok: false,
-            error: `Add ${formatGaps(gaps)} before ${
-              movingToProposal
-                ? `moving ${lead.fullName} to Proposal`
-                : `marking ${lead.fullName} Qualified`
-            }.`,
-          };
-      }
     }
 
-    const patch: ClientUpdate = {};
-    if (input.markLost) {
-      patch.lifecycleStage = "Lost";
-      patch.leadStage = "Lost";
-    } else {
-      patch.leadStage = input.stage;
-      patch.leadStatus = input.status;
-    }
+    const patch: ClientUpdate = {
+      leadStage: input.stage,
+      leadStatus: input.status,
+    };
     if (input.nextFollowUpDate !== undefined) patch.nextFollowUpDate = input.nextFollowUpDate;
     if (input.estPremium != null) patch.estPremium = input.estPremium;
     if (input.expectedCloseDate) patch.expectedCloseDate = input.expectedCloseDate;
@@ -130,14 +124,10 @@ export async function advanceLeadAction(
       });
 
     if (input.note) await log("lead.note", `Outcome note — ${input.note}`);
-    if (input.markLost) {
-      await log("lead.lost", "Marked Lost — lifecycle_stage = Lost (retained for re-nurture)");
-    } else {
-      if (input.stage !== lead.leadStage)
-        await log("lead.stage_changed", `Stage changed — ${lead.leadStage ?? "—"} → ${input.stage}`);
-      if (input.status !== lead.leadStatus)
-        await log("lead.status_changed", `Status changed — ${lead.leadStatus ?? "—"} → ${input.status}`);
-    }
+    if (input.stage !== lead.leadStage)
+      await log("lead.stage_changed", `Stage changed — ${lead.leadStage ?? "—"} → ${input.stage}`);
+    if (input.status !== lead.leadStatus)
+      await log("lead.status_changed", `Status changed — ${lead.leadStatus ?? "—"} → ${input.status}`);
 
     await recordAudit({
       actorId: actor.id,
@@ -152,6 +142,61 @@ export async function advanceLeadAction(
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to advance lead." };
+  }
+}
+
+/**
+ * Mark Lost — the only way into `lifecycle_stage = Lost`. Moved out of the
+ * Advance-Lead popup: advancing and losing a lead are opposite workflows and
+ * shouldn't share a confirm. Lives behind the ⋮ menu on Contact Profile,
+ * immediately before Delete.
+ */
+export interface MarkLostInput {
+  clientId: string;
+  note?: string;
+}
+
+export async function markLostAction(input: MarkLostInput): Promise<ActionResult<Client>> {
+  const actor = await getActor();
+  const repo = getClientsRepository();
+
+  try {
+    const lead = await repo.findById(input.clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    if (lead.lifecycleStage !== "Lead")
+      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+
+    const updated = await repo.update(lead.id, { lifecycleStage: "Lost", leadStage: "Lost" });
+
+    if (input.note)
+      await recordActivity({
+        scopeType: "client",
+        scopeId: lead.id,
+        activityType: "lead.note",
+        summary: `Outcome note — ${input.note}`,
+        actorId: actor.id,
+      });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: lead.id,
+      activityType: "lead.lost",
+      summary: "Marked Lost — lifecycle_stage = Lost (retained for re-nurture)",
+      actorId: actor.id,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "lead_lost",
+      tableName: "clients",
+      recordId: lead.id,
+      previousValue: lead as unknown as Json,
+      newValue: updated as unknown as Json,
+    });
+
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${lead.id}`);
+    return { ok: true, data: updated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to mark the lead lost." };
   }
 }
 
