@@ -21,6 +21,7 @@ import {
   type ClientUpdate,
 } from "@/lib/repositories/clients";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
+import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import type { Json } from "@/lib/supabase/types";
 
 const INDIVIDUAL_PROPOSAL_PRODUCTS = new Set(["select", "blue royale"]);
@@ -79,7 +80,14 @@ export async function advanceLeadAction(
     // the popup would be parked with nothing to resurface it (docs/lead-stage-status.md).
     if (!LEAD_STATUSES.includes(input.status as LeadStatus))
       return { ok: false, error: `Unknown lead status "${input.status}".` };
-    if (!allowedLeadStatuses().includes(input.status) && input.status !== lead.leadStatus)
+
+    // `Unresponsive` is computed on read (lib/queries/lead-status-inference.ts), never a literal
+    // write target — but the Advance popup defaults its status field to the lead's *current*
+    // status, which may already be the inferred value. A caller handing that back unmodified
+    // means "leave status as-is," not "set it to the string Unresponsive," so resolve it to the
+    // lead's real stored status before validating or persisting anything.
+    const status = input.status === "Unresponsive" ? lead.leadStatus ?? input.status : input.status;
+    if (!allowedLeadStatuses().includes(status) && status !== lead.leadStatus)
       return {
         ok: false,
         error: `Use “Mark as Nurturing” to put ${lead.fullName} on hold — it captures the re-engagement date this popup can't.`,
@@ -92,7 +100,7 @@ export async function advanceLeadAction(
     const gaps = discoveryGaps(lead);
     if (gaps.length) {
       const movingToProposal = input.stage === "Proposal" && input.stage !== current;
-      const qualifying = input.status === "Qualified" && input.status !== lead.leadStatus;
+      const qualifying = status === "Qualified" && status !== lead.leadStatus;
       if (movingToProposal || qualifying)
         return {
           ok: false,
@@ -106,7 +114,7 @@ export async function advanceLeadAction(
 
     const patch: ClientUpdate = {
       leadStage: input.stage,
-      leadStatus: input.status,
+      leadStatus: status,
     };
     if (input.nextFollowUpDate !== undefined) patch.nextFollowUpDate = input.nextFollowUpDate;
     if (input.estPremium != null) patch.estPremium = input.estPremium;
@@ -126,8 +134,8 @@ export async function advanceLeadAction(
     if (input.note) await log("lead.note", `Outcome note — ${input.note}`);
     if (input.stage !== lead.leadStage)
       await log("lead.stage_changed", `Stage changed — ${lead.leadStage ?? "—"} → ${input.stage}`);
-    if (input.status !== lead.leadStatus)
-      await log("lead.status_changed", `Status changed — ${lead.leadStatus ?? "—"} → ${input.status}`);
+    if (status !== lead.leadStatus)
+      await log("lead.status_changed", `Status changed — ${lead.leadStatus ?? "—"} → ${status}`);
 
     await recordAudit({
       actorId: actor.id,
@@ -165,6 +173,16 @@ export async function markLostAction(input: MarkLostInput): Promise<ActionResult
     if (!lead) return { ok: false, error: "Lead not found." };
     if (lead.lifecycleStage !== "Lead")
       return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+
+    // Lost is only ever reached through Unresponsive (docs/lead-stage-status.md:48,51) — never
+    // directly from Connected/Qualified/etc. `leadStatus` here is inference-checked, not the raw
+    // column, since Unresponsive is computed on read and never literally persisted.
+    const inferred = await withInferredLeadStatus(lead);
+    if (inferred.leadStatus !== "Unresponsive")
+      return {
+        ok: false,
+        error: `${lead.fullName} isn't Unresponsive yet — Mark Lost only opens up once follow-ups have gone unanswered.`,
+      };
 
     const updated = await repo.update(lead.id, { lifecycleStage: "Lost", leadStage: "Lost" });
 

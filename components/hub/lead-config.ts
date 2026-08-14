@@ -185,16 +185,15 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
  * **required re-engagement follow-up date** a bare dropdown cannot capture. Setting it from here
  * would produce a hold nothing ever resurfaces, so it goes through `markNurturingAction` instead.
  *
- * `Unresponsive` is still listed even though the spec says it too is system-inferred ("N follow-ups
- * with no reply — no button, an automatic count"). That count is **not built anywhere yet**, so
- * dropping it here would make the status unreachable and strand the `Mark Lost` gating that depends
- * on it. Remove it from this list once the inference exists.
+ * `Unresponsive` is excluded for the same reason it's excluded everywhere else the spec says "no
+ * button" — it's system-inferred from 3 unanswered outbound touches (`lib/queries/lead-status-
+ * inference.ts`), computed live on read, never hand-picked.
  *
  * Shared by the popup and `advanceLeadAction`'s guard so the UI and the rule cannot drift, the same
  * way {@link allowedLeadStages} and {@link discoveryGaps} already are.
  */
 export function allowedLeadStatuses(): string[] {
-  return LEAD_STATUSES.filter((status) => status !== "Nurturing");
+  return LEAD_STATUSES.filter((status) => status !== "Nurturing" && status !== "Unresponsive");
 }
 
 export const STATUS_TONE: Record<string, Tone> = {

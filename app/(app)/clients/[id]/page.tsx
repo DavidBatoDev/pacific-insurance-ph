@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ContactProfile } from "@/components/hub/screens/contact-profile";
 import { getClientRelatedCounts } from "@/lib/queries/client-summary";
 import { getContactTimeline } from "@/lib/queries/contact-timeline";
+import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
@@ -26,8 +27,9 @@ export default async function ContactProfilePage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  const client = await getClientsRepository().findById(id);
-  if (!client) notFound();
+  const rawClient = await getClientsRepository().findById(id);
+  if (!rawClient) notFound();
+  const client = await withInferredLeadStatus(rawClient);
 
   const [counts, dependents, documents, timeline, templates, users, pacificCross, applications] = await Promise.all([
     getClientRelatedCounts(id),
