@@ -768,8 +768,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
           <I.plus size={16} /> New Lead
         </Btn>
         {[
-          { label: "Send Intake Form", icon: "clipboard", action: "Send Intake / Application Form" },
-          { label: "Send Brochure", icon: "folder", action: "Send Brochure" },
           // Request Proposal is its OWN modal (modals.md §14), not an email composer action.
           { label: "Request Proposal", icon: "fileText", proposal: true },
           { label: "Generate Proposal", icon: "fileText", generate: true },
@@ -786,9 +784,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                   ? overlays.openPageModal("request-proposal")
                   : "generate" in q && q.generate
                     ? overlays.openPageModal("generate-proposal")
-                  : "logCall" in q && q.logCall
-                    ? overlays.openLogCall()
-                    : overlays.openEngage(q.action as string)
+                    : overlays.openLogCall()
               }
             >
               <Ico size={15} /> {q.label}
