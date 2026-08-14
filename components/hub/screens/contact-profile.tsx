@@ -33,6 +33,7 @@ import { GenerateProposalModal } from "../overlays/generate-proposal";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LogCallForm } from "../overlays/log-call";
+import { MarkLostModal } from "../overlays/mark-lost";
 import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
@@ -123,6 +124,7 @@ export function ContactProfile({
   const [proposalOpen, setProposalOpen] = useState(false);
   const [generateProposalOpen, setGenerateProposalOpen] = useState(false);
   const [nurturingOpen, setNurturingOpen] = useState(false);
+  const [markLostOpen, setMarkLostOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
@@ -292,6 +294,17 @@ export function ContactProfile({
                     className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
                   >
                     <I.arrowRight size={15} className="text-subtle" /> Convert to Application…
+                  </button>
+                )}
+                {isLead && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setMarkLostOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] text-red transition-colors hover:bg-red-soft"
+                  >
+                    <I.x size={15} /> Mark Lost
                   </button>
                 )}
                 <DeleteClientButton
@@ -942,6 +955,13 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setNurturingOpen(false)}
+        />
+      )}
+      {markLostOpen && (
+        <MarkLostModal
+          clientId={client.id}
+          clientName={client.fullName}
+          onClose={() => setMarkLostOpen(false)}
         />
       )}
     </div>

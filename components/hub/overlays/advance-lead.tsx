@@ -75,7 +75,6 @@ export function AdvanceLeadModal({
   const [note, setNote] = useState(actionDefaults.note);
   const [follow, setFollow] = useState(actionDefaults.followUpDate);
   const [adjusting, setAdjusting] = useState(false);
-  const [markLost, setMarkLost] = useState(false);
 
   // Stage is forward-only: offer the current stage and the next one, never a skip or a
   // backward move. An action-suggested preset stays selectable even if it isn't the
@@ -109,7 +108,7 @@ export function AdvanceLeadModal({
   const gaps = checklist.filter((item) => !item.done);
   const assertsDiscovery =
     (stage === "Proposal" && stage !== lead.stage) || status === "Qualified";
-  const blocked = !markLost && assertsDiscovery && gaps.length > 0;
+  const blocked = assertsDiscovery && gaps.length > 0;
 
   const confirm = () => {
     startTransition(async () => {
@@ -119,14 +118,11 @@ export function AdvanceLeadModal({
         status,
         note: note.trim() || undefined,
         nextFollowUpDate: follow || undefined,
-        markLost,
       });
       if (res.ok) {
         overlays.toast(
-          markLost ? "Lead marked lost" : "Lead advanced",
-          markLost
-            ? `${lead.name} moved to Lost — kept on the record for re-nurture.`
-            : `${lead.name} → ${stage} · ${status}${follow ? " · follow-up scheduled" : ""}.`,
+          "Lead advanced",
+          `${lead.name} → ${stage} · ${status}${follow ? " · follow-up scheduled" : ""}.`,
         );
         router.refresh();
         onDone?.();
@@ -170,18 +166,12 @@ export function AdvanceLeadModal({
 
       <div className="rounded-md border border-border-strong bg-card px-4 py-3.5">
         <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-          {markLost ? "Disposition" : "Suggested transition"}
+          Suggested transition
         </div>
-        <div className={cn("mt-1.5 text-[15px] font-[650]", markLost && "text-red")}>
-          {markLost ? (
-            <>{lead.name} → Lost — archive from active queues</>
-          ) : (
-            <>
-              {lead.stage ?? "—"} → {stage} — {lead.name} is {status}
-            </>
-          )}
+        <div className="mt-1.5 text-[15px] font-[650]">
+          {lead.stage ?? "—"} → {stage} — {lead.name} is {status}
         </div>
-        {!markLost && (note || follow) && (
+        {(note || follow) && (
           <div className="mt-2 space-y-1 text-[12px] text-muted-foreground">
             {note && (
               <div>
@@ -199,7 +189,7 @@ export function AdvanceLeadModal({
 
       {adjusting && (
         <>
-          <div className={cn("mt-3.5 grid grid-cols-2 gap-3.5", markLost && "pointer-events-none opacity-40")}>
+          <div className="mt-3.5 grid grid-cols-2 gap-3.5">
             <div>
               <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
                 Stage
@@ -252,7 +242,7 @@ export function AdvanceLeadModal({
             />
           </div>
 
-          <div className={cn("mt-3.5", markLost && "pointer-events-none opacity-40")}>
+          <div className="mt-3.5">
             <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
               Next follow-up
             </label>
@@ -266,7 +256,7 @@ export function AdvanceLeadModal({
         </>
       )}
 
-      {!markLost && assertsDiscovery && (
+      {assertsDiscovery && (
         <div
           className={cn(
             "mt-3.5 rounded-md border px-3.5 py-3",
@@ -315,44 +305,13 @@ export function AdvanceLeadModal({
         </div>
       )}
 
-      <button
-        onClick={() => setMarkLost(!markLost)}
-        className={cn(
-          "mt-4 flex w-full items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-left text-[13px] font-[550] transition-colors",
-          markLost
-            ? "border-red bg-red-soft text-red"
-            : "border-border-strong text-muted-foreground hover:bg-hover",
-        )}
-      >
-        <span
-          className={cn(
-            "grid size-[18px] place-items-center rounded-md border-[1.6px]",
-            markLost ? "border-red bg-red text-white" : "border-border-strong text-transparent",
-          )}
-        >
-          {markLost && <I.check size={13} />}
-        </span>
-        Mark Lost — archives from queues, keeps history for re-nurture
-      </button>
-
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>
         <Btn onClick={() => setAdjusting(!adjusting)}>
           {adjusting ? "Done adjusting" : "Adjust details"}
         </Btn>
-        <Btn
-          variant="primary"
-          disabled={pending || blocked}
-          onClick={confirm}
-          className={markLost ? "border-transparent bg-red text-white hover:bg-red/90" : undefined}
-        >
-          {pending
-            ? "Saving…"
-            : markLost
-              ? "Mark Lost"
-              : blocked
-                ? "Complete discovery first"
-                : "Accept suggestion"}
+        <Btn variant="primary" disabled={pending || blocked} onClick={confirm}>
+          {pending ? "Saving…" : blocked ? "Complete discovery first" : "Accept suggestion"}
         </Btn>
       </div>
     </Modal>
