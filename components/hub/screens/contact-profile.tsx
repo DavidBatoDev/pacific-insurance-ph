@@ -299,7 +299,10 @@ export function ContactProfile({
                     <I.arrowRight size={15} className="text-subtle" /> Convert to Application…
                   </button>
                 )}
-                {isLead && (
+                {/* Contextual at `Unresponsive` only (docs/lead-stage-status.md:48,51): Lost is
+                    only ever reached through Unresponsive, never directly — same hide-when-
+                    ineligible precedent as `Mark as Nurturing` below. */}
+                {isLead && client.leadStatus === "Unresponsive" && (
                   <button
                     onClick={() => {
                       setMenuOpen(false);
