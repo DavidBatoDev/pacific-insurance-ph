@@ -13,6 +13,7 @@ import {
   allowedLeadStages,
   allowedLeadStatuses,
   discoveryChecklist,
+  formatFollowUpDate,
   formatGaps,
   nextLeadStage,
   type DiscoveryValues,
@@ -41,6 +42,86 @@ export interface AdvanceLeadPreset {
   status?: string;
   /** Human label of what triggered this (e.g. "Dragged to Discovery"). */
   label?: string;
+  /** What specifically triggered this — e.g. "Send brochure: Select Brochure", "Outcome: Reached". */
+  detail?: string;
+  /** ISO timestamp captured at write time by the same communication-driven callers. */
+  occurredAt?: string;
+  /** The status as it was immediately before this write — see `LeadAdvanceSuggestion` for why
+   * `lead.status` alone isn't reliable for the "before" card. */
+  previousStatus?: string | null;
+}
+
+/** Identity card — avatar + name/ref + separate Stage and Status badges. Parameterized so the
+ * same markup renders both the "before" (current) and "after" (suggested) states without
+ * duplicating the badge/avatar JSX. */
+function IdentityCard({
+  name,
+  referenceNo,
+  stage,
+  status,
+}: {
+  name: string;
+  referenceNo?: string | null;
+  stage: string | null;
+  status: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
+      <Avatar name={name} size={32} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-[650]">
+          {name}
+          {referenceNo && <span className="ml-1.5 font-mono text-[11px] text-subtle">#{referenceNo}</span>}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STAGE_TONE[stage ?? ""] ?? "slate"])}>
+            {stage ?? "—"}
+          </span>
+          <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STATUS_TONE[status ?? ""] ?? "slate"])}>
+            {status ?? "—"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Small hand-drawn down-arrow connecting the before/after identity cards. `currentColor` +
+ * a text-color utility keeps it theme-safe without needing a JS-computed color. */
+function TransitionArrow() {
+  return (
+    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" className="text-border-strong" aria-hidden="true">
+      <path d="M10 1 V21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M4 16 L10 23 L16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Hover/click popover on the info icon, revealing what triggered the suggestion. No shared
+ * Tooltip/Popover primitive exists in this codebase yet, so this stays self-contained here. */
+function TriggerInfoPopover({ detail, occurredAt }: { detail: string; occurredAt?: string }) {
+  const [open, setOpen] = useState(false);
+  const dateLabel = occurredAt
+    ? new Date(occurredAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
+    : null;
+  return (
+    <div className="relative inline-flex" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="grid size-[18px] place-items-center rounded-full border border-border-strong text-subtle hover:bg-hover"
+        aria-label="What triggered this suggestion"
+      >
+        <I.info size={12} />
+      </button>
+      {open && (
+        <div className="absolute left-1/2 top-full z-10 mt-1.5 w-max max-w-[220px] -translate-x-1/2 rounded-md border border-border-strong bg-card px-2.5 py-2 text-[11.5px] leading-snug shadow-pop">
+          <div className="font-[650]">{detail}</div>
+          {dateLabel && <div className="mt-0.5 text-faint">Date: {dateLabel}</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AdvanceLeadModal({
@@ -148,54 +229,50 @@ export function AdvanceLeadModal({
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
-        <Avatar name={lead.name} size={32} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-[650]">
-            {lead.name}
-            {lead.referenceNo && (
-              <span className="ml-1.5 font-mono text-[11px] text-subtle">#{lead.referenceNo}</span>
-            )}
-          </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STAGE_TONE[lead.stage ?? ""] ?? "slate"])}>
-              {lead.stage ?? "—"}
-            </span>
-            <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STATUS_TONE[lead.status ?? ""] ?? "slate"])}>
-              {lead.status ?? "—"}
-            </span>
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-md border border-border-strong bg-card px-4 py-3.5">
-        <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-          {markLost ? "Disposition" : "Suggested transition"}
-        </div>
-        <div className={cn("mt-1.5 text-[15px] font-[650]", markLost && "text-red")}>
-          {markLost ? (
-            <>{lead.name} → Lost — archive from active queues</>
-          ) : (
-            <>
-              {lead.stage ?? "—"} → {stage} — {lead.name} is {status}
-            </>
-          )}
-        </div>
-        {!markLost && (note || follow) && (
-          <div className="mt-2 space-y-1 text-[12px] text-muted-foreground">
-            {note && (
-              <div>
-                <span className="font-semibold text-subtle">Outcome:</span> {note}
-              </div>
-            )}
-            {follow && (
-              <div>
-                <span className="font-semibold text-subtle">Next follow-up:</span> {follow}
-              </div>
-            )}
+        <div className="flex items-center justify-between">
+          <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+            {markLost ? "Disposition" : "Suggested transition"}
           </div>
+          {!markLost && preset?.detail && <TriggerInfoPopover detail={preset.detail} occurredAt={preset.occurredAt} />}
+        </div>
+
+        {markLost ? (
+          <div className="mt-1.5 text-[15px] font-[650] text-red">
+            {lead.name} → Lost — archive from active queues
+          </div>
+        ) : (
+          <>
+            <div className="mt-2.5">
+              <IdentityCard
+                name={lead.name}
+                referenceNo={lead.referenceNo}
+                stage={lead.stage}
+                status={preset?.previousStatus ?? lead.status}
+              />
+            </div>
+            <div className="flex justify-center py-1">
+              <TransitionArrow />
+            </div>
+            <IdentityCard name={lead.name} referenceNo={lead.referenceNo} stage={stage} status={status} />
+          </>
         )}
       </div>
+
+      {!markLost && (note || follow) && !adjusting && (
+        <div className="mt-3.5 space-y-1 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[12px] text-muted-foreground">
+          {note && (
+            <div>
+              <span className="font-semibold text-subtle">Outcome:</span> {note}
+            </div>
+          )}
+          {follow && (
+            <div>
+              <span className="font-semibold text-subtle">Next follow-up:</span> {formatFollowUpDate(follow)}
+            </div>
+          )}
+        </div>
+      )}
 
       {adjusting && (
         <>

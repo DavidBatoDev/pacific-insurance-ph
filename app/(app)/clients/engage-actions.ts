@@ -38,6 +38,13 @@ export interface LeadAdvanceSuggestion {
   stage: string;
   status: string;
   label: string;
+  /** What specifically triggered this — e.g. "Send brochure: Select Brochure", "Outcome: Reached". */
+  detail?: string;
+  /** ISO timestamp captured at write time by the same communication-driven callers. */
+  occurredAt?: string;
+  /** The status as it was immediately before this write — status changes automatically (unlike
+   * stage), so by the time the popup opens `lead.status` already reflects the new value. */
+  previousStatus?: string | null;
 }
 
 export interface EngagementResult {
@@ -49,7 +56,7 @@ async function updateLeadStatus(
   actorId: string,
   nextStatus: string,
   summary: string,
-  advance?: Pick<LeadAdvanceSuggestion, "stage" | "label">,
+  advance?: Pick<LeadAdvanceSuggestion, "stage" | "label" | "detail" | "occurredAt">,
 ): Promise<EngagementResult> {
   if (client.lifecycleStage !== "Lead" || client.leadStatus === nextStatus) return {};
 
@@ -78,9 +85,12 @@ async function updateLeadStatus(
           referenceNo: client.referenceNo,
           currentStage: updated.leadStage,
           currentStatus: updated.leadStatus,
+          previousStatus: client.leadStatus,
           stage: advance.stage,
           status: nextStatus,
           label: advance.label,
+          detail: advance.detail,
+          occurredAt: advance.occurredAt,
         },
       }
     : {};
@@ -103,12 +113,14 @@ export async function sendEmailAction(input: {
   if (!client) return { ok: false, error: "Contact not found." };
   const requirement = attachmentRequirement(input.templateName ?? null);
   const ids = [...new Set(input.libraryDocumentIds ?? [])];
+  let attachmentName: string | null = null;
   if (requirement) {
     if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
     const eligible = await resolveEligibleLibraryDocuments(client, requirement);
     if (eligible.reason) return { ok: false, error: eligible.reason };
     if (ids.length !== 1 || !eligible.documents.some((doc) => doc.id === ids[0]))
       return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this contact.` };
+    attachmentName = eligible.documents.find((doc) => doc.id === ids[0])?.documentName ?? null;
   } else if (ids.length) return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
 
   try {
@@ -116,9 +128,15 @@ export async function sendEmailAction(input: {
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to log email." }; }
 
   // First touch (docs/lead-stage-status.md): Eman's send sets Attempted, no Lead reply required yet.
+  const detail = [input.templateName, attachmentName].filter(Boolean).join(": ");
   const result =
     client.leadStatus === "New"
-      ? await updateLeadStatus(client, actor.id, "Attempted", "Email logged", { stage: nextLeadStage(client.leadStage) ?? "Contacted", label: "Email logged" })
+      ? await updateLeadStatus(client, actor.id, "Attempted", "Email logged", {
+          stage: nextLeadStage(client.leadStage) ?? "Contacted",
+          label: "Email logged",
+          detail: detail || undefined,
+          occurredAt: new Date().toISOString(),
+        })
       : {};
   refresh(input.clientId);
   return { ok: true, data: result };
@@ -196,7 +214,12 @@ export async function logMessageAction(input: {
           "Connected",
           "Inbound message logged",
           canSuggestAdvance
-            ? { stage: nextLeadStage(client.leadStage) ?? "Discovery", label: "Inbound response logged" }
+            ? {
+                stage: nextLeadStage(client.leadStage) ?? "Discovery",
+                label: "Inbound response logged",
+                detail: `Channel: ${input.channel}`,
+                occurredAt: input.occurredAt || new Date().toISOString(),
+              }
             : undefined,
         )
       : // Coming out of a nurture hold: the lead signalled they're ready. Discovery data is already
@@ -276,7 +299,12 @@ export async function logCallAction(input: {
           "Connected",
           "Reached call logged",
           canSuggestAdvance
-            ? { stage: nextLeadStage(client.leadStage) ?? "Discovery", label: "Reached call logged" }
+            ? {
+                stage: nextLeadStage(client.leadStage) ?? "Discovery",
+                label: "Reached call logged",
+                detail: `Outcome: ${input.outcome}`,
+                occurredAt: new Date().toISOString(),
+              }
             : undefined,
         )
       : // Reaching a lead on nurture hold ends the hold — back to `Qualified`, discovery already on

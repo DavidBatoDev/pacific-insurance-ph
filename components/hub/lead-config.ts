@@ -62,6 +62,23 @@ export function advanceLeadActionDefaults(
   return { note: defaults.note, followUpDate: `${year}-${month}-${day}` };
 }
 
+/** Human phrasing for a `yyyy-mm-dd` follow-up date. Local-calendar comparison. */
+export function formatFollowUpDate(dateStr: string, today = new Date()): string {
+  if (!dateStr) return "";
+  const due = new Date(`${dateStr}T00:00:00`);
+  const base = new Date(today);
+  base.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - base.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays === -1) return "Yesterday";
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+  if (diffDays <= 6) return `in ${diffDays} days`;
+  return due.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+}
+
 /**
  * Conversion readiness (`docs/lead-stage-status-example.md` Step 5): converting is the payoff of a
  * lead the client has already committed to, so it belongs at `Product Selected` — not at `New Lead`,
