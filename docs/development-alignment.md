@@ -1,6 +1,6 @@
 # Development Alignment Register
 
-Last reconciled: **2026-08-03**.
+Last reconciled: **2026-08-14**.
 
 This register connects the canonical specification in [`../../docs/`](../../docs/INDEX.md) to the
 current application. It prevents implementation adapters from being mistaken for changed client
@@ -25,6 +25,7 @@ history. Shared decisions must be reflected here or in the canonical documentati
 | Email deduplication | Email is nullable and not uniquely constrained at the database layer | Code gap: add business duplicate detection and decide how shared household emails are handled before enforcing uniqueness. |
 | Admin / Staff / Agent | Database roles Owner / Admin / Assistant / Viewer are mapped by `lib/auth/permissions.ts` | Intentional adapter; UI language remains Admin / Staff / Agent. |
 | Lead stage and status | Stored on the unified client/lead record and written through repositories/actions | Aligned; `../../docs/lead-stage-status*.md` remains lifecycle truth. |
+| Lead Lifecycle filters | One shared client-side filter popover applies multi-select Status, Product Interest, and overdue follow-up criteria across Board, List, and Forecast; page-level KPIs and supporting widgets remain global | Intentional extension: canonical `web/pages.md` specifies persistent Stage / Status / Owner / Product filters, while the overdue-only criterion was added by the 2026-08-14 Lead board filter request. |
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
