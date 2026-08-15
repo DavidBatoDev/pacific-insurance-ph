@@ -46,6 +46,10 @@ function parseClient(fd: FormData) {
     vipStatus: fd.get("vipStatus") === "on" || fd.get("vipStatus") === "true",
     status: str(fd, "status") ?? "Active",
     notes: str(fd, "notes") ?? null,
+    productInterest: str(fd, "productInterest") ?? null,
+    estPremium: fd.get("estPremium") ? Number(fd.get("estPremium")) : null,
+    familySize: fd.get("familySize") ? Number(fd.get("familySize")) : null,
+    coverageTier: str(fd, "coverageTier") ?? null,
   };
 }
 
@@ -94,6 +98,10 @@ export async function createClientAction(
       vipStatus: input.vipStatus,
       status: input.status,
       notes: input.notes,
+      productInterest: input.productInterest,
+      estPremium: input.estPremium,
+      familySize: input.familySize,
+      coverageTier: input.coverageTier,
     };
     const created = await repo.create(payload);
     createdId = created.id;
@@ -148,6 +156,10 @@ export async function updateClientAction(
       vipStatus: input.vipStatus,
       status: input.status,
       notes: input.notes,
+      productInterest: input.productInterest,
+      estPremium: input.estPremium,
+      familySize: input.familySize,
+      coverageTier: input.coverageTier,
     };
     const updated = await repo.update(id, patch);
 

@@ -29,7 +29,7 @@ const AREA =
   "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
 const OUTCOMES = ["Reached", "No answer", "Voicemail", "Wrong number"];
-const TIERS = ["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"];
+export const TIERS = ["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"];
 
 /** Who the call was with, plus whatever discovery is already on file to prefill. */
 export interface LogCallTarget extends DiscoveryValues {

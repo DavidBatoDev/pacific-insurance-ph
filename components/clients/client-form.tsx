@@ -8,6 +8,8 @@ import {
   updateClientAction,
   type ClientFormState,
 } from "@/app/(app)/clients/actions";
+import { PRODUCT_COLORS } from "@/components/hub/lead-config";
+import { TIERS } from "@/components/hub/overlays/log-call";
 import type { Client } from "@/lib/repositories/clients";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,10 @@ interface Values {
   vipStatus: boolean;
   address: string;
   notes: string;
+  productInterest: string;
+  estPremium: string;
+  familySize: string;
+  coverageTier: string;
 }
 
 function initialValues(client?: Client): Values {
@@ -52,6 +58,10 @@ function initialValues(client?: Client): Values {
     vipStatus: client?.vipStatus ?? false,
     address: client?.address ?? "",
     notes: client?.notes ?? "",
+    productInterest: client?.productInterest ?? "",
+    estPremium: client?.estPremium != null ? String(client.estPremium) : "",
+    familySize: client?.familySize != null ? String(client.familySize) : "",
+    coverageTier: client?.coverageTier ?? "",
   };
 }
 
@@ -210,6 +220,61 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
               className={inputCls}
             />
           </Field>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <div className="mb-4 text-[13px] font-bold">Discovery details</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Product interest">
+              <select
+                name="productInterest"
+                value={v.productInterest}
+                onChange={(e) => set("productInterest", e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Choose a product…</option>
+                {Object.keys(PRODUCT_COLORS).map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Budget / est. premium">
+              <input
+                name="estPremium"
+                type="number"
+                value={v.estPremium}
+                onChange={(e) => set("estPremium", e.target.value)}
+                placeholder="₱ annual premium"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Family size / dependents">
+              <input
+                name="familySize"
+                type="number"
+                value={v.familySize}
+                onChange={(e) => set("familySize", e.target.value)}
+                placeholder="# people to cover"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Coverage tier / room">
+              <select
+                name="coverageTier"
+                value={v.coverageTier}
+                onChange={(e) => set("coverageTier", e.target.value)}
+                className={inputCls}
+              >
+                {TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {t || "— not captured —"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         </div>
 
         {state.error && (
