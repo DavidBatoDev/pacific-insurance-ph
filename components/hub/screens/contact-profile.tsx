@@ -774,17 +774,17 @@ export function ContactProfile({
                       <I.settings size={14} /> Configure portal in Settings
                     </Link>
                   )}
-                  {!client.proposalStatus && (
+                  {client.leadStage === "Proposal" && !client.proposalStatus && (
                     <Btn size="sm" onClick={() => isIndividualProposalProduct(client.productInterest) ? setGenerateProposalOpen(true) : setProposalOpen(true)}>
                       {isIndividualProposalProduct(client.productInterest) ? "Generate proposal" : "Request proposal"}
                     </Btn>
                   )}
-                  {client.proposalStatus === "Requested" && (
+                  {client.leadStage === "Proposal" && client.proposalStatus === "Requested" && (
                     <Btn size="sm" disabled={pending} onClick={() => markProposal("Received")}>
                       {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received"}
                     </Btn>
                   )}
-                  {client.proposalStatus === "Received" && (
+                  {client.leadStage === "Proposal" && client.proposalStatus === "Received" && (
                     <>
                       <Btn size="sm" variant="primary" onClick={() => focusEmail("Proposal / Quote Delivery")}>
                         Log Proposal Email
@@ -794,13 +794,18 @@ export function ContactProfile({
                       </Btn>
                     </>
                   )}
-                  {client.proposalStatus === "Sent" && (
+                  {client.leadStage === "Proposal" && client.proposalStatus === "Sent" && (
                     <Btn size="sm" disabled={pending} onClick={() => markProposal("Decision")}>
                       {pending && proposalMarking === "Decision" ? "Recording…" : "Record decision"}
                     </Btn>
                   )}
                 </div>
-                {client.proposalStatus === "Received" && (
+                {client.leadStage !== "Proposal" && client.proposalStatus && (
+                  <p className="mt-2 text-[11.5px] text-faint">
+                    Proposal actions are available once this lead reaches the <b>Proposal</b> stage.
+                  </p>
+                )}
+                {client.leadStage === "Proposal" && client.proposalStatus === "Received" && (
                   <p className="mt-2 text-[11.5px] text-faint">
                     Click <b>Mark Sent</b>{" "}
                     once you&apos;ve actually sent this to the client yourself — the app doesn&apos;t deliver
