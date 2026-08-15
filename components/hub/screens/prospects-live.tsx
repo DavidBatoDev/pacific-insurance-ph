@@ -762,35 +762,14 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — Request/Generate Proposal and Log Call intentionally not here: all
+          three need a lead first, so with none in scope they just detour through a client search
+          before landing on the exact same action already pre-scoped on that lead's own Contact
+          Profile (docs/development-alignment.md). */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <Btn variant="primary" onClick={() => overlays.openPageModal("new-lead")}>
           <I.plus size={16} /> New Lead
         </Btn>
-        {[
-          // Request Proposal is its OWN modal (modals.md §14), not an email composer action.
-          { label: "Request Proposal", icon: "fileText", proposal: true },
-          { label: "Generate Proposal", icon: "fileText", generate: true },
-          // Log Call is the structured discovery form, not an Engage composer action — same form
-          // the Contact Profile composer tab renders (../docs/web/lead-workflow.md §4).
-          { label: "Log Call", icon: "phone", logCall: true },
-        ].map((q) => {
-          const Ico = I[q.icon as keyof typeof I];
-          return (
-            <Btn
-              key={q.label}
-              onClick={() =>
-                "proposal" in q && q.proposal
-                  ? overlays.openPageModal("request-proposal")
-                  : "generate" in q && q.generate
-                    ? overlays.openPageModal("generate-proposal")
-                    : overlays.openLogCall()
-              }
-            >
-              <Ico size={15} /> {q.label}
-            </Btn>
-          );
-        })}
       </div>
 
       {/* KPIs */}
