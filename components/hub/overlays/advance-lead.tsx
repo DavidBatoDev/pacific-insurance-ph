@@ -109,10 +109,10 @@ function TriggerInfoPopover({ detail, occurredAt }: { detail: string; occurredAt
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="grid size-[18px] place-items-center rounded-full border border-border-strong text-subtle hover:bg-hover"
+        className="grid size-[22px] place-items-center rounded-full border border-border-strong text-subtle hover:bg-hover"
         aria-label="What triggered this suggestion"
       >
-        <I.info size={12} />
+        <I.info size={14} />
       </button>
       {open && (
         <div className="absolute left-1/2 top-full z-10 mt-1.5 w-max max-w-[220px] -translate-x-1/2 rounded-md border border-border-strong bg-card px-2.5 py-2 text-[11.5px] leading-snug shadow-pop">
@@ -226,11 +226,8 @@ export function AdvanceLeadModal({
       </div>
 
       <div className="rounded-md border border-border-strong bg-card px-4 py-3.5">
-        <div className="flex items-center justify-between">
-          <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-            Suggested transition
-          </div>
-          {preset?.detail && <TriggerInfoPopover detail={preset.detail} occurredAt={preset.occurredAt} />}
+        <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+          Suggested transition
         </div>
 
         <div className="mt-2.5">
@@ -241,8 +238,9 @@ export function AdvanceLeadModal({
             status={preset?.previousStatus ?? lead.status}
           />
         </div>
-        <div className="flex justify-center py-1">
+        <div className="flex items-center justify-center gap-1.5 py-1">
           <TransitionArrow />
+          {preset?.detail && <TriggerInfoPopover detail={preset.detail} occurredAt={preset.occurredAt} />}
         </div>
         <IdentityCard name={lead.name} referenceNo={lead.referenceNo} stage={stage} status={status} />
       </div>

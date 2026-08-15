@@ -38,8 +38,12 @@ export function Modal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* min-h-0 lets this flex child shrink so its own scroll engages instead of
-            growing the card past the viewport (footer stays pinned below). */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 pt-6">{children}</div>
+            growing the card past the viewport (footer stays pinned below). overflow-x-hidden
+            is explicit, not incidental: setting only overflow-y makes the browser compute
+            overflow-x as `auto` too, so any absolutely-positioned child that overflows
+            horizontally (e.g. a hover popover) turns into an ugly horizontal scrollbar
+            instead of just being clipped. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 pb-4 pt-6">{children}</div>
         {footer && (
           <div className="flex items-center justify-end gap-2.5 border-t border-border-soft bg-surface-2 px-5 py-3.5">
             {footer}
