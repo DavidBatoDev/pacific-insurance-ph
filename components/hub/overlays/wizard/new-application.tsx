@@ -45,6 +45,7 @@ export interface WizardPrefill {
   convertClientName?: string;
   productInterest?: string | null;
   email?: string | null;
+  dob?: string | null;
   draftApplicationId?: string;
   /**
    * Set only by the skip-ahead confirm dialog, never by the sanctioned convert button. Kept off
@@ -91,11 +92,14 @@ export function NewApplicationWizard({
     displayName: prefill?.convertClientName ?? "",
     email: prefill?.email ?? "",
     emailRecipient: prefill?.email ?? "",
+    dob: prefill?.dob ?? "",
   }));
   const skipInitialChecklist = useRef(Boolean(prefill?.draftApplicationId));
   const [resumeLoading, setResumeLoading] = useState(Boolean(prefill?.draftApplicationId));
   const [resumeError, setResumeError] = useState<string | null>(null);
-  const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>({});
+  const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>(() =>
+    prefill?.convertClientId && prefill.dob ? { dob: prefill.dob } : {},
+  );
   const [linkedClientName, setLinkedClientName] = useState<string | null>(null);
 
   const [products, setProducts] = useState<ProductOption[]>([]);
