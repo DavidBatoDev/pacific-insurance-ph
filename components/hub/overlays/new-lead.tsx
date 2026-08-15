@@ -123,7 +123,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Product interest">
             <select className={INPUT} value={product} onChange={(e) => setProduct(e.target.value)}>
-              <option value="">Select…</option>
+              <option value="">Choose a product…</option>
               {Object.keys(PRODUCT_COLORS).map((p) => (
                 <option key={p}>{p}</option>
               ))}

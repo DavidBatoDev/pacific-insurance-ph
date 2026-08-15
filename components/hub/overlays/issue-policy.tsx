@@ -86,7 +86,7 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
               setPlanOptionId("");
             }}
           >
-            <option value="">Select…</option>
+            <option value="">Choose a product…</option>
             {products.map((p) => (
               <option key={p.productVersionId} value={p.productVersionId}>
                 {p.productName}

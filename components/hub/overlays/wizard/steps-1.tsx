@@ -65,7 +65,7 @@ export function Step1({ f, set, products, users }: StepProps) {
               });
             }}
           >
-            <option value="">Select…</option>
+            <option value="">Choose a product…</option>
             {products.map((p) => (
               <option key={p.productVersionId} value={p.productVersionId}>
                 {p.productName}
