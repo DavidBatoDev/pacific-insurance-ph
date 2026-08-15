@@ -138,6 +138,7 @@ export function ContactProfile({
       convertClientName: client.fullName,
       productInterest: client.productInterest,
       email: client.email,
+      dob: client.dateOfBirth,
       ...(skipAhead ? { confirmedSkip: true } : {}),
     });
   const [timelineFilter, setTimelineFilter] = useState("All");
