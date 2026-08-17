@@ -227,6 +227,65 @@ export const STAGE_PROB: Record<string, number> = {
 export const weightedValue = (stage: string | null, estPremium: number | null) =>
   Math.round((estPremium ?? 0) * (STAGE_PROB[stage ?? ""] ?? 0));
 
+/* ---------- Proposal micro-status ---------- */
+
+/** The four `proposal_status` steps, in order (`../../docs/web/data-model.md:74`). */
+export const PROPOSAL_STATUSES = ["Requested", "Received", "Sent", "Decision"] as const;
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+/**
+ * Sub-states of `proposal_status = Decision`.
+ *
+ * `../../docs/web/data-model.md:75` lists only the first two. `Declined` is a deliberate
+ * extension (recorded in `docs/development-alignment.md`): without it a client who
+ * explicitly says no has nowhere to go, since `Unresponsive` means *no reply* and `Lost`
+ * is only reachable through it.
+ */
+export const PROPOSAL_DECISIONS = [
+  { value: "Awaiting Decision", hint: "Sent — no reply from the client yet." },
+  { value: "Negotiating", hint: "The client replied and is discussing terms." },
+  { value: "Declined", hint: "The client turned this proposal down." },
+] as const;
+export type ProposalDecision = (typeof PROPOSAL_DECISIONS)[number]["value"];
+
+export const isProposalDecision = (v: string | null | undefined): v is ProposalDecision =>
+  PROPOSAL_DECISIONS.some((d) => d.value === v);
+
+/**
+ * The proposal panel's one-line summary, shared by Contact Profile and the board so the
+ * two can't word the same state differently.
+ *
+ * The first three steps are past participles and read as sentences when lower-cased
+ * (`Proposal requested — …`). `Decision` is a noun and does not, which is why it gets
+ * written lines per sub-state rather than the generated one.
+ */
+export function proposalStatusLine(
+  status: string | null | undefined,
+  decision: string | null | undefined,
+  productInterest: string | null | undefined,
+): string {
+  const product = productInterest ?? "carrier";
+  if (!status) return "";
+  if (status !== "Decision") return `Proposal ${status.toLowerCase()} — ${product} quote.`;
+  switch (decision) {
+    case "Awaiting Decision":
+      return `Awaiting the client’s decision — ${product} quote.`;
+    case "Negotiating":
+      return `Negotiating terms — ${product} quote.`;
+    case "Declined":
+      return `Client declined — ${product} quote.`;
+    default:
+      // Rows that reached Decision before `proposal_decision` existed carry no sub-state.
+      return `Decision logged — ${product} quote.`;
+  }
+}
+
+/** What the board chips show: the sub-state once there is one, else the step. */
+export const proposalChipLabel = (
+  status: string | null | undefined,
+  decision: string | null | undefined,
+) => (status === "Decision" && decision ? decision : status);
+
 /** Product-interest colour coding (board card dots, interest widget). */
 export const PRODUCT_COLORS: Record<string, string> = {
   "Blue Royale": "#059669",

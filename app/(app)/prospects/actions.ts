@@ -8,12 +8,15 @@ import { recordAudit } from "@/lib/audit/log";
 import {
   LEAD_STAGES,
   LEAD_STATUSES,
+  PROPOSAL_STATUSES,
   allowedLeadStatuses,
   discoveryGaps,
   formatGaps,
+  isProposalDecision,
   nextLeadStage,
   type LeadStage,
   type LeadStatus,
+  type ProposalStatus,
 } from "@/components/hub/lead-config";
 import {
   getClientsRepository,
@@ -174,14 +177,18 @@ export async function markLostAction(input: MarkLostInput): Promise<ActionResult
     if (lead.lifecycleStage !== "Lead")
       return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
 
-    // Lost is only ever reached through Unresponsive (docs/lead-stage-status.md:48,51) — never
-    // directly from Connected/Qualified/etc. `leadStatus` here is inference-checked, not the raw
-    // column, since Unresponsive is computed on read and never literally persisted.
+    // Two routes to Lost, never directly from Connected/Qualified/etc.
+    //   1. `Unresponsive` — the spec's (docs/lead-stage-status.md:48,51). Inference-checked
+    //      rather than read off the column, since it is computed on read and never persisted.
+    //   2. A declined proposal — a deliberate extension (docs/development-alignment.md).
+    //      Without it, a client who explicitly said no could only be dispositioned by waiting
+    //      out the no-reply inference, i.e. by recording "never answered" about someone who did.
     const inferred = await withInferredLeadStatus(lead);
-    if (inferred.leadStatus !== "Unresponsive")
+    const declined = lead.proposalDecision === "Declined";
+    if (inferred.leadStatus !== "Unresponsive" && !declined)
       return {
         ok: false,
-        error: `${lead.fullName} isn't Unresponsive yet — Mark Lost only opens up once follow-ups have gone unanswered.`,
+        error: `${lead.fullName} isn't Unresponsive yet, and hasn't declined a proposal — Mark Lost opens up once follow-ups have gone unanswered or the client turns the proposal down.`,
       };
 
     const updated = await repo.update(lead.id, { lifecycleStage: "Lost", leadStage: "Lost" });
@@ -355,10 +362,17 @@ export async function createLeadAction(input: NewLeadInput): Promise<ActionResul
   }
 }
 
-/** Proposal micro-status within the Proposal stage (Requested→Received→Sent→Decision). */
+/**
+ * Proposal micro-status within the Proposal stage (Requested→Received→Sent→Decision).
+ *
+ * `Decision` additionally carries a sub-state saying *which* answer arrived; every other
+ * step clears it, so a decision can't outlive the step it describes (the DB constraint
+ * `clients_proposal_decision_scope` is the backstop for that, not the enforcement).
+ */
 export async function setProposalStatusAction(
   clientId: string,
   status: string,
+  decision?: string | null,
 ): Promise<ActionResult<Client>> {
   const actor = await getActor();
   try {
@@ -366,12 +380,25 @@ export async function setProposalStatusAction(
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
 
-    const updated = await repo.update(clientId, { proposalStatus: status });
+    // Previously any string was written through unchecked, so a typo could strand a lead
+    // in a phantom step no UI branch renders — and therefore no button could undo.
+    if (!PROPOSAL_STATUSES.includes(status as ProposalStatus))
+      return { ok: false, error: `Unknown proposal status “${status}”.` };
+    if (status === "Decision" && !isProposalDecision(decision))
+      return { ok: false, error: "Choose what the client decided before recording it." };
+
+    const resolvedDecision = status === "Decision" ? (decision as string) : null;
+    const updated = await repo.update(clientId, {
+      proposalStatus: status,
+      proposalDecision: resolvedDecision,
+    });
     await recordActivity({
       scopeType: "client",
       scopeId: clientId,
       activityType: "lead.proposal",
-      summary: `Proposal ${status.toLowerCase()} — ${lead.productInterest ?? "carrier"} proposal`,
+      summary: resolvedDecision
+        ? `Proposal decision — ${resolvedDecision} · ${lead.productInterest ?? "carrier"} proposal`
+        : `Proposal ${status.toLowerCase()} — ${lead.productInterest ?? "carrier"} proposal`,
       actorId: actor.id,
     });
 

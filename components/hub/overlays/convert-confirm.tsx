@@ -20,7 +20,11 @@ function listAnd(items: string[]): string {
 }
 
 /** Where the proposal actually stands, in Eman's words rather than the enum's. */
-function proposalLine(status: string | null | undefined, name: string): string {
+function proposalLine(
+  status: string | null | undefined,
+  name: string,
+  decision?: string | null,
+): string {
   switch (status) {
     case "Requested":
       return "A proposal has been requested but hasn’t come back from Pacific Cross yet.";
@@ -29,7 +33,18 @@ function proposalLine(status: string | null | undefined, name: string): string {
     case "Sent":
       return `The proposal went to ${name}, but no decision has been logged.`;
     case "Decision":
-      return "A decision is logged, but the lead hasn’t been advanced to Product Selected.";
+      // Naming the decision matters most in the decline case — converting someone who
+      // turned the proposal down is exactly the mistake this dialog exists to catch.
+      switch (decision) {
+        case "Declined":
+          return `${name} declined this proposal. Converting anyway will start an application they have already turned down.`;
+        case "Negotiating":
+          return `${name} is still negotiating terms — nothing has been agreed yet.`;
+        case "Awaiting Decision":
+          return `The proposal is with ${name} and no answer has come back yet.`;
+        default:
+          return "A decision is logged, but the lead hasn’t been advanced to Product Selected.";
+      }
     default:
       return "There is no proposal on file at all.";
   }
@@ -40,7 +55,7 @@ export function ConvertConfirmModal({
   onClose,
   onConfirm,
 }: {
-  lead: { name: string; stage: string | null; proposalStatus: string | null };
+  lead: { name: string; stage: string | null; proposalStatus: string | null; proposalDecision?: string | null };
   onClose: () => void;
   /** Open the wizard with the skip already authorised. */
   onConfirm: () => void;
@@ -65,7 +80,7 @@ export function ConvertConfirmModal({
           <span className="font-[650]">{skipped.length ? listAnd(skipped) : "the remaining stages"}</span>.
         </p>
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-amber">
-          {proposalLine(lead.proposalStatus, lead.name)}
+          {proposalLine(lead.proposalStatus, lead.name, lead.proposalDecision)}
         </p>
       </div>
 

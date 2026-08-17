@@ -33,6 +33,8 @@ export interface Client {
   leadStage: string | null;
   leadStatus: string | null;
   proposalStatus: string | null;
+  /** Sub-state of `proposalStatus = Decision`; null at every other step. */
+  proposalDecision: string | null;
   productInterest: string | null;
   estPremium: number | null;
   familySize: number | null;
@@ -64,6 +66,7 @@ export interface NewClient {
   leadStage?: string | null;
   leadStatus?: string | null;
   proposalStatus?: string | null;
+  proposalDecision?: string | null;
   productInterest?: string | null;
   estPremium?: number | null;
   familySize?: number | null;
@@ -91,6 +94,7 @@ export interface ClientUpdate {
   leadStage?: string | null;
   leadStatus?: string | null;
   proposalStatus?: string | null;
+  proposalDecision?: string | null;
   productInterest?: string | null;
   estPremium?: number | null;
   familySize?: number | null;

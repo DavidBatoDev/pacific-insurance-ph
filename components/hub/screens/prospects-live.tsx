@@ -18,6 +18,7 @@ import {
   STAGE_TONE,
   STATUS_TONE,
   nextStage,
+  proposalChipLabel,
   weightedValue,
 } from "../lead-config";
 import { useRecordNav } from "../nav";
@@ -417,10 +418,15 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
                                 e.stopPropagation();
                                 if (l.proposalStatus === "Requested") markProposalReceived(l);
                               }}
-                              title={l.proposalStatus === "Requested" ? "Click to mark received" : "Proposal " + l.proposalStatus}
-                              className="mt-1.5 inline-flex items-center gap-1 rounded-[5px] border border-violet-border bg-violet-soft px-1.5 py-px text-[10.5px] font-bold text-violet"
+                              title={l.proposalStatus === "Requested" ? "Click to mark received" : "Proposal " + proposalChipLabel(l.proposalStatus, l.proposalDecision)}
+                              className={cn(
+                                "mt-1.5 inline-flex items-center gap-1 rounded-[5px] border px-1.5 py-px text-[10.5px] font-bold",
+                                l.proposalDecision === "Declined"
+                                  ? "border-red-border bg-red-soft text-red"
+                                  : "border-violet-border bg-violet-soft text-violet",
+                              )}
                             >
-                              <I.clipboard size={11} /> Proposal · {l.proposalStatus}
+                              <I.clipboard size={11} /> Proposal · {proposalChipLabel(l.proposalStatus, l.proposalDecision)}
                             </button>
                           )}
                           <div className="mt-2 flex items-center justify-between">
@@ -864,8 +870,8 @@ function ProposalTracking({
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <span className={cn("inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"])}>
-                  {l.proposalStatus ?? "Not requested"}
+                <span className={cn("inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[l.proposalDecision === "Declined" ? "red" : l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"])}>
+                  {proposalChipLabel(l.proposalStatus, l.proposalDecision) ?? "Not requested"}
                 </span>
                 {l.proposalStatus === "Requested" && (
                   <Btn size="sm" onClick={() => onMarkReceived(l)}>

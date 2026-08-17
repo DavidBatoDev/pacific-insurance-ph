@@ -26,7 +26,7 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { cn } from "@/lib/utils";
 import { peso, type Tone } from "../data";
 import { I, type IconName } from "../icons";
-import { STAGE_TONE, STATUS_TONE, canConvertLead } from "../lead-config";
+import { STAGE_TONE, STATUS_TONE, canConvertLead, proposalStatusLine } from "../lead-config";
 import { AdvanceLeadModal, type AdvanceLeadPreset } from "../overlays/advance-lead";
 import { ConvertConfirmModal } from "../overlays/convert-confirm";
 import { GenerateProposalModal } from "../overlays/generate-proposal";
@@ -34,6 +34,7 @@ import { useOverlays } from "../overlays/overlay-provider";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { LogCallForm } from "../overlays/log-call";
 import { MarkLostModal } from "../overlays/mark-lost";
+import { RecordDecisionModal } from "../overlays/record-decision";
 import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
@@ -125,6 +126,7 @@ export function ContactProfile({
   const [generateProposalOpen, setGenerateProposalOpen] = useState(false);
   const [nurturingOpen, setNurturingOpen] = useState(false);
   const [markLostOpen, setMarkLostOpen] = useState(false);
+  const [recordDecisionOpen, setRecordDecisionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
@@ -300,10 +302,12 @@ export function ContactProfile({
                     <I.arrowRight size={15} className="text-subtle" /> Convert to Application…
                   </button>
                 )}
-                {/* Contextual at `Unresponsive` only (docs/lead-stage-status.md:48,51): Lost is
-                    only ever reached through Unresponsive, never directly — same hide-when-
-                    ineligible precedent as `Mark as Nurturing` below. */}
-                {isLead && client.leadStatus === "Unresponsive" && (
+                {/* Two routes to Lost. `Unresponsive` is the spec's
+                    (docs/lead-stage-status.md:48,51); a declined proposal is a deliberate
+                    extension, because a client who explicitly said no would otherwise have to be
+                    aged out by the no-reply inference to be dispositioned at all. Same
+                    hide-when-ineligible precedent as `Mark as Nurturing` below. */}
+                {isLead && (client.leadStatus === "Unresponsive" || client.proposalDecision === "Declined") && (
                   <button
                     onClick={() => {
                       setMenuOpen(false);
@@ -753,7 +757,7 @@ export function ContactProfile({
                 </div>
                 <div className="mb-3 text-[12.5px] text-muted-foreground">
                   {client.proposalStatus
-                    ? `Proposal ${client.proposalStatus.toLowerCase()} — ${client.productInterest ?? "carrier"} quote.`
+                    ? proposalStatusLine(client.proposalStatus, client.proposalDecision, client.productInterest)
                     : `No proposal ${isIndividualProposalProduct(client.productInterest) ? "generated" : "requested"} yet.`}
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -796,8 +800,14 @@ export function ContactProfile({
                     </>
                   )}
                   {client.leadStage === "Proposal" && client.proposalStatus === "Sent" && (
-                    <Btn size="sm" disabled={pending} onClick={() => markProposal("Decision")}>
-                      {pending && proposalMarking === "Decision" ? "Recording…" : "Record decision"}
+                    <Btn size="sm" onClick={() => setRecordDecisionOpen(true)}>
+                      Record decision
+                    </Btn>
+                  )}
+                  {/* Already decided, but still negotiable — let staff correct or move it on. */}
+                  {client.leadStage === "Proposal" && client.proposalStatus === "Decision" && (
+                    <Btn size="sm" onClick={() => setRecordDecisionOpen(true)}>
+                      Update decision
                     </Btn>
                   )}
                 </div>
@@ -949,6 +959,7 @@ export function ContactProfile({
             name: client.fullName,
             stage: client.leadStage,
             proposalStatus: client.proposalStatus,
+            proposalDecision: client.proposalDecision,
           }}
           onClose={() => setConvertConfirmOpen(false)}
           onConfirm={() => openConvertWizard(true)}
@@ -982,6 +993,13 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setMarkLostOpen(false)}
+        />
+      )}
+      {recordDecisionOpen && (
+        <RecordDecisionModal
+          clientId={client.id}
+          clientName={client.fullName}
+          onClose={() => setRecordDecisionOpen(false)}
         />
       )}
     </div>

@@ -388,7 +388,12 @@ export async function requestProposalAction(input: {
     if (input.alsoEmailCarrier && !carrierRecipient)
       return { ok: false, error: "Choose a Pacific Cross contact or enter a recipient email." };
 
-    await repo.update(input.clientId, { proposalStatus: "Requested" });
+    // Requesting again restarts the cycle, so any decision from the previous round is stale —
+    // clearing it is both the correct semantics and what keeps the
+    // `clients_proposal_decision_scope` constraint satisfied (a decision may only exist while
+    // the status is `Decision`). This path has no guard on the current status, so a lead sitting
+    // at Declined can legitimately arrive here.
+    await repo.update(input.clientId, { proposalStatus: "Requested", proposalDecision: null });
     await recordActivity({
       scopeType: "client",
       scopeId: input.clientId,

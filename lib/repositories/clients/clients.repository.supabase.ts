@@ -32,6 +32,7 @@ function toDomain(row: ClientRow): Client {
     leadStage: row.lead_stage,
     leadStatus: row.lead_status,
     proposalStatus: row.proposal_status,
+    proposalDecision: row.proposal_decision,
     productInterest: row.product_interest,
     estPremium: row.est_premium,
     familySize: row.family_size,
@@ -108,6 +109,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.leadStage !== undefined) payload.lead_stage = input.leadStage;
     if (input.leadStatus !== undefined) payload.lead_status = input.leadStatus;
     if (input.proposalStatus !== undefined) payload.proposal_status = input.proposalStatus;
+    if (input.proposalDecision !== undefined) payload.proposal_decision = input.proposalDecision;
     if (input.productInterest !== undefined) payload.product_interest = input.productInterest;
     if (input.estPremium !== undefined) payload.est_premium = input.estPremium;
     if (input.familySize !== undefined) payload.family_size = input.familySize;
@@ -144,6 +146,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.leadStage !== undefined) patch.lead_stage = input.leadStage;
     if (input.leadStatus !== undefined) patch.lead_status = input.leadStatus;
     if (input.proposalStatus !== undefined) patch.proposal_status = input.proposalStatus;
+    if (input.proposalDecision !== undefined) patch.proposal_decision = input.proposalDecision;
     if (input.productInterest !== undefined) patch.product_interest = input.productInterest;
     if (input.estPremium !== undefined) patch.est_premium = input.estPremium;
     if (input.familySize !== undefined) patch.family_size = input.familySize;
