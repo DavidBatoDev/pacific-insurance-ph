@@ -156,20 +156,37 @@ function ageOn(dateOfBirth: string) {
   return age;
 }
 
-async function resolveEligibleLibraryDocuments(client: Client, documentType: RequiredLibraryType): Promise<{ documents: LibraryDocument[]; reason: string | null }> {
-  if (!client.productInterest?.trim()) return { documents: [], reason: "Set the contact’s product interest before selecting a carrier asset." };
+/**
+ * Why the picker is blocked, when staff can unblock it themselves.
+ *
+ * Both of these are fields on the contact record, so the UI can offer a link
+ * straight to where they are edited instead of leaving a dead-end sentence.
+ * Deliberately absent for "no approved asset matches": that one is the empty
+ * Carrier Library (blocked on distribution clearance, R4/D3), which no amount
+ * of editing this contact will fix.
+ */
+export type AttachmentFix = "product-interest" | "date-of-birth";
+
+export interface EligibleLibraryDocuments {
+  documents: LibraryDocument[];
+  reason: string | null;
+  fix?: AttachmentFix;
+}
+
+async function resolveEligibleLibraryDocuments(client: Client, documentType: RequiredLibraryType): Promise<EligibleLibraryDocuments> {
+  if (!client.productInterest?.trim()) return { documents: [], reason: "Set the contact’s product interest before selecting a carrier asset.", fix: "product-interest" };
   let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
   if (documentType === "Application Form") {
-    if (!client.dateOfBirth) return { documents: [], reason: "Add the contact’s date of birth before selecting an application form." };
+    if (!client.dateOfBirth) return { documents: [], reason: "Add the contact’s date of birth before selecting an application form.", fix: "date-of-birth" };
     const age = ageOn(client.dateOfBirth);
-    if (age < 0 || age > 100) return { documents: [], reason: "No supported application-form age band matches this contact." };
+    if (age < 0 || age > 100) return { documents: [], reason: "No supported application-form age band matches this contact.", fix: "date-of-birth" };
     ageBand = age <= 70 ? "0-70" : "71-100";
   }
   const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentType, ageBand });
   return { documents, reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${client.productInterest}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.` };
 }
 
-export async function listEligibleLibraryDocumentsAction(clientId: string, templateName: string): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
+export async function listEligibleLibraryDocumentsAction(clientId: string, templateName: string): Promise<ActionResult<EligibleLibraryDocuments>> {
   try {
     const actor = await getActor();
     if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
