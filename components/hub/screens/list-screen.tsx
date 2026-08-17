@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { escapeCsv } from "@/lib/exports/sheet-utils";
 import { cn } from "@/lib/utils";
 import { Btn, Card, PageHead } from "../primitives";
 import { I } from "../icons";
@@ -119,13 +120,11 @@ export function ListScreen<T extends FilterableRow>({
 
   const exportCsv = useMemo(
     () => () => {
-      const esc = (v: unknown) => {
-        const s = v == null ? "" : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
       const lines = [
-        columns.map((c) => esc(c.label)).join(","),
-        ...sorted.map((r) => columns.map((c) => esc((r as Record<string, unknown>)[String(c.k)])).join(",")),
+        columns.map((c) => escapeCsv(c.label)).join(","),
+        ...sorted.map((r) =>
+          columns.map((c) => escapeCsv((r as Record<string, unknown>)[String(c.k)])).join(","),
+        ),
       ];
       const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
       const a = document.createElement("a");

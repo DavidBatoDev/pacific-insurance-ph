@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { Popover } from "@base-ui/react/popover";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
 import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
@@ -553,6 +554,83 @@ function RelationshipWidget({ touchpoints }: { touchpoints: TouchpointRow[] }) {
   );
 }
 
+/* ---------- Export ---------- */
+
+const EXPORT_OPTIONS = [
+  { format: "xlsx", label: "Excel workbook", ext: ".xlsx", sub: "All sheets, formatted" },
+  { format: "ods", label: "OpenDocument", ext: ".ods", sub: "All sheets, for LibreOffice" },
+  { format: "csv", label: "Summary CSV", ext: ".csv", sub: "Headline figures only" },
+] as const;
+
+/**
+ * Export menu. Each item is a plain anchor to the export route rather than a
+ * fetch + Blob: the route already answers with `Content-Disposition:
+ * attachment`, so the browser downloads it without leaving the page, the
+ * session cookie rides along automatically, nothing is buffered in JS memory,
+ * and right-click / middle-click keep working.
+ */
+function ExportMenu() {
+  const overlays = useOverlays();
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        render={
+          <Btn>
+            <I.download size={15} /> Export
+          </Btn>
+        }
+      />
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50 outline-none">
+          <Popover.Popup className="w-[260px] max-w-[calc(100vw-24px)] overflow-hidden rounded-lg border border-border bg-card shadow-pop outline-none">
+            <Popover.Title className="border-b border-border-soft px-4 py-3 text-[13.5px] font-bold">
+              Export dashboard
+            </Popover.Title>
+            <div className="p-1.5">
+              {EXPORT_OPTIONS.map((o) => (
+                <a
+                  key={o.format}
+                  href={`/api/dashboard/export?format=${o.format}`}
+                  download
+                  onClick={() =>
+                    overlays.toast("Preparing export", `Your ${o.ext} download will start shortly.`)
+                  }
+                  className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
+                >
+                  <I.download size={15} className="shrink-0 text-subtle" />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-[550]">
+                      {o.label} <span className="font-mono text-[11.5px] text-subtle">{o.ext}</span>
+                    </span>
+                    <span className="block text-[11.5px] text-faint">{o.sub}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/**
+ * The export route answers with a file, so it has no way to surface an error as
+ * a toast — on failure it redirects back here with `?exportError=1`, which this
+ * turns into one and then clears from the URL.
+ */
+function useExportErrorToast() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const overlays = useOverlays();
+  const failed = params.get("exportError") === "1";
+  useEffect(() => {
+    if (!failed) return;
+    overlays.toast("Export failed", "We couldn't build the file. Please try again.");
+    router.replace("/dashboard");
+  }, [failed, overlays, router]);
+}
+
 /* ---------- Assembly ---------- */
 export function Dashboard({
   stats,
@@ -566,8 +644,8 @@ export function Dashboard({
   touchpoints?: TouchpointRow[];
 }) {
   const setScreen = useScreenNav();
-  const overlays = useOverlays();
   const persona = usePersona();
+  useExportErrorToast();
   const dateStr = new Date().toLocaleDateString("en-PH", {
     weekday: "long",
     month: "long",
@@ -585,11 +663,11 @@ export function Dashboard({
             {dateStr} · Here&apos;s what needs your attention today.
           </p>
         </div>
-        <div className="flex items-center gap-2.5 max-[900px]:hidden">
-          <Btn onClick={() => overlays.toast("Export queued", "The dashboard summary will download shortly.")}>
-            <I.download size={15} /> Export
-          </Btn>
-        </div>
+        {persona.can("dashboard", "export") && (
+          <div className="flex items-center gap-2.5 max-[900px]:hidden">
+            <ExportMenu />
+          </div>
+        )}
       </div>
 
       <AlertBar setScreen={setScreen} stats={stats} />
