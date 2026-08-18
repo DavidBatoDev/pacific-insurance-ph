@@ -46,6 +46,11 @@ export interface WizardPrefill {
   productInterest?: string | null;
   email?: string | null;
   dob?: string | null;
+  /* Display-only, for Step 2's read-only "Lead details" panel. These deliberately do NOT enter
+     `WizardForm`: identity is locked to the lead record on a convert and the convert branch never
+     writes them back, so keeping them out of the form means they can't drift or be re-saved. */
+  mobileNumber?: string | null;
+  referenceNo?: string | null;
   draftApplicationId?: string;
   /**
    * Set only by the skip-ahead confirm dialog, never by the sanctioned convert button. Kept off
@@ -103,6 +108,8 @@ export function NewApplicationWizard({
   const [linkedClientName, setLinkedClientName] = useState<string | null>(null);
 
   const [products, setProducts] = useState<ProductOption[]>([]);
+  /** The lead's product interest when it doesn't match any catalog product. */
+  const [unmatchedProduct, setUnmatchedProduct] = useState<string | null>(null);
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [paymentChannels, setPaymentChannels] = useState<{ id: string; label: string }[]>([]);
@@ -110,10 +117,26 @@ export function NewApplicationWizard({
   useEffect(() => {
     listProductOptionsAction().then((items) => {
       setProducts(items);
-      if (prefill?.productInterest) {
-        const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
-        if (product) setF((current) => ({ ...current, appType: current.appType || "New Insurance Application", productVersionId: product.productVersionId, productName: product.productName, category: categoryForProduct(product.productName, product.productCategory) }));
-      }
+      if (!prefill?.productInterest) return;
+      const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
+      // The app-type default is deliberately OUTSIDE the product check. It used to be nested inside
+      // it, so a lead whose product interest isn't in the catalog (several leads carry values that
+      // exist in PRODUCT_COLORS but not in `products`) opened the wizard with no app type *and* no
+      // product, and no indication why. `current.appType ||` still yields to a user's own choice.
+      setF((current) => ({
+        ...current,
+        appType: current.appType || "New Insurance Application",
+        ...(product
+          ? {
+              productVersionId: product.productVersionId,
+              productName: product.productName,
+              category: categoryForProduct(product.productName, product.productCategory),
+            }
+          : {}),
+      }));
+      // Surfaced in Step 1 rather than silently dropped — the lead does have an interest on file,
+      // it just isn't a product that can be sold yet.
+      setUnmatchedProduct(product ? null : prefill.productInterest);
     }).catch(() => setProducts([]));
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
@@ -373,8 +396,23 @@ export function NewApplicationWizard({
             </div>
           ) : (
             <>
-              {step === 1 && <Step1 {...stepProps} />}
-              {step === 2 && <Step2 {...stepProps} linkedClientName={linkedClientName} />}
+              {step === 1 && <Step1 {...stepProps} unmatchedProduct={unmatchedProduct} />}
+              {step === 2 && (
+                <Step2
+                  {...stepProps}
+                  linkedClientName={linkedClientName}
+                  leadDetails={
+                    prefill?.convertClientId
+                      ? {
+                          referenceNo: prefill.referenceNo ?? null,
+                          email: prefill.email ?? null,
+                          mobileNumber: prefill.mobileNumber ?? null,
+                          dob: prefill.dob ?? null,
+                        }
+                      : undefined
+                  }
+                />
+              )}
               {step === 3 && <Step3 {...stepProps} />}
               {step === 4 && <Step4 {...stepProps} />}
               {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}

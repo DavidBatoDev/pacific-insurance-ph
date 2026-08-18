@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { Fragment, useState } from "react";
+
 import type { ProductOption } from "@/app/(app)/policies/actions";
 import type { AssignableUser } from "@/app/(app)/tasks/actions";
 import { cn } from "@/lib/utils";
@@ -26,7 +29,7 @@ export interface StepProps {
 const AREA =
   "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
-export function Step1({ f, set, products, users }: StepProps) {
+export function Step1({ f, set, products, users, unmatchedProduct }: StepProps & { unmatchedProduct?: string | null }) {
   return (
     <div>
       <Section title="Workflow">
@@ -73,6 +76,14 @@ export function Step1({ f, set, products, users }: StepProps) {
             ))}
           </select>
         </DrawerField>
+        {/* The lead named an interest that isn't a sellable product, so nothing could be
+            pre-selected. Say so rather than leaving an unexplained blank select. */}
+        {unmatchedProduct && !f.productVersionId && (
+          <div className="mt-2 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">
+            This lead’s product interest is <b>{unmatchedProduct}</b>, which isn’t in the product
+            list — pick the closest match above.
+          </div>
+        )}
         {f.category && (
           <div className="mt-2 text-[12px] text-muted-foreground">
             Workflow:{" "}
@@ -81,8 +92,23 @@ export function Step1({ f, set, products, users }: StepProps) {
         )}
       </Section>
 
-      <Section title="Client">
-        {f.draftApplicationId ? (
+      <Section title={f.convertClientId ? "Lead" : "Client"}>
+        {/* Converting: the record is fixed, so the New/Existing chooser below would be a control
+            that cannot do anything. Show what is being converted instead. */}
+        {f.convertClientId && !f.draftApplicationId ? (
+          <div className="flex items-center gap-3 rounded-md border border-brand/30 bg-brand-soft px-3.5 py-3">
+            <Avatar name={f.convertClientName || "Lead"} size={32} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-[650]">{f.convertClientName}</div>
+              <div className="truncate text-[11.5px] text-muted-foreground">
+                Converting this lead — the same record is used, no duplicate is created.
+              </div>
+            </div>
+            <span className="rounded-full border border-green-border bg-green-soft px-2 py-0.5 text-[10.5px] font-bold text-green">
+              Converting
+            </span>
+          </div>
+        ) : f.draftApplicationId ? (
           <div className="flex items-center gap-3 rounded-md border border-brand/30 bg-brand-soft px-3.5 py-3">
             <Avatar name={f.existingClientName || f.displayName || "Linked client"} size={32} />
             <div className="min-w-0 flex-1">
@@ -175,7 +201,73 @@ export function Step1({ f, set, products, users }: StepProps) {
   );
 }
 
-export function Step2({ f, set, linkedClientName }: StepProps & { linkedClientName?: string | null }) {
+export interface LeadDetails {
+  referenceNo: string | null;
+  email: string | null;
+  mobileNumber: string | null;
+  dob: string | null;
+}
+
+/**
+ * Read-only view of the lead fields `lockIdentity` hides, so a convert can be checked against the
+ * record it is converting. Deliberately covers only the hidden fields — address, channels, gender,
+ * civil status and occupation stay visible and editable below, and repeating them here would put
+ * two different values under one label.
+ */
+function LeadDetailsPanel({ details, clientId }: { details: LeadDetails; clientId: string | null }) {
+  const [open, setOpen] = useState(false);
+  const rows: [string, string | null][] = [
+    ["Reference no.", details.referenceNo],
+    ["Email", details.email],
+    ["Mobile", details.mobileNumber],
+    ["Date of birth", details.dob],
+  ];
+  return (
+    <div className="mb-5 rounded-md border border-border-soft bg-surface-2">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+          Lead details
+        </span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? "Hide lead details" : "Show lead details"}
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        >
+          {open ? <I.eyeOff size={14} /> : <I.eye size={14} />}
+          {open ? "Hide" : "Show"}
+        </button>
+      </div>
+      <div className={cn("border-t border-border-soft px-4 py-3", !open && "hidden")}>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12.5px]">
+          {rows.map(([label, value]) => (
+            <Fragment key={label}>
+              <dt className="text-subtle">{label}</dt>
+              <dd className={cn("font-medium", !value && "text-faint")}>{value || "—"}</dd>
+            </Fragment>
+          ))}
+        </dl>
+        <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
+          These come from the lead record and can’t be changed here — the same record is being
+          converted.{" "}
+          {clientId && (
+            <Link href={`/clients/${clientId}/edit`} className="font-semibold text-brand-hover hover:text-brand">
+              Edit the lead →
+            </Link>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function Step2({
+  f,
+  set,
+  linkedClientName,
+  leadDetails,
+}: StepProps & { linkedClientName?: string | null; leadDetails?: LeadDetails }) {
   if (f.category === "hmo") {
     return (
       <div>
@@ -238,6 +330,9 @@ export function Step2({ f, set, linkedClientName }: StepProps & { linkedClientNa
             {resumedDraft ? "Linked" : f.convertClientId ? "Converting" : "Existing"}
           </span>
         </div>
+      )}
+      {lockIdentity && f.convertClientId && leadDetails && (
+        <LeadDetailsPanel details={leadDetails} clientId={f.convertClientId} />
       )}
       {!lockIdentity && (
         <Section title="Name">

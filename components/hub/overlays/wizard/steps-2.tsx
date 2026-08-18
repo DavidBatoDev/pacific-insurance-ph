@@ -541,7 +541,13 @@ export function Step6({ f, set }: StepProps) {
     f.category === "hmo"
       ? `Company / group account — ${f.companyName || clientName}`
       : f.convertClientId
-        ? `Lead → Applicant conversion for ${clientName} (same record)`
+        // Only promise the conversion when it will actually happen. The server gates it on
+        // `form.status !== "Lead"` (wizard-actions.ts `startsApplication`), and status is derived
+        // — with no product picked yet it stays "Lead", so this line would otherwise claim a
+        // conversion that the save would not perform.
+        ? f.status === "Lead"
+          ? `Application for ${clientName} — stays a Lead until a product is selected`
+          : `Lead → Applicant conversion for ${clientName} (same record)`
         : f.clientMode === "existing"
           ? `Application under ${clientName}'s existing record`
           : `Client record — ${clientName} · status ${f.status}`,
@@ -565,7 +571,10 @@ export function Step6({ f, set }: StepProps) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
-        <ReviewCard title={f.category === "hmo" ? "Group account" : "Client"} icon="user">
+        <ReviewCard
+          title={f.category === "hmo" ? "Group account" : f.convertClientId ? "Lead" : "Client"}
+          icon="user"
+        >
           <ReviewRow k="Name" v={clientName} />
           <ReviewRow k="Contact" v={contact} />
           {f.category !== "hmo" && <ReviewRow k="Channels" v={f.channels.join(", ") || "Not set"} />}
