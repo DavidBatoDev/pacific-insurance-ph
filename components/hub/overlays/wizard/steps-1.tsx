@@ -101,11 +101,22 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-[650]">{f.convertClientName}</div>
               <div className="truncate text-[11.5px] text-muted-foreground">
-                Converting this lead — the same record is used, no duplicate is created.
+                {/* The app type decides this: `Inquiry / Lead Only` derives status Lead, which the
+                    server reads as "don't convert". Say which one is about to happen. */}
+                {f.status === "Lead"
+                  ? "Stays a Lead — an application is created against this record, nothing converts yet."
+                  : "Converting this lead — the same record is used, no duplicate is created."}
               </div>
             </div>
-            <span className="rounded-full border border-green-border bg-green-soft px-2 py-0.5 text-[10.5px] font-bold text-green">
-              Converting
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10.5px] font-bold",
+                f.status === "Lead"
+                  ? "border-violet-border bg-violet-soft text-violet"
+                  : "border-green-border bg-green-soft text-green",
+              )}
+            >
+              {f.status === "Lead" ? "Stays a Lead" : "Converting"}
             </span>
           </div>
         ) : f.draftApplicationId ? (
@@ -321,13 +332,21 @@ export function Step2({
               {resumedDraft
                 ? "Linked lead/client · the same record is updated when this draft is saved."
                 : f.convertClientId
-                ? "Converting from Lead → Applicant when the application is created. The same record is used — no duplicate."
+                ? f.status === "Lead"
+                  ? "Stays a Lead — the application is created against this record. Change the application type to convert."
+                  : "Converting from Lead → Applicant when the application is created. The same record is used — no duplicate."
                 : "Linked existing client · profile pulled in automatically."}
             </div>
           </div>
           <span className="inline-flex h-[22px] items-center gap-1.5 rounded-full border border-green-border bg-green-soft px-2.5 text-[11.5px] font-[650] text-green">
             <span className="size-1.5 rounded-full bg-current" />
-            {resumedDraft ? "Linked" : f.convertClientId ? "Converting" : "Existing"}
+            {resumedDraft
+              ? "Linked"
+              : f.convertClientId
+                ? f.status === "Lead"
+                  ? "Stays a Lead"
+                  : "Converting"
+                : "Existing"}
           </span>
         </div>
       )}

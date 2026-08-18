@@ -548,18 +548,25 @@ export async function createFromWizardAction(
       });
     } else if (
       leadAwaitingHandOff &&
-      mode === "draft" &&
       leadAwaitingHandOff.leadStage !== APPLICATION_STARTED_STAGE
     ) {
-      // A saved draft IS the `Application Started` milestone. The card stays on the board — it just
-      // moves to the column that says the paperwork is underway. Re-saving is a no-op.
+      // Any save that produced an application without converting — a draft, or a completed
+      // `Inquiry / Lead Only` — IS the `Application Started` milestone. The card stays on the board;
+      // it just moves to the column that says the paperwork is underway. Re-saving is a no-op.
+      //
+      // This deliberately covers the completing-but-non-converting case as well as drafts. Without
+      // it that save attaches a live application to a lead and changes nothing visible about it —
+      // no stage move, no timeline entry — which is exactly the silent state the board is meant to
+      // rule out (`docs/lead-stage-status-example.md` Steps 6-7: nothing moves silently).
       const previousStage = leadAwaitingHandOff.leadStage;
       await clientsRepo.update(leadAwaitingHandOff.id, { leadStage: APPLICATION_STARTED_STAGE });
       await recordActivity({
         scopeType: "client",
         scopeId: leadAwaitingHandOff.id,
         activityType: "lead.stage_changed",
-        summary: `Stage changed — ${previousStage ?? "—"} → ${APPLICATION_STARTED_STAGE} (application draft saved)`,
+        summary:
+          `Stage changed — ${previousStage ?? "—"} → ${APPLICATION_STARTED_STAGE} ` +
+          (mode === "draft" ? "(application draft saved)" : `(${form.appType || "application"} created — still a Lead)`),
         actorId: actor.id,
       });
     }

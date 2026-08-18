@@ -119,13 +119,18 @@ export function NewApplicationWizard({
       setProducts(items);
       if (!prefill?.productInterest) return;
       const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
-      // The app-type default is deliberately OUTSIDE the product check. It used to be nested inside
-      // it, so a lead whose product interest isn't in the catalog (several leads carry values that
-      // exist in PRODUCT_COLORS but not in `products`) opened the wizard with no app type *and* no
-      // product, and no indication why. `current.appType ||` still yields to a user's own choice.
+      // Starting from a lead is an inquiry until someone says otherwise, so that is what the type
+      // defaults to. It is consequential, not cosmetic: "Inquiry / Lead Only" derives
+      // `status = "Lead"` below, which keeps `startsApplication` false server-side — the record
+      // gains an application but stays a Lead on the board until the type or status is changed.
+      //
+      // The default is deliberately OUTSIDE the product check. It used to be nested inside it, so a
+      // lead whose product interest isn't in the catalog (several carry values that exist in
+      // PRODUCT_COLORS but not in `products`) opened the wizard with no app type *and* no product,
+      // and no indication why. `current.appType ||` still yields to a user's own choice.
       setF((current) => ({
         ...current,
-        appType: current.appType || "New Insurance Application",
+        appType: current.appType || "Inquiry / Lead Only",
         ...(product
           ? {
               productVersionId: product.productVersionId,

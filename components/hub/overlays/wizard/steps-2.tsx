@@ -543,10 +543,10 @@ export function Step6({ f, set }: StepProps) {
       : f.convertClientId
         // Only promise the conversion when it will actually happen. The server gates it on
         // `form.status !== "Lead"` (wizard-actions.ts `startsApplication`), and status is derived
-        // — with no product picked yet it stays "Lead", so this line would otherwise claim a
-        // conversion that the save would not perform.
+        // from the application type — which defaults to `Inquiry / Lead Only` for a convert, so
+        // by default this save does NOT convert.
         ? f.status === "Lead"
-          ? `Application for ${clientName} — stays a Lead until a product is selected`
+          ? `Application for ${clientName} — ${clientName} stays a Lead (application type is “${f.appType || "Inquiry / Lead Only"}”)`
           : `Lead → Applicant conversion for ${clientName} (same record)`
         : f.clientMode === "existing"
           ? `Application under ${clientName}'s existing record`
