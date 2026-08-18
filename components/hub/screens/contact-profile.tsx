@@ -127,6 +127,10 @@ export function ContactProfile({
   const [nurturingOpen, setNurturingOpen] = useState(false);
   const [markLostOpen, setMarkLostOpen] = useState(false);
   const [recordDecisionOpen, setRecordDecisionOpen] = useState(false);
+  // Entry forms start collapsed: on a new lead both lists are empty, so leaving the
+  // forms open makes the cards mostly input controls for records that don't exist yet.
+  const [addDependentOpen, setAddDependentOpen] = useState(false);
+  const [addDocumentOpen, setAddDocumentOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
@@ -525,7 +529,21 @@ export function ContactProfile({
 
           {/* Dependents (preserved from the previous detail page) */}
           <Card>
-            <CardHead iconName="users" title="Dependents" count={dependents.length} />
+            <CardHead
+              iconName="users"
+              title="Dependents"
+              count={dependents.length}
+              action={
+                <button
+                  aria-label={addDependentOpen ? "Hide the add-dependent form" : "Add a dependent"}
+                  aria-expanded={addDependentOpen}
+                  onClick={() => setAddDependentOpen((open) => !open)}
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  <I.plus size={16} className={cn("transition-transform", addDependentOpen && "rotate-45")} />
+                </button>
+              }
+            />
             <div>
               {dependents.length === 0 && (
                 <p className="px-[18px] py-3 text-[12.5px] text-subtle">No dependents added yet.</p>
@@ -549,7 +567,14 @@ export function ContactProfile({
                 </div>
               ))}
             </div>
-            <form action={addDependentAction} className="flex flex-col gap-2 border-t border-border-soft px-[18px] py-3">
+            {/* Hidden rather than unmounted so half-typed input survives a toggle. */}
+            <form
+              action={addDependentAction}
+              className={cn(
+                "flex flex-col gap-2 border-t border-border-soft px-[18px] py-3",
+                !addDependentOpen && "hidden",
+              )}
+            >
               <input type="hidden" name="clientId" value={client.id} />
               <input name="fullName" required placeholder="Full name" className={INPUT} />
               <div className="grid grid-cols-2 gap-2">
@@ -896,7 +921,21 @@ export function ContactProfile({
 
           {/* Documents (preserved) */}
           <Card>
-            <CardHead iconName="folder" title="Documents" count={documents.length} />
+            <CardHead
+              iconName="folder"
+              title="Documents"
+              count={documents.length}
+              action={
+                <button
+                  aria-label={addDocumentOpen ? "Hide the upload form" : "Upload a document"}
+                  aria-expanded={addDocumentOpen}
+                  onClick={() => setAddDocumentOpen((open) => !open)}
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  <I.plus size={16} className={cn("transition-transform", addDocumentOpen && "rotate-45")} />
+                </button>
+              }
+            />
             <div>
               {documents.length === 0 && (
                 <p className="px-[18px] py-3 text-[12.5px] text-subtle">No documents uploaded yet.</p>
@@ -927,7 +966,9 @@ export function ContactProfile({
                 </div>
               ))}
             </div>
-            <div className="border-t border-border-soft px-[18px] py-3">
+            {/* Hidden rather than unmounted: the file input is uncontrolled, so unmounting
+                would silently discard a file the user had already chosen. */}
+            <div className={cn("border-t border-border-soft px-[18px] py-3", !addDocumentOpen && "hidden")}>
               <DocumentUploadForm clientId={client.id} />
             </div>
           </Card>
