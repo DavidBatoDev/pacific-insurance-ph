@@ -260,8 +260,8 @@ function LeadDetailsPanel({ details, clientId }: { details: LeadDetails; clientI
           ))}
         </dl>
         <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-          These come from the lead record and can’t be changed here — the same record is being
-          converted.{" "}
+          These come from the lead record and can’t be changed here — the application is written
+          against that same record.{" "}
           {clientId && (
             <Link href={`/clients/${clientId}/edit`} className="font-semibold text-brand-hover hover:text-brand">
               Edit the lead →

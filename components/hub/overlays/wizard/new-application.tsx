@@ -387,11 +387,22 @@ export function NewApplicationWizard({
           {f.convertClientId && (
             <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
               <I.user size={15} className="mt-0.5 shrink-0 text-brand" />
-              <div>
-                Converting <b>{f.convertClientName}</b> from Lead → Applicant. The same record is
-                used — <b>no duplicate is created.</b> The conversion happens when you create the
-                application; <b>Save draft keeps them a lead</b> and you can pick this up later.
-              </div>
+              {/* The app type decides whether this save converts, so the banner has to follow it:
+                  the inquiry type derives status Lead, which the server reads as "don't convert".
+                  Saying "Converting" there would contradict Step 1's own "Stays a Lead" pill. */}
+              {f.status === "Lead" ? (
+                <div>
+                  <b>{f.convertClientName}</b> stays a Lead. The application is created against the
+                  same record — <b>no duplicate is created</b> — and nothing converts. Change the
+                  application type away from “{INQUIRY_APP_TYPE}” to convert them to an Applicant.
+                </div>
+              ) : (
+                <div>
+                  Converting <b>{f.convertClientName}</b> from Lead → Applicant. The same record is
+                  used — <b>no duplicate is created.</b> The conversion happens when you create the
+                  application; <b>Save draft keeps them a lead</b> and you can pick this up later.
+                </div>
+              )}
             </div>
           )}
           <h2 className="text-[18px] font-bold tracking-[-0.01em]">{heads[step][0]}</h2>
