@@ -28,6 +28,9 @@ import {
   emptyWizardForm,
   ageFromDob,
   categoryForProduct,
+  INQUIRY_APP_TYPE,
+  isInquiryAppType,
+  normaliseAppType,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
   type WizardForm,
@@ -120,7 +123,7 @@ export function NewApplicationWizard({
       if (!prefill?.productInterest) return;
       const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
       // Starting from a lead is an inquiry until someone says otherwise, so that is what the type
-      // defaults to. It is consequential, not cosmetic: "Inquiry / Lead Only" derives
+      // defaults to. It is consequential, not cosmetic: the inquiry type derives
       // `status = "Lead"` below, which keeps `startsApplication` false server-side — the record
       // gains an application but stays a Lead on the board until the type or status is changed.
       //
@@ -130,7 +133,7 @@ export function NewApplicationWizard({
       // and no indication why. `current.appType ||` still yields to a user's own choice.
       setF((current) => ({
         ...current,
-        appType: current.appType || "Inquiry / Lead Only",
+        appType: current.appType || INQUIRY_APP_TYPE,
         ...(product
           ? {
               productVersionId: product.productVersionId,
@@ -160,7 +163,9 @@ export function NewApplicationWizard({
           overlays.toast("Couldn’t load application draft", message);
           return;
         }
-        setF(res.data.form);
+        // A draft saved before the app-type rename carries the old spelling; map it forward
+        // so its select renders a matching option instead of going blank on resume.
+        setF({ ...res.data.form, appType: normaliseAppType(res.data.form.appType) });
         setStep(res.data.form.draftStep);
         setAutoFilled(res.data.autoFilled);
         setLinkedClientName(res.data.linkedClientName);
@@ -224,11 +229,11 @@ export function NewApplicationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- requestClose reads refs only
   }, []);
 
-  // Derived initial status (design): Inquiry/Lead Only stays a Lead; entering
-  // identity or picking a product makes the record an Applicant.
+  // Derived initial status (design): an inquiry stays a Lead; entering identity
+  // or picking a product makes the record an Applicant.
   useEffect(() => {
     const st =
-      f.appType === "Inquiry / Lead Only"
+      isInquiryAppType(f.appType)
         ? "Lead"
         : f.firstName || f.companyName || f.productVersionId
           ? "Applicant"

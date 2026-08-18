@@ -360,7 +360,7 @@ export async function createFromWizardAction(
 
   /**
    * Whether this save actually starts an application. A draft has started nothing — it is a parked
-   * wizard, resumable later — and an "Inquiry / Lead Only" application is not one either (the
+   * wizard, resumable later — and an inquiry-only application is not one either (the
    * wizard derives `status = "Lead"` for it). Everything that takes a contact off the lead board
    * hangs off this.
    */
@@ -551,7 +551,7 @@ export async function createFromWizardAction(
       leadAwaitingHandOff.leadStage !== APPLICATION_STARTED_STAGE
     ) {
       // Any save that produced an application without converting — a draft, or a completed
-      // `Inquiry / Lead Only` — IS the `Application Started` milestone. The card stays on the board;
+      // an inquiry-only type — IS the `Application Started` milestone. The card stays on the board;
       // it just moves to the column that says the paperwork is underway. Re-saving is a no-op.
       //
       // This deliberately covers the completing-but-non-converting case as well as drafts. Without

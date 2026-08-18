@@ -101,7 +101,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-[650]">{f.convertClientName}</div>
               <div className="truncate text-[11.5px] text-muted-foreground">
-                {/* The app type decides this: `Inquiry / Lead Only` derives status Lead, which the
+                {/* The app type decides this: the inquiry type derives status Lead, which the
                     server reads as "don't convert". Say which one is about to happen. */}
                 {f.status === "Lead"
                   ? "Stays a Lead — an application is created against this record, nothing converts yet."

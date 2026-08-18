@@ -131,12 +131,32 @@ export const WIZ_STEPS = [
   { n: 6, label: "Review & create", desc: "Confirm" },
 ] as const;
 
+/**
+ * The application type that keeps a record a Lead.
+ *
+ * It is not just a label: the wizard derives `status = "Lead"` from it, which the server reads as
+ * `startsApplication === false` — so a save with this type creates the application but does not
+ * convert. It is the default when starting from a lead, so it is named as a constant rather than
+ * repeated as a string across the four places that check for it.
+ */
+export const INQUIRY_APP_TYPE = "Inquiry Only (Lead)";
+
+/** Pre-rename spelling, still recognised so a draft saved before the rename resumes correctly. */
+const LEGACY_INQUIRY_APP_TYPE = "Inquiry / Lead Only";
+
+export const isInquiryAppType = (appType: string | null | undefined): boolean =>
+  appType === INQUIRY_APP_TYPE || appType === LEGACY_INQUIRY_APP_TYPE;
+
+/** Map a persisted draft's app type onto the current spelling. */
+export const normaliseAppType = (appType: string): string =>
+  appType === LEGACY_INQUIRY_APP_TYPE ? INQUIRY_APP_TYPE : appType;
+
 export const WIZ_OPTS = {
   appType: [
     "New Insurance Application",
     "Additional Product (Existing Client)",
     "Renewal Application",
-    "Inquiry / Lead Only",
+    INQUIRY_APP_TYPE,
   ],
   sources: [
     "Referral",
