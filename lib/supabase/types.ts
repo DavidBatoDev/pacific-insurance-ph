@@ -2423,6 +2423,7 @@ export type Database = {
           is_required: boolean
           notes: string | null
           requirement_template_id: string
+          sale_channel: string | null
           sort_order: number
           updated_at: string
         }
@@ -2434,6 +2435,7 @@ export type Database = {
           is_required?: boolean
           notes?: string | null
           requirement_template_id: string
+          sale_channel?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -2445,6 +2447,7 @@ export type Database = {
           is_required?: boolean
           notes?: string | null
           requirement_template_id?: string
+          sale_channel?: string | null
           sort_order?: number
           updated_at?: string
         }

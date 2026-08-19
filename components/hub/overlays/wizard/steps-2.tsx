@@ -101,7 +101,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
       </Section>
 
       <Section title="Underwriting">
-        <label className="mb-4 flex items-center gap-2 rounded-md border border-border-soft bg-surface-2 px-3 py-2.5 text-[12.5px]"><input type="checkbox" checked={f.remoteSale} onChange={(e) => set({ remoteSale: e.target.checked })} /> Remote / online sale — require advisor declaration and confirmation</label>
+        <label className="mb-4 flex items-center gap-2 rounded-md border border-border-soft bg-surface-2 px-3 py-2.5 text-[12.5px]"><input type="checkbox" checked={f.remoteSale} onChange={(e) => set({ remoteSale: e.target.checked })} /> Remote / online sale — requires the Advisor&rsquo;s Declaration instead of the Agent&rsquo;s Attestation</label>
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Existing Pacific Cross client?">
             <YesNo value={f.existingPC} onChange={(v) => set({ existingPC: v })} />

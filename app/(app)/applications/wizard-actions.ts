@@ -86,16 +86,17 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
       const base: Omit<NewApplicationRequirement, "applicationId">[] = [
         { documentName: senior ? "Completed age 71–100 application form" : "Completed regular application form", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 10 },
         { documentName: "Valid government-issued ID", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 20 },
-        { documentName: "Attestation letter with specimen signatures", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 30 },
       ];
+      // Pacific Cross wants the attestation *or* the advisor's declaration, never both:
+      // attestation if the sale was face-to-face, declaration if it was remote. The
+      // attestation is per insured person; the declaration is one per submission and is
+      // pushed once, below.
+      if (!form.remoteSale) base.push({ documentName: "Attestation letter with specimen signatures", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 30 });
       if (medical) base.push({ documentName: senior ? "Senior medical examination / physician statement" : "Medical questionnaire or supporting records", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 40 });
       return base;
     });
     if (form.remoteSale) {
-      items.push(
-        { documentName: "Advisor declaration", appliesTo: "Remote / online submission", isRequired: true, sortOrder: 900 },
-        { documentName: "Remote-selling confirmation", appliesTo: "Remote / online submission", isRequired: true, sortOrder: 910 },
-      );
+      items.push({ documentName: "Advisor's Declaration", appliesTo: "Remote or online sale", isRequired: true, sortOrder: 900 });
     }
     items.push(
       { documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
@@ -132,11 +133,23 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
 
   const { data: items, error: itemsError } = await db
     .from("required_document_items")
-    .select("id, document_name, is_required, applies_to, notes, sort_order")
+    .select("id, document_name, is_required, applies_to, notes, sort_order, sale_channel")
     .eq("requirement_template_id", template.id)
     .order("sort_order");
   if (itemsError) throw new Error(itemsError.message);
-  await requirements.createMany((items ?? []).map((item) => ({
+
+  // Same attestation-or-declaration rule as the health branch above. `form` is
+  // optional here, so fall back to the persisted flag; if neither is available,
+  // copy every item rather than guessing a channel and dropping a real requirement.
+  let remoteSale = form?.remoteSale;
+  if (remoteSale === undefined) {
+    const { data: application } = await db.from("applications").select("remote_sale").eq("id", applicationId).maybeSingle();
+    remoteSale = application?.remote_sale ?? undefined;
+  }
+  const channel = remoteSale === undefined ? null : remoteSale ? "Remote" : "Face-to-face";
+  const applicable = (items ?? []).filter((item) => !channel || !item.sale_channel || item.sale_channel === channel);
+
+  await requirements.createMany(applicable.map((item) => ({
     applicationId,
     requiredDocumentItemId: item.id,
     documentName: item.document_name,
