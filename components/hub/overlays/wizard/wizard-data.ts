@@ -216,6 +216,17 @@ export function categoryForProduct(name: string, productCategory?: string | null
   return "health";
 }
 
+/**
+ * FlexiShield is a second-layer product (catalog category `Second-Layer Medical`) that correctly
+ * shares the "health" wizard category with Select/Blue Royale — same client flow, same Step 3 form
+ * — but Pacific Cross requires a different document checklist for it: no TAL/CAC conforme, plus the
+ * Schedule of Benefits and Certificate of Coverage of the *first-layer* HMO (G6). Matched by name,
+ * the same pattern `matchCarrierForm` already uses for the carrier-form variant
+ * (`wizard-actions.ts`), so the requirement builder and the carrier-form lookup never disagree about
+ * what counts as FlexiShield.
+ */
+export const isFlexiShieldProduct = (productName: string): boolean => /flexishield/i.test(productName);
+
 export function emptyWizardForm(): WizardForm {
   return {
     schemaVersion: 2,

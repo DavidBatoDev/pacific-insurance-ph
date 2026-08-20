@@ -25,7 +25,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
-import { ageFromDob, categoryForProduct, emptyWizardForm, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
+import { ageFromDob, categoryForProduct, emptyWizardForm, isFlexiShieldProduct, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
 
 export type WizardMode = "draft" | "create" | "email" | "docs";
 
@@ -98,10 +98,21 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
     if (form.remoteSale) {
       items.push({ documentName: "Advisor's Declaration", appliesTo: "Remote or online sale", isRequired: true, sortOrder: 900 });
     }
-    items.push(
-      { documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
-      { documentName: "Client Application for Coverage (CAC)", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 930 },
-    );
+    // FlexiShield is a second-layer product: Pacific Cross evidences the first layer instead of
+    // requesting the TAL/CAC conforme, which apply only to Select/Blue Royale (G6). Both documents
+    // are issued by the *other* HMO, so the client supplies them and there is correctly no
+    // library template to attach.
+    if (isFlexiShieldProduct(form.productName)) {
+      items.push(
+        { documentName: "Schedule of Benefits of the first-layer HMO", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 920 },
+        { documentName: "Certificate of Coverage of the first-layer HMO (full maximum benefit limit and expiry date)", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 930 },
+      );
+    } else {
+      items.push(
+        { documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
+        { documentName: "Client Application for Coverage (CAC)", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 930 },
+      );
+    }
     await requirements.createMany(items.map((item) => ({ applicationId, ...item })));
     return;
   }
@@ -166,7 +177,7 @@ const ageBandFor = (dob: string): "0-70" | "71-100" => {
 };
 
 async function matchCarrierForm(form: WizardForm, ageBand: "0-70" | "71-100" | "All Ages") {
-  const variant = /flexishield/i.test(form.productName) ? "FlexiShield" : null;
+  const variant = isFlexiShieldProduct(form.productName) ? "FlexiShield" : null;
   const docs = await getDocumentLibraryRepository().listEligible({
     productName: form.productName,
     productVersionId: form.productVersionId || undefined,
