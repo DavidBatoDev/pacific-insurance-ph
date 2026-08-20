@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError } from "../types";
-import type { ApplicationRequirement, ApplicationRequirementStatus, NewApplicationRequirement } from "./application-requirement.entity";
+import type { ApplicationRequirement, ApplicationRequirementStatus, NewApplicationRequirement, RequirementPhase } from "./application-requirement.entity";
 import type { ApplicationRequirementsRepository } from "./application-requirements.repository";
 
 type Row = Database["public"]["Tables"]["application_requirements"]["Row"];
@@ -18,6 +18,7 @@ const toDomain = (row: Row): ApplicationRequirement => ({
   isRequired: row.is_required,
   status: row.status as ApplicationRequirementStatus,
   sortOrder: row.sort_order,
+  phase: row.phase as RequirementPhase | null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -46,6 +47,7 @@ export class SupabaseApplicationRequirementsRepository implements ApplicationReq
         is_required: item.isRequired ?? true,
         status: item.status ?? "Pending",
         sort_order: item.sortOrder ?? 0,
+        phase: item.phase ?? null,
       })),
     ).select("*");
     if (error) throw toRepositoryError("ApplicationRequirementsRepository.createMany", error);
@@ -61,6 +63,17 @@ export class SupabaseApplicationRequirementsRepository implements ApplicationReq
       .single();
     if (error) throw toRepositoryError("ApplicationRequirementsRepository.updateStatus", error);
     return toDomain(data);
+  }
+
+  async activatePhase(applicationId: string, phase: RequirementPhase): Promise<ApplicationRequirement[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("application_requirements")
+      .update({ is_required: true })
+      .eq("application_id", applicationId)
+      .eq("phase", phase)
+      .select("*");
+    if (error) throw toRepositoryError("ApplicationRequirementsRepository.activatePhase", error);
+    return (data ?? []).map(toDomain);
   }
 
   async updateRequired(id: string, isRequired: boolean): Promise<ApplicationRequirement> {

@@ -6,7 +6,7 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
-import { getApplicationRequirementsRepository, type ApplicationRequirement, type ApplicationRequirementStatus } from "@/lib/repositories/application-requirements";
+import { getApplicationRequirementsRepository, type ApplicationRequirement, type ApplicationRequirementStatus, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getApplicationsRepository, type Application } from "@/lib/repositories/applications";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository, type CarrierFormAssignmentRecord } from "@/lib/repositories/carrier-workflows";
@@ -93,6 +93,36 @@ export async function updateApplicationRequirementRequiredAction(
     return { ok: true, data: updated };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to update the requirement." };
+  }
+}
+
+/**
+ * Flip a whole requirement gate to required.
+ *
+ * BC Flexi's list is two sequential gates: four documents to get a proposal, then thirteen more
+ * once the group accepts it. The second gate is snapshotted `isRequired: false` so it is visible as
+ * forthcoming without inflating the outstanding count or landing in the client's missing-documents
+ * email. This is what staff call when the group actually agrees (G9).
+ *
+ * Idempotent: re-running simply sets already-required rows to required again.
+ */
+export async function activateRequirementPhaseAction(
+  applicationId: string,
+  phase: RequirementPhase,
+): Promise<ActionResult<{ activated: number }>> {
+  const actor = await getActor();
+  try {
+    const application = await getApplicationsRepository().findById(applicationId);
+    if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
+    const updated = await getApplicationRequirementsRepository().activatePhase(applicationId, phase);
+    await recordAudit({
+      actorId: actor.id, action: "activate_phase", tableName: "application_requirements", recordId: applicationId,
+      previousValue: { phase, is_required: false }, newValue: { phase, is_required: true, count: updated.length },
+    });
+    refresh(application.clientId);
+    return { ok: true, data: { activated: updated.length } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not activate that requirement phase." };
   }
 }
 

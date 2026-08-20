@@ -245,6 +245,7 @@ export type Database = {
           id: string
           is_required: boolean
           notes: string | null
+          phase: string | null
           required_document_item_id: string | null
           sort_order: number
           status: string
@@ -258,6 +259,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           notes?: string | null
+          phase?: string | null
           required_document_item_id?: string | null
           sort_order?: number
           status?: string
@@ -271,6 +273,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           notes?: string | null
+          phase?: string | null
           required_document_item_id?: string | null
           sort_order?: number
           status?: string
@@ -2588,6 +2591,7 @@ export type Database = {
           id: string
           is_required: boolean
           notes: string | null
+          phase: string | null
           requirement_template_id: string
           sale_channel: string | null
           sort_order: number
@@ -2600,6 +2604,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           notes?: string | null
+          phase?: string | null
           requirement_template_id: string
           sale_channel?: string | null
           sort_order?: number
@@ -2612,6 +2617,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           notes?: string | null
+          phase?: string | null
           requirement_template_id?: string
           sale_channel?: string | null
           sort_order?: number

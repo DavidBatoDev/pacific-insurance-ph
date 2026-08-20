@@ -1,16 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 
 import {
+  activateRequirementPhaseAction,
   getApplicationRequirementsAction,
   requestMissingDocumentsAction,
   updateApplicationRequirementRequiredAction,
   updateApplicationRequirementStatusAction,
   type ApplicationRequirementsPayload,
 } from "@/app/(app)/applications/actions";
-import { APPLICATION_REQUIREMENT_STATUSES, type ApplicationRequirement, type ApplicationRequirementStatus } from "@/lib/repositories/application-requirements/application-requirement.entity";
+import { APPLICATION_REQUIREMENT_STATUSES, type ApplicationRequirement, type ApplicationRequirementStatus, type RequirementPhase } from "@/lib/repositories/application-requirements/application-requirement.entity";
 import { cn } from "@/lib/utils";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { I } from "../icons";
@@ -46,6 +47,26 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
 
   const requirements = payload?.requirements ?? [];
   const required = requirements.filter((item) => item.isRequired);
+  /**
+   * Ordered gates. BC Flexi's list is two sequential phases; everything else has a single null
+   * phase and renders exactly as before. Preserves the snapshot's own ordering rather than
+   * re-sorting, so sort_order still drives the sequence inside each gate.
+   */
+  const phaseGroups = requirements.reduce<{ phase: string | null; items: ApplicationRequirement[] }[]>((groups, item) => {
+    const last = groups[groups.length - 1];
+    if (last && last.phase === (item.phase ?? null)) last.items.push(item);
+    else groups.push({ phase: item.phase ?? null, items: [item] });
+    return groups;
+  }, []);
+
+  const activatePhase = (phase: string) =>
+    startTransition(async () => {
+      const result = await activateRequirementPhaseAction(applicationId, phase as RequirementPhase);
+      if (!result.ok) { overlays.toast("Couldn't activate that phase", result.error); return; }
+      const refreshed = await getApplicationRequirementsAction(applicationId);
+      if (refreshed.ok) setPayload(refreshed.data);
+      overlays.toast("Phase activated", `${result.data.activated} requirement${result.data.activated === 1 ? "" : "s"} now outstanding`);
+    });
   const complete = required.filter((item) => item.status === "Verified").length;
   const outstanding = required.filter((item) => item.status === "Pending" || item.status === "Incomplete");
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
@@ -107,7 +128,24 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
           </div>
 
           <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1">
-            {requirements.map((item) => (
+            {phaseGroups.map(({ phase, items }) => (
+              <Fragment key={phase ?? "__none"}>
+                {phase && (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft bg-surface-2 px-3 py-2">
+                    <div>
+                      <div className="text-[12px] font-semibold">{phase}</div>
+                      {items.every((item) => !item.isRequired) && (
+                        <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+                          Not requested yet — these {items.length} become outstanding once the group accepts the proposal.
+                        </div>
+                      )}
+                    </div>
+                    {items.every((item) => !item.isRequired) && (
+                      <Btn disabled={pending} onClick={() => activatePhase(phase)}>Mark agreed</Btn>
+                    )}
+                  </div>
+                )}
+                {items.map((item) => (
               <div key={item.id} className={cn("rounded-md border px-3 py-2.5", statusTone[item.status])}><div className="flex items-center gap-3">
                 <div className={cn("grid size-7 shrink-0 place-items-center rounded-full", item.status === "Verified" ? "bg-green text-white" : "bg-card text-muted-foreground")}><I.check size={14} /></div>
                 <div className="min-w-0 flex-1"><div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>{(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}<label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label></div>
@@ -115,6 +153,8 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                   {APPLICATION_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
                 </select>
               </div><div className="mt-2 pl-10"><DocumentUploadForm clientId={payload.application.clientId} applicationId={applicationId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.toLowerCase().includes("application form") ? payload.carrierForms.find((form) => form.personName === item.appliesTo)?.documentLibraryId ?? undefined : undefined} /></div></div>
+                ))}
+              </Fragment>
             ))}
             {!requirements.length && <div className="rounded-md border border-dashed border-border-strong px-4 py-8 text-center text-[12.5px] text-muted-foreground">No template requirements were configured when this application was created.</div>}
           </div>

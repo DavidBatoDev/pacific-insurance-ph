@@ -13,7 +13,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { can, toAppRole } from "@/lib/auth/permissions";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
-import { getApplicationRequirementsRepository, type NewApplicationRequirement } from "@/lib/repositories/application-requirements";
+import { getApplicationRequirementsRepository, type NewApplicationRequirement, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
@@ -170,7 +170,7 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
 
   const { data: items, error: itemsError } = await db
     .from("required_document_items")
-    .select("id, document_name, is_required, applies_to, notes, sort_order, sale_channel")
+    .select("id, document_name, is_required, applies_to, notes, sort_order, sale_channel, phase")
     .eq("requirement_template_id", template.id)
     .order("sort_order");
   if (itemsError) throw new Error(itemsError.message);
@@ -194,6 +194,9 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
     appliesTo: item.applies_to,
     notes: item.notes,
     sortOrder: item.sort_order,
+    // Carried through so the second gate stays visible-but-not-outstanding until it is
+    // activated. Post-agreement items arrive is_required=false from the template (G9).
+    phase: item.phase as RequirementPhase | null,
   })));
 }
 
