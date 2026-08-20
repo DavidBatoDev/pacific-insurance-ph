@@ -17,6 +17,7 @@ import { getApplicationRequirementsRepository, type NewApplicationRequirement } 
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
+import { getExternalCoverageRepository, type ExternalCoverageType } from "@/lib/repositories/external-coverage";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
@@ -285,7 +286,48 @@ async function persistHealthWorkflow(applicationId: string, clientId: string, fo
   }
   await workflows.replaceApplicationCarrierForms(applicationId, assignments);
   await snapshotApplicationRequirements(applicationId, form.productVersionId || null, form);
+  await persistFirstLayerCoverage(clientId, form);
   return assignments.filter((item) => item.matchStatus === "Unavailable").length;
+}
+
+/**
+ * Record the first-layer plan a second-layer product sits on top of (G5).
+ *
+ * Written against the client rather than the application: the cover belongs to the client and
+ * outlives any one application, which is also why `external_coverage` keys on `client_id` with a
+ * nullable `policy_id` — the policy does not exist yet at application time.
+ * `policies.first_layer_coverage_id` closes that link once one is issued.
+ *
+ * Only for FlexiShield, and only when something was actually entered: the fields are optional in the
+ * wizard because staff often take the MBL off the Certificate of Coverage after the client sends it,
+ * and an empty shell row would be worse than no row.
+ *
+ * Updates the existing Active row rather than stacking a second one — a client re-applying should
+ * correct their declared cover, not accumulate copies of it.
+ */
+async function persistFirstLayerCoverage(clientId: string, form: WizardForm) {
+  if (!isFlexiShieldProduct(form.productName)) return;
+  const mbl = parseAmount(form.firstLayerMbl);
+  const declared =
+    form.firstLayerProvider.trim() ||
+    form.firstLayerPlan.trim() ||
+    form.firstLayerEffective ||
+    form.firstLayerExpiry ||
+    mbl != null;
+  if (!declared) return;
+
+  const coverages = getExternalCoverageRepository();
+  const patch = {
+    coverageType: (form.firstLayerType || "HMO") as ExternalCoverageType,
+    providerName: form.firstLayerProvider.trim() || null,
+    planName: form.firstLayerPlan.trim() || null,
+    maximumBenefitLimit: mbl,
+    effectiveDate: form.firstLayerEffective || null,
+    expiryDate: form.firstLayerExpiry || null,
+  };
+  const existing = (await coverages.listByClient(clientId)).find((item) => item.status === "Active");
+  if (existing) await coverages.update(existing.id, patch);
+  else await coverages.create({ clientId, ...patch });
 }
 
 /**

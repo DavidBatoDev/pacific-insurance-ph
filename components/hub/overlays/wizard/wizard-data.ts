@@ -104,10 +104,32 @@ export interface WizardForm {
   coverage: string;
   startDate: string;
   dependents: string;
+  /**
+   * "Existing Pacific Cross client?" — about *our* relationship with them. Form-only: there is no
+   * column for it and no server code reads it, so it survives only inside a draft's `wizardState`
+   * blob. Deliberately NOT the first-layer question below, which is about the *other* insurer.
+   */
   existingPC: string;
   preExisting: string;
   medicalNotes: string;
   remoteSale: boolean;
+  /**
+   * First-layer coverage — the plan a second-layer product sits on top of. Pacific Cross requires
+   * this declared for FlexiShield: name of the existing HMO, type/name of plan, maximum benefit
+   * limit, effective and expiry date. The MBL is the figure the whole product turns on, since
+   * FlexiShield pays once the first layer is exhausted.
+   *
+   * Persisted to `external_coverage` (table predates this and was previously unused), not to the
+   * application — the cover belongs to the client and outlives any one application. `claims` already
+   * reads the same figure as `hmo_mbl_amount`; capturing it here is what stops it being re-keyed at
+   * claim time.
+   */
+  firstLayerType: string;
+  firstLayerProvider: string;
+  firstLayerPlan: string;
+  firstLayerMbl: string;
+  firstLayerEffective: string;
+  firstLayerExpiry: string;
   payFreq: string;
   premium: string;
   passport: string;
@@ -293,6 +315,12 @@ export function emptyWizardForm(): WizardForm {
     startDate: "",
     dependents: "",
     existingPC: "",
+    firstLayerType: "HMO",
+    firstLayerProvider: "",
+    firstLayerPlan: "",
+    firstLayerMbl: "",
+    firstLayerEffective: "",
+    firstLayerExpiry: "",
     preExisting: "",
     medicalNotes: "",
     remoteSale: false,

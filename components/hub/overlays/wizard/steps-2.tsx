@@ -11,10 +11,12 @@ import { I } from "../../icons";
 import { DRAWER_INPUT, DrawerField } from "../client-picker";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { Section, type StepProps } from "./steps-1";
+import { EXTERNAL_COVERAGE_TYPES } from "@/lib/repositories/external-coverage/external-coverage.entity";
 import {
   ageFromDob,
   daysBetween,
   INQUIRY_APP_TYPE,
+  isFlexiShieldProduct,
   WIZ_OPTS,
   type WizardForm,
   type WizardMember,
@@ -110,6 +112,43 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             <YesNo value={f.preExisting} onChange={(v) => set({ preExisting: v })} unknown />
           </DrawerField>
         </div>
+
+        {/* FlexiShield only: it is second-layer cover, so Pacific Cross needs the first layer
+            declared — the MBL in particular, since FlexiShield pays once that limit is exhausted.
+            Same product test the requirement builder and the carrier-form lookup use, so the three
+            never disagree about what counts as FlexiShield. */}
+        {isFlexiShieldProduct(f.productName) && (
+          <div className="mt-4 rounded-md border border-border-soft bg-surface-2 p-3.5">
+            <div className="mb-1 text-[12px] font-semibold">First-layer HMO coverage</div>
+            <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+              FlexiShield pays after the client&rsquo;s existing plan is exhausted, so Pacific Cross
+              needs that plan declared. Take these from the client&rsquo;s Certificate of Coverage —
+              the same document the checklist asks them to send.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <DrawerField label="Type of existing cover">
+                <select className={DRAWER_INPUT} value={f.firstLayerType} onChange={(e) => set({ firstLayerType: e.target.value })}>
+                  {EXTERNAL_COVERAGE_TYPES.map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </DrawerField>
+              <DrawerField label="Name of existing HMO">
+                <input className={DRAWER_INPUT} value={f.firstLayerProvider} onChange={(e) => set({ firstLayerProvider: e.target.value })} placeholder="e.g. Maxicare" />
+              </DrawerField>
+              <DrawerField label="Type / name of plan">
+                <input className={DRAWER_INPUT} value={f.firstLayerPlan} onChange={(e) => set({ firstLayerPlan: e.target.value })} placeholder="e.g. Prima Gold" />
+              </DrawerField>
+              <DrawerField label="Maximum benefit limit (₱)" hint="The figure FlexiShield pays above.">
+                <input className={DRAWER_INPUT} value={f.firstLayerMbl} onChange={(e) => set({ firstLayerMbl: e.target.value })} placeholder="0.00" inputMode="decimal" />
+              </DrawerField>
+              <DrawerField label="Effective date">
+                <input className={DRAWER_INPUT} type="date" value={f.firstLayerEffective} onChange={(e) => set({ firstLayerEffective: e.target.value })} />
+              </DrawerField>
+              <DrawerField label="Expiry date">
+                <input className={DRAWER_INPUT} type="date" value={f.firstLayerExpiry} onChange={(e) => set({ firstLayerExpiry: e.target.value })} />
+              </DrawerField>
+            </div>
+          </div>
+        )}
         {f.preExisting === "Yes" && (
           <>
             <DrawerField label="Medical notes" required className="mt-4">
