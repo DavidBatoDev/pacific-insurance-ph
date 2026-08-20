@@ -44,6 +44,14 @@ export interface WizardMember {
   landlineNumber?: string;
   beneficiaryName?: string;
   beneficiaryBirthDate?: string;
+  /**
+   * The rest of the beneficiary block (G4). `beneficiaryName`/`beneficiaryBirthDate` above came in
+   * with the CET (G7) and are shared: for a *group* member they persist to `group_members`, for a
+   * *health dependent* to `application_dependents`. The relationship is to THIS person, not to the
+   * principal — the carrier form heads the dependent's block "Relationship to Dependent".
+   */
+  beneficiaryRelationship?: string;
+  beneficiaryContact?: string;
 }
 
 export interface WizardTraveler {
@@ -127,6 +135,15 @@ export interface WizardForm {
   smokerStatus: string;
   heightInches: string;
   weightLbs: string;
+  /**
+   * Principal applicant's nominated beneficiary (G4). Pacific Cross requires a valid ID for the
+   * beneficiary as well as the insured, so this is the person that requirement attaches to.
+   * Dependents carry their own on `WizardMember` — the carrier form gives each its own block.
+   */
+  beneficiaryName: string;
+  beneficiaryBirthDate: string;
+  beneficiaryRelationship: string;
+  beneficiaryContact: string;
   remoteSale: boolean;
   /**
    * First-layer coverage — the plan a second-layer product sits on top of. Pacific Cross requires
@@ -333,6 +350,10 @@ export function emptyWizardForm(): WizardForm {
     smokerStatus: "",
     heightInches: "",
     weightLbs: "",
+    beneficiaryName: "",
+    beneficiaryBirthDate: "",
+    beneficiaryRelationship: "",
+    beneficiaryContact: "",
     firstLayerType: "HMO",
     firstLayerProvider: "",
     firstLayerPlan: "",
@@ -422,6 +443,13 @@ export interface MedicalProfileInput {
  *
  * Returns document names in checklist order. Empty when nothing applies.
  */
+/** The valid-ID line Pacific Cross wants for a nominated beneficiary, or null when none is named. */
+export function beneficiaryIdDocumentFor(beneficiaryName?: string): string | null {
+  return beneficiaryName && beneficiaryName.trim()
+    ? `Valid government-issued ID — beneficiary ${beneficiaryName.trim()}`
+    : null;
+}
+
 export function medicalDocumentsFor(person: MedicalProfileInput): string[] {
   const age = ageFromDob(person.dob);
   const senior = typeof age === "number" && age >= 71;

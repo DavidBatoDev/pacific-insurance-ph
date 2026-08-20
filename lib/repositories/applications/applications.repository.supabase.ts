@@ -60,6 +60,10 @@ function toDomain(row: JoinedRow): Application {
     smokerStatus: row.smoker_status,
     heightInches: row.height_inches,
     weightLbs: row.weight_lbs,
+    beneficiaryName: row.beneficiary_name,
+    beneficiaryBirthdate: row.beneficiary_birthdate,
+    beneficiaryRelation: row.beneficiary_relation,
+    beneficiaryContact: row.beneficiary_contact,
     preExistingStatus: row.pre_existing_status,
     medicalNotes: row.medical_notes,
     notes: row.notes,
@@ -125,6 +129,10 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
       smoker_status: input.smokerStatus ?? null,
       height_inches: input.heightInches ?? null,
       weight_lbs: input.weightLbs ?? null,
+      beneficiary_name: input.beneficiaryName ?? null,
+      beneficiary_birthdate: input.beneficiaryBirthdate ?? null,
+      beneficiary_relation: input.beneficiaryRelation ?? null,
+      beneficiary_contact: input.beneficiaryContact ?? null,
       pre_existing_status: input.preExistingStatus ?? null,
       medical_notes: input.medicalNotes ?? null,
     };
@@ -160,6 +168,10 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     if (input.smokerStatus !== undefined) patch.smoker_status = input.smokerStatus;
     if (input.heightInches !== undefined) patch.height_inches = input.heightInches;
     if (input.weightLbs !== undefined) patch.weight_lbs = input.weightLbs;
+    if (input.beneficiaryName !== undefined) patch.beneficiary_name = input.beneficiaryName;
+    if (input.beneficiaryBirthdate !== undefined) patch.beneficiary_birthdate = input.beneficiaryBirthdate;
+    if (input.beneficiaryRelation !== undefined) patch.beneficiary_relation = input.beneficiaryRelation;
+    if (input.beneficiaryContact !== undefined) patch.beneficiary_contact = input.beneficiaryContact;
     if (input.preExistingStatus !== undefined) patch.pre_existing_status = input.preExistingStatus;
     if (input.medicalNotes !== undefined) patch.medical_notes = input.medicalNotes;
 

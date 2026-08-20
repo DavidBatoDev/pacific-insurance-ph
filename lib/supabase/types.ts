@@ -176,6 +176,10 @@ export type Database = {
       application_dependents: {
         Row: {
           application_id: string
+          beneficiary_birthdate: string | null
+          beneficiary_contact: string | null
+          beneficiary_name: string | null
+          beneficiary_relation: string | null
           created_at: string
           dependent_id: string
           height_inches: number | null
@@ -187,6 +191,10 @@ export type Database = {
         }
         Insert: {
           application_id: string
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
           created_at?: string
           dependent_id: string
           height_inches?: number | null
@@ -198,6 +206,10 @@ export type Database = {
         }
         Update: {
           application_id?: string
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
           created_at?: string
           dependent_id?: string
           height_inches?: number | null
@@ -285,6 +297,10 @@ export type Database = {
         Row: {
           application_type: string
           assigned_user_id: string | null
+          beneficiary_birthdate: string | null
+          beneficiary_contact: string | null
+          beneficiary_name: string | null
+          beneficiary_relation: string | null
           client_id: string
           coverage_type: string | null
           created_at: string
@@ -318,6 +334,10 @@ export type Database = {
         Insert: {
           application_type?: string
           assigned_user_id?: string | null
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
           client_id: string
           coverage_type?: string | null
           created_at?: string
@@ -351,6 +371,10 @@ export type Database = {
         Update: {
           application_type?: string
           assigned_user_id?: string | null
+          beneficiary_birthdate?: string | null
+          beneficiary_contact?: string | null
+          beneficiary_name?: string | null
+          beneficiary_relation?: string | null
           client_id?: string
           coverage_type?: string | null
           created_at?: string

@@ -26,7 +26,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
-import { ageFromDob, categoryForProduct, emptyWizardForm, isFlexiShieldProduct, medicalDocumentsFor, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
+import { ageFromDob, beneficiaryIdDocumentFor, categoryForProduct, emptyWizardForm, isFlexiShieldProduct, medicalDocumentsFor, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
 
 export type WizardMode = "draft" | "create" | "email" | "docs";
 
@@ -90,8 +90,8 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
   if (form?.category === "health") {
     const principal = form.displayName || [form.firstName, form.lastName].filter(Boolean).join(" ") || "Principal applicant";
     const people = [
-      { name: principal, dob: form.dob, preExisting: form.preExisting, smokerStatus: form.smokerStatus, heightInches: form.heightInches, weightLbs: form.weightLbs },
-      ...form.healthDependents.map((item) => ({ name: item.name, dob: item.dob, preExisting: item.preExisting ?? "Unknown", smokerStatus: item.smokerStatus, heightInches: item.heightInches, weightLbs: item.weightLbs })),
+      { name: principal, dob: form.dob, preExisting: form.preExisting, smokerStatus: form.smokerStatus, heightInches: form.heightInches, weightLbs: form.weightLbs, beneficiaryName: form.beneficiaryName },
+      ...form.healthDependents.map((item) => ({ name: item.name, dob: item.dob, preExisting: item.preExisting ?? "Unknown", smokerStatus: item.smokerStatus, heightInches: item.heightInches, weightLbs: item.weightLbs, beneficiaryName: item.beneficiaryName })),
     ].filter((item) => item.name.trim());
     const items: Omit<NewApplicationRequirement, "applicationId">[] = people.flatMap((person, index) => {
       const age = ageFromDob(person.dob);
@@ -100,6 +100,10 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
         { documentName: senior ? "Completed age 71–100 application form" : "Completed regular application form", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 10 },
         { documentName: "Valid government-issued ID", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 20 },
       ];
+      // Pacific Cross wants an ID for the beneficiary as well as the insured. Per person: the
+      // carrier form gives the principal and each dependent their own beneficiary block (G4).
+      const beneficiaryId = beneficiaryIdDocumentFor(person.beneficiaryName);
+      if (beneficiaryId) base.push({ documentName: beneficiaryId, appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 25 });
       // Pacific Cross wants the attestation *or* the advisor's declaration, never both:
       // attestation if the sale was face-to-face, declaration if it was remote. The
       // attestation is per insured person; the declaration is one per submission and is
@@ -282,6 +286,8 @@ async function persistHealthWorkflow(applicationId: string, clientId: string, fo
     id: person.id, name: person.name, dateOfBirth: person.dob || null, relationship: person.rel || null,
     email: person.email || null, preExistingStatus: person.preExisting || "Unknown", medicalNotes: person.medicalNotes || null,
     smokerStatus: person.smokerStatus || null, heightInches: parseAmount(person.heightInches ?? ""), weightLbs: parseAmount(person.weightLbs ?? ""),
+    beneficiaryName: person.beneficiaryName || null, beneficiaryBirthdate: person.beneficiaryBirthDate || null,
+    beneficiaryRelation: person.beneficiaryRelationship || null, beneficiaryContact: person.beneficiaryContact || null,
   })));
   const principalName = form.displayName || [form.firstName, form.lastName].filter(Boolean).join(" ") || "Principal applicant";
   const people = [{ dependentId: null, personName: principalName, dob: form.dob }, ...dependents.map((person) => ({ dependentId: person.id, personName: person.name, dob: person.dateOfBirth ?? "" }))];
@@ -690,6 +696,10 @@ export async function createFromWizardAction(
         smokerStatus: form.smokerStatus || null,
         heightInches: parseAmount(form.heightInches),
         weightLbs: parseAmount(form.weightLbs),
+        beneficiaryName: form.beneficiaryName || null,
+        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
+        beneficiaryRelation: form.beneficiaryRelationship || null,
+        beneficiaryContact: form.beneficiaryContact || null,
         preExistingStatus: form.preExisting || null,
         medicalNotes: form.medicalNotes || null,
       });
@@ -840,6 +850,10 @@ export async function createFromWizardAction(
         smokerStatus: form.smokerStatus || null,
         heightInches: parseAmount(form.heightInches),
         weightLbs: parseAmount(form.weightLbs),
+        beneficiaryName: form.beneficiaryName || null,
+        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
+        beneficiaryRelation: form.beneficiaryRelationship || null,
+        beneficiaryContact: form.beneficiaryContact || null,
         preExistingStatus: form.preExisting || null,
         medicalNotes: form.medicalNotes || null,
       });

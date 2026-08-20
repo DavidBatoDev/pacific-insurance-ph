@@ -10,6 +10,11 @@ export interface ApplicationDependentInput {
   smokerStatus?: string | null;
   heightInches?: number | null;
   weightLbs?: number | null;
+  /** This dependent's own nominated beneficiary (G4). Relationship is to the dependent. */
+  beneficiaryName?: string | null;
+  beneficiaryBirthdate?: string | null;
+  beneficiaryRelation?: string | null;
+  beneficiaryContact?: string | null;
 }
 
 export interface CarrierFormAssignmentInput {

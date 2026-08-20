@@ -39,6 +39,11 @@ export interface Application {
   smokerStatus: string | null;
   heightInches: number | null;
   weightLbs: number | null;
+  /** Principal applicant's nominated beneficiary (G4); dependents carry their own. */
+  beneficiaryName: string | null;
+  beneficiaryBirthdate: string | null;
+  beneficiaryRelation: string | null;
+  beneficiaryContact: string | null;
   preExistingStatus: string | null;
   medicalNotes: string | null;
   notes: string | null;
@@ -67,6 +72,10 @@ export interface NewApplication {
   smokerStatus?: string | null;
   heightInches?: number | null;
   weightLbs?: number | null;
+  beneficiaryName?: string | null;
+  beneficiaryBirthdate?: string | null;
+  beneficiaryRelation?: string | null;
+  beneficiaryContact?: string | null;
   preExistingStatus?: string | null;
   medicalNotes?: string | null;
 }
@@ -89,6 +98,10 @@ export interface ApplicationUpdate {
   smokerStatus?: string | null;
   heightInches?: number | null;
   weightLbs?: number | null;
+  beneficiaryName?: string | null;
+  beneficiaryBirthdate?: string | null;
+  beneficiaryRelation?: string | null;
+  beneficiaryContact?: string | null;
   preExistingStatus?: string | null;
   medicalNotes?: string | null;
 }

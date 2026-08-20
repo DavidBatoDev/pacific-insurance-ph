@@ -29,6 +29,7 @@ import {
   ageFromDob,
   categoryForProduct,
   INQUIRY_APP_TYPE,
+  beneficiaryIdDocumentFor,
   isFlexiShieldProduct,
   isInquiryAppType,
   medicalDocumentsFor,
@@ -198,8 +199,8 @@ export function NewApplicationWizard({
     if (f.category === "health") {
       const principal = f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Principal applicant";
       const people = [
-        { name: principal, dob: f.dob, preExisting: f.preExisting, smokerStatus: f.smokerStatus, heightInches: f.heightInches, weightLbs: f.weightLbs },
-        ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown", smokerStatus: person.smokerStatus, heightInches: person.heightInches, weightLbs: person.weightLbs })),
+        { name: principal, dob: f.dob, preExisting: f.preExisting, smokerStatus: f.smokerStatus, heightInches: f.heightInches, weightLbs: f.weightLbs, beneficiaryName: f.beneficiaryName },
+        ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown", smokerStatus: person.smokerStatus, heightInches: person.heightInches, weightLbs: person.weightLbs, beneficiaryName: person.beneficiaryName })),
       ].filter((person) => person.name.trim());
       items = people.flatMap((person) => {
         const age = ageFromDob(person.dob);
@@ -208,6 +209,9 @@ export function NewApplicationWizard({
           { name: senior ? `Age 71–100 application form — ${person.name}` : `Regular application form — ${person.name}`, cond: senior ? "individual senior form" : null, checked: false, status: "Pending" },
           { name: `Valid ID — ${person.name}`, cond: null, checked: false, status: "Pending" },
         ];
+        // Mirrors the server snapshot: a nominated beneficiary needs their own ID (G4).
+        const beneficiaryId = beneficiaryIdDocumentFor(person.beneficiaryName);
+        if (beneficiaryId) result.push({ name: beneficiaryId, cond: null, checked: false, status: "Pending" });
         // Mirrors snapshotApplicationRequirements: the attestation and the advisor's
         // declaration are alternatives, so the preview must show whichever one the
         // sale channel actually calls for.
@@ -235,7 +239,7 @@ export function NewApplicationWizard({
       items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
     }
     setF((s) => ({ ...s, checklist: items }));
-  }, [f.category, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
+  }, [f.category, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.beneficiaryName, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {

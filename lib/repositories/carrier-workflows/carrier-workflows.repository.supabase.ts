@@ -56,6 +56,10 @@ export class SupabaseCarrierWorkflowsRepository implements CarrierWorkflowsRepos
         smoker_status: person.smokerStatus || null,
         height_inches: person.heightInches ?? null,
         weight_lbs: person.weightLbs ?? null,
+        beneficiary_name: person.beneficiaryName || null,
+        beneficiary_birthdate: person.beneficiaryBirthdate || null,
+        beneficiary_relation: person.beneficiaryRelation || null,
+        beneficiary_contact: person.beneficiaryContact || null,
       });
       if (linkError) throw toRepositoryError("CarrierWorkflows.saveApplicationDependents.link", linkError);
       saved.push({ ...person, id });
