@@ -71,6 +71,16 @@ const clientChannel = (value: string | null | undefined) => {
 const isWizardState = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
+/**
+ * The product-agnostic application checklist seeded by `0024_application_requirements.sql`.
+ *
+ * Named explicitly wherever it is looked up, because `required_document_templates` has no column
+ * separating application templates from claim templates: G8's two Medical NOC checklists live in
+ * the same table, also Active and also with a null `product_version_id`. "The first Active template
+ * with no product" is therefore no longer a unique description.
+ */
+const BASELINE_TEMPLATE_NAME = "Standard new-business baseline";
+
 /** Copy the current configurable template into an immutable application checklist. */
 async function snapshotApplicationRequirements(applicationId: string, productVersionId: string | null, form?: WizardForm) {
   const requirements = getApplicationRequirementsRepository();
@@ -124,7 +134,12 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
     .eq("status", "Active")
     .limit(1);
   if (productVersionId) templateQuery = templateQuery.eq("product_version_id", productVersionId);
-  else templateQuery = templateQuery.is("product_version_id", null);
+  // Anchored by name rather than "the first Active template with no product". This query has no
+  // ordering, and since G8 there are three rows matching that looser description, two of which are
+  // claim checklists — an unanchored lookup could hand an application the Medical NOC list. Not
+  // reachable through the wizard today (the Create gate requires a product), but it would fail
+  // silently if it ever were, so close it rather than depend on that.
+  else templateQuery = templateQuery.is("product_version_id", null).eq("template_name", BASELINE_TEMPLATE_NAME);
   let { data: template, error } = await templateQuery.maybeSingle();
   if (error) throw new Error(error.message);
 
@@ -134,7 +149,7 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
       .select("id")
       .eq("status", "Active")
       .is("product_version_id", null)
-      .eq("template_name", "Standard new-business baseline")
+      .eq("template_name", BASELINE_TEMPLATE_NAME)
       .maybeSingle();
     template = fallback.data;
     error = fallback.error;
