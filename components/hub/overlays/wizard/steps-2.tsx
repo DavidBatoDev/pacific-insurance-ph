@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { listWizardEmailAttachmentsAction } from "@/app/(app)/applications/wizard-actions";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
@@ -147,12 +147,103 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
   );
 }
 
+/** CET (Corporate Enrollment Template) fields beyond name/DOB/role — see migration 0030. */
+function CetMemberFields({
+  m,
+  index,
+  onChange,
+}: {
+  m: WizardMember;
+  index: number;
+  onChange: (patch: Partial<WizardMember>) => void;
+}) {
+  const field = (key: keyof WizardMember) => (m[key] as string | undefined) ?? "";
+  return (
+    <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
+      <DrawerField label="Last name">
+        <input aria-label={`Member ${index + 1} last name`} className={DRAWER_INPUT} value={field("lastName")} onChange={(e) => onChange({ lastName: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="First name">
+        <input aria-label={`Member ${index + 1} first name`} className={DRAWER_INPUT} value={field("firstName")} onChange={(e) => onChange({ firstName: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="M.I.">
+        <input aria-label={`Member ${index + 1} middle initial`} className={DRAWER_INPUT} value={field("middleInitial")} onChange={(e) => onChange({ middleInitial: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Gender">
+        <select aria-label={`Member ${index + 1} gender`} className={DRAWER_INPUT} value={field("gender")} onChange={(e) => onChange({ gender: e.target.value })}>
+          {WIZ_OPTS.gender.map((g) => (
+            <option key={g} value={g}>
+              {g || "Select…"}
+            </option>
+          ))}
+        </select>
+      </DrawerField>
+      <DrawerField label="Civil status">
+        <select aria-label={`Member ${index + 1} civil status`} className={DRAWER_INPUT} value={field("civilStatus")} onChange={(e) => onChange({ civilStatus: e.target.value })}>
+          {WIZ_OPTS.civil.map((c) => (
+            <option key={c} value={c}>
+              {c || "Select…"}
+            </option>
+          ))}
+        </select>
+      </DrawerField>
+      <DrawerField label="Nationality">
+        <input aria-label={`Member ${index + 1} nationality`} className={DRAWER_INPUT} value={field("nationality")} onChange={(e) => onChange({ nationality: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Place of birth">
+        <input aria-label={`Member ${index + 1} place of birth`} className={DRAWER_INPUT} value={field("placeOfBirth")} onChange={(e) => onChange({ placeOfBirth: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Coverage effective date" hint="CET effective date, per member">
+        <input aria-label={`Member ${index + 1} effective date`} className={DRAWER_INPUT} type="date" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Occupation / grade">
+        <input aria-label={`Member ${index + 1} occupation or grade`} className={DRAWER_INPUT} value={field("occupationGrade")} onChange={(e) => onChange({ occupationGrade: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Room & board plan">
+        <input aria-label={`Member ${index + 1} room and board plan`} className={DRAWER_INPUT} value={field("roomAndBoardPlan")} onChange={(e) => onChange({ roomAndBoardPlan: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Maximum benefit limit (₱)">
+        <input aria-label={`Member ${index + 1} maximum benefit limit`} className={DRAWER_INPUT} inputMode="numeric" value={field("maximumBenefitLimit")} onChange={(e) => onChange({ maximumBenefitLimit: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
+      </DrawerField>
+      <DrawerField label="PhilHealth member?">
+        <YesNo value={field("philhealthMember")} onChange={(v) => onChange({ philhealthMember: v })} />
+      </DrawerField>
+      <DrawerField label="Email" className="col-span-2">
+        <input aria-label={`Member ${index + 1} email`} className={DRAWER_INPUT} type="email" value={m.email} onChange={(e) => onChange({ email: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Mobile number">
+        <input aria-label={`Member ${index + 1} mobile number`} className={DRAWER_INPUT} value={field("mobileNumber")} onChange={(e) => onChange({ mobileNumber: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Landline number">
+        <input aria-label={`Member ${index + 1} landline number`} className={DRAWER_INPUT} value={field("landlineNumber")} onChange={(e) => onChange({ landlineNumber: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Address" className="col-span-4 max-[900px]:col-span-2">
+        <input aria-label={`Member ${index + 1} address`} className={DRAWER_INPUT} value={field("address")} onChange={(e) => onChange({ address: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Beneficiary name" className="col-span-2">
+        <input aria-label={`Member ${index + 1} beneficiary name`} className={DRAWER_INPUT} value={field("beneficiaryName")} onChange={(e) => onChange({ beneficiaryName: e.target.value })} />
+      </DrawerField>
+      <DrawerField label="Beneficiary birth date" className="col-span-2">
+        <input aria-label={`Member ${index + 1} beneficiary birth date`} className={DRAWER_INPUT} type="date" value={field("beneficiaryBirthDate")} onChange={(e) => onChange({ beneficiaryBirthDate: e.target.value })} />
+      </DrawerField>
+    </div>
+  );
+}
+
 function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) => void }) {
   const members = f.members;
   const setMember = (i: number, m: WizardMember) =>
     set({ members: members.map((x, idx) => (idx === i ? m : x)) });
   const named = members.filter((m) => m.name.trim()).length;
   const tooFew = named < 3;
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggleExpanded = (i: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
 
   return (
     <div>
@@ -180,37 +271,74 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
                 <th className="px-3 py-2">Age</th>
                 <th className="px-3 py-2">Role</th>
                 <th className="px-3 py-2" />
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {members.map((m, i) => (
-                <tr key={i} className="border-b border-border-soft last:border-0">
-                  <td className="px-2 py-1.5">
-                    <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" value={m.name} onChange={(e) => setMember(i, { ...m, name: e.target.value })} placeholder="Full name" />
-                  </td>
-                  <td className="w-[140px] px-2 py-1.5">
-                    <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" type="date" value={m.dob} onChange={(e) => setMember(i, { ...m, dob: e.target.value })} />
-                  </td>
-                  <td className="w-[44px] px-3 py-1.5 tabular-nums text-muted-foreground">
-                    {ageFromDob(m.dob) !== "" ? ageFromDob(m.dob) : "—"}
-                  </td>
-                  <td className="w-[120px] px-2 py-1.5">
-                    <select className="h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12.5px] outline-none focus:border-brand focus:bg-card" value={m.rel} onChange={(e) => setMember(i, { ...m, rel: e.target.value })}>
-                      {WIZ_OPTS.relationship.map((r) => (
-                        <option key={r}>{r}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="w-[40px] px-2 py-1.5">
-                    <button
-                      onClick={() => set({ members: members.filter((_, idx) => idx !== i) })}
-                      className="grid size-7 place-items-center rounded-md text-subtle hover:bg-hover hover:text-red"
-                    >
-                      <I.fileMissing size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {members.map((m, i) => {
+                const isOpen = expanded.has(i);
+                return (
+                  <Fragment key={i}>
+                    <tr className={cn("border-b border-border-soft", !isOpen && "last:border-0")}>
+                      <td className="px-2 py-1.5">
+                        <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" value={m.name} onChange={(e) => setMember(i, { ...m, name: e.target.value })} placeholder="Full name" />
+                      </td>
+                      <td className="w-[140px] px-2 py-1.5">
+                        <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" type="date" value={m.dob} onChange={(e) => setMember(i, { ...m, dob: e.target.value })} />
+                      </td>
+                      <td className="w-[44px] px-3 py-1.5 tabular-nums text-muted-foreground">
+                        {ageFromDob(m.dob) !== "" ? ageFromDob(m.dob) : "—"}
+                      </td>
+                      <td className="w-[120px] px-2 py-1.5">
+                        <select className="h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12.5px] outline-none focus:border-brand focus:bg-card" value={m.rel} onChange={(e) => setMember(i, { ...m, rel: e.target.value })}>
+                          {WIZ_OPTS.relationship.map((r) => (
+                            <option key={r}>{r}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="w-[40px] px-2 py-1.5">
+                        <button
+                          type="button"
+                          aria-expanded={isOpen}
+                          aria-label={isOpen ? `Hide CET details for member ${i + 1}` : `Show CET details for member ${i + 1}`}
+                          onClick={() => toggleExpanded(i)}
+                          className="grid size-7 place-items-center rounded-md text-subtle hover:bg-hover hover:text-foreground"
+                        >
+                          {isOpen ? <I.eyeOff size={14} /> : <I.eye size={14} />}
+                        </button>
+                      </td>
+                      <td className="w-[40px] px-2 py-1.5">
+                        <button
+                          onClick={() => {
+                            set({ members: members.filter((_, idx) => idx !== i) });
+                            setExpanded((prev) => {
+                              const next = new Set<number>();
+                              prev.forEach((idx) => {
+                                if (idx < i) next.add(idx);
+                                else if (idx > i) next.add(idx - 1);
+                              });
+                              return next;
+                            });
+                          }}
+                          className="grid size-7 place-items-center rounded-md text-subtle hover:bg-hover hover:text-red"
+                        >
+                          <I.fileMissing size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr className="border-b border-border-soft bg-surface-2 last:border-0">
+                        <td colSpan={6} className="p-3">
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle">
+                            CET (Corporate Enrollment Template) details
+                          </div>
+                          <CetMemberFields m={m} index={i} onChange={(patch) => setMember(i, { ...m, ...patch })} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
