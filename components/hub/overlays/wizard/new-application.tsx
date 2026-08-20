@@ -29,6 +29,7 @@ import {
   ageFromDob,
   categoryForProduct,
   INQUIRY_APP_TYPE,
+  isFlexiShieldProduct,
   isInquiryAppType,
   normaliseAppType,
   WIZ_CHECKLISTS,
@@ -211,12 +212,21 @@ export function NewApplicationWizard({
         return result;
       });
       if (f.remoteSale) items.push({ name: "Advisor's Declaration", cond: "remote or online sale", checked: false, status: "Pending" });
-      items.push({ name: "TAL conforme / CAC", cond: "only if requested after underwriting", checked: false, status: "Pending" });
+      // Mirrors snapshotApplicationRequirements: FlexiShield is second-layer, so it evidences the
+      // first-layer HMO instead of the TAL/CAC conforme, which only apply to Select/Blue Royale.
+      if (isFlexiShieldProduct(f.productName)) {
+        items.push(
+          { name: "Schedule of Benefits of the first-layer HMO", cond: "supplied by the client", checked: false, status: "Pending" },
+          { name: "Certificate of Coverage of the first-layer HMO", cond: "full MBL and expiry date, supplied by the client", checked: false, status: "Pending" },
+        );
+      } else {
+        items.push({ name: "TAL conforme / CAC", cond: "only if requested after underwriting", checked: false, status: "Pending" });
+      }
     } else if (f.category === "travel") {
       items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
     }
     setF((s) => ({ ...s, checklist: items }));
-  }, [f.category, f.preExisting, f.remoteSale, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob]);
+  }, [f.category, f.preExisting, f.remoteSale, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {
