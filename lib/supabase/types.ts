@@ -178,25 +178,34 @@ export type Database = {
           application_id: string
           created_at: string
           dependent_id: string
+          height_inches: number | null
           medical_notes: string | null
           pre_existing_status: string | null
+          smoker_status: string | null
           updated_at: string
+          weight_lbs: number | null
         }
         Insert: {
           application_id: string
           created_at?: string
           dependent_id: string
+          height_inches?: number | null
           medical_notes?: string | null
           pre_existing_status?: string | null
+          smoker_status?: string | null
           updated_at?: string
+          weight_lbs?: number | null
         }
         Update: {
           application_id?: string
           created_at?: string
           dependent_id?: string
+          height_inches?: number | null
           medical_notes?: string | null
           pre_existing_status?: string | null
+          smoker_status?: string | null
           updated_at?: string
+          weight_lbs?: number | null
         }
         Relationships: [
           {
@@ -283,6 +292,7 @@ export type Database = {
           date_submitted: string | null
           desired_start_date: string | null
           estimated_premium: number | null
+          height_inches: number | null
           id: string
           medical_notes: string | null
           notes: string | null
@@ -299,8 +309,10 @@ export type Database = {
           proposal_sent_date: string | null
           reference_no: string | null
           remote_sale: boolean
+          smoker_status: string | null
           status: string
           updated_at: string
+          weight_lbs: number | null
           wizard_state: Json | null
         }
         Insert: {
@@ -313,6 +325,7 @@ export type Database = {
           date_submitted?: string | null
           desired_start_date?: string | null
           estimated_premium?: number | null
+          height_inches?: number | null
           id?: string
           medical_notes?: string | null
           notes?: string | null
@@ -329,8 +342,10 @@ export type Database = {
           proposal_sent_date?: string | null
           reference_no?: string | null
           remote_sale?: boolean
+          smoker_status?: string | null
           status?: string
           updated_at?: string
+          weight_lbs?: number | null
           wizard_state?: Json | null
         }
         Update: {
@@ -343,6 +358,7 @@ export type Database = {
           date_submitted?: string | null
           desired_start_date?: string | null
           estimated_premium?: number | null
+          height_inches?: number | null
           id?: string
           medical_notes?: string | null
           notes?: string | null
@@ -359,8 +375,10 @@ export type Database = {
           proposal_sent_date?: string | null
           reference_no?: string | null
           remote_sale?: boolean
+          smoker_status?: string | null
           status?: string
           updated_at?: string
+          weight_lbs?: number | null
           wizard_state?: Json | null
         }
         Relationships: [

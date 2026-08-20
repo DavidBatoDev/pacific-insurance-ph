@@ -35,6 +35,10 @@ export interface Application {
   preferredPaymentMode: string | null;
   estimatedPremium: number | null;
   remoteSale: boolean;
+  /** Principal applicant's underwriting inputs (G3). Height is total inches, weight pounds. */
+  smokerStatus: string | null;
+  heightInches: number | null;
+  weightLbs: number | null;
   preExistingStatus: string | null;
   medicalNotes: string | null;
   notes: string | null;
@@ -60,6 +64,9 @@ export interface NewApplication {
   preferredPaymentMode?: string | null;
   estimatedPremium?: number | null;
   remoteSale?: boolean;
+  smokerStatus?: string | null;
+  heightInches?: number | null;
+  weightLbs?: number | null;
   preExistingStatus?: string | null;
   medicalNotes?: string | null;
 }
@@ -79,6 +86,9 @@ export interface ApplicationUpdate {
   preferredPaymentMode?: string | null;
   estimatedPremium?: number | null;
   remoteSale?: boolean;
+  smokerStatus?: string | null;
+  heightInches?: number | null;
+  weightLbs?: number | null;
   preExistingStatus?: string | null;
   medicalNotes?: string | null;
 }

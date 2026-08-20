@@ -6,6 +6,10 @@ export interface ApplicationDependentInput {
   email?: string | null;
   preExistingStatus?: string | null;
   medicalNotes?: string | null;
+  /** Underwriting inputs for the conditional medical panels (G3). Height is total inches. */
+  smokerStatus?: string | null;
+  heightInches?: number | null;
+  weightLbs?: number | null;
 }
 
 export interface CarrierFormAssignmentInput {

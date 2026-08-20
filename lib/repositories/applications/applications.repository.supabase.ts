@@ -57,6 +57,9 @@ function toDomain(row: JoinedRow): Application {
     preferredPaymentMode: row.preferred_payment_mode,
     estimatedPremium: row.estimated_premium,
     remoteSale: row.remote_sale,
+    smokerStatus: row.smoker_status,
+    heightInches: row.height_inches,
+    weightLbs: row.weight_lbs,
     preExistingStatus: row.pre_existing_status,
     medicalNotes: row.medical_notes,
     notes: row.notes,
@@ -119,6 +122,9 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
       preferred_payment_mode: input.preferredPaymentMode ?? null,
       estimated_premium: input.estimatedPremium ?? null,
       remote_sale: input.remoteSale ?? false,
+      smoker_status: input.smokerStatus ?? null,
+      height_inches: input.heightInches ?? null,
+      weight_lbs: input.weightLbs ?? null,
       pre_existing_status: input.preExistingStatus ?? null,
       medical_notes: input.medicalNotes ?? null,
     };
@@ -151,6 +157,9 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     if (input.preferredPaymentMode !== undefined) patch.preferred_payment_mode = input.preferredPaymentMode;
     if (input.estimatedPremium !== undefined) patch.estimated_premium = input.estimatedPremium;
     if (input.remoteSale !== undefined) patch.remote_sale = input.remoteSale;
+    if (input.smokerStatus !== undefined) patch.smoker_status = input.smokerStatus;
+    if (input.heightInches !== undefined) patch.height_inches = input.heightInches;
+    if (input.weightLbs !== undefined) patch.weight_lbs = input.weightLbs;
     if (input.preExistingStatus !== undefined) patch.pre_existing_status = input.preExistingStatus;
     if (input.medicalNotes !== undefined) patch.medical_notes = input.medicalNotes;
 

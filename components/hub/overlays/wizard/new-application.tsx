@@ -31,6 +31,7 @@ import {
   INQUIRY_APP_TYPE,
   isFlexiShieldProduct,
   isInquiryAppType,
+  medicalDocumentsFor,
   normaliseAppType,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
@@ -196,7 +197,10 @@ export function NewApplicationWizard({
     let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
     if (f.category === "health") {
       const principal = f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Principal applicant";
-      const people = [{ name: principal, dob: f.dob, preExisting: f.preExisting }, ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown" }))].filter((person) => person.name.trim());
+      const people = [
+        { name: principal, dob: f.dob, preExisting: f.preExisting, smokerStatus: f.smokerStatus, heightInches: f.heightInches, weightLbs: f.weightLbs },
+        ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown", smokerStatus: person.smokerStatus, heightInches: person.heightInches, weightLbs: person.weightLbs })),
+      ].filter((person) => person.name.trim());
       items = people.flatMap((person) => {
         const age = ageFromDob(person.dob);
         const senior = typeof age === "number" && age >= 71;
@@ -208,7 +212,12 @@ export function NewApplicationWizard({
         // declaration are alternatives, so the preview must show whichever one the
         // sale channel actually calls for.
         if (!f.remoteSale) result.push({ name: `Attestation — ${person.name}`, cond: null, checked: false, status: "Pending" });
-        if (senior || person.preExisting === "Yes") result.push({ name: `Medical documents — ${person.name}`, cond: "required", checked: false, status: "Pending" });
+        // One shared trigger with the server snapshot (`medicalDocumentsFor`) rather than a second
+        // copy of the age/pre-existing test — G3 added smoker and BMI as a third condition, and two
+        // hand-maintained copies is how they drift.
+        medicalDocumentsFor(person).forEach((name) =>
+          result.push({ name: `${name} — ${person.name}`, cond: "required", checked: false, status: "Pending" }),
+        );
         return result;
       });
       if (f.remoteSale) items.push({ name: "Advisor's Declaration", cond: "remote or online sale", checked: false, status: "Pending" });
@@ -226,7 +235,7 @@ export function NewApplicationWizard({
       items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
     }
     setF((s) => ({ ...s, checklist: items }));
-  }, [f.category, f.preExisting, f.remoteSale, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
+  }, [f.category, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {

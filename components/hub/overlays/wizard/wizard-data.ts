@@ -15,6 +15,14 @@ export interface WizardMember {
   preExisting?: string;
   medicalNotes?: string;
   /**
+   * Underwriting inputs for the conditional medical panels (G3). Optional because group members
+   * reuse this shape and are not individually underwritten. Units follow the carrier's own form:
+   * height in total inches (its "HEIGHT (ft. & in.)"), weight in pounds.
+   */
+  smokerStatus?: string;
+  heightInches?: string;
+  weightLbs?: string;
+  /**
    * CET (Corporate Enrollment Template) fields — group members only, optional so
    * health dependents (which reuse this shape) are unaffected. See migration 0030.
    */
@@ -112,6 +120,13 @@ export interface WizardForm {
   existingPC: string;
   preExisting: string;
   medicalNotes: string;
+  /**
+   * Principal applicant's underwriting inputs. Pacific Cross keys three conditional medical panels
+   * off these — see `medicalDocumentsFor`. Dependents carry their own on `WizardMember`.
+   */
+  smokerStatus: string;
+  heightInches: string;
+  weightLbs: string;
   remoteSale: boolean;
   /**
    * First-layer coverage — the plan a second-layer product sits on top of. Pacific Cross requires
@@ -315,6 +330,9 @@ export function emptyWizardForm(): WizardForm {
     startDate: "",
     dependents: "",
     existingPC: "",
+    smokerStatus: "",
+    heightInches: "",
+    weightLbs: "",
     firstLayerType: "HMO",
     firstLayerProvider: "",
     firstLayerPlan: "",
@@ -351,6 +369,81 @@ export function emptyWizardForm(): WizardForm {
     internalNote: "",
     status: "Applicant",
   };
+}
+
+export const SMOKER_STATUSES = ["Never", "Former", "Current"] as const;
+export type SmokerStatus = (typeof SMOKER_STATUSES)[number];
+
+/**
+ * BMI thresholds driving Pacific Cross's conditional medical panels.
+ *
+ * **Asia-Pacific cut-offs**, which is what is normally used in the Philippines — NOT the WHO
+ * international scale, where the same numbers mean different categories (overweight >= 25, Obese
+ * Class I 30–34.9). The difference is not cosmetic: a 5'7" / 165 lb applicant triggers both panels
+ * on this scale and neither on WHO's.
+ *
+ * **The carrier has not confirmed these numbers.** Eman's list names the panels ("BMI:", "Obese
+ * Class 1:") but never a cut-off, and nothing in the requirement lists, the application forms or
+ * `REQUIREMENTS.md` states one. A confirmation request is open with him. They live here, in one
+ * place, precisely so correcting them is a one-line change rather than a hunt.
+ */
+export const BMI_THRESHOLDS = {
+  /** At or above this, the Lipid Profile / HbA1c / Creatinine / BUN / Uric Acid / SGOT / SGPT / GGT panel applies. */
+  overweight: 23,
+  /** Obese Class 1 band: chest X-ray / ECG / TMST on top. */
+  obeseClass1Min: 25,
+  obeseClass1Max: 29.9,
+} as const;
+
+/** Imperial BMI, from the units the carrier's own application form asks for. */
+export function bmiFrom(heightInches: string | number, weightLbs: string | number): number | null {
+  const h = typeof heightInches === "number" ? heightInches : parseFloat(heightInches);
+  const w = typeof weightLbs === "number" ? weightLbs : parseFloat(weightLbs);
+  if (!h || !w || !isFinite(h) || !isFinite(w) || h <= 0 || w <= 0) return null;
+  return Math.round(((703 * w) / (h * h)) * 10) / 10;
+}
+
+/** The per-person underwriting inputs the conditional medical rules key on. */
+export interface MedicalProfileInput {
+  dob: string;
+  preExisting?: string;
+  smokerStatus?: string;
+  heightInches?: string | number;
+  weightLbs?: string | number;
+}
+
+/**
+ * The conditional medical documents Pacific Cross requires for one insured person.
+ *
+ * **Single source of truth for the trigger**, called by both the server-side requirement snapshot
+ * (`wizard-actions.ts`) and the wizard's client-side checklist preview (`new-application.tsx`).
+ * Those two previously carried separate copies of the age/pre-existing test, which is exactly how
+ * they drift once a third condition arrives — and G3 is that third condition.
+ *
+ * Returns document names in checklist order. Empty when nothing applies.
+ */
+export function medicalDocumentsFor(person: MedicalProfileInput): string[] {
+  const age = ageFromDob(person.dob);
+  const senior = typeof age === "number" && age >= 71;
+  const bmi = bmiFrom(person.heightInches ?? "", person.weightLbs ?? "");
+  const docs: string[] = [];
+
+  if (senior) docs.push("Senior medical examination / physician statement");
+  else if (person.preExisting === "Yes") docs.push("Medical questionnaire or supporting records");
+
+  if (person.smokerStatus === "Current") docs.push("Chest X-ray taken within the last 6 months");
+
+  if (bmi != null && bmi >= BMI_THRESHOLDS.overweight) {
+    docs.push("Lipid Profile, HbA1c, Creatinine, BUN, Uric Acid, SGOT, SGPT and GGT");
+  }
+  if (bmi != null && bmi >= BMI_THRESHOLDS.obeseClass1Min && bmi <= BMI_THRESHOLDS.obeseClass1Max) {
+    // The carrier lists a chest X-ray here too; a current smoker already has one above, so don't
+    // ask the client for the same film twice.
+    if (person.smokerStatus !== "Current") docs.push("Chest X-ray taken within the last 6 months");
+    docs.push("ECG");
+    docs.push("TMST (treadmill stress test)");
+  }
+  return docs;
 }
 
 export function ageFromDob(dob: string): number | "" {

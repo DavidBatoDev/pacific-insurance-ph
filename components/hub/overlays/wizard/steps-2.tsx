@@ -14,9 +14,12 @@ import { Section, type StepProps } from "./steps-1";
 import { EXTERNAL_COVERAGE_TYPES } from "@/lib/repositories/external-coverage/external-coverage.entity";
 import {
   ageFromDob,
+  bmiFrom,
+  BMI_THRESHOLDS,
   daysBetween,
   INQUIRY_APP_TYPE,
   isFlexiShieldProduct,
+  SMOKER_STATUSES,
   WIZ_OPTS,
   type WizardForm,
   type WizardMember,
@@ -76,6 +79,42 @@ export function Step3({ f, set, products, paymentChannels }: StepProps) {
   return <Step3Health f={f} set={set} products={products} />;
 }
 
+/** Two boxes, one value: the carrier form asks for ft. & in., the schema stores total inches. */
+function HeightInput({ value, onChange, idPrefix }: { value: string; onChange: (v: string) => void; idPrefix: string }) {
+  const total = parseFloat(value);
+  const feet = isFinite(total) && total > 0 ? Math.floor(total / 12) : "";
+  const inches = isFinite(total) && total > 0 ? Math.round(total % 12) : "";
+  const push = (nextFeet: number | string, nextInches: number | string) => {
+    const ft = parseFloat(String(nextFeet)) || 0;
+    const inch = parseFloat(String(nextInches)) || 0;
+    const sum = ft * 12 + inch;
+    onChange(sum > 0 ? String(sum) : "");
+  };
+  return (
+    <div className="flex items-center gap-1.5">
+      <input aria-label={`${idPrefix} height feet`} className={DRAWER_INPUT} value={feet} onChange={(e) => push(e.target.value, inches)} placeholder="ft" inputMode="numeric" />
+      <input aria-label={`${idPrefix} height inches`} className={DRAWER_INPUT} value={inches} onChange={(e) => push(feet, e.target.value)} placeholder="in" inputMode="numeric" />
+    </div>
+  );
+}
+
+/**
+ * Shows the computed BMI and which panels it triggers, so staff can see why the checklist grew.
+ * The thresholds are Asia-Pacific and unconfirmed by the carrier — see `BMI_THRESHOLDS`.
+ */
+function BmiReadout({ heightInches, weightLbs }: { heightInches: string; weightLbs: string }) {
+  const bmi = bmiFrom(heightInches, weightLbs);
+  if (bmi == null) return <div />;
+  const obese = bmi >= BMI_THRESHOLDS.obeseClass1Min && bmi <= BMI_THRESHOLDS.obeseClass1Max;
+  const over = bmi >= BMI_THRESHOLDS.overweight;
+  return (
+    <div className="self-end rounded-md border border-border-soft bg-surface-2 px-3 py-2.5 text-[12.5px]">
+      <b>BMI {bmi}</b>
+      {obese ? " · Obese Class 1 — adds chest X-ray, ECG and TMST" : over ? " · adds the lipid/HbA1c blood panel" : " · no extra panel"}
+    </div>
+  );
+}
+
 function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
   const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
   return (
@@ -99,7 +138,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             <input className={DRAWER_INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </DrawerField>
         </div>
-        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={DRAWER_INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={DRAWER_INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={DRAWER_INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
+        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr_0.7fr_1.2fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={DRAWER_INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={DRAWER_INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={DRAWER_INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={DRAWER_INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={DRAWER_INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
       <Section title="Underwriting">
@@ -111,6 +150,25 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <DrawerField label="Pre-existing conditions?" required hint="Required before Pacific Cross submission.">
             <YesNo value={f.preExisting} onChange={(v) => set({ preExisting: v })} unknown />
           </DrawerField>
+        </div>
+
+        {/* Smoker status and the BMI inputs drive Pacific Cross's three conditional medical panels
+            (G3). Units match the carrier's own application form — WEIGHT (lbs.), HEIGHT (ft. & in.)
+            — so staff transcribe straight across instead of converting. */}
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <DrawerField label="Smoker" hint="A current smoker needs a chest X-ray from the last 6 months.">
+            <select className={DRAWER_INPUT} value={f.smokerStatus} onChange={(e) => set({ smokerStatus: e.target.value })}>
+              <option value="">Select…</option>
+              {SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </DrawerField>
+          <DrawerField label="Weight (lbs.)">
+            <input className={DRAWER_INPUT} value={f.weightLbs} onChange={(e) => set({ weightLbs: e.target.value })} placeholder="0" inputMode="decimal" />
+          </DrawerField>
+          <DrawerField label="Height (ft. & in.)">
+            <HeightInput value={f.heightInches} onChange={(v) => set({ heightInches: v })} idPrefix="principal" />
+          </DrawerField>
+          <BmiReadout heightInches={f.heightInches} weightLbs={f.weightLbs} />
         </div>
 
         {/* FlexiShield only: it is second-layer cover, so Pacific Cross needs the first layer

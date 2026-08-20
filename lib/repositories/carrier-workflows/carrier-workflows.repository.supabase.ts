@@ -53,6 +53,9 @@ export class SupabaseCarrierWorkflowsRepository implements CarrierWorkflowsRepos
         application_id: applicationId, dependent_id: id,
         pre_existing_status: person.preExistingStatus ?? null,
         medical_notes: person.medicalNotes ?? null,
+        smoker_status: person.smokerStatus || null,
+        height_inches: person.heightInches ?? null,
+        weight_lbs: person.weightLbs ?? null,
       });
       if (linkError) throw toRepositoryError("CarrierWorkflows.saveApplicationDependents.link", linkError);
       saved.push({ ...person, id });
