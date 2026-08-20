@@ -452,6 +452,63 @@ export type Database = {
           },
         ]
       }
+      claim_requirements: {
+        Row: {
+          applies_to: string | null
+          claim_id: string
+          created_at: string
+          document_name: string
+          id: string
+          is_required: boolean
+          notes: string | null
+          required_document_item_id: string | null
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string | null
+          claim_id: string
+          created_at?: string
+          document_name: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string | null
+          claim_id?: string
+          created_at?: string
+          document_name?: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          required_document_item_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_requirements_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_requirements_required_document_item_id_fkey"
+            columns: ["required_document_item_id"]
+            isOneToOne: false
+            referencedRelation: "required_document_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claims: {
         Row: {
           amount_approved: number | null
@@ -1116,6 +1173,7 @@ export type Database = {
           application_id: string | null
           application_requirement_id: string | null
           claim_id: string | null
+          claim_requirement_id: string | null
           client_id: string | null
           created_at: string
           document_type: string | null
@@ -1140,6 +1198,7 @@ export type Database = {
           application_id?: string | null
           application_requirement_id?: string | null
           claim_id?: string | null
+          claim_requirement_id?: string | null
           client_id?: string | null
           created_at?: string
           document_type?: string | null
@@ -1164,6 +1223,7 @@ export type Database = {
           application_id?: string | null
           application_requirement_id?: string | null
           claim_id?: string | null
+          claim_requirement_id?: string | null
           client_id?: string | null
           created_at?: string
           document_type?: string | null
@@ -1204,6 +1264,13 @@ export type Database = {
             columns: ["claim_id"]
             isOneToOne: false
             referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_claim_requirement_id_fkey"
+            columns: ["claim_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "claim_requirements"
             referencedColumns: ["id"]
           },
           {
@@ -1550,44 +1617,101 @@ export type Database = {
       }
       group_members: {
         Row: {
+          address: string | null
+          beneficiary_birth_date: string | null
+          beneficiary_name: string | null
+          birth_date: string | null
+          civil_status: string | null
           client_id: string | null
           coverage_tier: string
           created_at: string
           ecard_status: string
+          effective_date: string | null
+          email: string | null
+          first_name: string | null
           full_name: string
+          gender: string | null
           group_id: string
           id: string
           join_date: string | null
+          landline_number: string | null
+          last_name: string | null
+          maximum_benefit_limit: number | null
+          middle_initial: string | null
+          mobile_number: string | null
+          nationality: string | null
           notes: string | null
+          occupation_grade: string | null
+          philhealth_member: boolean | null
+          place_of_birth: string | null
           relationship: string
+          room_and_board_plan: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          beneficiary_birth_date?: string | null
+          beneficiary_name?: string | null
+          birth_date?: string | null
+          civil_status?: string | null
           client_id?: string | null
           coverage_tier?: string
           created_at?: string
           ecard_status?: string
+          effective_date?: string | null
+          email?: string | null
+          first_name?: string | null
           full_name: string
+          gender?: string | null
           group_id: string
           id?: string
           join_date?: string | null
+          landline_number?: string | null
+          last_name?: string | null
+          maximum_benefit_limit?: number | null
+          middle_initial?: string | null
+          mobile_number?: string | null
+          nationality?: string | null
           notes?: string | null
+          occupation_grade?: string | null
+          philhealth_member?: boolean | null
+          place_of_birth?: string | null
           relationship?: string
+          room_and_board_plan?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          beneficiary_birth_date?: string | null
+          beneficiary_name?: string | null
+          birth_date?: string | null
+          civil_status?: string | null
           client_id?: string | null
           coverage_tier?: string
           created_at?: string
           ecard_status?: string
+          effective_date?: string | null
+          email?: string | null
+          first_name?: string | null
           full_name?: string
+          gender?: string | null
           group_id?: string
           id?: string
           join_date?: string | null
+          landline_number?: string | null
+          last_name?: string | null
+          maximum_benefit_limit?: number | null
+          middle_initial?: string | null
+          mobile_number?: string | null
+          nationality?: string | null
           notes?: string | null
+          occupation_grade?: string | null
+          philhealth_member?: boolean | null
+          place_of_birth?: string | null
           relationship?: string
+          room_and_board_plan?: string | null
           status?: string
           updated_at?: string
         }
