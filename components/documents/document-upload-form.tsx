@@ -22,7 +22,7 @@ function SubmitButton() {
   );
 }
 
-export function DocumentUploadForm({ clientId, applicationId, travelRequestId, requirementId, sourceLibraryDocumentId }: { clientId?: string; applicationId?: string; travelRequestId?: string; requirementId?: string; sourceLibraryDocumentId?: string }) {
+export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, sourceLibraryDocumentId }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; sourceLibraryDocumentId?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
@@ -37,7 +37,14 @@ export function DocumentUploadForm({ clientId, applicationId, travelRequestId, r
       {clientId && <input type="hidden" name="clientId" value={clientId} />}
       {applicationId && <input type="hidden" name="applicationId" value={applicationId} />}
       {travelRequestId && <input type="hidden" name="travelRequestId" value={travelRequestId} />}
-      {requirementId && <input type="hidden" name={travelRequestId ? "travelRequirementId" : "applicationRequirementId"} value={requirementId} />}
+      {claimId && <input type="hidden" name="claimId" value={claimId} />}
+      {requirementId && (
+        <input
+          type="hidden"
+          name={travelRequestId ? "travelRequirementId" : claimId ? "claimRequirementId" : "applicationRequirementId"}
+          value={requirementId}
+        />
+      )}
       {sourceLibraryDocumentId && <input type="hidden" name="sourceLibraryDocumentId" value={sourceLibraryDocumentId} />}
       <input
         type="file"

@@ -5,6 +5,7 @@ import { Btn } from "../primitives";
 import { AddTaskDrawer, type AddTaskPrefill } from "./add-task";
 import { AdvanceLeadModal } from "./advance-lead";
 import { ApplicationRequirementsModal } from "./application-requirements";
+import { ClaimRequirementsModal } from "./claim-requirements";
 import { TravelWorkflowModal } from "./travel-workflow";
 import { CommandPalette } from "./command-palette";
 import { EngageDrawer } from "./engage";
@@ -37,6 +38,8 @@ export function OverlayHost({
       return <CommandPalette onClose={close} />;
     case "application-requirements":
       return <ApplicationRequirementsModal applicationId={overlay.applicationId} onClose={close} />;
+    case "claim-requirements":
+      return <ClaimRequirementsModal claimId={overlay.claimId} onClose={close} />;
     case "travel-workflow":
       return <TravelWorkflowModal travelRequestId={overlay.travelRequestId} onClose={close} />;
     case "add-task":
@@ -123,6 +126,7 @@ const LABEL: Record<OverlayState["kind"], string> = {
   campaign: "The New Campaign drawer",
   "command-palette": "The command palette",
   "application-requirements": "Application requirements",
+  "claim-requirements": "Claim requirements",
   "travel-workflow": "Travel workflow",
 };
 

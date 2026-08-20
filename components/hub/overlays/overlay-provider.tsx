@@ -66,6 +66,7 @@ export type OverlayState =
   | { kind: "campaign"; presetType?: string }
   | { kind: "command-palette" }
   | { kind: "application-requirements"; applicationId: string }
+  | { kind: "claim-requirements"; claimId: string }
   | { kind: "travel-workflow"; travelRequestId: string };
 
 interface OverlayApi {
@@ -83,6 +84,7 @@ interface OverlayApi {
   openCampaign: (presetType?: string) => void;
   openCommandPalette: () => void;
   openApplicationRequirements: (applicationId: string) => void;
+  openClaimRequirements: (claimId: string) => void;
   openTravelWorkflow: (travelRequestId: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   toast: (title: string, sub?: string, action?: ToastData["action"]) => void;
@@ -139,6 +141,7 @@ export function OverlayProvider({
       openCampaign: (presetType) => open({ kind: "campaign", presetType }),
       openCommandPalette: () => open({ kind: "command-palette" }),
       openApplicationRequirements: (applicationId) => open({ kind: "application-requirements", applicationId }),
+      openClaimRequirements: (claimId) => open({ kind: "claim-requirements", claimId }),
       openTravelWorkflow: (travelRequestId) => open({ kind: "travel-workflow", travelRequestId }),
       confirm,
       toast,
