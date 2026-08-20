@@ -31,9 +31,11 @@ export async function uploadDocumentAction(formData: FormData) {
   const name = str(formData, "name") ?? file.name;
   const applicationId = str(formData, "applicationId") ?? null;
   const travelRequestId = str(formData, "travelRequestId") ?? null;
+  const claimId = str(formData, "claimId") ?? null;
   const sourceLibraryDocumentId = str(formData, "sourceLibraryDocumentId") ?? null;
   const applicationRequirementId = str(formData, "applicationRequirementId") ?? null;
   const travelRequirementId = str(formData, "travelRequirementId") ?? null;
+  const claimRequirementId = str(formData, "claimRequirementId") ?? null;
 
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -49,9 +51,11 @@ export async function uploadDocumentAction(formData: FormData) {
     clientId,
     applicationId,
     travelRequestId,
+    claimId,
     sourceLibraryDocumentId,
     applicationRequirementId,
     travelRequirementId,
+    claimRequirementId,
     documentType,
     visibility,
     uploadedBy: actor.id,
@@ -62,6 +66,9 @@ export async function uploadDocumentAction(formData: FormData) {
   }
   if (travelRequirementId) {
     await getSupabaseAdmin().from("travel_request_requirements").update({ status: "Received" }).eq("id", travelRequirementId);
+  }
+  if (claimRequirementId) {
+    await getSupabaseAdmin().from("claim_requirements").update({ status: "Received" }).eq("id", claimRequirementId);
   }
 
   await recordAudit({
@@ -85,6 +92,7 @@ export async function uploadDocumentAction(formData: FormData) {
   revalidatePath("/documents");
   if (applicationId) revalidatePath("/applications");
   if (travelRequestId) revalidatePath("/travel");
+  if (claimId) revalidatePath("/claims");
   return { id: doc.id };
 }
 

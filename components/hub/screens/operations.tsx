@@ -361,6 +361,7 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
         { k: "status", label: "Status" },
         { k: "amountClaimed", label: "Amount", num: true },
         { k: "incidentDate", label: "Incident" },
+        { k: "id", label: "" },
       ]}
       renderRow={(c) => (
         <Row key={c.id} onClick={() => openContact(c.clientId)}>
@@ -377,6 +378,17 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
             {c.amountClaimed != null ? peso(c.amountClaimed) : "—"}
           </Td>
           <Td className="text-muted-foreground">{fmtDate(c.incidentDate)}</Td>
+          <Td>
+            <Btn
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                overlays.openClaimRequirements(c.id);
+              }}
+            >
+              Requirements
+            </Btn>
+          </Td>
         </Row>
       )}
     />

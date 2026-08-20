@@ -15,6 +15,7 @@ export interface DocumentRecord {
   sourceLibraryDocumentId: string | null;
   applicationRequirementId: string | null;
   travelRequirementId: string | null;
+  claimRequirementId: string | null;
   documentType: string | null;
   name: string;
   filePath: string | null;
@@ -40,6 +41,7 @@ export interface NewDocumentRecord {
   sourceLibraryDocumentId?: string | null;
   applicationRequirementId?: string | null;
   travelRequirementId?: string | null;
+  claimRequirementId?: string | null;
   documentType?: string | null;
   visibility?: string;
   status?: string;
