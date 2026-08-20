@@ -14,6 +14,28 @@ export interface WizardMember {
   email: string;
   preExisting?: string;
   medicalNotes?: string;
+  /**
+   * CET (Corporate Enrollment Template) fields — group members only, optional so
+   * health dependents (which reuse this shape) are unaffected. See migration 0030.
+   */
+  lastName?: string;
+  firstName?: string;
+  middleInitial?: string;
+  gender?: string;
+  civilStatus?: string;
+  nationality?: string;
+  placeOfBirth?: string;
+  /** CET coverage effective date. Distinct from the group's shared startDate/joinDate. */
+  effectiveDate?: string;
+  occupationGrade?: string;
+  roomAndBoardPlan?: string;
+  maximumBenefitLimit?: string;
+  philhealthMember?: string;
+  address?: string;
+  mobileNumber?: string;
+  landlineNumber?: string;
+  beneficiaryName?: string;
+  beneficiaryBirthDate?: string;
 }
 
 export interface WizardTraveler {
