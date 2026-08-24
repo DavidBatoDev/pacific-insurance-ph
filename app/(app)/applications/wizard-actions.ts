@@ -681,6 +681,72 @@ export async function createFromWizardAction(
             ? "Medical Evaluation"
             : "Standard";
 
+    /**
+     * Persist the shared Application record for every non-Travel wizard branch.
+     *
+     * Group HMO used to skip this entirely on a fresh completed save because its operational
+     * Group Account branch was mutually exclusive with the generic Application branch below.
+     * Draft-resume happened to work because it updated the draft before entering that branch.
+     * Keeping creation in one helper makes fresh and draft-backed BC Flexi submissions converge on
+     * the same Application + immutable requirement-snapshot contract (G9).
+     */
+    const createApplicationRecord = async () => {
+      const application = await applicationsRepo.create({
+        clientId: resolvedClientId,
+        productVersionId: form.productVersionId || null,
+        planOptionId: form.planOptionId || null,
+        applicationType,
+        status: mode === "draft" ? "Lead" : form.status || "Applicant",
+        assignedUserId: form.assignedUserId || actor.id,
+        dateStarted: new Date().toISOString().slice(0, 10),
+        notes: form.internalNote || form.notes || null,
+        wizardState: mode === "draft" ? (form as unknown as Json) : null,
+        coverageType: form.coverage || null,
+        desiredStartDate: form.startDate || null,
+        preferredPaymentMode: form.payFreq || null,
+        estimatedPremium: parseAmount(form.premium),
+        remoteSale: form.remoteSale,
+        smokerStatus: form.smokerStatus || null,
+        heightInches: parseAmount(form.heightInches),
+        weightLbs: parseAmount(form.weightLbs),
+        beneficiaryName: form.beneficiaryName || null,
+        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
+        beneficiaryRelation: form.beneficiaryRelationship || null,
+        beneficiaryContact: form.beneficiaryContact || null,
+        preExistingStatus: form.preExisting || null,
+        medicalNotes: form.medicalNotes || null,
+      });
+      const unavailable = mode !== "draft" && form.category === "health"
+        ? await persistHealthWorkflow(application.id, resolvedClientId, form)
+        : 0;
+      if (mode !== "draft" && form.category !== "health") {
+        await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
+      }
+      await recordActivity({
+        scopeType: "client",
+        scopeId: resolvedClientId,
+        activityType: mode === "draft" ? "application.draft_saved" : "application.created",
+        summary:
+          mode === "draft"
+            ? `Application draft saved — ${application.referenceNo ?? ""} (${form.productName || "product"}) · contact stays a Lead`
+            : `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
+        actorId: actor.id,
+      });
+      await recordAudit({
+        actorId: actor.id,
+        action: mode === "draft" ? "create_draft" : "create",
+        tableName: "applications",
+        recordId: application.id,
+        newValue: application as unknown as Json,
+      });
+      result.applicationId = application.id;
+      result.summary =
+        mode === "draft"
+          ? `${clientName} saved as a draft — no messages sent.`
+          : `${clientName} — ${form.productName || "application"} · status ${application.status}.${unavailable ? ` ${unavailable} approved carrier form${unavailable === 1 ? " is" : "s are"} unavailable.` : ""}`;
+      return application;
+    };
+
     if (resumingDraft && form.draftApplicationId && (mode === "draft" || form.category !== "travel")) {
       const application = await applicationsRepo.update(form.draftApplicationId, {
         productVersionId: form.productVersionId || null,
@@ -733,6 +799,10 @@ export async function createFromWizardAction(
 
     /* ---------- 2. create the operational record ---------- */
     if (form.category === "hmo" && mode !== "draft") {
+      // A Group Account is the operational company/roster view, while the Application is the
+      // workflow record shown in /applications and the parent of the phased requirements. A fresh
+      // Group HMO submission needs both; a resumed draft already updated its Application above.
+      if (!resumingDraft) await createApplicationRecord();
       const group = await getGroupsRepository().create({
         name: form.companyName || clientName,
         productVersionId: form.productVersionId || null,
@@ -834,59 +904,7 @@ export async function createFromWizardAction(
       });
       result.travelRequestId = travel.id;
       result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " Approved Travel application form unavailable; record creation continued." : ""}`;
-    } else if (!resumingDraft) {
-      const application = await applicationsRepo.create({
-        clientId: resolvedClientId,
-        productVersionId: form.productVersionId || null,
-        planOptionId: form.planOptionId || null,
-        applicationType,
-        status: mode === "draft" ? "Lead" : form.status || "Applicant",
-        assignedUserId: form.assignedUserId || actor.id,
-        dateStarted: new Date().toISOString().slice(0, 10),
-        notes: form.internalNote || form.notes || null,
-        wizardState: mode === "draft" ? (form as unknown as Json) : null,
-        coverageType: form.coverage || null,
-        desiredStartDate: form.startDate || null,
-        preferredPaymentMode: form.payFreq || null,
-        estimatedPremium: parseAmount(form.premium),
-        remoteSale: form.remoteSale,
-        smokerStatus: form.smokerStatus || null,
-        heightInches: parseAmount(form.heightInches),
-        weightLbs: parseAmount(form.weightLbs),
-        beneficiaryName: form.beneficiaryName || null,
-        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
-        beneficiaryRelation: form.beneficiaryRelationship || null,
-        beneficiaryContact: form.beneficiaryContact || null,
-        preExistingStatus: form.preExisting || null,
-        medicalNotes: form.medicalNotes || null,
-      });
-      const unavailable = mode !== "draft" && form.category === "health"
-        ? await persistHealthWorkflow(application.id, resolvedClientId, form)
-        : 0;
-      if (mode !== "draft" && form.category !== "health") await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
-      await recordActivity({
-        scopeType: "client",
-        scopeId: resolvedClientId,
-        activityType: mode === "draft" ? "application.draft_saved" : "application.created",
-        summary:
-          mode === "draft"
-            ? `Application draft saved — ${application.referenceNo ?? ""} (${form.productName || "product"}) · contact stays a Lead`
-            : `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
-        actorId: actor.id,
-      });
-      await recordAudit({
-        actorId: actor.id,
-        action: mode === "draft" ? "create_draft" : "create",
-        tableName: "applications",
-        recordId: application.id,
-        newValue: application as unknown as Json,
-      });
-      result.applicationId = application.id;
-      result.summary =
-        mode === "draft"
-          ? `${clientName} saved as a draft — no messages sent.`
-          : `${clientName} — ${form.productName || "application"} · status ${application.status}.${unavailable ? ` ${unavailable} approved carrier form${unavailable === 1 ? " is" : "s are"} unavailable.` : ""}`;
-    }
+    } else if (!resumingDraft) await createApplicationRecord();
 
     /* ---------- 3. follow-up task ---------- */
     if (form.createTask && mode !== "draft") {
@@ -912,7 +930,9 @@ export async function createFromWizardAction(
     // (replaceTravelRequirements) and logs a `travel.quoted` activity, so the generic
     // application document-checklist entry would be redundant and misleading here.
     if (mode === "docs" && form.category !== "travel") {
-      const items = form.checklist.filter((c) => !c.checked).length;
+      // Conditional and post-agreement BC Flexi rows are visible in the wizard, but are not
+      // outstanding yet. Keep this summary aligned with the persisted requirement gate.
+      const items = form.checklist.filter((c) => c.isRequired !== false && !c.checked).length;
       await recordActivity({
         scopeType: "client",
         scopeId: resolvedClientId,

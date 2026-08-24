@@ -74,6 +74,10 @@ export interface ChecklistItem {
   cond: string | null;
   checked: boolean;
   status: string;
+  /** False keeps a forthcoming/conditional item out of the current missing-document count. */
+  isRequired?: boolean;
+  /** BC Flexi uses two sequential document gates rather than one flat checklist. */
+  phase?: "For proposal" | "Once the group agrees";
 }
 
 export interface WizardForm {
@@ -284,6 +288,35 @@ export const WIZ_CHECKLISTS: Record<WizardCategory, { name: string; cond: string
     { name: "Issued policy", cond: "after issuance" },
   ],
 };
+
+/**
+ * Client-side preview of the BC Flexi template seeded by migration 0035.
+ *
+ * The persisted template remains authoritative. This copy lets the wizard explain the two gates
+ * before save; `isRequired: false` also prevents conditional/future items from being reported as
+ * documents the client must provide now when staff choose Create & request documents.
+ */
+export const BC_FLEXI_CHECKLIST: ChecklistItem[] = [
+  { name: "Proposal Information Sheet (PIS)", cond: "internal use", checked: false, status: "Pending", isRequired: true, phase: "For proposal" },
+  { name: "Corporate Enrollment Template (CET)", cond: null, checked: false, status: "Pending", isRequired: true, phase: "For proposal" },
+  { name: "Franchise Application Form", cond: "only if the group has no previous HMO", checked: false, status: "Pending", isRequired: false, phase: "For proposal" },
+  { name: "Utilization Report from the previous HMO", cond: "only if the group has a previous HMO", checked: false, status: "Pending", isRequired: false, phase: "For proposal" },
+  { name: "SEC/BSP-issued Certificate of Registration (COR)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Articles of Incorporation (AOI)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Latest General Information Sheet (GIS)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "SSS Alphalist", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "BIR Alphalist", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "PhilHealth list", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "HR Certification", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Corporate Secretary's Attestation Form + valid ID", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Authorized Representative's Attestation Form + valid ID", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Duly accomplished and signed Employer's Application Form", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Duly accomplished Enrollment List in Excel", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Duly accomplished and signed Enrollment List in PDF", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+  { name: "Notarized Secretary's Certificate", cond: "KYC requirement", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
+];
+
+export const isBcFlexiProduct = (productName: string): boolean => /\bbc\s+flexi\b/i.test(productName);
 
 /** Product name → wizard category. */
 export function categoryForProduct(name: string, productCategory?: string | null): WizardCategory {

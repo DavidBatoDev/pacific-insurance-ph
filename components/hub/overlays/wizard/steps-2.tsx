@@ -563,14 +563,22 @@ export function Step4({ f, set }: StepProps) {
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        {list.map((r) => (
-          <div
-            key={r.name}
-            className={cn(
-              "flex items-center gap-3 rounded-md border px-3.5 py-2.5",
-              r.checked ? "border-brand/40 bg-brand-soft/50" : "border-border-soft",
+        {list.map((r, index) => (
+          <Fragment key={r.name}>
+            {r.phase && r.phase !== list[index - 1]?.phase && (
+              <div className="mb-1 mt-3 flex items-center justify-between first:mt-0">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">{r.phase}</span>
+                {r.phase === "Once the group agrees" && (
+                  <span className="text-[11px] font-semibold text-subtle">Forthcoming · not requested yet</span>
+                )}
+              </div>
             )}
-          >
+            <div
+              className={cn(
+                "flex items-center gap-3 rounded-md border px-3.5 py-2.5",
+                r.checked ? "border-brand/40 bg-brand-soft/50" : "border-border-soft",
+              )}
+            >
             <button
               onClick={() =>
                 set({
@@ -587,6 +595,9 @@ export function Step4({ f, set }: StepProps) {
             <span className="flex-1 text-[13px] font-[550]">
               {r.name}
               {r.cond && <span className="ml-2 text-[11px] font-semibold text-subtle">({r.cond})</span>}
+              {r.isRequired === false && !r.cond && (
+                <span className="ml-2 text-[11px] font-semibold text-subtle">(not required yet)</span>
+              )}
             </span>
             <select
               className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] outline-none focus:border-brand"
@@ -601,7 +612,8 @@ export function Step4({ f, set }: StepProps) {
                 <option key={s}>{s}</option>
               ))}
             </select>
-          </div>
+            </div>
+          </Fragment>
         ))}
         {list.length === 0 && (
           <div className="rounded-md bg-surface-2 px-4 py-6 text-center text-[13px] text-subtle">
@@ -805,7 +817,9 @@ export function Step6({ f, set }: StepProps) {
     f.category === "travel"
       ? `Travel request — ${f.destination || "trip"} · Awaiting Payment`
       : `Application record linked to ${f.productName || "product"}`,
-    `Document checklist (${f.checklist.length} items)`,
+    f.checklist.some((item) => item.phase === "Once the group agrees")
+      ? `Document checklist (${f.checklist.filter((item) => item.isRequired !== false).length} required now · ${f.checklist.filter((item) => item.phase === "Once the group agrees").length} after agreement)`
+      : `Document checklist (${f.checklist.length} items)`,
     `Timeline entry — application created`,
   ];
   // Matches `createFromWizardAction`'s pre-flight condition: no recipient means no email is

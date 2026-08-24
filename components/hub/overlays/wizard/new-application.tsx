@@ -30,6 +30,8 @@ import {
   categoryForProduct,
   INQUIRY_APP_TYPE,
   beneficiaryIdDocumentFor,
+  BC_FLEXI_CHECKLIST,
+  isBcFlexiProduct,
   isFlexiShieldProduct,
   isInquiryAppType,
   medicalDocumentsFor,
@@ -195,7 +197,9 @@ export function NewApplicationWizard({
       return;
     }
     const base = WIZ_CHECKLISTS[f.category] ?? [];
-    let items = base.map((b) => ({ ...b, checked: false, status: "Pending" }));
+    let items = isBcFlexiProduct(f.productName)
+      ? BC_FLEXI_CHECKLIST.map((item) => ({ ...item }))
+      : base.map((b) => ({ ...b, checked: false, status: "Pending" }));
     if (f.category === "health") {
       const principal = f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Principal applicant";
       const people = [
