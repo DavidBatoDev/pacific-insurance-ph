@@ -9,6 +9,8 @@ import { can, toAppRole } from "@/lib/auth/permissions";
 import { getExternalContactsRepository, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts";
 import {
   getIntegrationSettingsRepository,
+  INTEGRATION_PROVIDERS,
+  type IntegrationProvider,
   type PacificCrossIntegrationSettings,
 } from "@/lib/repositories/integration-settings";
 import {
@@ -167,11 +169,13 @@ export async function saveExternalContactAction(
 /* -------------------------- Pacific Cross portal -------------------------- */
 
 /** Save the agency's Pacific Cross portal link (Settings → Integrations; Admin-only). */
-export async function savePacificCrossPortalAction(
+export async function saveCarrierPortalAction(
+  provider: IntegrationProvider,
   portalUrl: string,
 ): Promise<ActionResult<PacificCrossIntegrationSettings>> {
   try {
     const actor = await requireAdmin();
+    if (!INTEGRATION_PROVIDERS.includes(provider)) return { ok: false, error: "Unknown portal integration." };
     const value = portalUrl.trim();
     if (!value) return { ok: false, error: "Pacific Cross portal URL is required." };
 
@@ -185,8 +189,11 @@ export async function savePacificCrossPortalAction(
     }
 
     const repository = getIntegrationSettingsRepository();
-    const previous = await repository.getPacificCross();
-    const saved = await repository.savePacificCross({
+    const previous = provider === "pacific_cross_travel"
+      ? await repository.getTravelPortal()
+      : await repository.getProposalPortal();
+    const saved = await repository.savePortal({
+      provider,
       portalUrl: normalizedUrl,
     });
     await recordAudit({
@@ -199,6 +206,7 @@ export async function savePacificCrossPortalAction(
     });
     revalidatePath("/settings");
     revalidatePath("/clients", "layout");
+    revalidatePath("/travel");
     return { ok: true, data: saved };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save Pacific Cross portal." };
@@ -206,16 +214,19 @@ export async function savePacificCrossPortalAction(
 }
 
 /** Remove the shared portal link while keeping the integration row available for later setup. */
-export async function removePacificCrossPortalAction(): Promise<
+export async function removeCarrierPortalAction(provider: IntegrationProvider): Promise<
   ActionResult<{ settings: PacificCrossIntegrationSettings; removedUrl: string }>
 > {
   try {
     const actor = await requireAdmin();
+    if (!INTEGRATION_PROVIDERS.includes(provider)) return { ok: false, error: "Unknown portal integration." };
     const repository = getIntegrationSettingsRepository();
-    const previous = await repository.getPacificCross();
+    const previous = provider === "pacific_cross_travel"
+      ? await repository.getTravelPortal()
+      : await repository.getProposalPortal();
     if (!previous?.portalUrl) return { ok: false, error: "The Pacific Cross portal URL has already been removed." };
 
-    const saved = await repository.savePacificCross({ portalUrl: null });
+    const saved = await repository.savePortal({ provider, portalUrl: null });
     await recordAudit({
       actorId: actor.id,
       action: "update",
@@ -226,6 +237,7 @@ export async function removePacificCrossPortalAction(): Promise<
     });
     revalidatePath("/settings");
     revalidatePath("/clients", "layout");
+    revalidatePath("/travel");
     return { ok: true, data: { settings: saved, removedUrl: previous.portalUrl } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to remove Pacific Cross portal." };

@@ -50,19 +50,22 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. Treat the next migration number as **`0025`** unless a newer migration has landed.
+5. Treat the next migration number as **`0037`** unless a newer migration has landed.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 
 ## Near-term execution order
 
-1. Reconcile remaining carrier application forms against the requirements catalog without
-   ingesting unapproved samples.
-2. Add portal-based Generate Proposal support; keep calculated/in-app proposal generation blocked
-   until product formulas and carrier approval are available.
-3. Complete client import and deployment-login readiness work.
-4. Validate renewals, claims, and travel workflows against newly approved carrier material when it
-   becomes available.
+1. Obtain Eman's remaining signer/PIS/CET/BMI/beneficiary/pre-approval answers and the missing
+   Employer's Application attachment without ingesting unapproved samples.
+2. Profile and clean the received client workbook, produce a mapping/exceptions report and obtain
+   import approval; do not load production rows during this step.
+3. Reconcile confirmed plan/premium collateral into the editable Product catalog. Active plan
+   options exist, but premium tables are still empty.
+4. Keep calculated in-app proposal generation deferred; use the separately configured proposal and
+   Travel portal links for V1 and keep portal credentials outside the app.
+5. Validate renewal medical triggers, pre-approvals and the commission lifecycle after Eman answers
+   the remaining workflow questions.
 
 ## Verification gate
 

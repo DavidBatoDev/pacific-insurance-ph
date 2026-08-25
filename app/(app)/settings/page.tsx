@@ -14,13 +14,14 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const actor = await getCurrentUser();
   const canManageLibrary = !!actor && toAppRole(actor.role) === "admin";
-  const [{ rows }, channels, pacificCross, contacts, libraryDocuments, productVersions] = await Promise.all([
+  const [{ rows }, channels, proposalPortal, travelPortal, contacts, libraryDocuments, productVersions] = await Promise.all([
     getUsersRepository().list({ limit: 50 }),
     getPaymentChannelsRepository().list(),
-    getIntegrationSettingsRepository().getPacificCross(),
+    getIntegrationSettingsRepository().getProposalPortal(),
+    getIntegrationSettingsRepository().getTravelPortal(),
     getExternalContactsRepository().list(),
     canManageLibrary ? getDocumentLibraryRepository().list() : Promise.resolve([]),
     canManageLibrary ? getProductsRepository().listVersions() : Promise.resolve([]),
   ]);
-  return <SettingsLive users={rows} channels={channels} pacificCross={pacificCross} contacts={contacts} libraryDocuments={libraryDocuments} productVersions={productVersions} canManageLibrary={canManageLibrary} />;
+  return <SettingsLive users={rows} channels={channels} proposalPortal={proposalPortal} travelPortal={travelPortal} contacts={contacts} libraryDocuments={libraryDocuments} productVersions={productVersions} canManageLibrary={canManageLibrary} />;
 }

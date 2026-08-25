@@ -13,6 +13,7 @@ import {
 } from "@/lib/repositories/travel";
 import { getCarrierWorkflowsRepository, type TravelerRecord, type TravelRequirementRecord } from "@/lib/repositories/carrier-workflows";
 import { getPaymentsRepository, type Payment } from "@/lib/repositories/payments";
+import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import type { Json } from "@/lib/supabase/types";
 
 /** New Travel Quote (modals.md §7) — creates a per-trip travel request. */
@@ -55,6 +56,7 @@ export interface TravelWorkflowPayload {
   travelers: TravelerRecord[];
   requirements: TravelRequirementRecord[];
   payments: Payment[];
+  portalUrl: string | null;
 }
 
 export async function getTravelWorkflowAction(id: string): Promise<ActionResult<TravelWorkflowPayload>> {
@@ -63,10 +65,11 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
     const travel = await getTravelRepository().findById(id);
     if (!travel) return { ok: false, error: "Travel request not found." };
     const workflows = getCarrierWorkflowsRepository();
-    const [travelers, requirements, payments] = await Promise.all([
+    const [travelers, requirements, payments, portal] = await Promise.all([
       workflows.listTravelers(id), workflows.listTravelRequirements(id), getPaymentsRepository().listByTravelRequest(id),
+      getIntegrationSettingsRepository().getTravelPortal(),
     ]);
-    return { ok: true, data: { travel, travelers, requirements, payments } };
+    return { ok: true, data: { travel, travelers, requirements, payments, portalUrl: portal?.portalUrl ?? null } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to load Travel workflow." };
   }

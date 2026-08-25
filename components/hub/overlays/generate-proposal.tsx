@@ -47,10 +47,10 @@ export function GenerateProposalModal({
       }
 
       // This is intentionally a browser handoff: C2a does not calculate or
-      // produce a PDF in-app. The server mutation completes first so the
-      // generated illustration is immediately represented as Received.
+      // produce a PDF in-app. Staff mark the proposal Received only after the
+      // carrier portal has actually produced it.
       window.open(res.data.portalUrl, "_blank", "noopener,noreferrer");
-      overlays.toast("Proposal generated", `${picked.name} — marked Received and opened Pacific Cross.`);
+      overlays.toast("Pacific Cross opened", `${picked.name} — mark the proposal Received after the illustration is available.`);
       onDone?.();
       router.refresh();
       onClose();
@@ -66,7 +66,7 @@ export function GenerateProposalModal({
         <div>
           <h3 className="text-[16px] font-bold tracking-[-0.01em]">Generate proposal</h3>
           <div className="text-[12.5px] text-muted-foreground">
-            For Select and Blue Royale. This opens Pacific Cross&apos;s generator and marks the proposal Received so it is ready to send.
+            For Select and Blue Royale. This opens Pacific Cross&apos;s generator; status stays unchanged until you mark the finished proposal Received.
           </div>
         </div>
       </div>

@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
-  removePacificCrossPortalAction,
-  savePacificCrossPortalAction,
+  removeCarrierPortalAction,
+  saveCarrierPortalAction,
   savePaymentChannelAction,
   togglePaymentChannelAction,
   toggleUserStatusAction,
@@ -13,7 +13,7 @@ import {
   saveExternalContactAction,
 } from "@/app/(app)/settings/actions";
 import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
-import type { PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
+import type { IntegrationProvider, PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
 import type { User } from "@/lib/repositories/users/user.entity";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
@@ -46,7 +46,8 @@ const TABS = [
 export function SettingsLive({
   users,
   channels,
-  pacificCross,
+  proposalPortal,
+  travelPortal,
   contacts,
   libraryDocuments,
   productVersions,
@@ -54,7 +55,8 @@ export function SettingsLive({
 }: {
   users: User[];
   channels: PaymentChannel[];
-  pacificCross: PacificCrossIntegrationSettings | null;
+  proposalPortal: PacificCrossIntegrationSettings | null;
+  travelPortal: PacificCrossIntegrationSettings | null;
   contacts: ExternalContact[];
   libraryDocuments: LibraryDocument[];
   productVersions: CatalogProductVersion[];
@@ -110,7 +112,7 @@ export function SettingsLive({
         {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
         {active === "Carrier Library" && <CarrierLibraryTab documents={libraryDocuments} productVersions={productVersions} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
-        {active === "Integrations" && <IntegrationsTab pacificCross={pacificCross} canEdit={isAdmin} />}
+        {active === "Integrations" && <IntegrationsTab proposalPortal={proposalPortal} travelPortal={travelPortal} canEdit={isAdmin} />}
       </Card>
     </div>
   );
@@ -315,25 +317,55 @@ function StaticTab({ title, body }: { title: string; body: string }) {
 /* -------------------------- Pacific Cross portal -------------------------- */
 
 function IntegrationsTab({
-  pacificCross,
+  proposalPortal,
+  travelPortal,
   canEdit,
 }: {
-  pacificCross: PacificCrossIntegrationSettings | null;
+  proposalPortal: PacificCrossIntegrationSettings | null;
+  travelPortal: PacificCrossIntegrationSettings | null;
+  canEdit: boolean;
+}) {
+  return (
+    <div className="max-w-[640px] space-y-6">
+      <PortalSetting
+        provider="pacific_cross_proposal"
+        title="Pacific Cross proposal portal"
+        description="Open the carrier calculator and proposal generator in a separate tab. Opening it does not claim that a proposal was received."
+        settings={proposalPortal}
+        canEdit={canEdit}
+      />
+      <PortalSetting
+        provider="pacific_cross_travel"
+        title="Pacific Cross Travel portal"
+        description="Open the carrier Travel portal for manual policy purchase and issuance tracking."
+        settings={travelPortal}
+        canEdit={canEdit}
+      />
+      <p className="text-[12px] text-faint">Portal credentials are kept in the agency password manager and are never stored in this app.</p>
+    </div>
+  );
+}
+
+function PortalSetting({ provider, title, description, settings, canEdit }: {
+  provider: IntegrationProvider;
+  title: string;
+  description: string;
+  settings: PacificCrossIntegrationSettings | null;
   canEdit: boolean;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
-  const [portalUrl, setPortalUrl] = useState(pacificCross?.portalUrl ?? "");
-  const [configuredUrl, setConfiguredUrl] = useState(pacificCross?.portalUrl ?? null);
+  const [portalUrl, setPortalUrl] = useState(settings?.portalUrl ?? "");
+  const [configuredUrl, setConfiguredUrl] = useState(settings?.portalUrl ?? null);
   const [pending, startTransition] = useTransition();
 
   const save = () =>
     startTransition(async () => {
-      const res = await savePacificCrossPortalAction(portalUrl);
+      const res = await saveCarrierPortalAction(provider, portalUrl);
       if (res.ok) {
         setPortalUrl(res.data.portalUrl ?? "");
         setConfiguredUrl(res.data.portalUrl);
-        overlays.toast("Pacific Cross portal saved", "Staff can now open the configured portal from Settings and proposal tracking.");
+        overlays.toast("Pacific Cross portal saved", "Staff can now open the configured portal from its workflow.");
         router.refresh();
       } else {
         overlays.toast("Couldn’t save portal", res.error);
@@ -342,11 +374,11 @@ function IntegrationsTab({
 
   const restore = (removedUrl: string) =>
     startTransition(async () => {
-      const res = await savePacificCrossPortalAction(removedUrl);
+      const res = await saveCarrierPortalAction(provider, removedUrl);
       if (res.ok) {
         setPortalUrl(res.data.portalUrl ?? "");
         setConfiguredUrl(res.data.portalUrl);
-        overlays.toast("Pacific Cross portal restored", "Proposal generation can use the portal URL again.");
+        overlays.toast("Pacific Cross portal restored", `${title} is available to staff again.`);
         router.refresh();
       } else {
         overlays.toast("Couldn’t restore portal", res.error);
@@ -357,11 +389,11 @@ function IntegrationsTab({
     if (!configuredUrl) return;
     const confirmed = await overlays.confirm({
       kind: "danger",
-      title: "Remove Pacific Cross portal URL?",
+      title: `Remove ${title} URL?`,
       message: (
         <>
           You’re about to remove <span className="break-all font-semibold text-foreground">{configuredUrl}</span>.
-          {" "}Proposal generation will be unavailable until an admin adds or restores a portal URL.
+          {" "}This carrier handoff will be unavailable until an admin adds or restores the URL.
         </>
       ),
       confirmLabel: "Remove URL",
@@ -369,13 +401,13 @@ function IntegrationsTab({
     if (!confirmed) return;
 
     startTransition(async () => {
-      const res = await removePacificCrossPortalAction();
+      const res = await removeCarrierPortalAction(provider);
       if (res.ok) {
         setPortalUrl("");
         setConfiguredUrl(null);
         overlays.toast(
           "Pacific Cross portal URL removed",
-          "Proposal generation is unavailable until a portal URL is configured.",
+          `${title} is unavailable until a portal URL is configured.`,
           { label: "Undo", onClick: () => restore(res.data.removedUrl) },
         );
         router.refresh();
@@ -392,9 +424,9 @@ function IntegrationsTab({
           <I.building size={17} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-bold">Pacific Cross portal</h3>
+          <h3 className="text-[15px] font-bold">{title}</h3>
           <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
-            Open the carrier portal in a separate tab when preparing or generating a proposal.
+            {description}
           </p>
           {configuredUrl ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -404,7 +436,7 @@ function IntegrationsTab({
                 rel="noreferrer"
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
               >
-                <I.arrowUpRight size={14} /> Open Pacific Cross portal
+                <I.arrowUpRight size={14} /> Open portal
               </a>
               {canEdit && (
                 <button

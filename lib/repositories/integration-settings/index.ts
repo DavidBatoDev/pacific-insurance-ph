@@ -11,6 +11,8 @@ export function getIntegrationSettingsRepository(): IntegrationSettingsRepositor
 
 export type { IntegrationSettingsRepository } from "./integration-settings.repository";
 export type {
+  IntegrationProvider,
   PacificCrossIntegrationSettings,
   PacificCrossIntegrationSettingsUpdate,
 } from "./integration-settings.entity";
+export { INTEGRATION_PROVIDERS } from "./integration-settings.entity";

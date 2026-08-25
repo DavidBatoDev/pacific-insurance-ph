@@ -411,10 +411,11 @@ export async function setProposalStatusAction(
 }
 
 /**
- * Individual Select / Blue Royale proposals are created in the Pacific Cross
- * portal. A completed handoff means an illustration is available to send, so
- * it enters the existing proposal artifact machine at Received rather than
- * introducing a parallel Generated status.
+ * Return the configured Select / Blue Royale proposal-generator URL.
+ *
+ * Opening a third-party site is not evidence that its work was completed. The
+ * proposal therefore stays in its current state until staff use the existing
+ * Mark Received action after the illustration actually exists.
  */
 export async function generateProposalAction(
   clientId: string,
@@ -437,32 +438,21 @@ export async function generateProposalAction(
         error: `This proposal is already ${lead.proposalStatus.toLowerCase()}. Continue it from proposal tracking.`,
       };
 
-    const portalUrl = (await getIntegrationSettingsRepository().getPacificCross())?.portalUrl;
+    const portalUrl = (await getIntegrationSettingsRepository().getProposalPortal())?.portalUrl;
     if (!portalUrl)
       return {
         ok: false,
         error: "The Pacific Cross portal URL has not been configured. Open Settings → Integrations to add it.",
       };
 
-    const updated = await repo.update(clientId, { proposalStatus: "Received" });
     await recordActivity({
       scopeType: "client",
       scopeId: clientId,
       activityType: "lead.proposal",
-      summary: `Proposal generated in Pacific Cross — ${lead.productInterest} illustration ready to send`,
+      summary: `Pacific Cross proposal portal opened — ${lead.productInterest}`,
       actorId: actor.id,
-    });
-    await recordAudit({
-      actorId: actor.id,
-      action: "proposal_generated",
-      tableName: "clients",
-      recordId: clientId,
-      previousValue: lead as unknown as Json,
-      newValue: updated as unknown as Json,
     });
 
-    revalidatePath("/prospects");
-    revalidatePath(`/clients/${clientId}`);
     return { ok: true, data: { portalUrl } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to generate proposal." };

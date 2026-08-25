@@ -38,7 +38,7 @@ export default async function ContactProfilePage({
     getContactTimeline(id),
     getTemplatesRepository().list(true),
     getUsersRepository().list({ limit: 50 }),
-    getIntegrationSettingsRepository().getPacificCross(),
+    getIntegrationSettingsRepository().getProposalPortal(),
     getApplicationsRepository().listByClient(id),
   ]);
 
