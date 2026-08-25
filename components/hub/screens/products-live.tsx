@@ -8,7 +8,7 @@ import {
   deleteProductAction,
   updateProductAction,
 } from "@/app/(app)/products/actions";
-import type { CatalogProduct } from "@/lib/repositories/products/product.entity";
+import type { CatalogProduct, CatalogSnapshot } from "@/lib/repositories/products/product.entity";
 import { PRODUCT_CATEGORIES } from "@/lib/repositories/products/product.entity";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
@@ -17,6 +17,7 @@ import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
 import { Btn, Card, PageHead } from "../primitives";
+import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
  * Products — system-configuration catalog (design products.jsx §13), wired to
@@ -38,9 +39,11 @@ const fmtDate = (iso: string) =>
 export function ProductsLive({
   products,
   usage,
+  catalog,
 }: {
   products: CatalogProduct[];
   usage: Record<string, number>;
+  catalog: CatalogSnapshot;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -407,6 +410,8 @@ export function ProductsLive({
           onSaved={() => router.refresh()}
         />
       )}
+
+      <ProductCatalogManager products={products} catalog={catalog} canEdit={canEdit} />
     </div>
   );
 }
@@ -456,13 +461,14 @@ function ProductDrawer({
   const [name, setName] = useState(product?.name ?? "");
   const [category, setCategory] = useState(product?.category ?? defaultCategory ?? "Primary Medical");
   const [description, setDescription] = useState(product?.description ?? "");
+  const [quoteOnly, setQuoteOnly] = useState(product?.quoteOnly ?? false);
   const [active, setActive] = useState(product?.active ?? true);
 
   const save = () =>
     startTransition(async () => {
       const res = product
-        ? await updateProductAction(product.id, { name, category, description, active })
-        : await createProductAction({ name, category, description, active });
+        ? await updateProductAction(product.id, { name, category, description, quoteOnly, active })
+        : await createProductAction({ name, category, description, quoteOnly, active });
       if (res.ok) {
         overlays.toast(product ? "Product saved" : "Product created", `“${res.data.name}”.`);
         onSaved();
@@ -519,6 +525,10 @@ function ProductDrawer({
           <span className={cn("absolute top-[2px] size-[18px] rounded-full bg-white shadow-sm transition-all", active ? "left-[20px]" : "left-[2px]")} />
         </button>
       </div>
+      <label className="mt-3 flex items-start gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[12.5px]">
+        <input type="checkbox" className="mt-0.5" checked={quoteOnly} onChange={(e) => setQuoteOnly(e.target.checked)} />
+        <span><b>Quote-only pricing</b><span className="mt-0.5 block text-[11.5px] text-subtle">No published rate table; staff must obtain a carrier quote.</span></span>
+      </label>
     </Drawer>
   );
 }
