@@ -414,7 +414,7 @@ export async function getDraftResumeAction(
       assignedUserId: resolveDefault("assignedUserId", client.assignedUserId ?? ""),
       appType: resolveDefault("appType", "New Insurance Application"),
       source: resolveDefault("source", client.leadSource ?? ""),
-      familySize: resolveDefault("familySize", client.familySize != null ? String(client.familySize) : String(saved.dependents ?? "")),
+      familySize: resolveDefault("familySize", client.familySize != null ? String(client.familySize) : ""),
       coverageTier: resolveDefault("coverageTier", client.coverageTier ?? ""),
       productVersionId: resolveDefault("productVersionId", uniqueProduct?.id ?? ""),
       productName: hasSavedValue(saved.productName) ? saved.productName! : uniqueProduct?.name ?? "",

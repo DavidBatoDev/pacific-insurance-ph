@@ -1,6 +1,6 @@
 # Build Roadmap — Current Implementation State
 
-> Engineering companion, last reconciled **2026-08-03**. The canonical product specification is
+> Engineering companion, last reconciled **2026-08-26**. The canonical product specification is
 > in [`../../docs/`](../../docs/INDEX.md). See
 > [Development Alignment](development-alignment.md) for mappings and known differences.
 
@@ -9,7 +9,7 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations `0001` through `0024` exist in source |
+| Data | Supabase repositories and server actions; migrations through `0037` exist in source and the remote ledger |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
 | Communications | Composers create communication records only; no email provider delivers them yet |
@@ -29,8 +29,12 @@ historical. They no longer describe this repository.
   recipient selection.
 - Carrier Document Library administration: upload, metadata, approval state, archive, and exact
   communication-to-document-version links.
-- Products, tasks, documents, renewals, claims, travel, relationship management, reports, email
-  templates, and settings screens at varying levels of live-data completeness.
+- Source-dated Products catalog with 513 published carrier rates, quote-only BC Flexi, provenance,
+  control totals, and audited Admin editing.
+- Six live Reports families with role scoping, drill-down, separate-currency metrics, and audited
+  XLSX/ODS/CSV export.
+- Tasks, documents, renewals, claims, travel, relationship management, email templates, and
+  settings screens at varying levels of live-data completeness.
 
 ## Important limits
 
@@ -50,7 +54,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. Treat the next migration number as **`0037`** unless a newer migration has landed.
+5. Treat the next migration number as **`0038`** unless a newer migration has landed.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 
@@ -60,8 +64,8 @@ historical. They no longer describe this repository.
    Employer's Application attachment without ingesting unapproved samples.
 2. Profile and clean the received client workbook, produce a mapping/exceptions report and obtain
    import approval; do not load production rows during this step.
-3. Reconcile confirmed plan/premium collateral into the editable Product catalog. Active plan
-   options exist, but premium tables are still empty.
+3. Keep the deployed source-dated Product catalog reconciled when Pacific Cross issues new
+   editions; never derive unpublished instalments or combine currencies.
 4. Keep calculated in-app proposal generation deferred; use the separately configured proposal and
    Travel portal links for V1 and keep portal credentials outside the app.
 5. Validate renewal medical triggers, pre-approvals and the commission lifecycle after Eman answers

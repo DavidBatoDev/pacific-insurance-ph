@@ -68,6 +68,7 @@ export type Database = {
           plan_option_id: string | null
           premium_rule: string | null
           product_version_id: string | null
+          source_key: string | null
           status: string
           updated_at: string
         }
@@ -80,6 +81,7 @@ export type Database = {
           plan_option_id?: string | null
           premium_rule?: string | null
           product_version_id?: string | null
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -92,6 +94,7 @@ export type Database = {
           plan_option_id?: string | null
           premium_rule?: string | null
           product_version_id?: string | null
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -1083,6 +1086,8 @@ export type Database = {
           name: string
           plan_option_id: string | null
           product_version_id: string | null
+          source_key: string | null
+          source_notes: string | null
           status: string
           updated_at: string
         }
@@ -1096,6 +1101,8 @@ export type Database = {
           name: string
           plan_option_id?: string | null
           product_version_id?: string | null
+          source_key?: string | null
+          source_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -1109,6 +1116,8 @@ export type Database = {
           name?: string
           plan_option_id?: string | null
           product_version_id?: string | null
+          source_key?: string | null
+          source_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -2012,6 +2021,7 @@ export type Database = {
           plan_family: string | null
           plan_name: string
           product_version_id: string
+          source_key: string | null
           status: string
           updated_at: string
         }
@@ -2026,6 +2036,7 @@ export type Database = {
           plan_family?: string | null
           plan_name: string
           product_version_id: string
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -2040,6 +2051,7 @@ export type Database = {
           plan_family?: string | null
           plan_name?: string
           product_version_id?: string
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -2177,45 +2189,97 @@ export type Database = {
       }
       premium_tables: {
         Row: {
+          add_on_id: string | null
           age_band: string | null
+          age_max: number | null
+          age_min: number | null
           base_premium: number | null
+          coverage_amount: number | null
+          coverage_unit: number | null
           created_at: string
           currency: string | null
           effective_date: string | null
           id: string
+          insured_type: string | null
           payment_mode: string | null
           plan_option_id: string | null
           product_version_id: string
+          rate_basis: string
+          source_confirmed_current_date: string | null
+          source_document: string | null
+          source_effective_date: string | null
+          source_key: string | null
+          source_notes: string | null
+          source_page: string | null
           status: string
+          travel_days_max: number | null
+          trip_type: string | null
           updated_at: string
         }
         Insert: {
+          add_on_id?: string | null
           age_band?: string | null
+          age_max?: number | null
+          age_min?: number | null
           base_premium?: number | null
+          coverage_amount?: number | null
+          coverage_unit?: number | null
           created_at?: string
           currency?: string | null
           effective_date?: string | null
           id?: string
+          insured_type?: string | null
           payment_mode?: string | null
           plan_option_id?: string | null
           product_version_id: string
+          rate_basis?: string
+          source_confirmed_current_date?: string | null
+          source_document?: string | null
+          source_effective_date?: string | null
+          source_key?: string | null
+          source_notes?: string | null
+          source_page?: string | null
           status?: string
+          travel_days_max?: number | null
+          trip_type?: string | null
           updated_at?: string
         }
         Update: {
+          add_on_id?: string | null
           age_band?: string | null
+          age_max?: number | null
+          age_min?: number | null
           base_premium?: number | null
+          coverage_amount?: number | null
+          coverage_unit?: number | null
           created_at?: string
           currency?: string | null
           effective_date?: string | null
           id?: string
+          insured_type?: string | null
           payment_mode?: string | null
           plan_option_id?: string | null
           product_version_id?: string
+          rate_basis?: string
+          source_confirmed_current_date?: string | null
+          source_document?: string | null
+          source_effective_date?: string | null
+          source_key?: string | null
+          source_notes?: string | null
+          source_page?: string | null
           status?: string
+          travel_days_max?: number | null
+          trip_type?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "premium_tables_add_on_id_fkey"
+            columns: ["add_on_id"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "premium_tables_plan_option_id_fkey"
             columns: ["plan_option_id"]
@@ -2240,6 +2304,9 @@ export type Database = {
           id: string
           notes: string | null
           product_id: string
+          source_confirmed_current_date: string | null
+          source_document: string | null
+          source_key: string | null
           status: string
           updated_at: string
           version_name: string
@@ -2251,6 +2318,9 @@ export type Database = {
           id?: string
           notes?: string | null
           product_id: string
+          source_confirmed_current_date?: string | null
+          source_document?: string | null
+          source_key?: string | null
           status?: string
           updated_at?: string
           version_name: string
@@ -2262,6 +2332,9 @@ export type Database = {
           id?: string
           notes?: string | null
           product_id?: string
+          source_confirmed_current_date?: string | null
+          source_document?: string | null
+          source_key?: string | null
           status?: string
           updated_at?: string
           version_name?: string
@@ -2284,6 +2357,8 @@ export type Database = {
           id: string
           name: string
           provider: string | null
+          quote_only: boolean
+          source_key: string | null
           status: string
           updated_at: string
         }
@@ -2294,6 +2369,8 @@ export type Database = {
           id?: string
           name: string
           provider?: string | null
+          quote_only?: boolean
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -2304,6 +2381,8 @@ export type Database = {
           id?: string
           name?: string
           provider?: string | null
+          quote_only?: boolean
+          source_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -3300,7 +3379,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      carrier_catalog_control_totals: {
+        Row: {
+          add_on_count: number | null
+          currency_count: number | null
+          discount_count: number | null
+          plan_count: number | null
+          product_name: string | null
+          published_rate_sums_by_currency: Json | null
+          rate_count: number | null
+          version_name: string | null
+          version_source_key: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_document_library_asset: {

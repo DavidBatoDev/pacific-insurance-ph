@@ -28,6 +28,12 @@ DB schema already carries `date_of_birth`, `external_contacts`, `commissions`, a
 green-field building. Client import, in-app proposal calculation, approved carrier collateral, and
 production rollout each retain the explicit dependencies listed below.
 
+**Web implementation update (2026-08-26):** migration `0036` is reconciled in the remote ledger;
+`0037_carrier_rate_catalog` is deployed with the source-dated carrier catalog and 513 published
+rate rows; Discovery family size/coverage tier now carry safely into the application wizard; and
+all six Reports families are live with RBAC, drill-down and audited XLSX/ODS/CSV export. Client
+workbook processing and outbound email remain outside this implementation slice.
+
 ## Implementation audit (2026-08-03)
 
 Audited against current source, Git history, and the connected Supabase migration ledger.
@@ -1251,8 +1257,8 @@ largest and least urgent since neither Claims nor group enrollment is in active 
   rows each rather than the 5–6 the cards show; CSV is the summary metrics only, as a single flat
   table. Readability via column widths, peso/date number formats and merged section titles —
   SheetJS community can't style cells, see the `docs/development-alignment.md` row. The **Reports**
-  screen's Export button (`components/hub/screens/reports.tsx:60`) is still inert; this is the
-  precedent for wiring it up, but that screen is mock-data-only so it needs a real data layer first.
+  follow-up is now **BUILT 2026-08-26**: all six families use live repository data and the scoped
+  export route emits audited XLSX/ODS/CSV files without combining currencies.
 - **WYSIWYG email editor** for templates, and the **Gmail-under-PacificInsurancePH.com** migration +
   real send (ties to R1).
 - The **Renewals & Claims** deep-dive remains the client's requested next meeting topic after the
@@ -1321,5 +1327,5 @@ their product references too.
 Dashboard export-to-spreadsheet, a WYSIWYG email editor, and the Gmail migration remain noted but
 not requested as tasks (see "Noted, not yet prioritized" above). The fabricated notifications,
 sidebar counts, dated close-out card and Prospects Intake Forms widget were removed or live-backed
-on 2026-08-25; the remaining mock Reports route and lower-priority cleanup findings stay tracked in
-`FUTURE-REFACTOR.md`.
+on 2026-08-25. The mock Reports route was replaced on 2026-08-26; lower-priority cleanup findings
+remain tracked separately in `FUTURE-REFACTOR.md`.

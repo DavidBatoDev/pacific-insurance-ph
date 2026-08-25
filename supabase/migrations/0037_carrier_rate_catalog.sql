@@ -59,6 +59,19 @@ update public.product_versions set status = 'Inactive' where source_key is null;
 update public.plan_options set status = 'Inactive' where source_key is null;
 update public.products set status = 'Inactive' where name = 'Travel Insurance' and source_key is null;
 
+-- Production may no longer contain the illustrative 0009 seed rows. Reuse a matching product
+-- when it exists, but create the canonical carrier product when it does not.
+insert into public.products (name, category, provider, status)
+select seed.name, seed.category, 'Pacific Cross', 'Active'
+from (values
+  ('Select', 'Primary Medical'),
+  ('Blue Royale', 'Primary Medical'),
+  ('FlexiShield', 'Second-Layer Medical'),
+  ('BC Flexi', 'Group Medical'),
+  ('TravelSafe', 'Travel Insurance')
+) seed(name, category)
+where not exists (select 1 from public.products p where p.name = seed.name);
+
 update public.products
 set category = 'Primary Medical', description = 'Pacific Cross Select medical insurance',
     source_key = 'pacific-cross-select', quote_only = false, status = 'Active'
@@ -75,11 +88,11 @@ update public.products
 set category = 'Group Medical', description = 'Pacific Cross group HMO; premiums supplied by carrier quote',
     source_key = 'pacific-cross-bc-flexi', quote_only = true, status = 'Active'
 where id = (select id from public.products where name = 'BC Flexi' order by created_at limit 1);
-
-insert into public.products (name, category, provider, description, source_key, quote_only, status)
-values ('TravelSafe', 'Travel Insurance', 'Pacific Cross',
-        'Pacific Cross TravelSafe single-trip and multi-trip travel insurance',
-        'pacific-cross-travelsafe', false, 'Active');
+update public.products
+set category = 'Travel Insurance', provider = 'Pacific Cross',
+    description = 'Pacific Cross TravelSafe single-trip and multi-trip travel insurance',
+    source_key = 'pacific-cross-travelsafe', quote_only = false, status = 'Active'
+where id = (select id from public.products where name = 'TravelSafe' order by created_at limit 1);
 
 insert into public.product_versions
   (product_id, version_name, effective_date, status, notes, source_key, source_document, source_confirmed_current_date)
