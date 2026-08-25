@@ -14,13 +14,13 @@ export interface ProductOption {
   productVersionId: string;
   productName: string;
   productCategory: string | null;
-  planOptions: { id: string; name: string }[];
+  planOptions: { id: string; name: string; coverageTier: string | null }[];
 }
 
 export async function listProductOptionsAction(): Promise<ProductOption[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("product_versions")
-    .select("id, status, product:products (name, category), plan_options (id, plan_name)")
+    .select("id, status, product:products (name, category), plan_options (id, plan_name, coverage_tier)")
     .eq("status", "Active")
     .order("id");
   if (error) return [];
@@ -29,9 +29,10 @@ export async function listProductOptionsAction(): Promise<ProductOption[]> {
       productVersionId: v.id,
       productName: (v.product as { name: string } | null)?.name ?? "—",
       productCategory: (v.product as { category: string | null } | null)?.category ?? null,
-      planOptions: ((v.plan_options ?? []) as { id: string; plan_name: string }[]).map((p) => ({
+      planOptions: ((v.plan_options ?? []) as { id: string; plan_name: string; coverage_tier: string | null }[]).map((p) => ({
         id: p.id,
         name: p.plan_name,
+        coverageTier: p.coverage_tier,
       })),
     }))
     .sort((a, b) => a.productName.localeCompare(b.productName));

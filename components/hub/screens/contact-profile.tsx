@@ -145,6 +145,8 @@ export function ContactProfile({
       productInterest: client.productInterest,
       email: client.email,
       dob: client.dateOfBirth,
+      familySize: client.familySize,
+      coverageTier: client.coverageTier,
       mobileNumber: client.mobileNumber,
       referenceNo: client.referenceNo,
       ...(skipAhead ? { confirmedSkip: true } : {}),

@@ -12,6 +12,7 @@ import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "../c
 import {
   ageFromDob,
   categoryForProduct,
+  uniquePlanPreferenceMatch,
   WIZ_OPTS,
   type WizardForm,
 } from "./wizard-data";
@@ -60,11 +61,12 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             value={f.productVersionId}
             onChange={(e) => {
               const p = products.find((x) => x.productVersionId === e.target.value);
+              const preferredPlan = p ? uniquePlanPreferenceMatch(f.coverageTier, p.planOptions) : null;
               set({
                 productVersionId: e.target.value,
                 productName: p?.productName ?? "",
                 category: p ? categoryForProduct(p.productName, p.productCategory) : "",
-                planOptionId: "",
+                planOptionId: preferredPlan?.id ?? "",
               });
             }}
           >

@@ -20,6 +20,7 @@ import {
   INQUIRY_APP_TYPE,
   isFlexiShieldProduct,
   SMOKER_STATUSES,
+  uniquePlanPreferenceMatch,
   WIZ_OPTS,
   type WizardForm,
   type WizardMember,
@@ -117,13 +118,14 @@ function BmiReadout({ heightInches, weightLbs }: { heightInches: string; weightL
 
 function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
   const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
+  const preferredPlan = uniquePlanPreferenceMatch(f.coverageTier, plans);
   return (
     <div>
       <Section title="Plan & coverage">
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Plan option" required>
             <select className={DRAWER_INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
-              <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+              <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
           </DrawerField>
           <DrawerField label="Coverage type" required>
@@ -137,7 +139,18 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <DrawerField label="Desired coverage start date">
             <input className={DRAWER_INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </DrawerField>
+          <DrawerField label="Family size / people to cover" hint="Includes the principal applicant.">
+            <input className={DRAWER_INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
+          </DrawerField>
+          <DrawerField label="Coverage tier / room preference" hint="Discovery preference; the catalog plan above is the actual selection.">
+            <input className={DRAWER_INPUT} value={f.coverageTier} onChange={(e) => set({ coverageTier: e.target.value })} placeholder="e.g. Ward, Private, Plan A" />
+          </DrawerField>
         </div>
+        {f.coverageTier && !f.planOptionId && (
+          <div className="mt-3 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">
+            Preference retained: <b>{f.coverageTier}</b>. {preferredPlan ? "Select the matched plan option above." : "It does not identify one unique plan, so choose the actual plan option above."}
+          </div>
+        )}
         {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={DRAWER_INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={DRAWER_INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={DRAWER_INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={DRAWER_INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={DRAWER_INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={DRAWER_INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={DRAWER_INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
@@ -846,6 +859,8 @@ export function Step6({ f, set }: StepProps) {
         </ReviewCard>
         <ReviewCard title="Product & ownership" icon="shield">
           <ReviewRow k="Product" v={f.productName || "Not set"} />
+          {f.category === "health" && <ReviewRow k="Family size" v={f.familySize || "Not set"} />}
+          {f.category === "health" && <ReviewRow k="Coverage preference" v={f.coverageTier || "Not set"} />}
           <ReviewRow k="Type" v={f.appType || "Not set"} />
           <ReviewRow k="Source" v={f.source || "Not set"} />
           <ReviewRow k="Priority" v={f.priority} />

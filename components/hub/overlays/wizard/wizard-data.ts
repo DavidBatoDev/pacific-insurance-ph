@@ -81,7 +81,7 @@ export interface ChecklistItem {
 }
 
 export interface WizardForm {
-  schemaVersion: 2;
+  schemaVersion: 3;
   /** Application row that owns a saved wizard draft, if this is a resume. */
   draftApplicationId: string | null;
   /** Last active wizard step, persisted with a saved draft. */
@@ -121,6 +121,10 @@ export interface WizardForm {
   members: WizardMember[];
   healthDependents: WizardMember[];
   /* Step 3 — product specifics */
+  /** Discovery headcount preference, stored on the unified client record. */
+  familySize: string;
+  /** Discovery room/benefit preference, distinct from the selected catalog plan option. */
+  coverageTier: string;
   coverage: string;
   startDate: string;
   dependents: string;
@@ -338,7 +342,7 @@ export const isFlexiShieldProduct = (productName: string): boolean => /flexishie
 
 export function emptyWizardForm(): WizardForm {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     draftApplicationId: null,
     draftStep: 1,
     appType: "",
@@ -376,6 +380,8 @@ export function emptyWizardForm(): WizardForm {
       { name: "", dob: "", rel: "Employee", email: "" },
     ],
     healthDependents: [],
+    familySize: "",
+    coverageTier: "",
     coverage: "",
     startDate: "",
     dependents: "",
@@ -423,6 +429,70 @@ export function emptyWizardForm(): WizardForm {
     internalNote: "",
     status: "Applicant",
   };
+}
+
+/** A blank health-dependent row used only when discovery says more people need covering. */
+export function emptyHealthDependent(): WizardMember {
+  return {
+    name: "",
+    dob: "",
+    rel: "Dependent",
+    email: "",
+    preExisting: "Unknown",
+    medicalNotes: "",
+  };
+}
+
+/**
+ * Apply the discovery headcount once when a wizard is first initialized or resumed.
+ *
+ * `familySize` includes the principal, so a family of four suggests three dependent rows. Existing
+ * rows (including partially completed and intentionally blank rows) are retained byte-for-byte;
+ * only missing slots are appended. Callers deliberately do not run this on every edit/render.
+ */
+export function initialiseFamilySizeSuggestion(form: WizardForm): WizardForm {
+  const familySize = Number(form.familySize);
+  if (!Number.isInteger(familySize) || familySize <= 1) return form;
+  const missingSlots = Math.max(0, familySize - 1 - form.healthDependents.length);
+  return {
+    ...form,
+    coverage: form.coverage || "Family",
+    healthDependents:
+      missingSlots > 0
+        ? [...form.healthDependents, ...Array.from({ length: missingSlots }, emptyHealthDependent)]
+        : form.healthDependents,
+  };
+}
+
+/** Normalize human-entered tier/plan text without turning partial matches into false positives. */
+export function normalisePlanPreference(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export interface PlanPreferenceOption {
+  id: string;
+  name: string;
+  coverageTier: string | null;
+}
+
+/** Return a plan only when normalized plan-name/tier matching produces exactly one candidate. */
+export function uniquePlanPreferenceMatch(
+  preference: string,
+  plans: PlanPreferenceOption[],
+): PlanPreferenceOption | null {
+  const normalized = normalisePlanPreference(preference);
+  if (!normalized) return null;
+  const matches = plans.filter(
+    (plan) =>
+      normalisePlanPreference(plan.name) === normalized ||
+      (!!plan.coverageTier && normalisePlanPreference(plan.coverageTier) === normalized),
+  );
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export const SMOKER_STATUSES = ["Never", "Former", "Current"] as const;

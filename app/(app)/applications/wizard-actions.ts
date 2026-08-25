@@ -26,7 +26,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
-import { ageFromDob, beneficiaryIdDocumentFor, categoryForProduct, emptyWizardForm, isFlexiShieldProduct, medicalDocumentsFor, parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
+import { ageFromDob, beneficiaryIdDocumentFor, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, medicalDocumentsFor, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
 
 export type WizardMode = "draft" | "create" | "email" | "docs";
 
@@ -51,7 +51,9 @@ export type AutoFilledWizardField =
   | "assignedUserId"
   | "appType"
   | "source"
-  | "productVersionId";
+  | "productVersionId"
+  | "familySize"
+  | "coverageTier";
 
 export interface DraftResumePayload {
   form: WizardForm;
@@ -71,6 +73,10 @@ const clientChannel = (value: string | null | undefined) => {
 };
 const isWizardState = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
+const clientFamilySize = (value: string): number | null => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+};
 
 /**
  * The product-agnostic application checklist seeded by `0024_application_requirements.sql`.
@@ -365,7 +371,7 @@ export async function getDraftResumeAction(
     const saved = draft.wizardState as Partial<WizardForm>;
     const { data: productRows, error: productError } = await getSupabaseAdmin()
       .from("product_versions")
-      .select("id, product:products (name, category)")
+      .select("id, product:products (name, category), plan_options (id, plan_name, coverage_tier)")
       .eq("status", "Active");
     if (productError) return { ok: false, error: productError.message };
 
@@ -385,9 +391,10 @@ export async function getDraftResumeAction(
       return fallback;
     };
 
-    const form = {
+    const form = initialiseFamilySizeSuggestion({
       ...emptyWizardForm(),
       ...saved,
+      schemaVersion: 3,
       draftApplicationId: draft.id,
       draftStep: typeof saved.draftStep === "number" ? saved.draftStep : 1,
       clientMode: "existing" as const,
@@ -407,12 +414,28 @@ export async function getDraftResumeAction(
       assignedUserId: resolveDefault("assignedUserId", client.assignedUserId ?? ""),
       appType: resolveDefault("appType", "New Insurance Application"),
       source: resolveDefault("source", client.leadSource ?? ""),
+      familySize: resolveDefault("familySize", client.familySize != null ? String(client.familySize) : String(saved.dependents ?? "")),
+      coverageTier: resolveDefault("coverageTier", client.coverageTier ?? ""),
       productVersionId: resolveDefault("productVersionId", uniqueProduct?.id ?? ""),
       productName: hasSavedValue(saved.productName) ? saved.productName! : uniqueProduct?.name ?? "",
       category: hasSavedValue(saved.category)
         ? (saved.productName && /flexishield/i.test(saved.productName) ? "health" : saved.category!)
         : uniqueProduct ? categoryForProduct(uniqueProduct.name, (matches[0]?.product as { category?: string | null } | null)?.category) : "",
-    } satisfies WizardForm;
+    } satisfies WizardForm);
+    if (!form.planOptionId && form.coverageTier && uniqueProduct) {
+      const row = matches[0] as typeof matches[number] & {
+        plan_options: { id: string; plan_name: string; coverage_tier: string | null }[];
+      };
+      const preferredPlan = uniquePlanPreferenceMatch(
+        form.coverageTier,
+        (row.plan_options ?? []).map((plan) => ({
+          id: plan.id,
+          name: plan.plan_name,
+          coverageTier: plan.coverage_tier,
+        })),
+      );
+      if (preferredPlan) form.planOptionId = preferredPlan.id;
+    }
     if (form.category === "travel" && form.travelers.length === 0 && Number(saved.dependents) > 0) {
       form.travelers = [{
         name: form.displayName || client.fullName, dob: form.dob, nationality: form.nationality,
@@ -520,6 +543,8 @@ export async function createFromWizardAction(
         notes: form.notes || null,
         productInterest: form.productName || null,
         estPremium: parseAmount(form.premium),
+        familySize: clientFamilySize(form.familySize),
+        coverageTier: form.coverageTier.trim() || null,
       };
       if (form.category === "hmo") {
         const [firstName, ...lastName] = (form.companyContact || form.companyName).trim().split(" ");
@@ -553,12 +578,20 @@ export async function createFromWizardAction(
         };
       clientId = lead.id;
       clientName = lead.fullName;
+      await clientsRepo.update(lead.id, {
+        familySize: clientFamilySize(form.familySize),
+        coverageTier: form.coverageTier.trim() || null,
+      });
       if (lead.lifecycleStage === "Lead") leadAwaitingHandOff = lead;
     } else if (!resumingDraft && form.clientMode === "existing" && form.existingClientId) {
       const existing = await clientsRepo.findById(form.existingClientId);
       if (!existing) return { ok: false, error: "The selected client record no longer exists." };
       clientId = existing.id;
       clientName = existing.fullName;
+      const discoveryPatch: ClientUpdate = {};
+      if (form.familySize.trim()) discoveryPatch.familySize = clientFamilySize(form.familySize);
+      if (form.coverageTier.trim()) discoveryPatch.coverageTier = form.coverageTier.trim();
+      if (Object.keys(discoveryPatch).length) await clientsRepo.update(existing.id, discoveryPatch);
       // Picking a lead out of the client search is the same hand-off as the Convert button, so it
       // has to leave the board too — otherwise a lead ends up with a live application on it.
       if (existing.lifecycleStage === "Lead") leadAwaitingHandOff = existing;
@@ -581,6 +614,8 @@ export async function createFromWizardAction(
         address: form.address || null,
         preferredChannel: clientChannel(form.channels[0]),
         notes: form.notes || null,
+        familySize: clientFamilySize(form.familySize),
+        coverageTier: form.coverageTier.trim() || null,
       });
       clientId = created.id;
       clientName = created.fullName;
@@ -609,6 +644,8 @@ export async function createFromWizardAction(
         leadStatus: startsApplication ? null : "New",
         productInterest: form.productName || null,
         estPremium: parseAmount(form.premium),
+        familySize: clientFamilySize(form.familySize),
+        coverageTier: form.coverageTier.trim() || null,
         leadSource: form.source || null,
         assignedUserId: form.assignedUserId || actor.id,
         notes: form.notes || null,

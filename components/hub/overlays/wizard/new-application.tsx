@@ -26,6 +26,7 @@ import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
 import {
   emptyWizardForm,
+  initialiseFamilySizeSuggestion,
   ageFromDob,
   categoryForProduct,
   INQUIRY_APP_TYPE,
@@ -36,6 +37,7 @@ import {
   isInquiryAppType,
   medicalDocumentsFor,
   normaliseAppType,
+  uniquePlanPreferenceMatch,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
   type WizardForm,
@@ -54,6 +56,8 @@ export interface WizardPrefill {
   productInterest?: string | null;
   email?: string | null;
   dob?: string | null;
+  familySize?: number | null;
+  coverageTier?: string | null;
   /* Display-only, for Step 2's read-only "Lead details" panel. These deliberately do NOT enter
      `WizardForm`: identity is locked to the lead record on a convert and the convert branch never
      writes them back, so keeping them out of the form means they can't drift or be re-saved. */
@@ -80,6 +84,8 @@ const AUTO_FILLED_LABEL: Record<AutoFilledWizardField, string> = {
   appType: "Application type",
   source: "Source",
   productVersionId: "Product",
+  familySize: "Family size",
+  coverageTier: "Coverage tier / room preference",
 };
 
 export function NewApplicationWizard({
@@ -97,22 +103,31 @@ export function NewApplicationWizard({
   const [step, setStep] = useState(1);
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
-  const [f, setF] = useState<WizardForm>(() => ({
-    ...emptyWizardForm(),
-    convertClientId: prefill?.convertClientId ?? null,
-    convertClientName: prefill?.convertClientName ?? null,
-    clientMode: prefill?.convertClientId ? "existing" : "new",
-    displayName: prefill?.convertClientName ?? "",
-    email: prefill?.email ?? "",
-    emailRecipient: prefill?.email ?? "",
-    dob: prefill?.dob ?? "",
-  }));
+  const [f, setF] = useState<WizardForm>(() =>
+    initialiseFamilySizeSuggestion({
+      ...emptyWizardForm(),
+      convertClientId: prefill?.convertClientId ?? null,
+      convertClientName: prefill?.convertClientName ?? null,
+      clientMode: prefill?.convertClientId ? "existing" : "new",
+      displayName: prefill?.convertClientName ?? "",
+      email: prefill?.email ?? "",
+      emailRecipient: prefill?.email ?? "",
+      dob: prefill?.dob ?? "",
+      familySize: prefill?.familySize != null ? String(prefill.familySize) : "",
+      coverageTier: prefill?.coverageTier ?? "",
+    }),
+  );
   const skipInitialChecklist = useRef(Boolean(prefill?.draftApplicationId));
   const [resumeLoading, setResumeLoading] = useState(Boolean(prefill?.draftApplicationId));
   const [resumeError, setResumeError] = useState<string | null>(null);
-  const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>(() =>
-    prefill?.convertClientId && prefill.dob ? { dob: prefill.dob } : {},
-  );
+  const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>(() => {
+    if (!prefill?.convertClientId) return {};
+    return {
+      ...(prefill.dob ? { dob: prefill.dob } : {}),
+      ...(prefill.familySize != null ? { familySize: String(prefill.familySize) } : {}),
+      ...(prefill.coverageTier ? { coverageTier: prefill.coverageTier } : {}),
+    };
+  });
   const [linkedClientName, setLinkedClientName] = useState<string | null>(null);
 
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -127,6 +142,9 @@ export function NewApplicationWizard({
       setProducts(items);
       if (!prefill?.productInterest) return;
       const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
+      const preferredPlan = product && prefill.coverageTier
+        ? uniquePlanPreferenceMatch(prefill.coverageTier, product.planOptions)
+        : null;
       // Starting from a lead is an inquiry until someone says otherwise, so that is what the type
       // defaults to. It is consequential, not cosmetic: the inquiry type derives
       // `status = "Lead"` below, which keeps `startsApplication` false server-side — the record
@@ -144,6 +162,7 @@ export function NewApplicationWizard({
               productVersionId: product.productVersionId,
               productName: product.productName,
               category: categoryForProduct(product.productName, product.productCategory),
+              planOptionId: current.planOptionId || preferredPlan?.id || "",
             }
           : {}),
       }));
@@ -154,7 +173,7 @@ export function NewApplicationWizard({
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
     listPaymentChannelOptionsAction().then(setPaymentChannels).catch(() => setPaymentChannels([]));
-  }, [prefill?.productInterest]);
+  }, [prefill?.coverageTier, prefill?.productInterest]);
 
   useEffect(() => {
     if (!prefill?.draftApplicationId) return;
