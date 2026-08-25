@@ -24,7 +24,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, DraftBadge, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, TONE_BADGE } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -470,7 +470,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
           <ProductInterest leads={leads} />
-          <IntakeForms />
           <Card>
             <CardHead iconName="clock" title="Recent lead activity" />
             <div className="py-1.5">
@@ -966,74 +965,6 @@ function ProductInterest({ leads }: { leads: Client[] }) {
               <span className="block h-full rounded-full" style={{ width: r.pct + "%", background: r.color }} />
             </span>
             <span className="text-right text-[12px] font-bold tabular-nums">{r.pct}%</span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-/**
- * Intake forms — donut completion + recent responses (design prospects.jsx
- * IntakeForms). DRAFT: no intake-form data model exists yet, so this previews
- * the design with static figures.
- */
-function IntakeForms() {
-  const sent = 28;
-  const completed = 19;
-  const awaiting = 9;
-  const recent = [
-    { name: "Carla Mendez", when: "2h ago" },
-    { name: "Tonio Reyes", when: "5h ago" },
-    { name: "Liza Park", when: "Yesterday" },
-  ];
-  const pct = Math.round((completed / sent) * 100);
-  const C = 2 * Math.PI * 26;
-  return (
-    <Card>
-      <CardHead
-        iconName="clipboard"
-        title={
-          <span className="flex items-center gap-2">
-            Intake forms <DraftBadge />
-          </span>
-        }
-      />
-      <div className="flex items-center gap-4 px-[18px] py-3.5">
-        <svg width="68" height="68" viewBox="0 0 68 68" className="shrink-0">
-          <circle cx="34" cy="34" r="26" fill="none" stroke="var(--surface-3)" strokeWidth="8" />
-          <circle
-            cx="34" cy="34" r="26" fill="none" stroke="var(--brand)" strokeWidth="8" strokeLinecap="round"
-            strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 34 34)"
-          />
-          <text x="34" y="34" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="750" fill="var(--foreground)">
-            {pct}%
-          </text>
-        </svg>
-        <div className="flex flex-col gap-1.5 text-[12.5px] font-[550]">
-          {(
-            [
-              [sent, "Forms sent", "var(--blue)"],
-              [completed, "Completed", "var(--brand)"],
-              [awaiting, "Awaiting completion", "var(--amber)"],
-            ] as const
-          ).map(([num, label, color]) => (
-            <div key={label} className="flex items-center gap-2">
-              <span className="size-2 rounded-[3px]" style={{ background: color }} />
-              <b className="tabular-nums">{num}</b> {label}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="border-t border-border-soft px-[18px] pb-2.5">
-        <div className="pb-1.5 pt-2.5 text-[11px] font-bold uppercase tracking-[0.04em] text-subtle">
-          Recent responses
-        </div>
-        {recent.map((r) => (
-          <div key={r.name} className="flex items-center gap-2.5 py-1.5">
-            <Avatar name={r.name} size={24} />
-            <span className="flex-1 text-[12.5px] font-[550]">{r.name}</span>
-            <span className="text-[11px] text-subtle">{r.when}</span>
           </div>
         ))}
       </div>

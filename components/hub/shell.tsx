@@ -7,12 +7,12 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/(auth)/login/actions";
 import { cn } from "@/lib/utils";
 import type { AppRole } from "@/lib/auth/permissions";
-import { NOTIFICATIONS, type Tone } from "./data";
+import type { ShellStats } from "@/lib/queries/shell";
 import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
 import { SearchDropdown } from "./overlays/search-dropdown";
 import { usePersona } from "./persona";
-import { Avatar, TONE_SOFT } from "./primitives";
+import { Avatar } from "./primitives";
 
 export type ScreenId =
   | "dashboard" | "prospects" | "clients" | "applications" | "policies"
@@ -47,19 +47,19 @@ type NavEntry = { id: ScreenId; label: string; icon: IconName; badge?: string; a
 
 const NAV_MAIN: NavEntry[] = [
   { id: "dashboard", label: "Dashboard", icon: "grid" },
-  { id: "prospects", label: "Leads", icon: "trendUp", badge: "42" },
-  { id: "clients", label: "Clients", icon: "users", badge: "1.2k" },
-  { id: "applications", label: "Applications", icon: "fileText", badge: "41" },
+  { id: "prospects", label: "Leads", icon: "trendUp" },
+  { id: "clients", label: "Clients", icon: "users" },
+  { id: "applications", label: "Applications", icon: "fileText" },
   { id: "policies", label: "Policies", icon: "shield" },
-  { id: "renewals", label: "Renewals", icon: "refresh", badge: "8", alert: true },
-  { id: "claims", label: "Claims", icon: "clipboard", badge: "18" },
-  { id: "travel", label: "Travel Insurance", icon: "plane", badge: "15" },
+  { id: "renewals", label: "Renewals", icon: "refresh", alert: true },
+  { id: "claims", label: "Claims", icon: "clipboard" },
+  { id: "travel", label: "Travel Insurance", icon: "plane" },
 ];
 const NAV_WORK: NavEntry[] = [
   { id: "payments", label: "Payments", icon: "peso" },
   { id: "commissions", label: "Commissions", icon: "chart" },
   { id: "documents", label: "Documents", icon: "folder" },
-  { id: "tasks", label: "Tasks", icon: "checkSquare", badge: "6" },
+  { id: "tasks", label: "Tasks", icon: "checkSquare" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
 ];
 const NAV_SYS: NavEntry[] = [
@@ -68,6 +68,27 @@ const NAV_SYS: NavEntry[] = [
   { id: "templates", label: "Email Templates", icon: "mail" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
+
+const COUNT_KEY: Partial<Record<ScreenId, keyof ShellStats>> = {
+  prospects: "leads",
+  clients: "clients",
+  applications: "applications",
+  renewals: "renewals",
+  claims: "claims",
+  travel: "travel",
+  tasks: "tasks",
+};
+
+const compactCount = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function withLiveBadge(item: NavEntry, stats: ShellStats): NavEntry {
+  const key = COUNT_KEY[item.id];
+  const value = key ? stats[key] : null;
+  return value != null && value > 0 ? { ...item, badge: compactCount.format(value) } : item;
+}
 
 export function BrandGlyph({ size = 18 }: { size?: number }) {
   return (
@@ -184,31 +205,43 @@ function NavSection({
  */
 function SidebarNav({
   isActive,
+  stats,
   collapsed = false,
 }: {
   isActive: (id: ScreenId) => boolean;
+  stats: ShellStats;
   collapsed?: boolean;
 }) {
+  const main = NAV_MAIN.map((item) => withLiveBadge(item, stats));
+  const work = NAV_WORK.map((item) => withLiveBadge(item, stats));
+  const workloadReady = stats.renewals != null && stats.applications != null;
+  const renewalCount = stats.renewals ?? 0;
+  const applicationCount = stats.applications ?? 0;
+  const hasWork = renewalCount > 0 || applicationCount > 0;
   return (
     <>
-      {NAV_MAIN.map((it) => (
+      {main.map((it) => (
         <NavItem key={it.id} item={it} active={isActive(it.id)} collapsed={collapsed} />
       ))}
-      <NavSection label="Workspace" items={NAV_WORK} isActive={isActive} collapsed={collapsed} />
+      <NavSection label="Workspace" items={work} isActive={isActive} collapsed={collapsed} />
       <NavSection label="System" items={NAV_SYS} isActive={isActive} collapsed={collapsed} />
 
-      {/* Prose can't survive a 48px column, so the close-out card sits out the rail. */}
-      <div className={cn("mt-auto pt-3", collapsed && "hidden")}>
-        <div className="rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
-          <h5 className="mb-[3px] text-[12.5px] font-semibold">June close-out</h5>
-          <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
-            23 renewals and 14 applications still awaiting payment this cycle.
-          </p>
-          <Link href={SCREEN_PATH.renewals} className={cn(BTN_PRIMARY, "h-[30px] w-full rounded-sm px-2.5 text-[12.5px]")}>
-            Review queue
-          </Link>
+      {/* Prose can't survive the icon rail; failed counts omit the card rather than showing zero. */}
+      {workloadReady && (
+        <div className={cn("mt-auto pt-3", collapsed && "hidden")}>
+          <div className="rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
+            <h5 className="mb-[3px] text-[12.5px] font-semibold">Current workload</h5>
+            <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
+              {hasWork
+                ? `${renewalCount} open renewal${renewalCount === 1 ? "" : "s"} and ${applicationCount} application${applicationCount === 1 ? "" : "s"} in progress.`
+                : "No open renewals or applications right now."}
+            </p>
+            <Link href={SCREEN_PATH.dashboard} className={cn(BTN_PRIMARY, "h-[30px] w-full rounded-sm px-2.5 text-[12.5px]")}>
+              Review dashboard
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
@@ -224,10 +257,12 @@ export function Sidebar({
   collapsed = false,
   mobileOpen = false,
   onClose,
+  stats,
 }: {
   collapsed?: boolean;
   mobileOpen?: boolean;
   onClose?: () => void;
+  stats: ShellStats;
 }) {
   const pathname = usePathname();
   const isActive = (id: ScreenId) => {
@@ -252,7 +287,7 @@ export function Sidebar({
           collapsed ? "px-2" : "px-3",
         )}
       >
-        <SidebarNav isActive={isActive} collapsed={collapsed} />
+        <SidebarNav isActive={isActive} stats={stats} collapsed={collapsed} />
       </aside>
 
       {mobileOpen && (
@@ -292,16 +327,13 @@ export function Sidebar({
                 <I.x size={17} />
               </button>
             </div>
-            <SidebarNav isActive={isActive} />
+            <SidebarNav isActive={isActive} stats={stats} />
           </div>
         </div>
       )}
     </>
   );
 }
-
-const NOTIF_TONE: Record<string, Tone> = { payment: "green", claim: "red", renewal: "amber", travel: "blue", doc: "slate" };
-const NOTIF_ICON: Record<string, IconName> = { payment: "peso", claim: "clipboard", renewal: "refresh", travel: "plane", doc: "doc2" };
 
 export function Topbar({
   dark,
@@ -349,7 +381,6 @@ export function Topbar({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [overlays]);
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length;
   const firstName = userName.split(" ")[0];
 
   return (
@@ -437,41 +468,24 @@ export function Topbar({
       <div className="relative">
         <button
           onClick={() => setOpen(open === "notif" ? null : "notif")}
+          aria-label="Open notifications"
           className="relative grid size-[38px] place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
           <I.bell size={19} />
-          {unread > 0 && (
-            <span className="absolute right-[9px] top-2 size-[7px] rounded-full border-2 border-surface bg-red" />
-          )}
         </button>
         {open === "notif" && (
           <div className="absolute right-0 top-[46px] w-[360px] overflow-hidden rounded-md border border-border bg-card shadow-pop">
-            <div className="flex items-center justify-between border-b border-border-soft px-[15px] py-[13px]">
+            <div className="border-b border-border-soft px-[15px] py-[13px]">
               <h4 className="text-[13.5px] font-[650]">Notifications</h4>
-              <span className="text-[12.5px] font-semibold text-brand-hover">Mark all read</span>
             </div>
-            <div className="max-h-[380px] overflow-y-auto">
-              {NOTIFICATIONS.map((n) => {
-                const Ico = I[NOTIF_ICON[n.type]];
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => setOpen(null)}
-                    className={cn(
-                      "flex cursor-pointer gap-[11px] border-b border-border-soft px-[15px] py-3 transition-colors hover:bg-hover",
-                      n.unread && "bg-brand-soft hover:bg-brand-soft-2",
-                    )}
-                  >
-                    <div className={cn("grid size-8 shrink-0 place-items-center rounded-lg", TONE_SOFT[NOTIF_TONE[n.type]])}>
-                      <Ico size={16} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-semibold leading-snug">{n.title}</div>
-                      <div className="mt-0.5 text-[11px] text-subtle">{n.time}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="px-[15px] py-8 text-center">
+              <div className="mx-auto grid size-9 place-items-center rounded-full bg-surface-3 text-subtle">
+                <I.bell size={17} />
+              </div>
+              <div className="mt-2.5 text-[12.5px] font-semibold">No notifications yet</div>
+              <div className="mt-0.5 text-[11.5px] text-subtle">
+                Updates will appear here when notifications are enabled.
+              </div>
             </div>
           </div>
         )}

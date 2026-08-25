@@ -208,21 +208,6 @@ export const RELATIONSHIPS: Relationship[] = [
   { id: 5, type: "anniversary", name: "Miguel Torres", sub: "3-year client anniversary", when: "in 11 days", soon: false },
 ];
 
-export interface Notification {
-  id: number;
-  type: "payment" | "claim" | "renewal" | "travel" | "doc";
-  title: string;
-  time: string;
-  unread: boolean;
-}
-export const NOTIFICATIONS: Notification[] = [
-  { id: 1, type: "payment", title: "Payment received — ₱156,000 from Liza Gomez (APP-2026-000126)", time: "38m ago", unread: true },
-  { id: 2, type: "claim", title: "New claim submitted — CLM-2026-00782 by Roberto Pascual", time: "1h ago", unread: true },
-  { id: 3, type: "renewal", title: "Renewal overdue — Grace Castillo (Maxicare Plus)", time: "3h ago", unread: true },
-  { id: 4, type: "travel", title: "Travel request needs review — Bianca Soriano (Australia)", time: "5h ago", unread: false },
-  { id: 5, type: "doc", title: "Documents uploaded for APP-2026-000125 — Renato Dizon", time: "Yesterday", unread: false },
-];
-
 /* ---------- Clients (Clients screen) ---------- */
 export type Tier = "Gold" | "Silver" | "Bronze";
 export interface Client {

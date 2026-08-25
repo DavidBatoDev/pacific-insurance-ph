@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import type { ShellStats } from "@/lib/queries/shell";
 import { OverlayProvider } from "./overlays/overlay-provider";
 import { OverlayHost } from "./overlays/overlay-host";
 import { PersonaProvider } from "./persona";
@@ -17,10 +18,12 @@ export function AppShell({
   children,
   userName,
   userRole,
+  shellStats,
 }: {
   children: ReactNode;
   userName: string;
   userRole: string;
+  shellStats: ShellStats;
 }) {
   const [dark, setDark] = useState(false);
   /** Desktop: the sidebar column is emptied rather than narrowed, so main gets the full width. */
@@ -81,6 +84,7 @@ export function AppShell({
             collapsed={navCollapsed}
             mobileOpen={navOpen}
             onClose={() => setNavOpen(false)}
+            stats={shellStats}
           />
 
           <main className="col-start-2 row-start-2 overflow-y-auto bg-background">
