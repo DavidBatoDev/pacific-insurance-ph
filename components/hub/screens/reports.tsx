@@ -1,124 +1,24 @@
 "use client";
-
-/**
- * DRAFT — mock UI only.
- * Ported from drafts/src/screens-extra.jsx for prototype review. Static charts built
- * from placeholder figures; no real data layer, date ranges, or exports are wired up yet.
- */
+import Link from "next/link";
+import type { Currency, MoneyTotals, ReportFamily, ReportPeriod, ReportsData } from "@/lib/queries/reports";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { Btn, Card, CardHead, PageHead } from "../primitives";
+import { Card, CardHead, PageHead } from "../primitives";
 
-const BARS = [
-  { m: "Jan", v: 1.8 }, { m: "Feb", v: 2.1 }, { m: "Mar", v: 1.9 }, { m: "Apr", v: 2.4 },
-  { m: "May", v: 2.7 }, { m: "Jun", v: 3.1 }, { m: "Jul", v: 2.9 }, { m: "Aug", v: 3.4 },
-  { m: "Sep", v: 3.2 }, { m: "Oct", v: 3.8 }, { m: "Nov", v: 4.1 }, { m: "Dec", v: 4.6 },
-];
-const MIX = [
-  { label: "Health", pct: 46, color: "#059669" },
-  { label: "Life", pct: 27, color: "#2563eb" },
-  { label: "Family", pct: 18, color: "#7c3aed" },
-  { label: "Travel", pct: 9, color: "#d97706" },
-];
-const STATS = [
-  { val: "₱34.2M", label: "Premiums YTD", color: "var(--brand)" },
-  { val: "+18.4%", label: "vs last year", color: "var(--brand)" },
-  { val: "1,248", label: "Active clients" },
-  { val: "94.2%", label: "Renewal rate", color: "var(--brand)" },
-];
+const FAMILY_LABELS:Record<ReportFamily,string>={overview:"Overview",sales:"Sales",commission:"Commission",agents:"Agents",conversion:"Conversion",renewal:"Renewal"};
+const PERIOD_LABELS:Record<ReportPeriod,string>={ytd:"YTD",quarter:"Quarter",month:"Month"};
+const SYMBOL:Record<Currency,string>={PHP:"₱",USD:"US$",EUR:"€"};
+const money=(amount:number,currency:Currency)=>`${SYMBOL[currency]}${amount.toLocaleString("en-PH",{maximumFractionDigits:2})}`;
+const moneyLines=(totals:MoneyTotals)=>(["PHP","USD","EUR"] as Currency[]).filter(c=>totals[c]!==0).map(c=>money(totals[c],c));
+const query=(data:ReportsData,patch:Partial<{family:ReportFamily;period:ReportPeriod;drill:string|null;format:string}>)=>{const p=new URLSearchParams({family:patch.family??data.filters.family,period:patch.period??data.filters.period});const drill=patch.drill===undefined?data.filters.drill:patch.drill;if(drill)p.set("drill",drill);if(patch.format)p.set("format",patch.format);return p.toString()};
+function StatValue({stat}:{stat:ReportsData["stats"][number]}){if(stat.amounts){const lines=moneyLines(stat.amounts);return <>{lines.length?lines.map(v=><div key={v}>{v}</div>):"—"}</>}const percent=stat.label.toLowerCase().includes("rate")||stat.label.toLowerCase().includes("conversion");return <>{percent?`${(stat.value??0).toFixed(1)}%`:(stat.value??0).toLocaleString("en-PH")}</>}
 
-function Seg() {
-  const opts = ["YTD", "Quarter", "Month"];
-  return (
-    <div className="inline-flex rounded-md border border-border-strong bg-card p-0.5">
-      {opts.map((s, i) => (
-        <button
-          key={s}
-          className={cn(
-            "h-7 rounded-[6px] px-3 text-[12.5px] font-semibold transition-colors",
-            i === 0 ? "bg-brand-soft text-brand-hover" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-export function ReportsScreen() {
-  const max = Math.max(...BARS.map((b) => b.v));
-  return (
-    <div>
-      <PageHead
-        icon={I.chart}
-        title="Reports"
-        sub="Performance overview · Year to date 2026"
-        actions={
-          <>
-            <Seg />
-            <Btn><I.download size={15} /> Export</Btn>
-          </>
-        }
-      />
-
-      <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {STATS.map((s) => (
-          <div key={s.label} className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
-            <div className="text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums" style={{ color: s.color }}>
-              {s.val}
-            </div>
-            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-12 gap-4 max-[1000px]:grid-cols-1">
-        <div className="col-span-8 max-[1000px]:col-span-1">
-          <Card>
-            <CardHead
-              icon={I.trendUp}
-              title="Monthly premium revenue"
-              action={<span className="text-[12.5px] font-semibold text-subtle">₱ Millions</span>}
-            />
-            <div className="flex h-[240px] items-end gap-2.5 px-[22px] pb-[18px] pt-[26px]">
-              {BARS.map((b) => (
-                <div key={b.m} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                  <div className="text-[10.5px] font-bold text-subtle tabular-nums">{b.v}</div>
-                  <div
-                    className="w-full max-w-[34px] rounded-t-[6px] transition-[height]"
-                    style={{
-                      height: `${(b.v / max) * 100}%`,
-                      background: b.m === "Jun" ? "var(--brand)" : "var(--brand-soft-2)",
-                    }}
-                  />
-                  <div className="text-[11px] font-semibold text-subtle">{b.m}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        <div className="col-span-4 max-[1000px]:col-span-1">
-          <Card className="h-full">
-            <CardHead icon={I.shield} title="Product mix" />
-            <div className="px-[22px] py-5">
-              <div className="mb-5 flex h-3 overflow-hidden rounded-full">
-                {MIX.map((m) => (
-                  <div key={m.label} style={{ width: `${m.pct}%`, background: m.color }} />
-                ))}
-              </div>
-              {MIX.map((m) => (
-                <div key={m.label} className="flex items-center gap-2.5 border-b border-border-soft py-2 last:border-b-0">
-                  <span className="size-2.5 rounded-sm" style={{ background: m.color }} />
-                  <span className="flex-1 text-[13px] font-[550]">{m.label}</span>
-                  <span className="text-[13px] font-bold tabular-nums">{m.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
+export function ReportsScreen({data}:{data:ReportsData}){return <div>
+  <PageHead icon={I.chart} title="Reports" sub={`Performance overview · ${data.periodLabel}`} actions={<><div className="inline-flex rounded-md border border-border-strong bg-card p-0.5">{(Object.keys(PERIOD_LABELS) as ReportPeriod[]).map(period=><Link key={period} href={`/reports?${query(data,{period,drill:null})}`} className={cn("h-7 rounded-[6px] px-3 pt-1 text-[12.5px] font-semibold",period===data.filters.period?"bg-brand-soft text-brand-hover":"text-muted-foreground hover:text-foreground")}>{PERIOD_LABELS[period]}</Link>)}</div><div className="flex items-center gap-1"><I.download size={15}/>{(["xlsx","ods","csv"] as const).map(format=><a key={format} href={`/api/reports/export?${query(data,{format})}`} className="rounded-md border border-border-strong bg-card px-2 py-2 text-[11px] font-bold uppercase hover:bg-hover">{format}</a>)}</div></>}/>
+  <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-border-soft">{(Object.keys(FAMILY_LABELS) as ReportFamily[]).map(family=><Link key={family} href={`/reports?${query(data,{family,drill:null})}`} className={cn("border-b-2 px-3 py-2 text-[13px] font-semibold",family===data.filters.family?"border-brand text-brand-hover":"border-transparent text-muted-foreground hover:text-foreground")}>{FAMILY_LABELS[family]}</Link>)}</nav>
+  {data.sourceCapNotice&&<div role="status" className="mb-4 rounded-md border border-amber-border bg-amber-soft px-4 py-3 text-[12px] font-semibold text-amber">{data.sourceCapNotice}</div>}
+  <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">{data.stats.map(stat=>{const href=`/reports?${query(data,{family:stat.family??data.filters.family,drill:stat.drill??null})}`;const body=<div className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm transition hover:border-border-strong"><div className="text-[21px] font-[760] leading-tight tracking-[-0.02em] tabular-nums text-brand-hover"><StatValue stat={stat}/></div><div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{stat.label}</div>{stat.comparison&&<div className="mt-1 text-[11px] text-subtle">vs {data.comparisonLabel}: {stat.comparison}</div>}</div>;return <Link key={stat.label} href={href}>{body}</Link>})}</div>
+  <div className="mb-4 grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">{data.charts.map(chart=><Card key={chart.title}><CardHead icon={I.trendUp} title={chart.title}/><div className="space-y-2 px-5 py-4">{chart.restricted?<p className="py-8 text-center text-[13px] text-muted-foreground">Restricted for your role. Agency totals remain available above.</p>:chart.points.length===0?<p className="py-8 text-center text-[13px] text-muted-foreground">No activity in this period.</p>:chart.points.map(point=>{const max=Math.max(...chart.points.map(p=>p.count),1);return <Link key={`${chart.title}-${point.label}`} href={`/reports?${query(data,{drill:point.drill})}`} className="group grid grid-cols-[110px_1fr_auto] items-center gap-3 text-[12px]"><span className="truncate font-semibold">{point.label}</span><span className="h-7 overflow-hidden rounded bg-muted"><span className="flex h-full min-w-1 items-center rounded bg-brand-soft-2 transition group-hover:bg-brand-soft" style={{width:`${Math.max(8,(point.count/max)*100)}%`}}/></span><span className="min-w-12 text-right font-bold tabular-nums">{point.count}</span></Link>})}</div></Card>)}</div>
+  <Card><CardHead icon={I.fileText} title="Report detail" action={<div className="flex items-center gap-2 text-[11.5px] text-subtle">{data.filters.drill&&<Link href={`/reports?${query(data,{drill:null})}`} className="font-semibold text-brand-hover">Clear filter</Link>}<span>{data.detailCapped?`First 500 of ${data.detailTotal} records (capped)`:`${data.detailTotal} record${data.detailTotal===1?"":"s"}`}</span></div>}/>{data.filters.drill&&<div className="border-b border-border-soft px-5 py-2 text-[11.5px] text-muted-foreground">Filtered by <span className="rounded bg-brand-soft px-2 py-1 font-semibold text-brand-hover">{data.filters.drill.replace(":"," · ")}</span></div>}<div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-[12px]"><thead><tr className="border-b border-border-soft text-[10.5px] uppercase tracking-[.05em] text-subtle">{["Reference","Client","Product / record","Agent","Date","Status","Amount","Note"].map(h=><th key={h} className="px-4 py-2.5">{h}</th>)}</tr></thead><tbody>{data.detail.map(row=><tr key={`${row.href}-${row.id}`} className="border-b border-border-soft last:border-0 hover:bg-muted/40"><td className="px-4 py-3"><Link href={row.href} className="font-mono font-semibold text-brand-hover">{row.reference}</Link></td><td className="px-4 py-3 font-semibold">{row.client}</td><td className="px-4 py-3">{row.product}</td><td className="px-4 py-3 text-muted-foreground">{row.agent}</td><td className="px-4 py-3 text-muted-foreground">{row.date?new Date(row.date).toLocaleDateString("en-PH",{year:"numeric",month:"short",day:"numeric"}):"—"}</td><td className="px-4 py-3">{row.status}</td><td className="px-4 py-3 text-right font-mono font-semibold">{row.amount!=null&&row.currency?money(row.amount,row.currency):row.note?.includes("hidden")?"Restricted":"—"}</td><td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{row.note??"—"}</td></tr>)}{data.detail.length===0&&<tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">No records match this period and filter.</td></tr>}</tbody></table></div></Card>
+  <p className="mt-3 text-[11px] text-subtle">Revenue uses verified payments by payment date. Product mix uses issued-record counts. Currency totals are never converted or combined.</p>
+</div>}
