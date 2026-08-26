@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * DRAFT — mock UI only.
- * Ported from drafts/src/screens.jsx for prototype review. Generic filterable +
- * sortable list screen; renders placeholder data with no real data layer or actions.
+ * Generic filterable + sortable list screen. Presentational shell used by the
+ * live list screens (operations, payments, commissions); callers supply the data.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
