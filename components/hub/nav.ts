@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { SCREEN_PATH, type ScreenId } from "./shell";
 
 /**
- * Router-backed navigation shim. Lets the (still mock) screens keep their
- * `setScreen(id)` call sites while navigation now happens via real routes.
+ * Router-backed navigation shim. Lets screens keep their `setScreen(id)`
+ * call sites while navigation happens via real routes.
  */
 export function useScreenNav() {
   const router = useRouter();

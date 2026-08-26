@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 
 /**
- * Maps the prototype's icon names (drafts/src/icons.jsx) to lucide-react.
+ * Maps icon names to lucide-react components.
  * Lets data reference icons by string (e.g. `icon: "refresh"`).
  */
 export const I = {
