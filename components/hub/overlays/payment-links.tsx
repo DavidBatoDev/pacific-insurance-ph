@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -34,12 +35,6 @@ const QUEUE_TEMPLATE: Record<string, string> = {
   Travel: "Travel insurance payment instruction",
 };
 
-/** Fallback until the Official Payment Channels store loads (Settings tab). */
-const PAY_CHANNELS = [
-  "Pacific GCash for Business — 0917 888 2100",
-  "BPI Corporate Current — 1234-5678-90",
-];
-
 export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -49,8 +44,9 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [channels, setChannels] = useState<string[]>(PAY_CHANNELS);
-  const [payChannel, setPayChannel] = useState(PAY_CHANNELS[0]);
+  const [channels, setChannels] = useState<string[]>([]);
+  const [payChannel, setPayChannel] = useState("");
+  const [channelsFailed, setChannelsFailed] = useState(false);
   const [via, setVia] = useState<string[]>(["Email"]);
   const [loading, setLoading] = useState(true);
 
@@ -58,17 +54,21 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
     Promise.all([
       listAwaitingPaymentsAction(),
       listActiveTemplatesAction(),
-      listPaymentChannelOptionsAction().catch(() => []),
+      listPaymentChannelOptionsAction().then(
+        (chans) => ({ chans, failed: false }),
+        () => ({ chans: [], failed: true }),
+      ),
     ])
-      .then(([pays, tpls, chans]) => {
+      .then(([pays, tpls, channelResult]) => {
         setPayments(pays);
         setTemplates(tpls);
         setChecked(new Set(pays.map((p) => p.id))); // all pre-checked (§12)
-        if (chans.length) {
-          // Official Payment Channels from Settings; default channel first.
-          setChannels(chans.map((c) => c.label));
-          setPayChannel(chans[0].label);
-        }
+        setChannelsFailed(channelResult.failed);
+        const chans = channelResult.chans;
+        setChannels(chans.map((c) => c.label));
+        // Options arrive default-first; an explicit isDefault flag wins if present.
+        const preferred = chans.find((c) => "isDefault" in c && c.isDefault === true) ?? chans[0];
+        setPayChannel(preferred?.label ?? "");
       })
       .catch(() => overlays.toast("Couldn’t load payment queues", "Try again."))
       .finally(() => setLoading(false));
@@ -130,7 +130,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
-          <Btn variant="primary" disabled={selected.length === 0 || via.length === 0 || pending} onClick={send}>
+          <Btn variant="primary" disabled={selected.length === 0 || via.length === 0 || !payChannel || pending} onClick={send}>
             <I.send size={15} /> {pending ? "Logging…" : `Log all (${selected.length})`}
           </Btn>
         </>
@@ -147,11 +147,25 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
 
       <div className="grid grid-cols-2 gap-4">
         <DrawerField label="Official payment channel" required hint="Business payee — never a personal account">
-          <select className={DRAWER_INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
-            {channels.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+          {channels.length > 0 ? (
+            <select className={DRAWER_INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
+              {channels.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          ) : loading ? (
+            <select className={DRAWER_INPUT} disabled />
+          ) : channelsFailed ? (
+            <div className="rounded-md border border-amber-border bg-amber-soft px-3.5 py-3 text-[12.5px] leading-relaxed text-amber">
+              Couldn’t load the official payment channels. Close this drawer and try again.
+            </div>
+          ) : (
+            <div className="rounded-md border border-amber-border bg-amber-soft px-3.5 py-3 text-[12.5px] leading-relaxed text-amber">
+              No official payment channels are configured.{" "}
+              <Link className="font-bold underline" href="/settings">Open Settings → Payment Channels</Link>{" "}
+              to add one before logging instructions.
+            </div>
+          )}
         </DrawerField>
         <DrawerField label="Send via" required>
           <div className="flex gap-1.5">
