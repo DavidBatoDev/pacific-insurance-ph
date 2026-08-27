@@ -452,77 +452,56 @@ export async function getDraftResumeAction(
   }
 }
 
-/**
- * Create everything Step 6's "This will automatically create" list
- * promises: the client (new record,
- * existing link, or lead conversion — same record, never a duplicate), the
- * application / travel request / group account, the follow-up task, the
- * optional initial email, and the timeline entries.
- */
-export async function createFromWizardAction(
-  form: WizardForm,
-  mode: WizardMode,
-  options?: { confirmedSkip?: boolean },
-): Promise<ActionResult<WizardResult>> {
-  const actor = await getActor();
-  const clientsRepo = getClientsRepository();
+/* ====================================================================== *
+ *  createFromWizardAction — the wizard's single completing save.
+ *  The numbered helpers below mirror the wizard's own section banners;
+ *  they all run inside one try/catch and share a WizardCreateContext.
+ * ====================================================================== */
 
-  const hasName = !!(form.firstName || form.displayName || form.companyName || form.existingClientId || form.convertClientId);
-  const hasContact = !!(form.email || form.mobile || form.existingClientId || form.convertClientId);
-  if (!hasName || !hasContact || (mode !== "draft" && !form.category))
-    return {
-      ok: false,
-      error:
-        mode === "draft"
-          ? "A name and contact method are required to save a draft."
-          : "Name, a contact method, and a product category are required.",
+type Actor = Awaited<ReturnType<typeof getActor>>;
+
+/**
+ * Mutable state threaded through the create pipeline. `result` is the shared
+ * accumulator every section appends to; the whole pipeline runs inside one
+ * `try`, so any helper may throw and the action returns the caught message.
+ */
+interface WizardCreateContext {
+  form: WizardForm;
+  mode: WizardMode;
+  actor: Actor;
+  startsApplication: boolean;
+  loggingEmail: boolean;
+  resolvedClientId: string;
+  clientName: string;
+  resumingDraft: boolean;
+  result: WizardResult;
+}
+
+type ResolvedContact =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      clientId: string;
+      clientName: string;
+      resumingDraft: boolean;
+      /** Still on the lead board; §1b hands it off on a completing save. */
+      leadAwaitingHandOff: Client | null;
     };
 
-  /**
-   * Whether this save actually starts an application. A draft has started nothing — it is a parked
-   * wizard, resumable later — and an inquiry-only application is not one either (the
-   * wizard derives `status = "Lead"` for it). Everything that takes a contact off the lead board
-   * hangs off this.
-   */
-  const startsApplication = mode !== "draft" && form.status !== "Lead";
-
-  /**
-   * Whether Step 5's composed email actually gets logged by this save. `mode === "email"` sends
-   * regardless of the toggle; a draft never sends, which is why a draft is never gated below.
-   */
-  const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
-  const loggingEmail = sendingEmail && !!(form.emailRecipient || form.email);
-
-  /* ---------- 0. carrier-attachment pre-flight ---------- */
-  // Runs before the `try` and before any write: the wizard creates a client, an application, a
-  // checklist and a task in one pass, so refusing here is the only way a rejected email doesn't
-  // leave a half-built application behind. Step 5's picker is where the user satisfies it.
-  if (loggingEmail) {
-    const requirement = wizardAttachmentRequirement(form.emailTemplate);
-    const attachmentId = form.emailLibraryDocumentId?.trim() ?? "";
-    if (requirement) {
-      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
-        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-      const eligible = await resolveWizardAttachments(requirement, form.productName, form.dob);
-      if (eligible.reason) return { ok: false, error: eligible.reason };
-      if (!attachmentId || !eligible.documents.some((doc) => doc.id === attachmentId))
-        return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this application in Step 5.` };
-    } else if (attachmentId) {
-      return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
-    }
-  }
-
-  try {
-    /* ---------- 1. resolve the contact record ---------- */
-    let clientId: string | null = null;
-    let clientName = "";
-    let resumingDraft = false;
-    /**
-     * The contact this save is about, when it is still sitting on the lead board. A draft leaves it
-     * alone; a completing save hands it off to Applicant in step 1b.
-     */
-    let leadAwaitingHandOff: Client | null = null;
-    const applicationsRepo = getApplicationsRepository();
+/* ---------- 1. resolve the contact record ---------- */
+async function resolveWizardContact(
+  form: WizardForm,
+  mode: WizardMode,
+  actor: Actor,
+  startsApplication: boolean,
+  options?: { confirmedSkip?: boolean },
+): Promise<ResolvedContact> {
+  const clientsRepo = getClientsRepository();
+  const applicationsRepo = getApplicationsRepository();
+  let clientId: string | null = null;
+  let clientName = "";
+  let resumingDraft = false;
+  let leadAwaitingHandOff: Client | null = null;
 
     if (form.draftApplicationId) {
       const draft = await applicationsRepo.findById(form.draftApplicationId);
@@ -654,16 +633,19 @@ export async function createFromWizardAction(
       clientName = created.fullName;
     }
 
-    if (!clientId) return { ok: false, error: "Could not resolve the application contact." };
-    const resolvedClientId = clientId;
-    const result: WizardResult = { clientId: resolvedClientId, summary: "" };
+  if (!clientId) return { ok: false, error: "Could not resolve the application contact." };
+  return { ok: true, clientId, clientName, resumingDraft, leadAwaitingHandOff };
+}
 
-    /* ---------- 1b. lead stage / applicant hand-off ---------- */
+/* ---------- 1b. lead stage / applicant hand-off ---------- */
     // Two different moments, two different consequences (docs/lead-stage-status-example.md Steps
     // 6-7): `Save as Draft` moves the STAGE to `Application Started` and the contact stays a Lead
     // on the board; only a completing save moves the LIFECYCLE and hands the record to the
     // Applicant track. Opening the wizard on its own writes neither.
-    if (leadAwaitingHandOff && startsApplication) {
+async function applyLeadHandoff(ctx: WizardCreateContext, leadAwaitingHandOff: Client | null) {
+  const { form, mode, actor, startsApplication } = ctx;
+  const clientsRepo = getClientsRepository();
+  if (leadAwaitingHandOff && startsApplication) {
       const skippedStages = stagesSkippedByConvert(leadAwaitingHandOff.leadStage);
       await clientsRepo.update(leadAwaitingHandOff.id, {
         lifecycleStage: "Applicant",
@@ -704,7 +686,10 @@ export async function createFromWizardAction(
         actorId: actor.id,
       });
     }
+}
 
+/** The application-type triage shared by §2's branches. */
+function deriveApplicationType(form: WizardForm): string {
     const hasSeniorApplicant = [form.dob, ...form.healthDependents.map((person) => person.dob)]
       .some((dob) => { const age = ageFromDob(dob); return typeof age === "number" && age >= 71; });
     const applicationType =
@@ -717,6 +702,86 @@ export async function createFromWizardAction(
             : form.preExisting === "Yes" || form.healthDependents.some((person) => person.preExisting === "Yes")
             ? "Medical Evaluation"
             : "Standard";
+  return applicationType;
+}
+
+/** The Application row fields shared by the fresh-create and draft-update paths. */
+function wizardApplicationPayload(ctx: WizardCreateContext, applicationType: string) {
+  const { form, mode, actor } = ctx;
+  return {
+    productVersionId: form.productVersionId || null,
+    planOptionId: form.planOptionId || null,
+    applicationType,
+    status: mode === "draft" ? "Lead" : form.status || "Applicant",
+    assignedUserId: form.assignedUserId || actor.id,
+    dateStarted: new Date().toISOString().slice(0, 10),
+    notes: form.internalNote || form.notes || null,
+    wizardState: mode === "draft" ? (form as unknown as Json) : null,
+    coverageType: form.coverage || null,
+    desiredStartDate: form.startDate || null,
+    preferredPaymentMode: form.payFreq || null,
+    estimatedPremium: parseAmount(form.premium),
+    remoteSale: form.remoteSale,
+    smokerStatus: form.smokerStatus || null,
+    heightInches: parseAmount(form.heightInches),
+    weightLbs: parseAmount(form.weightLbs),
+    beneficiaryName: form.beneficiaryName || null,
+    beneficiaryBirthdate: form.beneficiaryBirthDate || null,
+    beneficiaryRelation: form.beneficiaryRelationship || null,
+    beneficiaryContact: form.beneficiaryContact || null,
+    preExistingStatus: form.preExisting || null,
+    medicalNotes: form.medicalNotes || null,
+  };
+}
+
+/**
+ * Health workflow + requirement snapshot + activity/audit + result summary,
+ * identical for a freshly created and a draft-updated Application row.
+ */
+async function finalizeWizardApplication(
+  ctx: WizardCreateContext,
+  application: Awaited<ReturnType<ReturnType<typeof getApplicationsRepository>["create"]>>,
+  kind: "created" | "updated",
+) {
+  const { form, mode, actor, resolvedClientId, clientName, result } = ctx;
+  const unavailable = mode !== "draft" && form.category === "health"
+    ? await persistHealthWorkflow(application.id, resolvedClientId, form)
+    : 0;
+  if (mode !== "draft" && form.category !== "health") {
+    await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
+  }
+  await recordActivity({
+    scopeType: "client",
+    scopeId: resolvedClientId,
+    activityType: mode === "draft" ? "application.draft_saved" : `application.${kind}`,
+    summary:
+      kind === "created"
+        ? mode === "draft"
+          ? `Application draft saved — ${application.referenceNo ?? ""} (${form.productName || "product"}) · contact stays a Lead`
+          : `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`
+        : mode === "draft"
+          ? "Application draft updated"
+          : `Application completed — status ${application.status}`,
+    actorId: actor.id,
+  });
+  await recordAudit({
+    actorId: actor.id,
+    action:
+      kind === "created"
+        ? mode === "draft" ? "create_draft" : "create"
+        : mode === "draft" ? "update_draft" : "update",
+    tableName: "applications",
+    recordId: application.id,
+    newValue: application as unknown as Json,
+  });
+  result.applicationId = application.id;
+  result.summary =
+    mode === "draft"
+      ? kind === "created"
+        ? `${clientName} saved as a draft — no messages sent.`
+        : `${clientName} draft updated — no messages sent.`
+      : `${clientName} — ${form.productName || "application"} · status ${application.status}.${unavailable ? ` ${unavailable} approved carrier form${unavailable === 1 ? " is" : "s are"} unavailable.` : ""}`;
+}
 
     /**
      * Persist the shared Application record for every non-Travel wizard branch.
@@ -727,120 +792,32 @@ export async function createFromWizardAction(
      * Keeping creation in one helper makes fresh and draft-backed BC Flexi submissions converge on
      * the same Application + immutable requirement-snapshot contract (G9).
      */
-    const createApplicationRecord = async () => {
-      const application = await applicationsRepo.create({
-        clientId: resolvedClientId,
-        productVersionId: form.productVersionId || null,
-        planOptionId: form.planOptionId || null,
-        applicationType,
-        status: mode === "draft" ? "Lead" : form.status || "Applicant",
-        assignedUserId: form.assignedUserId || actor.id,
-        dateStarted: new Date().toISOString().slice(0, 10),
-        notes: form.internalNote || form.notes || null,
-        wizardState: mode === "draft" ? (form as unknown as Json) : null,
-        coverageType: form.coverage || null,
-        desiredStartDate: form.startDate || null,
-        preferredPaymentMode: form.payFreq || null,
-        estimatedPremium: parseAmount(form.premium),
-        remoteSale: form.remoteSale,
-        smokerStatus: form.smokerStatus || null,
-        heightInches: parseAmount(form.heightInches),
-        weightLbs: parseAmount(form.weightLbs),
-        beneficiaryName: form.beneficiaryName || null,
-        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
-        beneficiaryRelation: form.beneficiaryRelationship || null,
-        beneficiaryContact: form.beneficiaryContact || null,
-        preExistingStatus: form.preExisting || null,
-        medicalNotes: form.medicalNotes || null,
-      });
-      const unavailable = mode !== "draft" && form.category === "health"
-        ? await persistHealthWorkflow(application.id, resolvedClientId, form)
-        : 0;
-      if (mode !== "draft" && form.category !== "health") {
-        await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
-      }
-      await recordActivity({
-        scopeType: "client",
-        scopeId: resolvedClientId,
-        activityType: mode === "draft" ? "application.draft_saved" : "application.created",
-        summary:
-          mode === "draft"
-            ? `Application draft saved — ${application.referenceNo ?? ""} (${form.productName || "product"}) · contact stays a Lead`
-            : `Application created — ${application.referenceNo ?? ""} (${form.productName || "product"}) · status ${application.status}`,
-        actorId: actor.id,
-      });
-      await recordAudit({
-        actorId: actor.id,
-        action: mode === "draft" ? "create_draft" : "create",
-        tableName: "applications",
-        recordId: application.id,
-        newValue: application as unknown as Json,
-      });
-      result.applicationId = application.id;
-      result.summary =
-        mode === "draft"
-          ? `${clientName} saved as a draft — no messages sent.`
-          : `${clientName} — ${form.productName || "application"} · status ${application.status}.${unavailable ? ` ${unavailable} approved carrier form${unavailable === 1 ? " is" : "s are"} unavailable.` : ""}`;
-      return application;
-    };
+async function persistNewApplication(ctx: WizardCreateContext, applicationType: string) {
+  const application = await getApplicationsRepository().create({
+    clientId: ctx.resolvedClientId,
+    ...wizardApplicationPayload(ctx, applicationType),
+  });
+  await finalizeWizardApplication(ctx, application, "created");
+  return application;
+}
 
-    if (resumingDraft && form.draftApplicationId && (mode === "draft" || form.category !== "travel")) {
-      const application = await applicationsRepo.update(form.draftApplicationId, {
-        productVersionId: form.productVersionId || null,
-        planOptionId: form.planOptionId || null,
-        applicationType,
-        status: mode === "draft" ? "Lead" : form.status || "Applicant",
-        assignedUserId: form.assignedUserId || actor.id,
-        dateStarted: new Date().toISOString().slice(0, 10),
-        notes: form.internalNote || form.notes || null,
-        wizardState: mode === "draft" ? (form as unknown as Json) : null,
-        coverageType: form.coverage || null,
-        desiredStartDate: form.startDate || null,
-        preferredPaymentMode: form.payFreq || null,
-        estimatedPremium: parseAmount(form.premium),
-        remoteSale: form.remoteSale,
-        smokerStatus: form.smokerStatus || null,
-        heightInches: parseAmount(form.heightInches),
-        weightLbs: parseAmount(form.weightLbs),
-        beneficiaryName: form.beneficiaryName || null,
-        beneficiaryBirthdate: form.beneficiaryBirthDate || null,
-        beneficiaryRelation: form.beneficiaryRelationship || null,
-        beneficiaryContact: form.beneficiaryContact || null,
-        preExistingStatus: form.preExisting || null,
-        medicalNotes: form.medicalNotes || null,
-      });
-      const unavailable = mode !== "draft" && form.category === "health"
-        ? await persistHealthWorkflow(application.id, resolvedClientId, form)
-        : 0;
-      if (mode !== "draft" && form.category !== "health") await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
-      await recordActivity({
-        scopeType: "client",
-        scopeId: resolvedClientId,
-        activityType: mode === "draft" ? "application.draft_saved" : "application.updated",
-        summary: mode === "draft" ? "Application draft updated" : `Application completed — status ${application.status}`,
-        actorId: actor.id,
-      });
-      await recordAudit({
-        actorId: actor.id,
-        action: mode === "draft" ? "update_draft" : "update",
-        tableName: "applications",
-        recordId: application.id,
-        newValue: application as unknown as Json,
-      });
-      result.applicationId = application.id;
-      result.summary =
-        mode === "draft"
-          ? `${clientName} draft updated — no messages sent.`
-          : `${clientName} — ${form.productName || "application"} · status ${application.status}.${unavailable ? ` ${unavailable} approved carrier form${unavailable === 1 ? " is" : "s are"} unavailable.` : ""}`;
-    }
+/** Update the Application row a resumed draft already owns. */
+async function persistDraftUpdate(ctx: WizardCreateContext, applicationType: string) {
+  const application = await getApplicationsRepository().update(
+    ctx.form.draftApplicationId!,
+    wizardApplicationPayload(ctx, applicationType),
+  );
+  await finalizeWizardApplication(ctx, application, "updated");
+  return application;
+}
 
-    /* ---------- 2. create the operational record ---------- */
-    if (form.category === "hmo" && mode !== "draft") {
+/* ---------- 2. create the operational record (Group HMO branch) ---------- */
       // A Group Account is the operational company/roster view, while the Application is the
       // workflow record shown in /applications and the parent of the phased requirements. A fresh
       // Group HMO submission needs both; a resumed draft already updated its Application above.
-      if (!resumingDraft) await createApplicationRecord();
-      const group = await getGroupsRepository().create({
+async function createGroupHmoRecord(ctx: WizardCreateContext) {
+  const { form, actor, resolvedClientId, clientName, result } = ctx;
+  const group = await getGroupsRepository().create({
         name: form.companyName || clientName,
         productVersionId: form.productVersionId || null,
         premiumAmount: parseAmount(form.premium),
@@ -887,8 +864,12 @@ export async function createFromWizardAction(
       });
       result.groupId = group.id;
       result.summary = `${group.name} — group account created · ${validMembers.length} members · status Onboarding.`;
-    } else if (form.category === "travel" && mode !== "draft") {
-      const travel = await getTravelRepository().create({
+}
+
+/* ---------- 2. create the operational record (Travel branch) ---------- */
+async function createTravelRecord(ctx: WizardCreateContext) {
+  const { form, actor, resolvedClientId, clientName, resumingDraft, result } = ctx;
+  const travel = await getTravelRepository().create({
         clientId: resolvedClientId,
         productVersionId: form.productVersionId || null,
         planOptionId: form.planOptionId || null,
@@ -931,7 +912,7 @@ export async function createFromWizardAction(
       if (premium && !(await getPaymentsRepository().listByTravelRequest(travel.id)).length) {
         await getPaymentsRepository().create({ clientId: resolvedClientId, travelRequestId: travel.id, amount: premium, status: "Awaiting", notes: "Travel collection created by application workflow" });
       }
-      if (resumingDraft && form.draftApplicationId) await applicationsRepo.delete(form.draftApplicationId);
+      if (resumingDraft && form.draftApplicationId) await getApplicationsRepository().delete(form.draftApplicationId);
       await recordActivity({
         scopeType: "client",
         scopeId: resolvedClientId,
@@ -941,11 +922,12 @@ export async function createFromWizardAction(
       });
       result.travelRequestId = travel.id;
       result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " Approved Travel application form unavailable; record creation continued." : ""}`;
-    } else if (!resumingDraft) await createApplicationRecord();
+}
 
-    /* ---------- 3. follow-up task ---------- */
-    if (form.createTask && mode !== "draft") {
-      await getTasksRepository().create({
+/* ---------- 3. follow-up task ---------- */
+async function createWizardFollowUpTask(ctx: WizardCreateContext) {
+  const { form, actor, resolvedClientId, clientName } = ctx;
+  await getTasksRepository().create({
         title: `Follow up ${form.category === "hmo" ? form.companyName || clientName : clientName} — ${form.productName || "application"}`,
         tag: form.category === "travel" ? "Travel" : "Application",
         clientId: resolvedClientId,
@@ -953,21 +935,24 @@ export async function createFromWizardAction(
         dueDate: form.followDate ? form.followDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
         priority: form.priority === "Urgent" ? "High" : "Normal",
       });
-    }
+}
 
-    /* ---------- 4. initial email ---------- */
+/* ---------- 4. initial email + docs checklist ---------- */
     // Validated in step 0 above; `logOutboundEmail` links the chosen carrier asset to the
     // communication and rolls its own row back if that link fails.
-    if (loggingEmail) {
-      const attachmentIds = form.emailLibraryDocumentId?.trim() ? [form.emailLibraryDocumentId.trim()] : [];
-      await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id, libraryDocumentIds: attachmentIds });
-      result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? " with its carrier attachment" : ""}.`;
-    }
+async function logWizardInitialEmail(ctx: WizardCreateContext) {
+  const { form, actor, resolvedClientId, result } = ctx;
+  const attachmentIds = form.emailLibraryDocumentId?.trim() ? [form.emailLibraryDocumentId.trim()] : [];
+  await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id, libraryDocumentIds: attachmentIds });
+  result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? " with its carrier attachment" : ""}.`;
+}
+
     // Travel lives in its own lane: it already persists travel requirements
     // (replaceTravelRequirements) and logs a `travel.quoted` activity, so the generic
     // application document-checklist entry would be redundant and misleading here.
-    if (mode === "docs" && form.category !== "travel") {
-      // Conditional and post-agreement BC Flexi rows are visible in the wizard, but are not
+async function recordWizardDocsChecklist(ctx: WizardCreateContext) {
+  const { form, actor, resolvedClientId, result } = ctx;
+  // Conditional and post-agreement BC Flexi rows are visible in the wizard, but are not
       // outstanding yet. Keep this summary aligned with the persisted requirement gate.
       const items = form.checklist.filter((c) => c.isRequired !== false && !c.checked).length;
       await recordActivity({
@@ -978,14 +963,117 @@ export async function createFromWizardAction(
         actorId: actor.id,
       });
       result.summary += ` Checklist of ${items} items requested.`;
+}
+
+/**
+ * Create everything Step 6's "This will automatically create" list
+ * promises: the client (new record,
+ * existing link, or lead conversion — same record, never a duplicate), the
+ * application / travel request / group account, the follow-up task, the
+ * optional initial email, and the timeline entries.
+ */
+export async function createFromWizardAction(
+  form: WizardForm,
+  mode: WizardMode,
+  options?: { confirmedSkip?: boolean },
+): Promise<ActionResult<WizardResult>> {
+  const actor = await getActor();
+
+  const hasName = !!(form.firstName || form.displayName || form.companyName || form.existingClientId || form.convertClientId);
+  const hasContact = !!(form.email || form.mobile || form.existingClientId || form.convertClientId);
+  if (!hasName || !hasContact || (mode !== "draft" && !form.category))
+    return {
+      ok: false,
+      error:
+        mode === "draft"
+          ? "A name and contact method are required to save a draft."
+          : "Name, a contact method, and a product category are required.",
+    };
+
+  /**
+   * Whether this save actually starts an application. A draft has started nothing — it is a parked
+   * wizard, resumable later — and an inquiry-only application is not one either (the
+   * wizard derives `status = "Lead"` for it). Everything that takes a contact off the lead board
+   * hangs off this.
+   */
+  const startsApplication = mode !== "draft" && form.status !== "Lead";
+
+  /**
+   * Whether Step 5's composed email actually gets logged by this save. `mode === "email"` sends
+   * regardless of the toggle; a draft never sends, which is why a draft is never gated below.
+   */
+  const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
+  const loggingEmail = sendingEmail && !!(form.emailRecipient || form.email);
+
+  /* ---------- 0. carrier-attachment pre-flight ---------- */
+  // Runs before the `try` and before any write: the wizard creates a client, an application, a
+  // checklist and a task in one pass, so refusing here is the only way a rejected email doesn't
+  // leave a half-built application behind. Step 5's picker is where the user satisfies it.
+  if (loggingEmail) {
+    const requirement = wizardAttachmentRequirement(form.emailTemplate);
+    const attachmentId = form.emailLibraryDocumentId?.trim() ?? "";
+    if (requirement) {
+      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
+        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+      const eligible = await resolveWizardAttachments(requirement, form.productName, form.dob);
+      if (eligible.reason) return { ok: false, error: eligible.reason };
+      if (!attachmentId || !eligible.documents.some((doc) => doc.id === attachmentId))
+        return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this application in Step 5.` };
+    } else if (attachmentId) {
+      return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
     }
+  }
+
+  try {
+    const resolved = await resolveWizardContact(form, mode, actor, startsApplication, options);
+    if (!resolved.ok) return resolved;
+
+    const ctx: WizardCreateContext = {
+      form,
+      mode,
+      actor,
+      startsApplication,
+      loggingEmail,
+      resolvedClientId: resolved.clientId,
+      clientName: resolved.clientName,
+      resumingDraft: resolved.resumingDraft,
+      result: { clientId: resolved.clientId, summary: "" },
+    };
+    const { result } = ctx;
+
+    await applyLeadHandoff(ctx, resolved.leadAwaitingHandOff);
+
+    const applicationType = deriveApplicationType(form);
+
+    if (ctx.resumingDraft && form.draftApplicationId && (mode === "draft" || form.category !== "travel")) {
+      await persistDraftUpdate(ctx, applicationType);
+    }
+
+    /* ---------- 2. create the operational record ---------- */
+    if (form.category === "hmo" && mode !== "draft") {
+      // A fresh Group HMO submission needs the Application row too; a resumed
+      // draft already updated its own above.
+      if (!ctx.resumingDraft) await persistNewApplication(ctx, applicationType);
+      await createGroupHmoRecord(ctx);
+    } else if (form.category === "travel" && mode !== "draft") {
+      await createTravelRecord(ctx);
+    } else if (!ctx.resumingDraft) {
+      await persistNewApplication(ctx, applicationType);
+    }
+
+    /* ---------- 3. follow-up task ---------- */
+    if (form.createTask && mode !== "draft") await createWizardFollowUpTask(ctx);
+
+    /* ---------- 4. initial email (validated by §0) + docs checklist ---------- */
+    if (loggingEmail) await logWizardInitialEmail(ctx);
+    if (mode === "docs" && form.category !== "travel") await recordWizardDocsChecklist(ctx);
 
     revalidatePath("/applications");
     revalidatePath("/prospects");
     revalidatePath("/travel");
     revalidatePath("/clients");
     revalidatePath("/tasks");
-    revalidatePath(`/clients/${resolvedClientId}`);
+    revalidatePath(`/clients/${ctx.resolvedClientId}`);
     if (result.groupId) revalidatePath(`/group/${result.groupId}`);
     return { ok: true, data: result };
   } catch (e) {
