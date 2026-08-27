@@ -11,8 +11,7 @@ import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn, INPUT } from "../primitives";
-import { DrawerField } from "./client-picker";
+import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -167,11 +166,11 @@ export function NewCampaignDrawer({
 
       {step === 1 && (
         <>
-          <DrawerField label="Campaign name" required>
+          <Field label="Campaign name" required>
             <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="Internal label" />
-          </DrawerField>
+          </Field>
 
-          <DrawerField label="Type" required hint="Picking a type pre-fills the audience segment and greeting template" className="mt-4">
+          <Field label="Type" required hint="Picking a type pre-fills the audience segment and greeting template" className="mt-4">
             <div className="grid grid-cols-4 gap-2 max-[700px]:grid-cols-2">
               {Object.keys(NC_TYPES).map((t) => {
                 const TI = I[NC_TYPES[t].icon];
@@ -191,17 +190,17 @@ export function NewCampaignDrawer({
                 );
               })}
             </div>
-          </DrawerField>
+          </Field>
 
           <div className="mt-4 grid grid-cols-2 gap-4">
-            <DrawerField label="Template" required hint="From Email Templates — merged per recipient">
+            <Field label="Template" required hint="From Email Templates — merged per recipient">
               <select className={INPUT} value={tpl} onChange={(e) => setTpl(e.target.value)}>
                 {templates.map((t) => (
                   <option key={t.id}>{t.name}</option>
                 ))}
               </select>
-            </DrawerField>
-            <DrawerField label="Channel" required>
+            </Field>
+            <Field label="Channel" required>
               <div className="flex gap-1.5">
                 {["Email", "WhatsApp", "Viber"].map((c) => {
                   const on = channels.includes(c);
@@ -220,7 +219,7 @@ export function NewCampaignDrawer({
                   );
                 })}
               </div>
-            </DrawerField>
+            </Field>
           </div>
 
           <div className="mt-5">

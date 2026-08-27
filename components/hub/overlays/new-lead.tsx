@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { createLeadAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
 import { LEAD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
-import { Btn, INPUT } from "../primitives";
+import { Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -185,30 +185,6 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </Drawer>
-  );
-}
-
-function Field({
-  label,
-  required,
-  hint,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label} {required && <span className="text-red">*</span>}
-      </label>
-      {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
-    </div>
   );
 }
 

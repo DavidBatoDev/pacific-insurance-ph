@@ -8,8 +8,7 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn, INPUT } from "../primitives";
-import { DrawerField } from "./client-picker";
+import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 import { useOverlays } from "./overlay-provider";
 
@@ -118,28 +117,28 @@ export function EmailForm({
   return (
     <>
       <div className="grid grid-cols-2 gap-3.5">
-        <DrawerField label="Template" required>
+        <Field label="Template" required>
           <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
             <option value="">Select…</option>
             {templates.map((t) => (
               <option key={t.id}>{t.name}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Recipient" required>
+        </Field>
+        <Field label="Recipient" required>
           <input className={INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
-        </DrawerField>
+        </Field>
       </div>
-      <DrawerField label="Subject" required className="mt-3.5">
+      <Field label="Subject" required className="mt-3.5">
         <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
-      </DrawerField>
-      <DrawerField label="Message" className="mt-3.5">
+      </Field>
+      <Field label="Message" className="mt-3.5">
         <textarea
           className="min-h-[150px] w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand"
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
-      </DrawerField>
+      </Field>
       <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
 
       <div className="mt-5">

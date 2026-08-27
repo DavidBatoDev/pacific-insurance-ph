@@ -5,8 +5,7 @@ import { useState, useTransition } from "react";
 
 import { markLostAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { DrawerField } from "./client-picker";
+import { Btn, Field } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -56,14 +55,14 @@ export function MarkLostModal({
         </div>
       </div>
 
-      <DrawerField label="Note" hint="Optional — why this lead didn’t convert.">
+      <Field label="Note" hint="Optional — why this lead didn’t convert.">
         <textarea
           className="min-h-[100px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="What happened? Logged to the timeline…"
         />
-      </DrawerField>
+      </Field>
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>

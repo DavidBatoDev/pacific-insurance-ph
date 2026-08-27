@@ -68,6 +68,32 @@ export const SEL =
 export const SEL_SM =
   "h-8 rounded-md border border-border-strong bg-card px-2 text-[12.5px] outline-none focus:border-brand";
 
+/* ---------- Form field wrapper ---------- */
+/** Uppercase field label + control (+ optional hint), used across drawers and forms. */
+export function Field({
+  label,
+  required,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+        {label} {required && <span className="text-red">*</span>}
+      </label>
+      {children}
+      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
+    </div>
+  );
+}
+
 /* ---------- Avatar ---------- */
 export function Avatar({
   name,

@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 
 import { issuePolicyAction, listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
 import { I } from "../icons";
-import { Btn, INPUT } from "../primitives";
-import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -72,12 +72,12 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <DrawerField label="Client" required>
+      <Field label="Client" required>
         <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Product" required>
+        <Field label="Product" required>
           <select
             className={INPUT}
             value={productVersionId}
@@ -93,8 +93,8 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Plan option">
+        </Field>
+        <Field label="Plan option">
           <select
             className={INPUT}
             value={planOptionId}
@@ -108,31 +108,31 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Pacific Cross policy no." hint="Distinct from the POL- reference">
+        <Field label="Pacific Cross policy no." hint="Distinct from the POL- reference">
           <input className={INPUT} value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="PC-000000" />
-        </DrawerField>
-        <DrawerField label="Premium (₱)">
+        </Field>
+        <Field label="Premium (₱)">
           <input className={INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-4">
-        <DrawerField label="Payment mode">
+        <Field label="Payment mode">
           <select className={INPUT} value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
             <option>Annual</option>
             <option>Semi-Annual</option>
           </select>
-        </DrawerField>
-        <DrawerField label="Effective date">
+        </Field>
+        <Field label="Effective date">
           <input className={INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
-        </DrawerField>
-        <DrawerField label="Expiry date">
+        </Field>
+        <Field label="Expiry date">
           <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">

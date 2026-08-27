@@ -12,10 +12,9 @@ import { peso, pesoShort } from "@/lib/format";
 import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
-import { DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, INPUT, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, Field, INPUT, TONE_BADGE } from "../primitives";
 
 /**
  * Group Account detail — the company-level equivalent of the Contact Profile
@@ -389,28 +388,28 @@ function AddMemberDrawer({
         </>
       }
     >
-      <DrawerField label="Full name" required>
+      <Field label="Full name" required>
         <input autoFocus className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan Dela Cruz" />
-      </DrawerField>
+      </Field>
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Relationship / role" required>
+        <Field label="Relationship / role" required>
           <select className={INPUT} value={relationship} onChange={(e) => setRelationship(e.target.value)}>
             {["Principal", "Employee", "Dependent"].map((r) => (
               <option key={r}>{r}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Coverage tier" required>
+        </Field>
+        <Field label="Coverage tier" required>
           <select className={INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
             {["Standard", "Premium", "Executive"].map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
-        </DrawerField>
+        </Field>
       </div>
-      <DrawerField label="Join date" className="mt-4">
+      <Field label="Join date" className="mt-4">
         <input className={INPUT} type="date" value={join} onChange={(e) => setJoin(e.target.value)} />
-      </DrawerField>
+      </Field>
       <button
         onClick={() => setEcardNow(!ecardNow)}
         className={cn(

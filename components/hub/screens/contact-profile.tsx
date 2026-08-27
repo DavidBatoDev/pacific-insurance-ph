@@ -38,7 +38,7 @@ import { MarkLostModal } from "../overlays/mark-lost";
 import { RecordDecisionModal } from "../overlays/record-decision";
 import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
-import { AREA, Avatar, Btn, Card, CardHead, INPUT, TONE_BADGE, TONE_SOFT } from "../primitives";
+import { AREA, Avatar, Btn, Card, CardHead, Field, INPUT, TONE_BADGE, TONE_SOFT } from "../primitives";
 
 /**
  * Contact Profile — the unified record view for one contact (see
@@ -632,25 +632,25 @@ export function ContactProfile({
               {tab === "Log Message" && (
                 <>
                   <div className="grid grid-cols-2 gap-3.5">
-                    <ComposerField label="Channel" required>
+                    <Field label="Channel" required>
                       <select className={INPUT} value={msgChannel} onChange={(e) => setMsgChannel(e.target.value)}>
                         {["WhatsApp", "Viber", "iMessage", "SMS", "Other"].map((c) => (
                           <option key={c}>{c}</option>
                         ))}
                       </select>
-                    </ComposerField>
-                    <ComposerField label="Received at">
+                    </Field>
+                    <Field label="Received at">
                       <input className={INPUT} type="datetime-local" value={msgAt} onChange={(e) => setMsgAt(e.target.value)} />
-                    </ComposerField>
+                    </Field>
                   </div>
-                  <ComposerField label="Transcript / summary" required className="mt-3.5">
+                  <Field label="Transcript / summary" required className="mt-3.5">
                     <textarea
                       className={cn(AREA, "min-h-[130px]")}
                       value={msgText}
                       onChange={(e) => setMsgText(e.target.value)}
                       placeholder="Paste or summarize the inbound message…"
                     />
-                  </ComposerField>
+                  </Field>
                   <div className="mt-3.5 flex items-center justify-between">
                     <span className="text-[11.5px] text-faint">Logs an inbound (Received) entry to the timeline.</span>
                     <Btn variant="primary" disabled={pending || !msgText.trim()} onClick={logMessage}>
@@ -679,14 +679,14 @@ export function ContactProfile({
 
               {tab === "Note" && (
                 <>
-                  <ComposerField label="Internal note" required>
+                  <Field label="Internal note" required>
                     <textarea
                       className={cn(AREA, "min-h-[130px]")}
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Private note — visible to staff only…"
                     />
-                  </ComposerField>
+                  </Field>
                   <div className="mt-3.5 flex justify-end">
                     <Btn variant="primary" disabled={pending || !note.trim()} onClick={addNote}>
                       <I.plus size={15} /> Add note
@@ -1048,23 +1048,3 @@ export function ContactProfile({
   );
 }
 
-function ComposerField({
-  label,
-  required,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label} {required && <span className="text-red">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}

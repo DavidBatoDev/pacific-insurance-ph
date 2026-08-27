@@ -7,8 +7,8 @@ import { logCallAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/e
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import type { DiscoveryValues } from "../lead-config";
-import { AREA, Btn, INPUT } from "../primitives";
-import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
+import { AREA, Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -93,29 +93,29 @@ export function LogCallForm({
 
   return (
     <>
-      <DrawerField label="Outcome" required>
+      <Field label="Outcome" required>
         <select className={INPUT} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
           {OUTCOMES.map((o) => (
             <option key={o}>{o}</option>
           ))}
         </select>
-      </DrawerField>
+      </Field>
 
       {reached && (
         <>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-            <DrawerField label="Budget / est. premium">
+            <Field label="Budget / est. premium">
               <input className={INPUT} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="₱ annual premium" />
-            </DrawerField>
-            <DrawerField label="Family size / dependents">
+            </Field>
+            <Field label="Family size / dependents">
               <input className={INPUT} type="number" value={family} onChange={(e) => setFamily(e.target.value)} placeholder="# people to cover" />
-            </DrawerField>
+            </Field>
           </div>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-            <DrawerField label="Product interest">
+            <Field label="Product interest">
               <input className={INPUT} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Blue Royale" />
-            </DrawerField>
-            <DrawerField label="Coverage tier / room">
+            </Field>
+            <Field label="Coverage tier / room">
               <select className={INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
                 {TIERS.map((t) => (
                   <option key={t} value={t}>
@@ -123,22 +123,22 @@ export function LogCallForm({
                   </option>
                 ))}
               </select>
-            </DrawerField>
+            </Field>
           </div>
         </>
       )}
 
-      <DrawerField label="Call notes" className="mt-3.5">
+      <Field label="Call notes" className="mt-3.5">
         <textarea
           className={cn(AREA, "min-h-[120px]")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder={reached ? "Anything the fields above don’t capture…" : "What happened on the attempt…"}
         />
-      </DrawerField>
-      <DrawerField label="Next follow-up" className="mt-3.5">
+      </Field>
+      <Field label="Next follow-up" className="mt-3.5">
         <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
-      </DrawerField>
+      </Field>
 
       <div className="mt-3.5 flex items-center justify-between gap-3">
         {reached ? (
@@ -186,9 +186,9 @@ export function LogCallModal({ target, onClose }: { target?: LogCallTarget; onCl
       </div>
 
       {!target && (
-        <DrawerField label="Contact" required className="mb-3.5">
+        <Field label="Contact" required className="mb-3.5">
           <ClientPicker value={picked} onPick={setPicked} onClear={() => setPicked(null)} />
-        </DrawerField>
+        </Field>
       )}
 
       {resolved && (

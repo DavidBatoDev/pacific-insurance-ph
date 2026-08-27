@@ -12,10 +12,9 @@ import { peso, pesoShort } from "@/lib/format";
 import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
-import { DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Btn, INPUT, StatusBadge, TONE_BADGE } from "../primitives";
+import { Btn, Field, INPUT, StatusBadge, TONE_BADGE } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
@@ -233,7 +232,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         ))}
       </div>
 
-      <DrawerField
+      <Field
         label="Proof of payment"
         required={!payment.proofDocumentId}
         hint="Screenshot or bank slip — saved to the client’s documents"
@@ -260,17 +259,17 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
             onChange={(e) => setProof(e.target.files?.[0] ?? null)}
           />
         </label>
-      </DrawerField>
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <DrawerField label="Payment method" required>
+        <Field label="Payment method" required>
           <select className={INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
             {["Portal", "Bank transfer", "Cashier", "Credit card", "Business link", "Other"].map((m) => (
               <option key={m}>{m}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Payment status" required hint="Awaiting → Received → Verified">
+        </Field>
+        <Field label="Payment status" required hint="Awaiting → Received → Verified">
           <select
             className={INPUT}
             value={status}
@@ -279,17 +278,17 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
             <option>Received</option>
             <option>Verified</option>
           </select>
-        </DrawerField>
+        </Field>
       </div>
 
-      <DrawerField
+      <Field
         label="OR number"
         required={status === "Verified"}
         hint="Official Receipt from Pacific Cross (via Glynn) — also stamped on the policy"
         className="mt-4"
       >
         <input className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
-      </DrawerField>
+      </Field>
 
       <button
         onClick={() => setSubmitted(!submitted)}
@@ -304,14 +303,14 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         Submitted to Pacific Cross (Glynn) — the step that triggers the OR number
       </button>
 
-      <DrawerField label="Internal notes" className="mt-4">
+      <Field label="Internal notes" className="mt-4">
         <textarea
           className="min-h-[70px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Anything worth noting…"
         />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />

@@ -12,11 +12,10 @@ import type { CatalogProduct, CatalogSnapshot } from "@/lib/repositories/product
 import { PRODUCT_CATEGORIES } from "@/lib/repositories/products/product.entity";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
-import { DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, INPUT, PageHead, SEL } from "../primitives";
+import { Btn, Card, Field, INPUT, PageHead, SEL } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
@@ -490,24 +489,24 @@ function ProductDrawer({
         </>
       }
     >
-      <DrawerField label="Product name" required>
+      <Field label="Product name" required>
         <input autoFocus className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue Royale" />
-      </DrawerField>
-      <DrawerField label="Category" required className="mt-4">
+      </Field>
+      <Field label="Category" required className="mt-4">
         <select className={INPUT} value={category ?? "Other"} onChange={(e) => setCategory(e.target.value)}>
           {PRODUCT_CATEGORIES.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
-      </DrawerField>
-      <DrawerField label="Short description" className="mt-4">
+      </Field>
+      <Field label="Short description" className="mt-4">
         <textarea
           className="min-h-[80px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={description ?? ""}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="One-line summary shown across the platform"
         />
-      </DrawerField>
+      </Field>
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
         <div>
           <div className="text-[13px] font-[600]">{active ? "Active" : "Inactive"}</div>

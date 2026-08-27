@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, CardHead, PageHead } from "../primitives";
+import { Btn, Card, CardHead, Field, PageHead } from "../primitives";
 
 /**
  * Email Templates — two-pane list + editor over the email_templates table.
@@ -296,21 +296,3 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
   );
 }
 
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}

@@ -103,27 +103,3 @@ export function ClientPicker({
   );
 }
 
-
-export function DrawerField({
-  label,
-  required,
-  hint,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label} {required && <span className="text-red">*</span>}
-      </label>
-      {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
-    </div>
-  );
-}

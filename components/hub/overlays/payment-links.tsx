@@ -17,8 +17,7 @@ import { cn } from "@/lib/utils";
 import { peso } from "@/lib/format";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn, INPUT } from "../primitives";
-import { DrawerField } from "./client-picker";
+import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -146,7 +145,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <DrawerField label="Official payment channel" required hint="Business payee — never a personal account">
+        <Field label="Official payment channel" required hint="Business payee — never a personal account">
           {channels.length > 0 ? (
             <select className={INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
               {channels.map((c) => (
@@ -166,8 +165,8 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
               to add one before logging instructions.
             </div>
           )}
-        </DrawerField>
-        <DrawerField label="Send via" required>
+        </Field>
+        <Field label="Send via" required>
           <div className="flex gap-1.5">
             {["Email", "WhatsApp", "Viber"].map((c) => {
               const on = via.includes(c);
@@ -186,7 +185,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[13px]">
