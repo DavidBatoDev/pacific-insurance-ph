@@ -94,6 +94,65 @@ export function Field({
   );
 }
 
+/* ---------- Stat strip ---------- */
+export interface Stat {
+  val: ReactNode;
+  label: string;
+  /** Inline CSS colour for the value (used by callers with computed colours). */
+  color?: string;
+  /** Utility class for the value (e.g. "text-brand"). */
+  cls?: string;
+  /** Optional footer content below the label (progress bars etc.). */
+  extra?: ReactNode;
+}
+
+/** The four-up (or three-up) headline-number strip shown under a PageHead. */
+export function StatStrip({
+  stats,
+  size = "lg",
+  cols = 4,
+  className,
+}: {
+  stats: Stat[];
+  /** `lg` (22px value, list screens) or `sm` (19px value, dense screens). */
+  size?: "sm" | "lg";
+  cols?: 3 | 4;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-3",
+        cols === 4 ? "grid-cols-4 max-[900px]:grid-cols-2" : "grid-cols-3",
+        className,
+      )}
+    >
+      {stats.map((s, i) =>
+        size === "lg" ? (
+          <div key={i} className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
+            <div
+              className={cn("text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums", s.cls)}
+              style={{ color: s.color }}
+            >
+              {s.val}
+            </div>
+            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{s.label}</div>
+            {s.extra}
+          </div>
+        ) : (
+          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
+            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)} style={{ color: s.color }}>
+              {s.val}
+            </div>
+            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
+            {s.extra}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
 /* ---------- Avatar ---------- */
 export function Avatar({
   name,

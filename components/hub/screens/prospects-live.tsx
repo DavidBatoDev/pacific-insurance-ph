@@ -24,7 +24,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, Pill, SEL_SM } from "../primitives";
+import { Avatar, Btn, Card, CardHead, Pill, SEL_SM, StatStrip } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -623,8 +623,10 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
 
   const forecast = (
     <>
-      <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-4"
+        stats={[
           { val: pesoShort(weightedTotal), label: "Weighted pipeline", cls: "text-brand" },
           { val: pesoShort(rawTotal), label: "Raw pipeline" },
           {
@@ -636,19 +638,17 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
             ),
             label: "Expected conversions · month / quarter",
           },
-          { val: targetPct + "%", label: `Forecast vs target (${pesoShort(wThisMonth)} / ${pesoShort(TARGET)})` },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-            {i === 3 && (
+          {
+            val: targetPct + "%",
+            label: `Forecast vs target (${pesoShort(wThisMonth)} / ${pesoShort(TARGET)})`,
+            extra: (
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
                 <div className="h-full rounded-full bg-brand" style={{ width: targetPct + "%" }} />
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            ),
+          },
+        ]}
+      />
       <div className="grid grid-cols-12 gap-4 max-[1100px]:grid-cols-1">
         <Card className="col-span-7 max-[1100px]:col-span-1">
           <CardHead iconName="trendUp" title="Weighted funnel" action={<span className="text-[12.5px] font-semibold text-brand-hover">bar = weighted ₱ · click a stage</span>} />

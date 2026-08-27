@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { I } from "@/components/hub/icons";
-import { Card, PageHead, StatusBadge } from "@/components/hub/primitives";
+import { Card, PageHead, StatStrip, StatusBadge } from "@/components/hub/primitives";
 import { ClientCell, Row, Table, Td, Th, useSort } from "@/components/hub/table";
 import type { Client } from "@/lib/repositories/clients";
 
@@ -67,19 +67,7 @@ export function ClientsList({
         }
       />
 
-      <div className="mb-4 grid grid-cols-3 gap-3 max-[900px]:grid-cols-3">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
-            <div
-              className="text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums"
-              style={{ color: s.color }}
-            >
-              {s.val}
-            </div>
-            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
-      </div>
+      <StatStrip stats={stats} cols={3} className="mb-4" />
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-border-soft px-4 py-[13px]">

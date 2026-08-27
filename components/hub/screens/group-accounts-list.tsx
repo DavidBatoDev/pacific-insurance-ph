@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { peso, pesoShort } from "@/lib/format";
 import type { Tone } from "../tone";
 import { I } from "../icons";
-import { Card, PageHead, Pill } from "../primitives";
+import { Card, PageHead, Pill, StatStrip } from "../primitives";
 
 /** Clients → Group Accounts segment: company-level Group HMO records. */
 
@@ -62,19 +62,16 @@ export function GroupAccountsList({ groups }: { groups: GroupAccount[] }) {
       />
       <ClientsViewToggle view="groups" />
 
-      <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-4"
+        stats={[
           { val: groups.length, label: "Group accounts" },
           { val: totalMembers, label: "Total members" },
           { val: pesoShort(totalPremium), label: "Group premium", cls: "text-brand" },
           { val: groups.filter((g) => g.status === "Lapsing").length, label: "Lapsing soon", cls: "text-amber" },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">

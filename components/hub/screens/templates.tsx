@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, CardHead, Field, PageHead } from "../primitives";
+import { Btn, Card, CardHead, Field, PageHead, StatStrip } from "../primitives";
 
 /**
  * Email Templates — two-pane list + editor over the email_templates table.
@@ -118,19 +118,16 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
         }
       />
 
-      <div className="mb-[18px] grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-[18px]"
+        stats={[
           { val: templates.length, label: "Templates" },
           { val: activeCount, label: "Active", cls: "text-brand" },
           { val: MERGE_FIELDS.length, label: "Merge fields" },
           { val: 3, label: "Consumers wired" },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       <div className="grid grid-cols-[340px_1fr] items-start gap-4 max-[1100px]:grid-cols-1">
         {/* List */}

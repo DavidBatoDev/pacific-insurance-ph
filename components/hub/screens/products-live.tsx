@@ -15,7 +15,7 @@ import { I, type IconName } from "../icons";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, Field, INPUT, PageHead, Pill, SEL } from "../primitives";
+import { Btn, Card, Field, INPUT, PageHead, Pill, SEL, StatStrip } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
@@ -224,19 +224,16 @@ export function ProductsLive({
         )}
       </div>
 
-      <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-4"
+        stats={[
           { val: categories.length, label: "Categories" },
           { val: products.length, label: "Total products" },
           { val: activeCount, label: "Active", cls: "text-brand" },
           { val: products.length - activeCount, label: "Inactive", cls: "text-subtle" },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
