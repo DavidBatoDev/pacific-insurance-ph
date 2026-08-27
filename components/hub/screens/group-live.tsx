@@ -14,7 +14,7 @@ import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, Field, INPUT, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, Field, INPUT, Pill } from "../primitives";
 
 /**
  * Group Account detail — the company-level equivalent of the Contact Profile
@@ -34,10 +34,7 @@ const GA_TONE: Record<string, Tone> = {
 const TIER_SHARE: Record<string, number> = { Executive: 96000, Premium: 62000, Standard: 44000 };
 
 const gaBadge = (val: string) => (
-  <span className={cn("inline-flex h-[20px] items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[GA_TONE[val] ?? "slate"])}>
-    <span className="size-1 rounded-full bg-current" />
-    {val}
-  </span>
+  <Pill size="sm" tone={GA_TONE[val] ?? "slate"} dot>{val}</Pill>
 );
 
 const fmtDate = (iso: string | null) =>
@@ -251,9 +248,9 @@ export function GroupLive({
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn("inline-flex h-[20px] items-center rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[m.relationship === "Principal" ? "green" : m.relationship === "Dependent" ? "violet" : "slate"])}>
+                      <Pill size="sm" tone={m.relationship === "Principal" ? "green" : m.relationship === "Dependent" ? "violet" : "slate"}>
                         {m.relationship}
-                      </span>
+                      </Pill>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{m.coverageTier}</td>
                     <td className="px-4 py-2.5">{gaBadge(m.ecardStatus)}</td>

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { peso, pesoShort } from "@/lib/format";
 import type { Tone } from "../tone";
 import { I } from "../icons";
-import { Card, PageHead, TONE_BADGE } from "../primitives";
+import { Card, PageHead, Pill } from "../primitives";
 
 /** Clients → Group Accounts segment: company-level Group HMO records. */
 
@@ -112,10 +112,9 @@ export function GroupAccountsList({ groups }: { groups: GroupAccount[] }) {
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(g.expiryDate)}</td>
                   <td className="px-4 py-2.5">
-                    <span className={cn("inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[GA_TONE[g.status] ?? "slate"])}>
-                      <span className="size-1.5 rounded-full bg-current" />
+                    <Pill tone={GA_TONE[g.status] ?? "slate"} dot>
                       {g.status}
-                    </span>
+                    </Pill>
                   </td>
                 </tr>
               ))}

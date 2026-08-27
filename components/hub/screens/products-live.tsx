@@ -15,7 +15,7 @@ import { I, type IconName } from "../icons";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, Field, INPUT, PageHead, SEL } from "../primitives";
+import { Btn, Card, Field, INPUT, PageHead, Pill, SEL } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
@@ -180,15 +180,9 @@ export function ProductsLive({
                 )}
                 <td className="px-4 py-2.5 text-muted-foreground">{p.provider ?? "—"}</td>
                 <td className="px-4 py-2.5">
-                  <span
-                    className={cn(
-                      "inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]",
-                      p.active ? "border-green-border bg-green-soft text-green" : "border-transparent bg-slate-soft text-slate",
-                    )}
-                  >
-                    <span className="size-1.5 rounded-full bg-current" />
+                  <Pill tone={p.active ? "green" : "slate"} dot>
                     {p.active ? "Active" : "Inactive"}
-                  </span>
+                  </Pill>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums">{usage[p.id] ?? 0}</td>
                 {canEdit && <td className="px-4 py-2.5">{rowActions(p)}</td>}
@@ -378,14 +372,7 @@ export function ProductsLive({
                       {p.category ?? "Other"}
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      "inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]",
-                      p.active ? "border-green-border bg-green-soft text-green" : "border-transparent bg-slate-soft text-slate",
-                    )}
-                  >
-                    {p.active ? "Active" : "Inactive"}
-                  </span>
+                  <Pill tone={p.active ? "green" : "slate"}>{p.active ? "Active" : "Inactive"}</Pill>
                 </div>
                 <p className="mt-2 line-clamp-2 min-h-[36px] text-[12.5px] text-muted-foreground">{p.description ?? "—"}</p>
                 <div className="mt-3 flex items-center justify-between border-t border-border-soft pt-3">

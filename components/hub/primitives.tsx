@@ -166,18 +166,42 @@ const STATUS_TONE: Record<string, Tone> = {
   "Follow-up": "amber",
 };
 
-export function StatusBadge({ status }: { status: string }) {
-  const tone = STATUS_TONE[status] ?? "slate";
+/** Tone-tinted rounded pill; the base shape behind every status/stage chip. */
+export function Pill({
+  tone = "slate",
+  size = "md",
+  dot,
+  className,
+  children,
+}: {
+  tone?: Tone;
+  /** `md` (22px, list rows) or `sm` (20px, dense tables/cards). */
+  size?: "sm" | "md";
+  /** Leading colour dot. */
+  dot?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <span
       className={cn(
-        "inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
+        "inline-flex items-center whitespace-nowrap rounded-full border font-[650]",
+        size === "md" ? "h-[22px] gap-1.5 px-2.5 text-[11.5px]" : "h-[20px] gap-1 px-2 text-[10.5px]",
         TONE_BADGE[tone],
+        className,
       )}
     >
-      <span className="size-1.5 rounded-full bg-current" />
-      {status}
+      {dot && <span className={cn("rounded-full bg-current", size === "md" ? "size-1.5" : "size-1")} />}
+      {children}
     </span>
+  );
+}
+
+export function StatusBadge({ status }: { status: string }) {
+  return (
+    <Pill tone={STATUS_TONE[status] ?? "slate"} dot>
+      {status}
+    </Pill>
   );
 }
 

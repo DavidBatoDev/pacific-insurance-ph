@@ -14,7 +14,7 @@ import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Btn, Field, INPUT, StatusBadge, TONE_BADGE } from "../primitives";
+import { Btn, Field, INPUT, Pill, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
@@ -106,9 +106,7 @@ export function PaymentsLive({
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={p.clientName ?? "—"} sub={p.sourceRef ?? undefined} /></Td>
           <Td>
-            <span className={cn("inline-flex h-[20px] items-center rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[SOURCE_TONE[p.source]])}>
-              {p.source}
-            </span>
+            <Pill size="sm" tone={SOURCE_TONE[p.source]}>{p.source}</Pill>
           </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? peso(p.amount) : "—"}</Td>
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>

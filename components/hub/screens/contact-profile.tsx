@@ -38,7 +38,7 @@ import { MarkLostModal } from "../overlays/mark-lost";
 import { RecordDecisionModal } from "../overlays/record-decision";
 import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
-import { AREA, Avatar, Btn, Card, CardHead, Field, INPUT, TONE_BADGE, TONE_SOFT } from "../primitives";
+import { AREA, Avatar, Btn, Card, CardHead, Field, INPUT, Pill, TONE_SOFT } from "../primitives";
 
 /**
  * Contact Profile — the unified record view for one contact (see
@@ -347,13 +347,10 @@ export function ContactProfile({
                   never strands one on its own line when it wraps. */}
               {isLead && (
                 <>
-                  <span className={cn("inline-flex h-[22px] items-center rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[STAGE_TONE[client.leadStage ?? ""] ?? "slate"])}>
-                    {client.leadStage}
-                  </span>
-                  <span className={cn("inline-flex h-[22px] items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[STATUS_TONE[client.leadStatus ?? ""] ?? "slate"])}>
-                    <span className="size-1.5 rounded-full bg-current" />
+                  <Pill tone={STAGE_TONE[client.leadStage ?? ""] ?? "slate"}>{client.leadStage}</Pill>
+                  <Pill tone={STATUS_TONE[client.leadStatus ?? ""] ?? "slate"} dot>
                     {client.leadStatus}
-                  </span>
+                  </Pill>
                 </>
               )}
             </div>

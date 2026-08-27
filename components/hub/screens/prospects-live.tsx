@@ -24,7 +24,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, SEL_SM, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, Pill, SEL_SM } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -78,15 +78,10 @@ function FollowPill({ date }: { date: string | null }) {
 }
 
 const StageBadge = ({ stage }: { stage: string | null }) => (
-  <span className={cn("inline-flex h-[20px] items-center whitespace-nowrap rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[STAGE_TONE[stage ?? ""] ?? "slate"])}>
-    {stage ?? "—"}
-  </span>
+  <Pill size="sm" tone={STAGE_TONE[stage ?? ""] ?? "slate"}>{stage ?? "—"}</Pill>
 );
 const StatusChip = ({ status }: { status: string | null }) => (
-  <span className={cn("inline-flex h-[20px] items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[STATUS_TONE[status ?? ""] ?? "slate"])}>
-    <span className="size-1 rounded-full bg-current" />
-    {status ?? "—"}
-  </span>
+  <Pill size="sm" tone={STATUS_TONE[status ?? ""] ?? "slate"} dot>{status ?? "—"}</Pill>
 );
 
 function LeadFilters({
@@ -867,9 +862,9 @@ function ProposalTracking({
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <span className={cn("inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[l.proposalDecision === "Declined" ? "red" : l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"])}>
+                <Pill tone={l.proposalDecision === "Declined" ? "red" : l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"}>
                   {proposalChipLabel(l.proposalStatus, l.proposalDecision) ?? "Not requested"}
-                </span>
+                </Pill>
                 {l.proposalStatus === "Requested" && (
                   <Btn size="sm" onClick={() => onMarkReceived(l)}>
                     Mark Received
