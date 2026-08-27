@@ -13,7 +13,7 @@ import type { Renewal } from "@/lib/repositories/renewals/renewal.entity";
 import type { Task as RealTask } from "@/lib/repositories/tasks/task.entity";
 import type { TravelRequest } from "@/lib/repositories/travel/travel-request.entity";
 import { cn } from "@/lib/utils";
-import { peso } from "@/lib/format";
+import { fmtDate, peso } from "@/lib/format";
 import type { Tone } from "./tone";
 import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
@@ -22,7 +22,8 @@ import {
   Btn, Card, CardHead, CardLink, DueCell, Sparkline, StatusBadge,
   TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
 } from "./primitives";
-import { ClientCell, Row, Table, Td, Th, useSort } from "./table";
+import { ClientCell, Td } from "./table";
+import { QueueCard } from "./dashboard/queue-card";
 import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "./task-buckets";
 import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
@@ -48,8 +49,6 @@ const daysUntil = (iso: string | null): number | null => {
   return Math.round((new Date(iso + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
 };
 
-const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 /* ---------- Alert bar ---------- */
 function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
@@ -194,148 +193,120 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
 
 /* ---------- Queue tables ---------- */
 function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[]; count: number }) {
-  const top = rows.slice(0, 6);
-  const { sorted, sort, toggle } = useSort(top, "createdAt", "desc");
-  const { openContact } = useRecordNav();
   return (
-    <Card>
-      <CardHead
-        icon={I.fileText}
-        title="Applications requiring action"
-        count={count}
-        action={<CardLink onClick={() => setScreen("applications")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <Table>
-        <thead>
-          <tr>
-            <Th label="Application" k="referenceNo" sort={sort} toggle={toggle} />
-            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
-            <Th label="Product" k="productName" sort={sort} toggle={toggle} />
-            <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Started" k="dateStarted" sort={sort} toggle={toggle} />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((a) => (
-            <Row key={a.id} onClick={() => openContact(a.clientId)}>
-              <Td><span className="font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
-              <Td><ClientCell name={a.clientName ?? "—"} sub={a.applicationType} /></Td>
-              <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
-              <Td><StatusBadge status={a.status} /></Td>
-              <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
-            </Row>
-          ))}
-        </tbody>
-      </Table>
-    </Card>
+    <QueueCard
+      icon={I.fileText}
+      title="Applications requiring action"
+      count={count}
+      screen="applications"
+      setScreen={setScreen}
+      rows={rows}
+      slice={6}
+      defaultSort={{ key: "createdAt", dir: "desc" }}
+      columns={[
+        { k: "referenceNo", label: "Application" },
+        { k: "clientName", label: "Client" },
+        { k: "productName", label: "Product" },
+        { k: "status", label: "Status" },
+        { k: "dateStarted", label: "Started" },
+      ]}
+      renderRow={(a) => (
+        <>
+          <Td><span className="font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
+          <Td><ClientCell name={a.clientName ?? "—"} sub={a.applicationType} /></Td>
+          <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
+          <Td><StatusBadge status={a.status} /></Td>
+          <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>
+        </>
+      )}
+    />
   );
 }
 
 function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count: number }) {
-  const top = rows.slice(0, 6);
-  const { sorted, sort, toggle } = useSort(top, "renewalDueDate", "asc");
-  const { openContact } = useRecordNav();
   return (
-    <Card>
-      <CardHead
-        icon={I.refresh}
-        title="Renewals queue"
-        count={count}
-        action={<CardLink onClick={() => setScreen("renewals")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <Table>
-        <thead>
-          <tr>
-            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
-            <Th label="Policy" k="policyRef" sort={sort} toggle={toggle} />
-            <Th label="Renewal date" k="renewalDueDate" sort={sort} toggle={toggle} />
-            <Th label="Status" k="status" sort={sort} toggle={toggle} />
-            <Th label="Premium" k="premiumAmount" sort={sort} toggle={toggle} num />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((r) => (
-            <Row key={r.id} onClick={() => openContact(r.clientId)}>
-              <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
-              <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
-              <Td>{r.renewalDueDate ? <DueCell days={daysUntil(r.renewalDueDate) ?? 0} label={fmtDate(r.renewalDueDate)} /> : "—"}</Td>
-              <Td><StatusBadge status={r.status} /></Td>
-              <Td className="text-right font-mono font-semibold tabular-nums">
-                {r.premiumAmount != null ? peso(r.premiumAmount) : "—"}
-              </Td>
-            </Row>
-          ))}
-        </tbody>
-      </Table>
-    </Card>
+    <QueueCard
+      icon={I.refresh}
+      title="Renewals queue"
+      count={count}
+      screen="renewals"
+      setScreen={setScreen}
+      rows={rows}
+      slice={6}
+      defaultSort={{ key: "renewalDueDate", dir: "asc" }}
+      columns={[
+        { k: "clientName", label: "Client" },
+        { k: "policyRef", label: "Policy" },
+        { k: "renewalDueDate", label: "Renewal date" },
+        { k: "status", label: "Status" },
+        { k: "premiumAmount", label: "Premium", num: true },
+      ]}
+      renderRow={(r) => (
+        <>
+          <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
+          <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
+          <Td>{r.renewalDueDate ? <DueCell days={daysUntil(r.renewalDueDate) ?? 0} label={fmtDate(r.renewalDueDate)} /> : "—"}</Td>
+          <Td><StatusBadge status={r.status} /></Td>
+          <Td className="text-right font-mono font-semibold tabular-nums">
+            {r.premiumAmount != null ? peso(r.premiumAmount) : "—"}
+          </Td>
+        </>
+      )}
+    />
   );
 }
 
 function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: number }) {
-  const top = rows.slice(0, 5);
-  const { sorted, sort, toggle } = useSort(top, "updatedAt", "desc");
-  const { openContact } = useRecordNav();
   return (
-    <Card>
-      <CardHead
-        icon={I.clipboard}
-        title="Claims requiring action"
-        count={count}
-        action={<CardLink onClick={() => setScreen("claims")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <Table>
-        <thead>
-          <tr>
-            <Th label="Claim" k="referenceNo" sort={sort} toggle={toggle} />
-            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
-            <Th label="Status" k="status" sort={sort} toggle={toggle} />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((c) => (
-            <Row key={c.id} onClick={() => openContact(c.clientId)}>
-              <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
-              <Td><ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} /></Td>
-              <Td><StatusBadge status={c.status} /></Td>
-            </Row>
-          ))}
-        </tbody>
-      </Table>
-    </Card>
+    <QueueCard
+      icon={I.clipboard}
+      title="Claims requiring action"
+      count={count}
+      screen="claims"
+      setScreen={setScreen}
+      rows={rows}
+      slice={5}
+      defaultSort={{ key: "updatedAt", dir: "desc" }}
+      columns={[
+        { k: "referenceNo", label: "Claim" },
+        { k: "clientName", label: "Client" },
+        { k: "status", label: "Status" },
+      ]}
+      renderRow={(c) => (
+        <>
+          <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
+          <Td><ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} /></Td>
+          <Td><StatusBadge status={c.status} /></Td>
+        </>
+      )}
+    />
   );
 }
 
 function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; count: number }) {
-  const top = rows.slice(0, 5);
-  const { sorted, sort, toggle } = useSort(top, "departureDate", "asc");
-  const { openContact } = useRecordNav();
   return (
-    <Card>
-      <CardHead
-        icon={I.plane}
-        title="Travel insurance queue"
-        count={count}
-        action={<CardLink onClick={() => setScreen("travel")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <Table>
-        <thead>
-          <tr>
-            <Th label="Client" k="clientName" sort={sort} toggle={toggle} />
-            <Th label="Destination" k="destination" sort={sort} toggle={toggle} />
-            <Th label="Status" k="status" sort={sort} toggle={toggle} />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((t) => (
-            <Row key={t.id} onClick={() => openContact(t.clientId)}>
-              <Td><ClientCell name={t.clientName ?? "—"} sub={fmtDate(t.departureDate)} /></Td>
-              <Td className="font-[550]">{t.destination ?? "—"}</Td>
-              <Td><StatusBadge status={t.status} /></Td>
-            </Row>
-          ))}
-        </tbody>
-      </Table>
-    </Card>
+    <QueueCard
+      icon={I.plane}
+      title="Travel insurance queue"
+      count={count}
+      screen="travel"
+      setScreen={setScreen}
+      rows={rows}
+      slice={5}
+      defaultSort={{ key: "departureDate", dir: "asc" }}
+      columns={[
+        { k: "clientName", label: "Client" },
+        { k: "destination", label: "Destination" },
+        { k: "status", label: "Status" },
+      ]}
+      renderRow={(t) => (
+        <>
+          <Td><ClientCell name={t.clientName ?? "—"} sub={fmtDate(t.departureDate)} /></Td>
+          <Td className="font-[550]">{t.destination ?? "—"}</Td>
+          <Td><StatusBadge status={t.status} /></Td>
+        </>
+      )}
+    />
   );
 }
 
