@@ -28,3 +28,7 @@ export const avColor = (name: string) =>
   AV_COLORS[
     name.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length
   ];
+
+/** en-PH short date ("Jan 5, 2026"), em-dash when unset. */
+export const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }) : "—";
