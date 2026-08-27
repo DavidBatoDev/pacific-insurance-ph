@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 
 import { issuePolicyAction, listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, INPUT } from "../primitives";
+import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -79,7 +79,7 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
       <div className="mt-4 grid grid-cols-2 gap-4">
         <DrawerField label="Product" required>
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={productVersionId}
             onChange={(e) => {
               setProductVersionId(e.target.value);
@@ -96,7 +96,7 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
         </DrawerField>
         <DrawerField label="Plan option">
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={planOptionId}
             onChange={(e) => setPlanOptionId(e.target.value)}
             disabled={!plans.length}
@@ -113,25 +113,25 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <DrawerField label="Pacific Cross policy no." hint="Distinct from the POL- reference">
-          <input className={DRAWER_INPUT} value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="PC-000000" />
+          <input className={INPUT} value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="PC-000000" />
         </DrawerField>
         <DrawerField label="Premium (₱)">
-          <input className={DRAWER_INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
+          <input className={INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
         </DrawerField>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-4">
         <DrawerField label="Payment mode">
-          <select className={DRAWER_INPUT} value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+          <select className={INPUT} value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
             <option>Annual</option>
             <option>Semi-Annual</option>
           </select>
         </DrawerField>
         <DrawerField label="Effective date">
-          <input className={DRAWER_INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
+          <input className={INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
         </DrawerField>
         <DrawerField label="Expiry date">
-          <input className={DRAWER_INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+          <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </DrawerField>
       </div>
 

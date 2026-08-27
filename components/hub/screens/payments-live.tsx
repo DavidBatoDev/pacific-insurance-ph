@@ -12,10 +12,10 @@ import { peso, pesoShort } from "@/lib/format";
 import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
-import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
+import { DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Btn, StatusBadge, TONE_BADGE } from "../primitives";
+import { Btn, INPUT, StatusBadge, TONE_BADGE } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
@@ -264,7 +264,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
 
       <div className="grid grid-cols-2 gap-4">
         <DrawerField label="Payment method" required>
-          <select className={DRAWER_INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
+          <select className={INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
             {["Portal", "Bank transfer", "Cashier", "Credit card", "Business link", "Other"].map((m) => (
               <option key={m}>{m}</option>
             ))}
@@ -272,7 +272,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         </DrawerField>
         <DrawerField label="Payment status" required hint="Awaiting → Received → Verified">
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={status}
             onChange={(e) => setStatus(e.target.value as "Received" | "Verified")}
           >
@@ -288,7 +288,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         hint="Official Receipt from Pacific Cross (via Glynn) — also stamped on the policy"
         className="mt-4"
       >
-        <input className={DRAWER_INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
+        <input className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
       </DrawerField>
 
       <button

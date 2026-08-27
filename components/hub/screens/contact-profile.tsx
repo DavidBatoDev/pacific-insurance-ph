@@ -38,7 +38,7 @@ import { MarkLostModal } from "../overlays/mark-lost";
 import { RecordDecisionModal } from "../overlays/record-decision";
 import { MarkNurturingModal } from "../overlays/mark-nurturing";
 import { EmailForm } from "../overlays/send-email";
-import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
+import { AREA, Avatar, Btn, Card, CardHead, INPUT, TONE_BADGE, TONE_SOFT } from "../primitives";
 
 /**
  * Contact Profile — the unified record view for one contact (see
@@ -75,10 +75,6 @@ interface Props {
   draftApplications: Application[];
 }
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
-const AREA =
-  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }) : "—";

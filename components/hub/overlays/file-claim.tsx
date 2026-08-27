@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 
 import { fileClaimAction, listClientPoliciesAction } from "@/app/(app)/claims/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, INPUT } from "../primitives";
+import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -77,7 +77,7 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
 
       {client && (
         <DrawerField label="Policy" hint={policies.length ? undefined : "No policies on file for this contact"} className="mt-4">
-          <select className={DRAWER_INPUT} value={policyId} onChange={(e) => setPolicyId(e.target.value)} disabled={!policies.length}>
+          <select className={INPUT} value={policyId} onChange={(e) => setPolicyId(e.target.value)} disabled={!policies.length}>
             <option value="">None / not linked</option>
             {policies.map((p) => (
               <option key={p.id} value={p.id}>
@@ -90,19 +90,19 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <DrawerField label="Claim type" required>
-          <select className={DRAWER_INPUT} value={claimType} onChange={(e) => setClaimType(e.target.value)}>
+          <select className={INPUT} value={claimType} onChange={(e) => setClaimType(e.target.value)}>
             {["Hospitalization", "Outpatient", "Reimbursement", "Emergency", "Other"].map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
         </DrawerField>
         <DrawerField label="Incident date">
-          <input className={DRAWER_INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
+          <input className={INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
         </DrawerField>
       </div>
 
       <DrawerField label="Amount claimed (₱)" className="mt-4">
-        <input className={DRAWER_INPUT} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
+        <input className={INPUT} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
       </DrawerField>
 
       <DrawerField label="Notes" className="mt-4">

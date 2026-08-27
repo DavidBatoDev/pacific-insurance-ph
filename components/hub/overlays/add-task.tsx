@@ -15,7 +15,7 @@ import { TASK_TAGS } from "@/lib/repositories/tasks/task.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { BUCKET_LABEL, BUCKET_TONE, taskBucket } from "../task-buckets";
-import { Avatar, Btn } from "../primitives";
+import { Avatar, Btn, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -231,8 +231,6 @@ export function AddTaskDrawer({
   );
 }
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
 
 function FieldBlock({
   label,

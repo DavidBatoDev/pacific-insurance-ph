@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 import { peso } from "@/lib/format";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn } from "../primitives";
-import { DRAWER_INPUT, DrawerField } from "./client-picker";
+import { Avatar, Btn, INPUT } from "../primitives";
+import { DrawerField } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -148,13 +148,13 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <DrawerField label="Official payment channel" required hint="Business payee — never a personal account">
           {channels.length > 0 ? (
-            <select className={DRAWER_INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
+            <select className={INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
               {channels.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
           ) : loading ? (
-            <select className={DRAWER_INPUT} disabled />
+            <select className={INPUT} disabled />
           ) : channelsFailed ? (
             <div className="rounded-md border border-amber-border bg-amber-soft px-3.5 py-3 text-[12.5px] leading-relaxed text-amber">
               Couldn’t load the official payment channels. Close this drawer and try again.

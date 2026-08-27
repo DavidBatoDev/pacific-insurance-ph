@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { createLeadAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
 import { LEAD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
-import { Btn } from "../primitives";
+import { Btn, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -25,8 +25,6 @@ const SOURCES = [
   "Other",
 ];
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
 
 export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
   const router = useRouter();

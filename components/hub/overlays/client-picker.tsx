@@ -103,8 +103,6 @@ export function ClientPicker({
   );
 }
 
-export const DRAWER_INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
 
 export function DrawerField({
   label,

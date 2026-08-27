@@ -12,11 +12,11 @@ import type { CatalogProduct, CatalogSnapshot } from "@/lib/repositories/product
 import { PRODUCT_CATEGORIES } from "@/lib/repositories/products/product.entity";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
-import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
+import { DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, PageHead } from "../primitives";
+import { Btn, Card, INPUT, PageHead, SEL } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
@@ -415,8 +415,6 @@ export function ProductsLive({
   );
 }
 
-const SEL =
-  "h-9 rounded-md border border-border-strong bg-card px-2.5 text-[12.5px] outline-none focus:border-brand";
 
 function IconBtn({
   title,
@@ -493,10 +491,10 @@ function ProductDrawer({
       }
     >
       <DrawerField label="Product name" required>
-        <input autoFocus className={DRAWER_INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue Royale" />
+        <input autoFocus className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue Royale" />
       </DrawerField>
       <DrawerField label="Category" required className="mt-4">
-        <select className={DRAWER_INPUT} value={category ?? "Other"} onChange={(e) => setCategory(e.target.value)}>
+        <select className={INPUT} value={category ?? "Other"} onChange={(e) => setCategory(e.target.value)}>
           {PRODUCT_CATEGORIES.map((c) => (
             <option key={c}>{c}</option>
           ))}

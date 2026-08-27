@@ -54,6 +54,20 @@ export const TONE_ALERT: Record<Tone, string> = {
   slate: "bg-slate-soft border-transparent",
 };
 
+/* ---------- Shared form-control styles ---------- */
+/** Standard text input / select (drawers, forms, screens). */
+export const INPUT =
+  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
+/** Standard textarea. */
+export const AREA =
+  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
+/** Inline filter select. */
+export const SEL =
+  "h-9 rounded-md border border-border-strong bg-card px-2.5 text-[12.5px] outline-none focus:border-brand";
+/** Compact variant of `SEL` for dense widget headers. */
+export const SEL_SM =
+  "h-8 rounded-md border border-border-strong bg-card px-2 text-[12.5px] outline-none focus:border-brand";
+
 /* ---------- Avatar ---------- */
 export function Avatar({
   name,

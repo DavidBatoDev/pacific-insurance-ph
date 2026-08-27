@@ -8,7 +8,8 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
-import { DRAWER_INPUT, DrawerField } from "../client-picker";
+import { AREA, INPUT } from "../../primitives";
+import { DrawerField } from "../client-picker";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { Section, type StepProps } from "./steps-1";
 import { EXTERNAL_COVERAGE_TYPES } from "@/lib/repositories/external-coverage/external-coverage.entity";
@@ -28,8 +29,6 @@ import {
 
 /** Wizard steps 3–6. */
 
-const AREA =
-  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
 function YesNo({
   value,
@@ -93,8 +92,8 @@ function HeightInput({ value, onChange, idPrefix }: { value: string; onChange: (
   };
   return (
     <div className="flex items-center gap-1.5">
-      <input aria-label={`${idPrefix} height feet`} className={DRAWER_INPUT} value={feet} onChange={(e) => push(e.target.value, inches)} placeholder="ft" inputMode="numeric" />
-      <input aria-label={`${idPrefix} height inches`} className={DRAWER_INPUT} value={inches} onChange={(e) => push(feet, e.target.value)} placeholder="in" inputMode="numeric" />
+      <input aria-label={`${idPrefix} height feet`} className={INPUT} value={feet} onChange={(e) => push(e.target.value, inches)} placeholder="ft" inputMode="numeric" />
+      <input aria-label={`${idPrefix} height inches`} className={INPUT} value={inches} onChange={(e) => push(feet, e.target.value)} placeholder="in" inputMode="numeric" />
     </div>
   );
 }
@@ -124,12 +123,12 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
       <Section title="Plan & coverage">
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Plan option" required>
-            <select className={DRAWER_INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
+            <select className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
               <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
           </DrawerField>
           <DrawerField label="Coverage type" required>
-            <select className={DRAWER_INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
+            <select className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.coverage.map((c) => (
                 <option key={c}>{c}</option>
@@ -137,13 +136,13 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             </select>
           </DrawerField>
           <DrawerField label="Desired coverage start date">
-            <input className={DRAWER_INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+            <input className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </DrawerField>
           <DrawerField label="Family size / people to cover" hint="Includes the principal applicant.">
-            <input className={DRAWER_INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
+            <input className={INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
           </DrawerField>
           <DrawerField label="Coverage tier / room preference" hint="Discovery preference; the catalog plan above is the actual selection.">
-            <input className={DRAWER_INPUT} value={f.coverageTier} onChange={(e) => set({ coverageTier: e.target.value })} placeholder="e.g. Ward, Private, Plan A" />
+            <input className={INPUT} value={f.coverageTier} onChange={(e) => set({ coverageTier: e.target.value })} placeholder="e.g. Ward, Private, Plan A" />
           </DrawerField>
         </div>
         {f.coverageTier && !f.planOptionId && (
@@ -151,7 +150,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             Preference retained: <b>{f.coverageTier}</b>. {preferredPlan ? "Select the matched plan option above." : "It does not identify one unique plan, so choose the actual plan option above."}
           </div>
         )}
-        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={DRAWER_INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={DRAWER_INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={DRAWER_INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={DRAWER_INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={DRAWER_INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={DRAWER_INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={DRAWER_INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
+        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
       <Section title="Underwriting">
@@ -170,13 +169,13 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             — so staff transcribe straight across instead of converting. */}
         <div className="mt-4 grid grid-cols-2 gap-4">
           <DrawerField label="Smoker" hint="A current smoker needs a chest X-ray from the last 6 months.">
-            <select className={DRAWER_INPUT} value={f.smokerStatus} onChange={(e) => set({ smokerStatus: e.target.value })}>
+            <select className={INPUT} value={f.smokerStatus} onChange={(e) => set({ smokerStatus: e.target.value })}>
               <option value="">Select…</option>
               {SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}
             </select>
           </DrawerField>
           <DrawerField label="Weight (lbs.)">
-            <input className={DRAWER_INPUT} value={f.weightLbs} onChange={(e) => set({ weightLbs: e.target.value })} placeholder="0" inputMode="decimal" />
+            <input className={INPUT} value={f.weightLbs} onChange={(e) => set({ weightLbs: e.target.value })} placeholder="0" inputMode="decimal" />
           </DrawerField>
           <DrawerField label="Height (ft. & in.)">
             <HeightInput value={f.heightInches} onChange={(v) => set({ heightInches: v })} idPrefix="principal" />
@@ -195,16 +194,16 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           </p>
           <div className="grid grid-cols-2 gap-4">
             <DrawerField label="Beneficiary name">
-              <input aria-label="Principal beneficiary name" className={DRAWER_INPUT} value={f.beneficiaryName} onChange={(e) => set({ beneficiaryName: e.target.value })} placeholder="Full name" />
+              <input aria-label="Principal beneficiary name" className={INPUT} value={f.beneficiaryName} onChange={(e) => set({ beneficiaryName: e.target.value })} placeholder="Full name" />
             </DrawerField>
             <DrawerField label="Relationship to applicant">
-              <input aria-label="Principal beneficiary relationship" className={DRAWER_INPUT} value={f.beneficiaryRelationship} onChange={(e) => set({ beneficiaryRelationship: e.target.value })} placeholder="e.g. Spouse" />
+              <input aria-label="Principal beneficiary relationship" className={INPUT} value={f.beneficiaryRelationship} onChange={(e) => set({ beneficiaryRelationship: e.target.value })} placeholder="e.g. Spouse" />
             </DrawerField>
             <DrawerField label="Beneficiary date of birth">
-              <input aria-label="Principal beneficiary birth date" className={DRAWER_INPUT} type="date" value={f.beneficiaryBirthDate} onChange={(e) => set({ beneficiaryBirthDate: e.target.value })} />
+              <input aria-label="Principal beneficiary birth date" className={INPUT} type="date" value={f.beneficiaryBirthDate} onChange={(e) => set({ beneficiaryBirthDate: e.target.value })} />
             </DrawerField>
             <DrawerField label="Beneficiary contact number">
-              <input aria-label="Principal beneficiary contact" className={DRAWER_INPUT} value={f.beneficiaryContact} onChange={(e) => set({ beneficiaryContact: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+              <input aria-label="Principal beneficiary contact" className={INPUT} value={f.beneficiaryContact} onChange={(e) => set({ beneficiaryContact: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </DrawerField>
           </div>
         </div>
@@ -223,24 +222,24 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             </p>
             <div className="grid grid-cols-2 gap-4">
               <DrawerField label="Type of existing cover">
-                <select className={DRAWER_INPUT} value={f.firstLayerType} onChange={(e) => set({ firstLayerType: e.target.value })}>
+                <select className={INPUT} value={f.firstLayerType} onChange={(e) => set({ firstLayerType: e.target.value })}>
                   {EXTERNAL_COVERAGE_TYPES.map((type) => <option key={type}>{type}</option>)}
                 </select>
               </DrawerField>
               <DrawerField label="Name of existing HMO">
-                <input className={DRAWER_INPUT} value={f.firstLayerProvider} onChange={(e) => set({ firstLayerProvider: e.target.value })} placeholder="e.g. Maxicare" />
+                <input className={INPUT} value={f.firstLayerProvider} onChange={(e) => set({ firstLayerProvider: e.target.value })} placeholder="e.g. Maxicare" />
               </DrawerField>
               <DrawerField label="Type / name of plan">
-                <input className={DRAWER_INPUT} value={f.firstLayerPlan} onChange={(e) => set({ firstLayerPlan: e.target.value })} placeholder="e.g. Prima Gold" />
+                <input className={INPUT} value={f.firstLayerPlan} onChange={(e) => set({ firstLayerPlan: e.target.value })} placeholder="e.g. Prima Gold" />
               </DrawerField>
               <DrawerField label="Maximum benefit limit (₱)" hint="The figure FlexiShield pays above.">
-                <input className={DRAWER_INPUT} value={f.firstLayerMbl} onChange={(e) => set({ firstLayerMbl: e.target.value })} placeholder="0.00" inputMode="decimal" />
+                <input className={INPUT} value={f.firstLayerMbl} onChange={(e) => set({ firstLayerMbl: e.target.value })} placeholder="0.00" inputMode="decimal" />
               </DrawerField>
               <DrawerField label="Effective date">
-                <input className={DRAWER_INPUT} type="date" value={f.firstLayerEffective} onChange={(e) => set({ firstLayerEffective: e.target.value })} />
+                <input className={INPUT} type="date" value={f.firstLayerEffective} onChange={(e) => set({ firstLayerEffective: e.target.value })} />
               </DrawerField>
               <DrawerField label="Expiry date">
-                <input className={DRAWER_INPUT} type="date" value={f.firstLayerExpiry} onChange={(e) => set({ firstLayerExpiry: e.target.value })} />
+                <input className={INPUT} type="date" value={f.firstLayerExpiry} onChange={(e) => set({ firstLayerExpiry: e.target.value })} />
               </DrawerField>
             </div>
           </div>
@@ -265,7 +264,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
       <Section title="Commercials" last>
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Preferred payment frequency">
-            <select className={DRAWER_INPUT} value={f.payFreq} onChange={(e) => set({ payFreq: e.target.value })}>
+            <select className={INPUT} value={f.payFreq} onChange={(e) => set({ payFreq: e.target.value })}>
               {WIZ_OPTS.payFreq.map((p) => (
                 <option key={p} value={p}>
                   {p || "Select…"}
@@ -274,7 +273,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             </select>
           </DrawerField>
           <DrawerField label="Estimated premium (₱)">
-            <input className={DRAWER_INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
+            <input className={INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
           </DrawerField>
         </div>
       </Section>
@@ -296,16 +295,16 @@ function CetMemberFields({
   return (
     <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
       <DrawerField label="Last name">
-        <input aria-label={`Member ${index + 1} last name`} className={DRAWER_INPUT} value={field("lastName")} onChange={(e) => onChange({ lastName: e.target.value })} />
+        <input aria-label={`Member ${index + 1} last name`} className={INPUT} value={field("lastName")} onChange={(e) => onChange({ lastName: e.target.value })} />
       </DrawerField>
       <DrawerField label="First name">
-        <input aria-label={`Member ${index + 1} first name`} className={DRAWER_INPUT} value={field("firstName")} onChange={(e) => onChange({ firstName: e.target.value })} />
+        <input aria-label={`Member ${index + 1} first name`} className={INPUT} value={field("firstName")} onChange={(e) => onChange({ firstName: e.target.value })} />
       </DrawerField>
       <DrawerField label="M.I.">
-        <input aria-label={`Member ${index + 1} middle initial`} className={DRAWER_INPUT} value={field("middleInitial")} onChange={(e) => onChange({ middleInitial: e.target.value })} />
+        <input aria-label={`Member ${index + 1} middle initial`} className={INPUT} value={field("middleInitial")} onChange={(e) => onChange({ middleInitial: e.target.value })} />
       </DrawerField>
       <DrawerField label="Gender">
-        <select aria-label={`Member ${index + 1} gender`} className={DRAWER_INPUT} value={field("gender")} onChange={(e) => onChange({ gender: e.target.value })}>
+        <select aria-label={`Member ${index + 1} gender`} className={INPUT} value={field("gender")} onChange={(e) => onChange({ gender: e.target.value })}>
           {WIZ_OPTS.gender.map((g) => (
             <option key={g} value={g}>
               {g || "Select…"}
@@ -314,7 +313,7 @@ function CetMemberFields({
         </select>
       </DrawerField>
       <DrawerField label="Civil status">
-        <select aria-label={`Member ${index + 1} civil status`} className={DRAWER_INPUT} value={field("civilStatus")} onChange={(e) => onChange({ civilStatus: e.target.value })}>
+        <select aria-label={`Member ${index + 1} civil status`} className={INPUT} value={field("civilStatus")} onChange={(e) => onChange({ civilStatus: e.target.value })}>
           {WIZ_OPTS.civil.map((c) => (
             <option key={c} value={c}>
               {c || "Select…"}
@@ -323,43 +322,43 @@ function CetMemberFields({
         </select>
       </DrawerField>
       <DrawerField label="Nationality">
-        <input aria-label={`Member ${index + 1} nationality`} className={DRAWER_INPUT} value={field("nationality")} onChange={(e) => onChange({ nationality: e.target.value })} />
+        <input aria-label={`Member ${index + 1} nationality`} className={INPUT} value={field("nationality")} onChange={(e) => onChange({ nationality: e.target.value })} />
       </DrawerField>
       <DrawerField label="Place of birth">
-        <input aria-label={`Member ${index + 1} place of birth`} className={DRAWER_INPUT} value={field("placeOfBirth")} onChange={(e) => onChange({ placeOfBirth: e.target.value })} />
+        <input aria-label={`Member ${index + 1} place of birth`} className={INPUT} value={field("placeOfBirth")} onChange={(e) => onChange({ placeOfBirth: e.target.value })} />
       </DrawerField>
       <DrawerField label="Coverage effective date" hint="CET effective date, per member">
-        <input aria-label={`Member ${index + 1} effective date`} className={DRAWER_INPUT} type="date" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
+        <input aria-label={`Member ${index + 1} effective date`} className={INPUT} type="date" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
       </DrawerField>
       <DrawerField label="Occupation / grade">
-        <input aria-label={`Member ${index + 1} occupation or grade`} className={DRAWER_INPUT} value={field("occupationGrade")} onChange={(e) => onChange({ occupationGrade: e.target.value })} />
+        <input aria-label={`Member ${index + 1} occupation or grade`} className={INPUT} value={field("occupationGrade")} onChange={(e) => onChange({ occupationGrade: e.target.value })} />
       </DrawerField>
       <DrawerField label="Room & board plan">
-        <input aria-label={`Member ${index + 1} room and board plan`} className={DRAWER_INPUT} value={field("roomAndBoardPlan")} onChange={(e) => onChange({ roomAndBoardPlan: e.target.value })} />
+        <input aria-label={`Member ${index + 1} room and board plan`} className={INPUT} value={field("roomAndBoardPlan")} onChange={(e) => onChange({ roomAndBoardPlan: e.target.value })} />
       </DrawerField>
       <DrawerField label="Maximum benefit limit (₱)">
-        <input aria-label={`Member ${index + 1} maximum benefit limit`} className={DRAWER_INPUT} inputMode="numeric" value={field("maximumBenefitLimit")} onChange={(e) => onChange({ maximumBenefitLimit: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
+        <input aria-label={`Member ${index + 1} maximum benefit limit`} className={INPUT} inputMode="numeric" value={field("maximumBenefitLimit")} onChange={(e) => onChange({ maximumBenefitLimit: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
       </DrawerField>
       <DrawerField label="PhilHealth member?">
         <YesNo value={field("philhealthMember")} onChange={(v) => onChange({ philhealthMember: v })} />
       </DrawerField>
       <DrawerField label="Email" className="col-span-2">
-        <input aria-label={`Member ${index + 1} email`} className={DRAWER_INPUT} type="email" value={m.email} onChange={(e) => onChange({ email: e.target.value })} />
+        <input aria-label={`Member ${index + 1} email`} className={INPUT} type="email" value={m.email} onChange={(e) => onChange({ email: e.target.value })} />
       </DrawerField>
       <DrawerField label="Mobile number">
-        <input aria-label={`Member ${index + 1} mobile number`} className={DRAWER_INPUT} value={field("mobileNumber")} onChange={(e) => onChange({ mobileNumber: e.target.value })} />
+        <input aria-label={`Member ${index + 1} mobile number`} className={INPUT} value={field("mobileNumber")} onChange={(e) => onChange({ mobileNumber: e.target.value })} />
       </DrawerField>
       <DrawerField label="Landline number">
-        <input aria-label={`Member ${index + 1} landline number`} className={DRAWER_INPUT} value={field("landlineNumber")} onChange={(e) => onChange({ landlineNumber: e.target.value })} />
+        <input aria-label={`Member ${index + 1} landline number`} className={INPUT} value={field("landlineNumber")} onChange={(e) => onChange({ landlineNumber: e.target.value })} />
       </DrawerField>
       <DrawerField label="Address" className="col-span-4 max-[900px]:col-span-2">
-        <input aria-label={`Member ${index + 1} address`} className={DRAWER_INPUT} value={field("address")} onChange={(e) => onChange({ address: e.target.value })} />
+        <input aria-label={`Member ${index + 1} address`} className={INPUT} value={field("address")} onChange={(e) => onChange({ address: e.target.value })} />
       </DrawerField>
       <DrawerField label="Beneficiary name" className="col-span-2">
-        <input aria-label={`Member ${index + 1} beneficiary name`} className={DRAWER_INPUT} value={field("beneficiaryName")} onChange={(e) => onChange({ beneficiaryName: e.target.value })} />
+        <input aria-label={`Member ${index + 1} beneficiary name`} className={INPUT} value={field("beneficiaryName")} onChange={(e) => onChange({ beneficiaryName: e.target.value })} />
       </DrawerField>
       <DrawerField label="Beneficiary birth date" className="col-span-2">
-        <input aria-label={`Member ${index + 1} beneficiary birth date`} className={DRAWER_INPUT} type="date" value={field("beneficiaryBirthDate")} onChange={(e) => onChange({ beneficiaryBirthDate: e.target.value })} />
+        <input aria-label={`Member ${index + 1} beneficiary birth date`} className={INPUT} type="date" value={field("beneficiaryBirthDate")} onChange={(e) => onChange({ beneficiaryBirthDate: e.target.value })} />
       </DrawerField>
     </div>
   );
@@ -385,10 +384,10 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
       <Section title="Coverage & commercials">
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Coverage start date">
-            <input className={DRAWER_INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+            <input className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </DrawerField>
           <DrawerField label="Estimated premium (₱)">
-            <input className={DRAWER_INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
+            <input className={INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
           </DrawerField>
         </div>
       </Section>
@@ -513,10 +512,10 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
       <Section title="Traveler">
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Passport number" required hint="Before issuance">
-            <input className={DRAWER_INPUT} value={f.passport} onChange={(e) => set({ passport: e.target.value })} placeholder="P1234567A" />
+            <input className={INPUT} value={f.passport} onChange={(e) => set({ passport: e.target.value })} placeholder="P1234567A" />
           </DrawerField>
           <DrawerField label="Travel purpose">
-            <select className={DRAWER_INPUT} value={f.travelPurpose} onChange={(e) => set({ travelPurpose: e.target.value })}>
+            <select className={INPUT} value={f.travelPurpose} onChange={(e) => set({ travelPurpose: e.target.value })}>
               {WIZ_OPTS.travelPurpose.map((p) => (
                 <option key={p} value={p}>
                   {p || "Select…"}
@@ -528,19 +527,19 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
       </Section>
       <Section title="Persons to be insured">
         <div className="mb-2 flex items-center justify-between"><span className="text-[12px] text-muted-foreground">Capture each traveler and beneficiary needed for portal processing.</span><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
-        <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={DRAWER_INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={DRAWER_INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={DRAWER_INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={DRAWER_INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={DRAWER_INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={DRAWER_INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
+        <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
         <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
       </Section>
       <Section title="Trip">
         <div className="grid grid-cols-3 gap-4 max-[700px]:grid-cols-1">
           <DrawerField label="Destination country" required>
-            <input className={DRAWER_INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
+            <input className={INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
           </DrawerField>
           <DrawerField label="Departure date" required>
-            <input className={DRAWER_INPUT} type="date" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
+            <input className={INPUT} type="date" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
           </DrawerField>
           <DrawerField label="Return date" required>
-            <input className={DRAWER_INPUT} type="date" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
+            <input className={INPUT} type="date" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
           </DrawerField>
         </div>
         {days !== "" && (
@@ -552,11 +551,11 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
       </Section>
       <Section title="Payment" last>
         <div className="grid grid-cols-2 gap-4">
-          <DrawerField label="Travelers"><input className={DRAWER_INPUT} readOnly value={f.travelers.filter((traveler) => traveler.name.trim()).length || "—"} /></DrawerField>
+          <DrawerField label="Travelers"><input className={INPUT} readOnly value={f.travelers.filter((traveler) => traveler.name.trim()).length || "—"} /></DrawerField>
           <DrawerField label="Quoted premium (₱)">
-            <input className={DRAWER_INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
+            <input className={INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
           </DrawerField>
-          <DrawerField label="Official payment channel" hint="Business payee; may be selected later"><select className={DRAWER_INPUT} value={f.paymentChannelId} onChange={(e) => set({ paymentChannelId: e.target.value })}><option value="">Select later…</option>{paymentChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.label}</option>)}</select></DrawerField>
+          <DrawerField label="Official payment channel" hint="Business payee; may be selected later"><select className={INPUT} value={f.paymentChannelId} onChange={(e) => set({ paymentChannelId: e.target.value })}><option value="">Select later…</option>{paymentChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.label}</option>)}</select></DrawerField>
         </div>
       </Section>
     </div>
@@ -680,7 +679,7 @@ export function Step5({
           <div className="mt-3">
             <div className="grid grid-cols-2 gap-4">
               <DrawerField label="Email template" required>
-                <select className={DRAWER_INPUT} value={f.emailTemplate} onChange={(e) => applyTemplate(e.target.value)}>
+                <select className={INPUT} value={f.emailTemplate} onChange={(e) => applyTemplate(e.target.value)}>
                   <option value="">Select…</option>
                   {templates.map((t) => (
                     <option key={t.id}>{t.name}</option>
@@ -688,11 +687,11 @@ export function Step5({
                 </select>
               </DrawerField>
               <DrawerField label="Recipient" required>
-                <input className={DRAWER_INPUT} type="email" value={f.emailRecipient} onChange={(e) => set({ emailRecipient: e.target.value })} placeholder="client@email.com" />
+                <input className={INPUT} type="email" value={f.emailRecipient} onChange={(e) => set({ emailRecipient: e.target.value })} placeholder="client@email.com" />
               </DrawerField>
             </div>
             <DrawerField label="Subject" className="mt-4">
-              <input className={DRAWER_INPUT} value={f.emailSubject} onChange={(e) => set({ emailSubject: e.target.value })} />
+              <input className={INPUT} value={f.emailSubject} onChange={(e) => set({ emailSubject: e.target.value })} />
             </DrawerField>
             <DrawerField label="Message" className="mt-4">
               <textarea className={cn(AREA, "min-h-[130px]")} value={f.emailBody} onChange={(e) => set({ emailBody: e.target.value })} />
@@ -716,7 +715,7 @@ export function Step5({
         />
         {f.createTask && (
           <DrawerField label="Follow-up date" className="mt-3">
-            <input className={DRAWER_INPUT} type="date" value={f.followDate} onChange={(e) => set({ followDate: e.target.value })} />
+            <input className={INPUT} type="date" value={f.followDate} onChange={(e) => set({ followDate: e.target.value })} />
           </DrawerField>
         )}
         <DrawerField label="Internal note" className="mt-4" hint="Adds a private note to the record">
@@ -868,7 +867,7 @@ export function Step6({ f, set }: StepProps) {
       </div>
 
       <DrawerField label="Initial application status" required className="mt-5">
-        <select className={DRAWER_INPUT} value={f.status} onChange={(e) => set({ status: e.target.value })}>
+        <select className={INPUT} value={f.status} onChange={(e) => set({ status: e.target.value })}>
           {WIZ_OPTS.statuses.map((s) => (
             <option key={s}>{s}</option>
           ))}

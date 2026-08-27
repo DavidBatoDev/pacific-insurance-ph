@@ -7,8 +7,8 @@ import { logCallAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/e
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import type { DiscoveryValues } from "../lead-config";
-import { Btn } from "../primitives";
-import { ClientPicker, DrawerField, DRAWER_INPUT, type PickedClient } from "./client-picker";
+import { AREA, Btn, INPUT } from "../primitives";
+import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -25,8 +25,6 @@ import { useOverlays } from "./overlay-provider";
  * everywhere else opens {@link LogCallModal}.
  */
 
-const AREA =
-  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
 const OUTCOMES = ["Reached", "No answer", "Voicemail", "Wrong number"];
 export const TIERS = ["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"];
@@ -96,7 +94,7 @@ export function LogCallForm({
   return (
     <>
       <DrawerField label="Outcome" required>
-        <select className={DRAWER_INPUT} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+        <select className={INPUT} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
           {OUTCOMES.map((o) => (
             <option key={o}>{o}</option>
           ))}
@@ -107,18 +105,18 @@ export function LogCallForm({
         <>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
             <DrawerField label="Budget / est. premium">
-              <input className={DRAWER_INPUT} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="₱ annual premium" />
+              <input className={INPUT} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="₱ annual premium" />
             </DrawerField>
             <DrawerField label="Family size / dependents">
-              <input className={DRAWER_INPUT} type="number" value={family} onChange={(e) => setFamily(e.target.value)} placeholder="# people to cover" />
+              <input className={INPUT} type="number" value={family} onChange={(e) => setFamily(e.target.value)} placeholder="# people to cover" />
             </DrawerField>
           </div>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
             <DrawerField label="Product interest">
-              <input className={DRAWER_INPUT} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Blue Royale" />
+              <input className={INPUT} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Blue Royale" />
             </DrawerField>
             <DrawerField label="Coverage tier / room">
-              <select className={DRAWER_INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
+              <select className={INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
                 {TIERS.map((t) => (
                   <option key={t} value={t}>
                     {t || "— not captured —"}
@@ -139,7 +137,7 @@ export function LogCallForm({
         />
       </DrawerField>
       <DrawerField label="Next follow-up" className="mt-3.5">
-        <input className={DRAWER_INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
       </DrawerField>
 
       <div className="mt-3.5 flex items-center justify-between gap-3">

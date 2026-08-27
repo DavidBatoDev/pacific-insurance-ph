@@ -24,7 +24,7 @@ import {
 import { useRecordNav } from "../nav";
 import { AdvanceLeadModal, type AdvanceLeadPreset, type AdvanceLeadTarget } from "../overlays/advance-lead";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, SEL_SM, TONE_BADGE } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
@@ -514,7 +514,7 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   const list = (
     <Card>
       <div className="flex flex-wrap items-center gap-2.5 border-b border-border-soft px-4 py-3">
-        <select className={SEL} value={ownerF} onChange={(e) => setOwnerF(e.target.value)}>
+        <select className={SEL_SM} value={ownerF} onChange={(e) => setOwnerF(e.target.value)}>
           <option value="All">All owners</option>
           {owners.map((o) => (
             <option key={o} value={o}>
@@ -811,8 +811,6 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
   );
 }
 
-const SEL =
-  "h-8 rounded-md border border-border-strong bg-card px-2 text-[12.5px] outline-none focus:border-brand";
 
 /* ---------- sub-cards ---------- */
 

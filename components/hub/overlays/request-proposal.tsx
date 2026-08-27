@@ -7,8 +7,8 @@ import { listProposalContactsAction, requestProposalAction } from "@/app/(app)/c
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, INPUT } from "../primitives";
+import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -100,7 +100,7 @@ export function RequestProposalModal({
         />
       </DrawerField>
       <DrawerField label="Follow-up date" className="mt-3.5">
-        <input className={DRAWER_INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
       </DrawerField>
 
       <button
@@ -117,11 +117,11 @@ export function RequestProposalModal({
       </button>
       {alsoEmail && (
         <DrawerField label="Carrier recipient" className="mt-3">
-          <select className={DRAWER_INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
+          <select className={INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
             <option value="">Enter another email…</option>
             {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.role ?? contact.department} · {contact.email}</option>)}
           </select>
-          {!carrierContactId && <input className={`${DRAWER_INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
+          {!carrierContactId && <input className={`${INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
         </DrawerField>
       )}
 

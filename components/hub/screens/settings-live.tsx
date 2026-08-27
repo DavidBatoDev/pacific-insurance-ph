@@ -24,7 +24,7 @@ import { I } from "../icons";
 import { Modal } from "../overlays/modal";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Avatar, Card, DraftBadge, PageHead, TONE_BADGE } from "../primitives";
+import { Avatar, Card, DraftBadge, INPUT as INPUT_BASE, PageHead, TONE_BADGE } from "../primitives";
 
 /**
  * Settings — 6-tab workspace configuration (see settings-page.md). Team is wired to the real users table (Admin-only);
@@ -116,8 +116,8 @@ export function SettingsLive({
   );
 }
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand disabled:bg-surface-3 disabled:text-muted-foreground";
+/* Read-only team fields render disabled, hence the extra disabled: styles. */
+const INPUT = INPUT_BASE + " disabled:bg-surface-3 disabled:text-muted-foreground";
 
 function GeneralTab({ canEdit }: { canEdit: boolean }) {
   return (

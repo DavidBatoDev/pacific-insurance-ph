@@ -5,8 +5,8 @@ import { useState, useTransition } from "react";
 
 import { markNurturingAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { DRAWER_INPUT, DrawerField } from "./client-picker";
+import { Btn, INPUT } from "../primitives";
+import { DrawerField } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -71,7 +71,7 @@ export function MarkNurturingModal({
         required
         hint="Puts the lead back in the follow-up queue on this date. A hold without one just goes quiet."
       >
-        <input className={DRAWER_INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <input className={INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </DrawerField>
       <DrawerField label="Note" className="mt-3.5">
         <textarea

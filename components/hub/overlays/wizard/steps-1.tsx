@@ -7,8 +7,8 @@ import type { ProductOption } from "@/app/(app)/policies/actions";
 import type { AssignableUser } from "@/app/(app)/tasks/actions";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
-import { Avatar } from "../../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "../client-picker";
+import { AREA, Avatar, INPUT } from "../../primitives";
+import { ClientPicker, DrawerField, type PickedClient } from "../client-picker";
 import {
   ageFromDob,
   categoryForProduct,
@@ -27,8 +27,6 @@ export interface StepProps {
   paymentChannels: { id: string; label: string }[];
 }
 
-const AREA =
-  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
 
 export function Step1({ f, set, products, users, unmatchedProduct }: StepProps & { unmatchedProduct?: string | null }) {
   return (
@@ -36,7 +34,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       <Section title="Workflow">
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Application type" required>
-            <select className={DRAWER_INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
+            <select className={INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.appType.map((t) => (
                 <option key={t}>{t}</option>
@@ -44,7 +42,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             </select>
           </DrawerField>
           <DrawerField label="Source" required>
-            <select className={DRAWER_INPUT} value={f.source} onChange={(e) => set({ source: e.target.value })}>
+            <select className={INPUT} value={f.source} onChange={(e) => set({ source: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.sources.map((s) => (
                 <option key={s}>{s}</option>
@@ -57,7 +55,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       <Section title="Product">
         <DrawerField label="Product" required hint="Products come from the editable Products module; the category drives the workflow.">
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={f.productVersionId}
             onChange={(e) => {
               const p = products.find((x) => x.productVersionId === e.target.value);
@@ -192,7 +190,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       <Section title="Ownership" last>
         <div className="grid grid-cols-2 gap-4">
           <DrawerField label="Assigned agent" required>
-            <select className={DRAWER_INPUT} value={f.assignedUserId} onChange={(e) => set({ assignedUserId: e.target.value })}>
+            <select className={INPUT} value={f.assignedUserId} onChange={(e) => set({ assignedUserId: e.target.value })}>
               <option value="">Me</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -202,7 +200,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             </select>
           </DrawerField>
           <DrawerField label="Application priority">
-            <select className={DRAWER_INPUT} value={f.priority} onChange={(e) => set({ priority: e.target.value })}>
+            <select className={INPUT} value={f.priority} onChange={(e) => set({ priority: e.target.value })}>
               {WIZ_OPTS.priority.map((p) => (
                 <option key={p}>{p}</option>
               ))}
@@ -293,20 +291,20 @@ export function Step2({
         </div>
         <Section title="Company / group" last>
           <DrawerField label="Company / group name" required>
-            <input className={DRAWER_INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
+            <input className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
           </DrawerField>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <DrawerField label="Company contact person" required>
-              <input className={DRAWER_INPUT} value={f.companyContact} onChange={(e) => set({ companyContact: e.target.value })} placeholder="Full name" />
+              <input className={INPUT} value={f.companyContact} onChange={(e) => set({ companyContact: e.target.value })} placeholder="Full name" />
             </DrawerField>
             <DrawerField label="Contact number" required>
-              <input className={DRAWER_INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+              <input className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </DrawerField>
             <DrawerField label="Contact email" required>
-              <input className={DRAWER_INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="hr@company.com" />
+              <input className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="hr@company.com" />
             </DrawerField>
             <DrawerField label="Number of members" required hint="Minimum 3 members required.">
-              <input className={DRAWER_INPUT} type="number" min={3} value={f.memberCount} onChange={(e) => set({ memberCount: e.target.value })} placeholder="3" />
+              <input className={INPUT} type="number" min={3} value={f.memberCount} onChange={(e) => set({ memberCount: e.target.value })} placeholder="3" />
             </DrawerField>
           </div>
           <DrawerField label="Company address" className="mt-4">
@@ -360,14 +358,14 @@ export function Step2({
           <div className="grid grid-cols-2 gap-4">
             <DrawerField label="First name" required>
               <input
-                className={DRAWER_INPUT}
+                className={INPUT}
                 value={f.firstName}
                 onChange={(e) => set({ firstName: e.target.value, displayName: (e.target.value + " " + f.lastName).trim() })}
               />
             </DrawerField>
             <DrawerField label="Last name" required>
               <input
-                className={DRAWER_INPUT}
+                className={INPUT}
                 value={f.lastName}
                 onChange={(e) => set({ lastName: e.target.value, displayName: (f.firstName + " " + e.target.value).trim() })}
               />
@@ -380,10 +378,10 @@ export function Step2({
         {!lockIdentity && (
           <div className="grid grid-cols-2 gap-4">
             <DrawerField label="Email address" hint="Required if email communication will be used.">
-              <input className={DRAWER_INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
+              <input className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
             </DrawerField>
             <DrawerField label="Mobile number" required hint="Enables call, WhatsApp, and Viber documentation.">
-              <input className={DRAWER_INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+              <input className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </DrawerField>
           </div>
         )}
@@ -417,15 +415,15 @@ export function Step2({
           {!lockIdentity && (
             <>
               <DrawerField label="Date of birth">
-                <input className={DRAWER_INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
+                <input className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
               </DrawerField>
               <DrawerField label="Age" hint="Auto-calculated">
-                <input className={cn(DRAWER_INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
+                <input className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
               </DrawerField>
             </>
           )}
           <DrawerField label="Gender">
-            <select className={DRAWER_INPUT} value={f.gender} onChange={(e) => set({ gender: e.target.value })}>
+            <select className={INPUT} value={f.gender} onChange={(e) => set({ gender: e.target.value })}>
               {WIZ_OPTS.gender.map((g) => (
                 <option key={g} value={g}>
                   {g || "Select…"}
@@ -434,7 +432,7 @@ export function Step2({
             </select>
           </DrawerField>
           <DrawerField label="Civil status">
-            <select className={DRAWER_INPUT} value={f.civil} onChange={(e) => set({ civil: e.target.value })}>
+            <select className={INPUT} value={f.civil} onChange={(e) => set({ civil: e.target.value })}>
               {WIZ_OPTS.civil.map((c) => (
                 <option key={c} value={c}>
                   {c || "Select…"}
@@ -443,7 +441,7 @@ export function Step2({
             </select>
           </DrawerField>
           <DrawerField label="Occupation">
-            <input className={DRAWER_INPUT} value={f.occupation} onChange={(e) => set({ occupation: e.target.value })} />
+            <input className={INPUT} value={f.occupation} onChange={(e) => set({ occupation: e.target.value })} />
           </DrawerField>
         </div>
         <DrawerField label="Address" className="mt-4" hint="Optional now; may be required before final submission.">

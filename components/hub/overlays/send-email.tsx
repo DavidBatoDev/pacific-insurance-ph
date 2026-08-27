@@ -8,8 +8,8 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn } from "../primitives";
-import { DrawerField, DRAWER_INPUT } from "./client-picker";
+import { Avatar, Btn, INPUT } from "../primitives";
+import { DrawerField } from "./client-picker";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 import { useOverlays } from "./overlay-provider";
 
@@ -119,7 +119,7 @@ export function EmailForm({
     <>
       <div className="grid grid-cols-2 gap-3.5">
         <DrawerField label="Template" required>
-          <select className={DRAWER_INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
+          <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
             <option value="">Select…</option>
             {templates.map((t) => (
               <option key={t.id}>{t.name}</option>
@@ -127,11 +127,11 @@ export function EmailForm({
           </select>
         </DrawerField>
         <DrawerField label="Recipient" required>
-          <input className={DRAWER_INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
+          <input className={INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
         </DrawerField>
       </div>
       <DrawerField label="Subject" required className="mt-3.5">
-        <input className={DRAWER_INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
+        <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
       </DrawerField>
       <DrawerField label="Message" className="mt-3.5">
         <textarea

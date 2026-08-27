@@ -11,8 +11,8 @@ import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn } from "../primitives";
-import { DRAWER_INPUT, DrawerField } from "./client-picker";
+import { Avatar, Btn, INPUT } from "../primitives";
+import { DrawerField } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -168,7 +168,7 @@ export function NewCampaignDrawer({
       {step === 1 && (
         <>
           <DrawerField label="Campaign name" required>
-            <input className={DRAWER_INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="Internal label" />
+            <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="Internal label" />
           </DrawerField>
 
           <DrawerField label="Type" required hint="Picking a type pre-fills the audience segment and greeting template" className="mt-4">
@@ -195,7 +195,7 @@ export function NewCampaignDrawer({
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <DrawerField label="Template" required hint="From Email Templates — merged per recipient">
-              <select className={DRAWER_INPUT} value={tpl} onChange={(e) => setTpl(e.target.value)}>
+              <select className={INPUT} value={tpl} onChange={(e) => setTpl(e.target.value)}>
                 {templates.map((t) => (
                   <option key={t.id}>{t.name}</option>
                 ))}
