@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { sendEmailAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
@@ -60,10 +60,10 @@ export function EmailForm({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [libraryDocumentId, setLibraryDocumentId] = useState("");
-  // Guards the seed effect below so it only ever fires once per mount — needed because a caller
+  // Guards the seed below so it only ever fires once per mount — needed because a caller
   // (EngageDrawer) may still be fetching `templates` when this mounts, so the initial template
   // can't always be seeded synchronously from a useState initializer.
-  const seededRef = useRef(false);
+  const [seeded, setSeeded] = useState(false);
 
   const ctx = useMemo<MergeContext>(
     () => ({
@@ -75,15 +75,15 @@ export function EmailForm({
     [target.name, target.product, target.premium, persona.userName],
   );
 
-  useEffect(() => {
-    if (seededRef.current || templates.length === 0) return;
+  // Render-phase adjustment (not an effect): seed once the templates arrive.
+  if (!seeded && templates.length > 0) {
     const t = templates.find((x) => x.name === tpl);
     if (t) {
-      seededRef.current = true;
+      setSeeded(true);
       setSubject(fillTemplate(t.subject, ctx));
       setBody(fillTemplate(t.body, ctx));
     }
-  }, [templates, tpl, ctx]);
+  }
 
   const applyTemplate = (name: string) => {
     setTpl(name);

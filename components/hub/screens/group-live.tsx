@@ -49,6 +49,8 @@ export function GroupLive({
   members: GroupMember[];
   activity: TimelineEntry[];
 }) {
+  // Stable "now" so server and client render the same countdown (purity rule).
+  const [renderedAt] = useState(() => Date.now());
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
@@ -60,7 +62,7 @@ export function GroupLive({
   const pending = members.filter((m) => m.status === "Pending").length;
   const pendingEcards = members.filter((m) => m.ecardStatus === "Pending").length;
   const renewalDays = group.expiryDate
-    ? Math.round((new Date(group.expiryDate + "T00:00:00").getTime() - Date.now()) / 86_400_000)
+    ? Math.round((new Date(group.expiryDate + "T00:00:00").getTime() - renderedAt) / 86_400_000)
     : null;
 
   const cycleUnit =

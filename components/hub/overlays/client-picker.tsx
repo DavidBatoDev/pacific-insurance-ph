@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/search/actions";
 import { I } from "../icons";
 import { Avatar } from "../primitives";
+import { useClientSearch } from "./use-client-search";
 
 export interface PickedClient {
   id: string;
@@ -26,25 +26,7 @@ export function ClientPicker({
   placeholder?: string;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<PaletteClientHit[]>([]);
-  const seq = useRef(0);
-
-  useEffect(() => {
-    const term = q.trim();
-    if (!term) {
-      setResults([]);
-      return;
-    }
-    const mySeq = ++seq.current;
-    const t = setTimeout(() => {
-      searchClientsForPalette(term)
-        .then((rows) => {
-          if (seq.current === mySeq) setResults(rows.slice(0, 5));
-        })
-        .catch(() => setResults([]));
-    }, 160);
-    return () => clearTimeout(t);
-  }, [q]);
+  const results = useClientSearch(q);
 
   if (value) {
     return (

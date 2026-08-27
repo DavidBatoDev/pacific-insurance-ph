@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
-import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/search/actions";
 import {
   createTaskAction,
   listAssignableUsersAction,
@@ -18,6 +17,7 @@ import { BUCKET_LABEL, BUCKET_TONE, taskBucket } from "../task-buckets";
 import { Avatar, Btn, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
+import { useClientSearch } from "./use-client-search";
 
 /**
  * Add Task drawer (see new-modals.md §10). Fired from the
@@ -62,12 +62,16 @@ export function AddTaskDrawer({
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
   }, []);
 
-  useEffect(() => {
+  // Render-phase adjustment: a different contact invalidates the linked record.
+  const [prevContact, setPrevContact] = useState(contact);
+  if (prevContact !== contact) {
+    setPrevContact(contact);
     setLinked("");
-    if (!contact) {
-      setLinkOptions([]);
-      return;
-    }
+    setLinkOptions([]);
+  }
+
+  useEffect(() => {
+    if (!contact) return;
     taskLinkOptionsAction(contact.id).then(setLinkOptions).catch(() => setLinkOptions([]));
   }, [contact]);
 
@@ -266,25 +270,7 @@ function ContactPicker({
   onClear: () => void;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<PaletteClientHit[]>([]);
-  const seq = useRef(0);
-
-  useEffect(() => {
-    const term = q.trim();
-    if (!term) {
-      setResults([]);
-      return;
-    }
-    const mySeq = ++seq.current;
-    const t = setTimeout(() => {
-      searchClientsForPalette(term)
-        .then((rows) => {
-          if (seq.current === mySeq) setResults(rows.slice(0, 5));
-        })
-        .catch(() => setResults([]));
-    }, 160);
-    return () => clearTimeout(t);
-  }, [q]);
+  const results = useClientSearch(q);
 
   if (contact) {
     return (

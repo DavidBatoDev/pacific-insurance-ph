@@ -160,11 +160,11 @@ export function AdvanceLeadModal({
   // Stage is forward-only: offer the current stage and the next one, never a skip or a
   // backward move. An action-suggested preset stays selectable even if it isn't the
   // immediate next stage, so a triggered suggestion never renders an empty select.
-  const stageOptions = useMemo(() => {
-    const options = allowedLeadStages(lead.stage);
-    if (preset?.stage && !options.includes(preset.stage)) options.push(preset.stage);
-    return options;
-  }, [lead.stage, preset?.stage]);
+  const baseStageOptions = allowedLeadStages(lead.stage);
+  const stageOptions =
+    preset?.stage && !baseStageOptions.includes(preset.stage)
+      ? [...baseStageOptions, preset.stage]
+      : baseStageOptions;
 
   // `Nurturing` is not settable here — it needs a re-engagement date this popup has no field for,
   // so it goes through `Mark as Nurturing` instead (shared rule: `allowedLeadStatuses`). A lead

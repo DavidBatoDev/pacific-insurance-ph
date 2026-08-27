@@ -605,7 +605,10 @@ export function Dashboard({
             Good morning, {persona.userName.split(" ")[0]}
           </h1>
           <p className="mt-[3px] text-[13.5px] text-muted-foreground">
-            {dateStr} · Here&apos;s what needs your attention today.
+            {/* One expression, not `{dateStr} · text`: the React Compiler's SSR
+                output drops the leading space of a text node that follows an
+                expression, which hydration then rejects. */}
+            {`${dateStr} · Here’s what needs your attention today.`}
           </p>
         </div>
         {persona.can("dashboard", "export") && (

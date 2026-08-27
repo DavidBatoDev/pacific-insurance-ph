@@ -24,12 +24,16 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
+  // Render-phase adjustment: a different client invalidates the picked policy.
+  const [prevClient, setPrevClient] = useState(client);
+  if (prevClient !== client) {
+    setPrevClient(client);
     setPolicyId("");
-    if (!client) {
-      setPolicies([]);
-      return;
-    }
+    setPolicies([]);
+  }
+
+  useEffect(() => {
+    if (!client) return;
     listClientPoliciesAction(client.id).then(setPolicies).catch(() => setPolicies([]));
   }, [client]);
 
