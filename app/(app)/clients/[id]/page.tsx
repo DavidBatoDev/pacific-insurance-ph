@@ -31,13 +31,14 @@ export default async function ContactProfilePage({
   if (!rawClient) notFound();
   const client = await withInferredLeadStatus(rawClient);
 
-  const [counts, dependents, documents, timeline, templates, users, pacificCross, applications] = await Promise.all([
+  const [counts, dependents, documents, timeline, templates, owner, pacificCross, applications] = await Promise.all([
     getClientRelatedCounts(id),
     getDependentsRepository().listByClient(id),
     getDocumentsRepository().listByClient(id),
     getContactTimeline(id),
     getTemplatesRepository().list(true),
-    getUsersRepository().list({ limit: 50 }),
+    // Only the assigned owner's name is displayed, so look up that one user.
+    client.assignedUserId ? getUsersRepository().findById(client.assignedUserId) : null,
     getIntegrationSettingsRepository().getProposalPortal(),
     getApplicationsRepository().listByClient(id),
   ]);
@@ -50,7 +51,7 @@ export default async function ContactProfilePage({
       documents={documents}
       timeline={timeline}
       templates={templates}
-      userNames={Object.fromEntries(users.rows.map((u) => [u.id, u.fullName]))}
+      userNames={owner ? { [owner.id]: owner.fullName } : {}}
       pacificCrossPortalUrl={pacificCross?.portalUrl ?? null}
       origin={from === "prospects" || client.lifecycleStage === "Lead" ? "prospects" : "clients"}
       applications={applications.filter((application) => application.status !== "Lead")}
