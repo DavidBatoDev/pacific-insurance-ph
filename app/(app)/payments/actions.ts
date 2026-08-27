@@ -18,7 +18,7 @@ import { getExternalContactsRepository } from "@/lib/repositories/external-conta
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 
-/** First-year vs renewal vs travel commission estimate (design payments-data.jsx). */
+/** First-year vs renewal vs travel commission estimate. */
 const COMM_RATE: Record<string, number> = { Application: 0.18, Renewal: 0.1, Travel: 0.15 };
 
 const peso = (n: number) => "₱" + n.toLocaleString("en-PH");

@@ -453,8 +453,8 @@ export async function getDraftResumeAction(
 }
 
 /**
- * Create everything the 6-step wizard promises (design new-application.jsx +
- * Step 6's "This will automatically create" list): the client (new record,
+ * Create everything Step 6's "This will automatically create" list
+ * promises: the client (new record,
  * existing link, or lead conversion — same record, never a duplicate), the
  * application / travel request / group account, the follow-up task, the
  * optional initial email, and the timeline entries.

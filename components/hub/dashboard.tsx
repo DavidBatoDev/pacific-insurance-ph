@@ -28,8 +28,7 @@ import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
 
 /**
- * Dashboard — the owner's daily command center (design dashboard.jsx /
- * dash-widgets.jsx), wired: alerts, KPIs, revenue widget, queues, tasks,
+ * Dashboard — the owner's daily command center: alerts, KPIs, revenue widget, queues, tasks,
  * relationship touchpoints and activity all read live data.
  */
 
@@ -429,7 +428,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
   );
 }
 
-/** activity_type prefix → feed icon/tone (design dashboard.jsx ActivityWidget). */
+/** activity_type prefix → feed icon/tone for the activity widget. */
 const ACT_META: Record<string, { icon: IconName; tone: Tone }> = {
   policy: { icon: "shield", tone: "green" },
   payment: { icon: "peso", tone: "green" },

@@ -41,8 +41,8 @@ import { EmailForm } from "../overlays/send-email";
 import { Avatar, Btn, Card, CardHead, TONE_BADGE, TONE_SOFT } from "../primitives";
 
 /**
- * Contact Profile — the unified record view for one contact (design
- * contact-profile.jsx / web/contact-profile.md), replacing the old client
+ * Contact Profile — the unified record view for one contact (see
+ * web/contact-profile.md), replacing the old client
  * detail page. Real identity data + wired composer, timeline, flags,
  * dependents and documents. One record per person; only the lifecycle stage
  * changes.

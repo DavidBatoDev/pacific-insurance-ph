@@ -20,7 +20,7 @@ import { Btn, Card, PageHead } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
- * Products — system-configuration catalog (design products.jsx §13), wired to
+ * Products — system-configuration catalog, wired to
  * the products table. Categories are the fixed DB taxonomy; Admin gets full
  * CRUD, Staff/Agent are view-only; deletes are guarded by linked records.
  */
@@ -74,8 +74,8 @@ export function ProductsLive({
 
   const grouped = catFilter === "all" && statusFilter === "all" && !q.trim();
   const activeCount = products.filter((p) => p.active).length;
-  // The fixed taxonomy first (so empty categories still render in the grouped
-  // view, design products.jsx), then any stray values found in the data.
+  // The fixed taxonomy first (so empty categories still render in the
+  // grouped view), then any stray values found in the data.
   const categories = [
     ...new Set([...PRODUCT_CATEGORIES, ...products.map((p) => p.category ?? "Other")]),
   ];
@@ -206,7 +206,6 @@ export function ProductsLive({
       <PageHead
         iconName="folder"
         title="Products"
-        draft={false}
         sub="Master catalog of insurance products used across leads, policies, claims, payments & reports."
         actions={
           canEdit ? (
@@ -292,7 +291,7 @@ export function ProductsLive({
 
       {grouped ? (
         // Grouped by category takes precedence over the table/card toggle
-        // (design products.jsx). Empty categories render with an "Add one" prompt.
+        // Empty categories render with an "Add one" prompt.
         categories.map((cat) => {
           const rows = filtered.filter((p) => (p.category ?? "Other") === cat);
           if (!rows.length && cat === "Other") return null; // catch-all only shown when populated

@@ -15,9 +15,7 @@ import { ConfirmDialog, type ConfirmOptions } from "./modal";
 import { ToastStack, type ToastData } from "./toast";
 
 /**
- * App-wide overlay state. Replaces the prototype's window CustomEvents
- * (open-page-modal / open-engage / open-new-application / app-toast) with a
- * typed context: components call `useOverlays().openX(...)` and the
+ * App-wide overlay state: components call `useOverlays().openX(...)` and the
  * <OverlayHost> (rendered by the provider) mounts the matching portal.
  */
 

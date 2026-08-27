@@ -20,7 +20,7 @@ import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
 /**
- * Add Task drawer (design add-task.jsx / new-modals.md §10). Fired from the
+ * Add Task drawer (see new-modals.md §10). Fired from the
  * Tasks board, the Dashboard My-tasks widget, and Contact Profiles. Writes a
  * real tasks row; the board and widget re-read the same table.
  */

@@ -36,7 +36,7 @@ interface ListScreenProps<T extends FilterableRow> {
   icon: LucideIcon;
   stats?: Stat[];
   filters?: string[];
-  /** Second filter dimension, shown in the Filters popover (design screens.jsx). */
+  /** Second filter dimension, shown in the Filters popover. */
   filters2?: string[];
   filters2Label?: string;
   rows: T[];
@@ -46,8 +46,6 @@ interface ListScreenProps<T extends FilterableRow> {
   primaryAction?: string;
   /** Fired by the primary action button (wired screens open a drawer here). */
   onPrimary?: () => void;
-  /** Wired screens pass false to drop the Draft badge. */
-  draft?: boolean;
   emptyText?: string;
 }
 
@@ -89,7 +87,6 @@ export function ListScreen<T extends FilterableRow>({
   renderRow,
   primaryAction,
   onPrimary,
-  draft = true,
   emptyText,
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
@@ -141,7 +138,6 @@ export function ListScreen<T extends FilterableRow>({
         icon={icon}
         title={title}
         sub={sub}
-        draft={draft}
         actions={
           <>
             <Btn onClick={exportCsv}>

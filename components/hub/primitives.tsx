@@ -306,7 +306,7 @@ export function Btn({
 }
 
 /* ---------- Draft / mock-only badge ---------- */
-/** Visible marker so prototype reviewers know a screen is static mock UI. */
+/** Marks a section that is not wired to live data yet. */
 export function DraftBadge() {
   return (
     <span
@@ -320,22 +320,19 @@ export function DraftBadge() {
 }
 
 /* ---------- Page header ---------- */
-/** Standard screen header: icon tile + title (+ draft badge) + sub + right actions. */
+/** Standard screen header: icon tile + title + sub + right actions. */
 export function PageHead({
   icon,
   iconName,
   title,
   sub,
   actions,
-  draft = true,
 }: {
   icon?: LucideIcon;
   iconName?: IconName;
   title: string;
   sub?: ReactNode;
   actions?: ReactNode;
-  /** Show the "Draft · mock data" badge. Real (wired) screens pass false. */
-  draft?: boolean;
 }) {
   const Icon = icon ?? (iconName ? I[iconName] : undefined);
   return (
@@ -348,7 +345,6 @@ export function PageHead({
             </span>
           )}
           {title}
-          {draft && <DraftBadge />}
         </h1>
         {sub && <p className="mt-[3px] text-[13.5px] text-muted-foreground">{sub}</p>}
       </div>

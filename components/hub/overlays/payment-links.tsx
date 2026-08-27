@@ -24,7 +24,7 @@ import { useOverlays } from "./overlay-provider";
 
 /**
  * Send Payment Links — batch drawer from the Dashboard revenue widget
- * (design payment-links.jsx / new-modals.md §12). Every awaiting-payment
+ * (see new-modals.md §12). Every awaiting-payment
  * recipient is pre-checked across the three queues; each send is logged to
  * the contact's timeline and the source status advances.
  */

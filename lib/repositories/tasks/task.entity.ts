@@ -1,6 +1,6 @@
 /**
  * Domain types for a Task — the shared store behind the Tasks board and the
- * Dashboard "My tasks" widget (design add-task.jsx / new-modals.md §10).
+ * Dashboard "My tasks" widget (see new-modals.md §10).
  */
 
 /** Design tag taxonomy (task_type column). */

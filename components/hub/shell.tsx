@@ -155,7 +155,7 @@ function NavItem({
   );
 }
 
-/** Collapsible nav group (design chrome.jsx NavSection) — default open. */
+/** Collapsible nav group — default open. */
 function NavSection({
   label,
   items,

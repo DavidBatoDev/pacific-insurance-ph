@@ -19,7 +19,7 @@ import { Avatar, Btn, Card, CardHead, TONE_BADGE } from "../primitives";
 
 /**
  * Group Account detail — the company-level equivalent of the Contact Profile
- * for a Group HMO account (design group.jsx), wired to group_accounts +
+ * for a Group HMO account, wired to group_accounts +
  * group_members.
  */
 

@@ -103,7 +103,6 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
       title="Commissions"
       sub="Commission tracking · OR number → voucher requested → follow-up → received → paid"
       icon={I.peso}
-      draft={false}
       stats={[
         { val: count("Requested"), label: "Requested", color: "var(--violet)" },
         { val: count("Follow-up"), label: "Follow-up pending", color: "var(--amber)" },

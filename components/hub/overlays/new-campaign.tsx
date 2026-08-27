@@ -17,8 +17,7 @@ import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
 /**
- * New Campaign — two-step batch drawer (design new-campaign.jsx /
- * new-modals.md §11): Build → Review & preview, human-in-the-loop. Audience
+ * New Campaign — two-step batch drawer (see new-modals.md §11): Build → Review & preview, human-in-the-loop. Audience
  * auto-segments per type from real touchpoints; each recipient gets a merged
  * message logged to their timeline.
  */

@@ -10,7 +10,7 @@ import { Avatar, Btn, Card, CountPill, PageHead, TONE_SOFT } from "../primitives
 
 /**
  * Relationship Management — loyalty touchpoints derived from real client
- * records (design screens-extra.jsx RelationshipScreen, wired). Send
+ * records. Send
  * greetings opens the New Campaign drawer pre-set to the category.
  */
 export function RelationshipLive({ touchpoints }: { touchpoints: TouchpointRow[] }) {
@@ -34,7 +34,6 @@ export function RelationshipLive({ touchpoints }: { touchpoints: TouchpointRow[]
       <PageHead
         icon={I.heart}
         title="Relationship Management"
-        draft={false}
         sub="Nurture client loyalty with timely, personal touchpoints"
         actions={
           <Btn variant="primary" onClick={() => overlays.openCampaign("Birthday")}>

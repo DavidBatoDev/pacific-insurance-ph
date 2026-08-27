@@ -24,7 +24,7 @@ export function ClientsList({
 }: {
   clients: Client[];
   total: number;
-  /** Group-account membership per client id (design screens.jsx group chip). */
+  /** Group-account membership per client id. */
   groupsByClient?: Record<string, { id: string; name: string }>;
 }) {
   const router = useRouter();
@@ -57,7 +57,6 @@ export function ClientsList({
         icon={I.users}
         title="Clients"
         sub={`${total} client${total === 1 ? "" : "s"} in the system`}
-        draft={false}
         actions={
           <Link
             href="/clients/new"

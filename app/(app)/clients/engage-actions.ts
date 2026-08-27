@@ -287,7 +287,7 @@ export async function logCallAction(input: {
   });
   if (error) return { ok: false, error: error.message };
 
-  // Discovery details carry into Convert to Application (design contact-profile.jsx).
+  // Discovery details carry into Convert to Application.
   if (d && (d.estPremium != null || d.familySize != null || d.productInterest || d.coverageTier)) {
     await getClientsRepository().update(input.clientId, {
       ...(d.estPremium != null ? { estPremium: d.estPremium } : {}),

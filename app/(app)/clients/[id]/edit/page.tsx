@@ -27,7 +27,7 @@ export default async function EditClientPage({
       >
         ← {client.fullName}
       </Link>
-      <PageHead iconName="users" title={`Edit ${client.fullName}`} draft={false} />
+      <PageHead iconName="users" title={`Edit ${client.fullName}`} />
       <ClientForm client={client} from={from === "prospects" ? "prospects" : undefined} />
     </div>
   );

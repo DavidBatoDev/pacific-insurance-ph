@@ -21,8 +21,7 @@ import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
 
 /**
- * Payments — Collections + Commissions tabs (design payments.jsx /
- * payments-page.md), wired to the payments and commissions tables.
+ * Payments — Collections + Commissions tabs (see payments-page.md), wired to the payments and commissions tables.
  */
 
 const SOURCE_TONE: Record<string, Tone> = {
@@ -80,7 +79,6 @@ export function PaymentsLive({
       title="Payments"
       sub="Premium collection across Applications, Renewals & Travel · verify payments and capture the OR number"
       icon={I.peso}
-      draft={false}
       stats={[
         { val: pesoShort(sum("Awaiting")), label: `Awaiting payment · ${cnt("Awaiting")}`, color: "var(--amber)" },
         { val: cnt("Received"), label: "Received · unverified", color: "var(--blue)" },

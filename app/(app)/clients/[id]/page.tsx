@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Contact Profile — the unified record view for one contact (lead or client;
- * same record, only the lifecycle stage changes). Design contact-profile.jsx.
+ * same record, only the lifecycle stage changes).
  */
 export default async function ContactProfilePage({
   params,

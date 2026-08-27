@@ -13,8 +13,8 @@ import { usePersona } from "../persona";
 import { Btn, Card, CardHead, PageHead } from "../primitives";
 
 /**
- * Email Templates — two-pane list + editor over the email_templates table
- * (design: email-templates.jsx §14). Wired via server actions.
+ * Email Templates — two-pane list + editor over the email_templates table.
+ * Wired via server actions.
  */
 
 const PREVIEW_CTX = {
@@ -108,7 +108,6 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
       <PageHead
         iconName="mail"
         title="Email Templates"
-        draft={false}
         sub="One source of truth for outbound copy — reused by the Contact Profile composer, the application wizard, and every send-enabled modal."
         actions={
           canEdit ? (

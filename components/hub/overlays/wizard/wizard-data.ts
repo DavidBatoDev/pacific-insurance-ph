@@ -1,7 +1,6 @@
 /**
  * New Client Application wizard — shared types, options and checklists
- * (design new-application-data.jsx / web/new-application-wizard.md).
- * Kept as a separate module to preserve the design's 4-file split.
+ * (see web/new-application-wizard.md).
  */
 
 export type WizardCategory = "health" | "hmo" | "travel";

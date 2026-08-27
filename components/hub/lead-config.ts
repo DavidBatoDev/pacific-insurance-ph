@@ -1,6 +1,6 @@
 /**
  * Lead Lifecycle constants shared by the board, list, forecast, Advance-Lead
- * modal and Contact Profile chips (design prospect-data.jsx; client-safe).
+ * modal and Contact Profile chips (client-safe).
  */
 
 import type { Tone } from "./tone";

@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /**
- * Dashboard aggregates (design dashboard.jsx / dash-widgets.jsx, wired):
+ * Dashboard aggregates:
  * alert counts, KPI counts, the revenue-awaiting-collection widget, and the
  * recent activity feed. Queues reuse the operations repositories.
  */

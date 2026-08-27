@@ -13,7 +13,6 @@ export default function NewClientPage() {
         iconName="users"
         title="Add client"
         sub="Create a new client or prospect record"
-        draft={false}
       />
       <ClientForm />
     </div>

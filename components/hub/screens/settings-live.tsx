@@ -27,8 +27,7 @@ import { usePersona } from "../persona";
 import { Avatar, Card, DraftBadge, PageHead, TONE_BADGE } from "../primitives";
 
 /**
- * Settings — 6-tab workspace configuration (design settings.jsx /
- * settings-page.md). Team is wired to the real users table (Admin-only);
+ * Settings — 6-tab workspace configuration (see settings-page.md). Team is wired to the real users table (Admin-only);
  * the config-store tabs stay draft until their backing tables land.
  */
 
@@ -73,7 +72,6 @@ export function SettingsLive({
       <PageHead
         iconName="settings"
         title="Settings"
-        draft={false}
         sub="Manage your agency workspace and preferences"
       />
 

@@ -26,7 +26,7 @@ import {
   type WizardMember,
 } from "./wizard-data";
 
-/** Wizard steps 3–6 (design new-application-steps2.jsx). */
+/** Wizard steps 3–6. */
 
 const AREA =
   "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";

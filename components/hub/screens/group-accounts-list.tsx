@@ -58,7 +58,6 @@ export function GroupAccountsList({ groups }: { groups: GroupAccount[] }) {
       <PageHead
         iconName="users"
         title="Clients"
-        draft={false}
         sub={`${groups.length} group HMO accounts · company-level records`}
       />
       <ClientsViewToggle view="groups" />

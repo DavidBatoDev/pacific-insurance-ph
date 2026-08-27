@@ -11,7 +11,7 @@ import { SCREEN_PATH, type ScreenId } from "../shell";
 import { hitHref, SEARCH_KIND_ICON, SearchHitRow, useGlobalSearch } from "./search-dropdown";
 
 /**
- * Global ⌘K command palette (design: command-palette.jsx). Live grouped
+ * Global ⌘K command palette. Live grouped
  * results across people, groups, policies, applications, claims, renewals and
  * travel via `globalSearchAction`; empty query shows "Jump to" screen entries.
  */

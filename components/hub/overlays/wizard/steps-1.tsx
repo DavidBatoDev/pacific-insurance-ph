@@ -17,7 +17,7 @@ import {
   type WizardForm,
 } from "./wizard-data";
 
-/** Wizard steps 1–2 (design new-application-steps1.jsx). */
+/** Wizard steps 1–2. */
 
 export interface StepProps {
   f: WizardForm;

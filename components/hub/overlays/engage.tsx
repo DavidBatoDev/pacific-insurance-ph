@@ -14,7 +14,7 @@ import { EmailForm, type EmailTarget } from "./send-email";
 
 /**
  * Engage drawer — the shared human-in-the-loop **email** composer opened from anywhere
- * WITHOUT an open Contact Profile (design engage.jsx; on the profile the same
+ * WITHOUT an open Contact Profile (on the profile the same
  * fields render inline as the Email tab, via the same `EmailForm`). Until a provider is
  * connected, email actions create a communications row + timeline entry only.
  *

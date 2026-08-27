@@ -69,7 +69,7 @@ export function LogCallForm({
         clientId: target.clientId,
         outcome,
         notes: note || null,
-        // Structured discovery (design contact-profile.jsx) — Reached calls only.
+        // Structured discovery — Reached calls only.
         discovery: reached
           ? {
               estPremium: budget ? Number(budget) : null,

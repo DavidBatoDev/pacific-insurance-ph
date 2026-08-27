@@ -28,8 +28,8 @@ import { Avatar, Btn, Card, CardHead, TONE_BADGE } from "../primitives";
 
 /**
  * Lead Lifecycle — Board / List / Forecast over real clients rows at
- * lifecycle_stage='Lead' (design prospects.jsx + prospect-views.jsx, wired).
- * Every stage/status change routes through the Advance-Lead popup.
+ * lifecycle_stage='Lead'. Every stage/status change routes through the
+ * Advance-Lead popup.
  */
 
 export interface LeadActivityRow {
