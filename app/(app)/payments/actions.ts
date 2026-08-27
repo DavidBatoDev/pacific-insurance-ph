@@ -133,8 +133,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
 
 /** Awaiting/Overdue payments for the Send Payment Links batch drawer. */
 export async function listAwaitingPaymentsAction(): Promise<Payment[]> {
-  const all = await getPaymentsRepository().list();
-  return all.filter((p) => p.status === "Awaiting" || p.status === "Overdue");
+  // Filter in SQL: the repository caps list() at 200 rows, so filtering the
+  // capped page in JS would silently under-report once payments outgrow it.
+  return getPaymentsRepository().list({ statusIn: ["Awaiting", "Overdue"] });
 }
 
 /**
