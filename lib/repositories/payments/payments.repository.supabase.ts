@@ -80,6 +80,17 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
     return data ? paymentToDomain(data) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Payment[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await getSupabaseAdmin()
+      .from("payments")
+      .select(PAYMENT_SELECT)
+      .in("id", ids)
+      .returns<PaymentJoined[]>();
+    if (error) throw toRepositoryError("PaymentsRepository.findByIds", error);
+    return (data ?? []).map(paymentToDomain);
+  }
+
   async list(opts: ListOptions = {}): Promise<Payment[]> {
     let query = getSupabaseAdmin().from("payments").select(PAYMENT_SELECT);
     if (opts.statusIn) query = query.in("status", opts.statusIn);

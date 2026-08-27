@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
-import { recordActivity } from "@/lib/activity/log";
+import { recordActivities } from "@/lib/activity/log";
 import { getRelationshipTouchpoints, type TouchpointRow } from "@/lib/queries/relationship";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { logOutboundEmails } from "@/lib/communications/log-outbound-email";
 
 /** Audience segments for the New Campaign drawer. */
 export async function listTouchpointsAction(): Promise<TouchpointRow[]> {
@@ -34,18 +34,27 @@ export async function sendCampaignAction(input: {
   if (input.recipients.length === 0) return { ok: false, error: "No recipients selected." };
 
   try {
-    let logged = 0;
-    for (const r of input.recipients) {
-      await logOutboundEmail({ clientId: r.clientId, subject: r.subject, summary: `${input.type} campaign “${input.campaignName}” · via ${input.channels.join(", ")}`, notes: r.body, actorId: actor.id });
-      await recordActivity({
-        scopeType: "client",
+    // Batched: one communications insert + one activity insert for the whole
+    // audience instead of 2 round-trips per recipient. The insert is a single
+    // statement, so a failure logs nothing rather than a partial batch.
+    const logged = await logOutboundEmails(
+      input.recipients.map((r) => ({
+        clientId: r.clientId,
+        subject: r.subject,
+        summary: `${input.type} campaign “${input.campaignName}” · via ${input.channels.join(", ")}`,
+        notes: r.body,
+        actorId: actor.id,
+      })),
+    );
+    await recordActivities(
+      input.recipients.map((r) => ({
+        scopeType: "client" as const,
         scopeId: r.clientId,
         activityType: "campaign.logged",
         summary: `${input.type} campaign logged — “${r.subject}”`,
         actorId: actor.id,
-      });
-      logged++;
-    }
+      })),
+    );
     revalidatePath("/relationship");
     return { ok: true, data: logged };
   } catch (e) {
