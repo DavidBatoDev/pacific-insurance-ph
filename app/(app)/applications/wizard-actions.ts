@@ -9,6 +9,7 @@ import {
   stagesSkippedByConvert,
 } from "@/components/hub/lead-config";
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { can, toAppRole } from "@/lib/auth/permissions";
@@ -65,8 +66,11 @@ export interface DraftResumePayload {
 const normaliseProductName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 const hasSavedValue = (value: unknown): boolean =>
   Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim().length > 0 : value != null;
+// Load-bearing glue: the wizard's channel vocabulary says "Email", but the
+// clients.preferred_channel CHECK constraint only knows "Gmail" — translate in
+// both directions so neither side ever writes the other's word.
 const wizardChannel = (value: string | null) => (value === "Gmail" ? "Email" : value);
-const clientChannels = new Set(["Gmail", "Phone", "Viber", "WhatsApp", "iMessage", "In-Person", "Other"]);
+const clientChannels = new Set<string>(PREFERRED_CHANNELS);
 const clientChannel = (value: string | null | undefined) => {
   const normalized = value === "Email" ? "Gmail" : value;
   return normalized && clientChannels.has(normalized) ? normalized : null;

@@ -8,7 +8,7 @@ import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { peso, pesoShort } from "@/lib/format";
 import { I } from "../../icons";
-import { LEAD_STAGES, LEAD_STATUSES, PRODUCT_COLORS, proposalChipLabel, STAGE_META, STATUS_TONE } from "../../lead-config";
+import { LEAD_BOARD_STAGES, LEAD_STATUSES, PRODUCT_COLORS, proposalChipLabel, STAGE_META, STATUS_TONE } from "../../lead-config";
 import { useRecordNav } from "../../nav";
 import type { AdvanceLeadPreset } from "../../overlays/advance-lead";
 import { useOverlays } from "../../overlays/overlay-provider";
@@ -121,7 +121,7 @@ export function BoardView({
             </div>
           )}
           <div className="grid min-w-[1080px] grid-cols-6 gap-3">
-            {LEAD_STAGES.map((stage) => {
+            {LEAD_BOARD_STAGES.map((stage) => {
               const items = filteredLeads.filter((l) => l.leadStage === stage);
               const val = items.reduce((a, l) => a + (l.estPremium ?? 0), 0);
               const meta = STAGE_META[stage];

@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { createLeadAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { LEAD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
+import { LEAD_BOARD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
 import { Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
@@ -153,7 +153,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Starting stage">
             <select className={INPUT} value={stage} onChange={(e) => setStage(e.target.value)}>
-              {LEAD_STAGES.map((s) => (
+              {LEAD_BOARD_STAGES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>

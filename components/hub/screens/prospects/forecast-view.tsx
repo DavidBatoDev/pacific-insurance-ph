@@ -2,7 +2,7 @@
 
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { peso, pesoShort } from "@/lib/format";
-import { LEAD_STAGES, monthBucket, STAGE_META, STAGE_PROB, weightedValue } from "../../lead-config";
+import { LEAD_BOARD_STAGES, monthBucket, STAGE_META, STAGE_PROB, weightedValue } from "../../lead-config";
 import { Card, CardHead, StatStrip } from "../../primitives";
 
 /** The Forecast view: weighted funnel + expected-close buckets with drill-down. */
@@ -31,7 +31,7 @@ export function ForecastView({
   });
   const wThisMonth = thisMonthLeads.reduce((a, l) => a + weightedValue(l.leadStage, l.estPremium), 0);
   const targetPct = Math.min(100, Math.round((wThisMonth / TARGET) * 100));
-  const funnel = LEAD_STAGES.map((s) => {
+  const funnel = LEAD_BOARD_STAGES.map((s) => {
     const items = filteredLeads.filter((l) => l.leadStage === s);
     return {
       stage: s,
@@ -122,7 +122,7 @@ export function ForecastView({
       </div>
       <div className="mt-4 rounded-md border border-border-soft bg-surface-2 px-4 py-3 text-[12px] text-muted-foreground">
         <b>Weighted value = estimated premium × stage close-probability.</b> Assumptions:{" "}
-        {LEAD_STAGES.map((s) => `${s} ${Math.round((STAGE_PROB[s] ?? 0) * 100)}%`).join(" · ")}
+        {LEAD_BOARD_STAGES.map((s) => `${s} ${Math.round((STAGE_PROB[s] ?? 0) * 100)}%`).join(" · ")}
       </div>
     </>
   );

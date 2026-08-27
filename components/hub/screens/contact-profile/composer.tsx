@@ -4,6 +4,7 @@ import { useState, useTransition, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 
 import { addNoteAction, logMessageAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
+import { MESSAGE_LOG_CHANNELS } from "@/lib/db-enums";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { cn } from "@/lib/utils";
@@ -117,7 +118,7 @@ export function ContactComposer({
                   <div className="grid grid-cols-2 gap-3.5">
                     <Field label="Channel" required>
                       <select className={INPUT} value={msgChannel} onChange={(e) => setMsgChannel(e.target.value)}>
-                        {["WhatsApp", "Viber", "iMessage", "SMS", "Other"].map((c) => (
+                        {MESSAGE_LOG_CHANNELS.map((c) => (
                           <option key={c}>{c}</option>
                         ))}
                       </select>

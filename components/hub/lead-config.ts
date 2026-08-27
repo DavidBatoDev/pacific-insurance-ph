@@ -6,7 +6,7 @@
 import type { Tone } from "./tone";
 
 /** Axis 1 — lead_stage: the six board columns (exits: Converted / Lost). */
-export const LEAD_STAGES = [
+export const LEAD_BOARD_STAGES = [
   "New Lead",
   "Contacted",
   "Discovery",
@@ -14,7 +14,7 @@ export const LEAD_STAGES = [
   "Product Selected",
   "Application Started",
 ] as const;
-export type LeadStage = (typeof LEAD_STAGES)[number];
+export type LeadStage = (typeof LEAD_BOARD_STAGES)[number];
 
 /**
  * The forward-only spine (`docs/lead-stage-status.md`): a lead only ever moves to the
@@ -22,14 +22,14 @@ export type LeadStage = (typeof LEAD_STAGES)[number];
  * Returns null at the final stage, or for an unknown/terminal stage such as Lost/Converted.
  */
 export function nextLeadStage(stage: string | null | undefined): LeadStage | null {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   if (index === -1) return null;
-  return LEAD_STAGES[index + 1] ?? null;
+  return LEAD_BOARD_STAGES[index + 1] ?? null;
 }
 
 /** The stages selectable from `stage`: itself plus the next one. Backward jumps and skips are not offered. */
 export function allowedLeadStages(stage: string | null | undefined): string[] {
-  const current = stage ?? LEAD_STAGES[0];
+  const current = stage ?? LEAD_BOARD_STAGES[0];
   const next = nextLeadStage(current);
   return next ? [current, next] : [current];
 }
@@ -95,16 +95,16 @@ export const CONVERT_READY_STAGE: LeadStage = "Product Selected";
 export const APPLICATION_STARTED_STAGE: LeadStage = "Application Started";
 
 export function canConvertLead(stage: string | null | undefined): boolean {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   // An unknown or terminal stage (Converted / Lost) is never "ready" — those records aren't leads.
-  return index !== -1 && index >= LEAD_STAGES.indexOf(CONVERT_READY_STAGE);
+  return index !== -1 && index >= LEAD_BOARD_STAGES.indexOf(CONVERT_READY_STAGE);
 }
 
 /** Stages a convert from `stage` jumps over, e.g. Discovery → ["Proposal", "Product Selected"]. */
 export function stagesSkippedByConvert(stage: string | null | undefined): string[] {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   if (index === -1) return [];
-  return LEAD_STAGES.slice(index + 1, LEAD_STAGES.indexOf(CONVERT_READY_STAGE) + 1);
+  return LEAD_BOARD_STAGES.slice(index + 1, LEAD_BOARD_STAGES.indexOf(CONVERT_READY_STAGE) + 1);
 }
 
 /**
@@ -307,10 +307,10 @@ export const PRODUCT_COLORS: Record<string, string> = {
 };
 
 export const nextStage = (stage: string | null): LeadStage => {
-  const i = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
-  return i >= 0 && i < LEAD_STAGES.length - 1
-    ? LEAD_STAGES[i + 1]
-    : LEAD_STAGES[LEAD_STAGES.length - 1];
+  const i = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
+  return i >= 0 && i < LEAD_BOARD_STAGES.length - 1
+    ? LEAD_BOARD_STAGES[i + 1]
+    : LEAD_BOARD_STAGES[LEAD_BOARD_STAGES.length - 1];
 };
 
 /* ---------- Lead list/board helpers ---------- */
