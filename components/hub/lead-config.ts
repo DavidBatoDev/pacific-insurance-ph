@@ -3,7 +3,7 @@
  * modal and Contact Profile chips (design prospect-data.jsx; client-safe).
  */
 
-import type { Tone } from "./data";
+import type { Tone } from "./tone";
 
 /** Axis 1 — lead_stage: the six board columns (exits: Converted / Lost). */
 export const LEAD_STAGES = [

@@ -8,7 +8,8 @@ import { addGroupMemberAction, issueGroupEcardsAction } from "@/app/(app)/group/
 import type { TimelineEntry } from "@/lib/activity/read";
 import type { GroupAccount, GroupMember } from "@/lib/repositories/groups/group.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort, type Tone } from "../data";
+import { peso, pesoShort } from "@/lib/format";
+import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";

@@ -6,7 +6,7 @@ import { useTransition } from "react";
 import { assignCommissionContactAction, updateCommissionAction } from "@/app/(app)/payments/actions";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { Commission } from "@/lib/repositories/payments";
-import { peso, pesoShort } from "../data";
+import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type { GroupAccount } from "@/lib/repositories/groups/group.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort, type Tone } from "../data";
+import { peso, pesoShort } from "@/lib/format";
+import type { Tone } from "../tone";
 import { I } from "../icons";
 import { Card, PageHead, TONE_BADGE } from "../primitives";
 

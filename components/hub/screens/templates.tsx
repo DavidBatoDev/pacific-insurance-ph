@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, CardHead, CountPill, PageHead } from "../primitives";
+import { Btn, Card, CardHead, PageHead } from "../primitives";
 
 /**
  * Email Templates — two-pane list + editor over the email_templates table

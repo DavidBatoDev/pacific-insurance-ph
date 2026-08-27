@@ -6,7 +6,7 @@ import { deleteDocumentAction } from "@/app/(app)/documents/actions";
 import { I } from "@/components/hub/icons";
 import { Card, TONE_BADGE } from "@/components/hub/primitives";
 import { Row, Table, Td, Th, useSort } from "@/components/hub/table";
-import type { Tone } from "@/components/hub/data";
+import type { Tone } from "@/components/hub/tone";
 import { cn } from "@/lib/utils";
 import type { DocumentListItem } from "@/lib/queries/documents-list";
 

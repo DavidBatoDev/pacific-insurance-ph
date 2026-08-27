@@ -4,7 +4,8 @@ import { useId, type ComponentProps, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { avColor, initials, type Tier, type Tone } from "./data";
+import { avColor, initials } from "@/lib/format";
+import type { Tone } from "./tone";
 import { I, type IconName } from "./icons";
 
 /* ---------- Tone → utility-class maps (static so Tailwind keeps them) ---------- */
@@ -136,22 +137,6 @@ export function StatusBadge({ status }: { status: string }) {
     >
       <span className="size-1.5 rounded-full bg-current" />
       {status}
-    </span>
-  );
-}
-
-/* ---------- Client tier badge ---------- */
-const TIER_TONE: Record<Tier, Tone> = { Gold: "amber", Silver: "slate", Bronze: "violet" };
-
-export function TierBadge({ tier }: { tier: Tier }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-[22px] items-center whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
-        TONE_BADGE[TIER_TONE[tier]],
-      )}
-    >
-      {tier}
     </span>
   );
 }

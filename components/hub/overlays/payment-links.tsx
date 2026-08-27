@@ -14,7 +14,7 @@ import type { Payment } from "@/lib/repositories/payments/payment.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
-import { peso } from "../data";
+import { peso } from "@/lib/format";
 import { I } from "../icons";
 import { usePersona } from "../persona";
 import { Avatar, Btn } from "../primitives";

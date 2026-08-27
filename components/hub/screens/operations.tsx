@@ -9,7 +9,7 @@ import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
 import type { Renewal } from "@/lib/repositories/renewals";
 import type { TravelRequest } from "@/lib/repositories/travel";
-import { peso, pesoShort } from "../data";
+import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";

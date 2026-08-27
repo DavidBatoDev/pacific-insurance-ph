@@ -2,7 +2,7 @@
 
 import type { TouchpointRow } from "@/lib/queries/relationship";
 import { cn } from "@/lib/utils";
-import type { Tone } from "../data";
+import type { Tone } from "../tone";
 import { I, type IconName } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";

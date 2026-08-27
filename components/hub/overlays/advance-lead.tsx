@@ -18,7 +18,7 @@ import {
   nextLeadStage,
   type DiscoveryValues,
 } from "../lead-config";
-import { peso } from "../data";
+import { peso } from "@/lib/format";
 import { Avatar, Btn, TONE_BADGE } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";

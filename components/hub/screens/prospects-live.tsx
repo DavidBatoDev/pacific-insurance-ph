@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { setProposalStatusAction } from "@/app/(app)/prospects/actions";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort } from "../data";
+import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import {
   LEAD_STAGES,
