@@ -9,7 +9,9 @@ import type { LucideIcon } from "lucide-react";
 
 import { escapeCsv } from "@/lib/exports/sheet-utils";
 import { cn } from "@/lib/utils";
-import { Btn, Card, PageHead } from "../primitives";
+import { Btn, Card, PageHead, StatStrip, type Stat } from "../primitives";
+
+export type { Stat };
 import { I } from "../icons";
 import { Row, Table, Td, Th, useSort } from "../table";
 
@@ -24,19 +26,13 @@ export interface Column<T> {
   num?: boolean;
 }
 
-export interface Stat {
-  val: ReactNode;
-  label: string;
-  color?: string;
-}
-
 interface ListScreenProps<T extends FilterableRow> {
   title: string;
   sub: string;
   icon: LucideIcon;
   stats?: Stat[];
   filters?: string[];
-  /** Second filter dimension, shown in the Filters popover (design screens.jsx). */
+  /** Second filter dimension, shown in the Filters popover. */
   filters2?: string[];
   filters2Label?: string;
   rows: T[];
@@ -46,8 +42,6 @@ interface ListScreenProps<T extends FilterableRow> {
   primaryAction?: string;
   /** Fired by the primary action button (wired screens open a drawer here). */
   onPrimary?: () => void;
-  /** Wired screens pass false to drop the Draft badge. */
-  draft?: boolean;
   emptyText?: string;
 }
 
@@ -89,7 +83,6 @@ export function ListScreen<T extends FilterableRow>({
   renderRow,
   primaryAction,
   onPrimary,
-  draft = true,
   emptyText,
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
@@ -141,7 +134,6 @@ export function ListScreen<T extends FilterableRow>({
         icon={icon}
         title={title}
         sub={sub}
-        draft={draft}
         actions={
           <>
             <Btn onClick={exportCsv}>
@@ -156,21 +148,7 @@ export function ListScreen<T extends FilterableRow>({
         }
       />
 
-      {stats && (
-        <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-          {stats.map((s, i) => (
-            <div key={i} className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
-              <div
-                className="text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums"
-                style={{ color: s.color }}
-              >
-                {s.val}
-              </div>
-              <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {stats && <StatStrip stats={stats} className="mb-4" />}
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-border-soft px-4 py-[13px]">

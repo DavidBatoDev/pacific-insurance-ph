@@ -5,8 +5,8 @@ import { useState, useTransition } from "react";
 
 import { createTravelQuoteAction } from "@/app/(app)/travel/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -66,26 +66,26 @@ export function NewTravelQuoteDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <DrawerField label="Traveler" required>
+      <Field label="Traveler" required>
         <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Destination" required>
-          <input className={DRAWER_INPUT} value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. Japan" />
-        </DrawerField>
-        <DrawerField label="Travelers">
-          <input className={DRAWER_INPUT} type="number" min="1" value={travelers} onChange={(e) => setTravelers(e.target.value)} />
-        </DrawerField>
+        <Field label="Destination" required>
+          <input className={INPUT} value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. Japan" />
+        </Field>
+        <Field label="Travelers">
+          <input className={INPUT} type="number" min="1" value={travelers} onChange={(e) => setTravelers(e.target.value)} />
+        </Field>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Departure">
-          <input className={DRAWER_INPUT} type="date" value={departure} onChange={(e) => setDeparture(e.target.value)} />
-        </DrawerField>
-        <DrawerField label="Return">
-          <input className={DRAWER_INPUT} type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
-        </DrawerField>
+        <Field label="Departure">
+          <input className={INPUT} type="date" value={departure} onChange={(e) => setDeparture(e.target.value)} />
+        </Field>
+        <Field label="Return">
+          <input className={INPUT} type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+        </Field>
       </div>
       {days != null && (
         <div className="mt-1.5 text-[12px] text-muted-foreground">
@@ -93,9 +93,9 @@ export function NewTravelQuoteDrawer({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      <DrawerField label="Quoted premium (₱)" className="mt-4">
-        <input className={DRAWER_INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
-      </DrawerField>
+      <Field label="Quoted premium (₱)" className="mt-4">
+        <input className={INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
+      </Field>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
         <I.plane size={15} className="mt-0.5 shrink-0" />

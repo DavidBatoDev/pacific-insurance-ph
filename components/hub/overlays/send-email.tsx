@@ -1,15 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { sendEmailAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn } from "../primitives";
-import { DrawerField, DRAWER_INPUT } from "./client-picker";
+import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 import { useOverlays } from "./overlay-provider";
 
@@ -61,10 +60,10 @@ export function EmailForm({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [libraryDocumentId, setLibraryDocumentId] = useState("");
-  // Guards the seed effect below so it only ever fires once per mount — needed because a caller
+  // Guards the seed below so it only ever fires once per mount — needed because a caller
   // (EngageDrawer) may still be fetching `templates` when this mounts, so the initial template
   // can't always be seeded synchronously from a useState initializer.
-  const seededRef = useRef(false);
+  const [seeded, setSeeded] = useState(false);
 
   const ctx = useMemo<MergeContext>(
     () => ({
@@ -76,15 +75,15 @@ export function EmailForm({
     [target.name, target.product, target.premium, persona.userName],
   );
 
-  useEffect(() => {
-    if (seededRef.current || templates.length === 0) return;
+  // Render-phase adjustment (not an effect): seed once the templates arrive.
+  if (!seeded && templates.length > 0) {
     const t = templates.find((x) => x.name === tpl);
     if (t) {
-      seededRef.current = true;
+      setSeeded(true);
       setSubject(fillTemplate(t.subject, ctx));
       setBody(fillTemplate(t.body, ctx));
     }
-  }, [templates, tpl, ctx]);
+  }
 
   const applyTemplate = (name: string) => {
     setTpl(name);
@@ -118,28 +117,28 @@ export function EmailForm({
   return (
     <>
       <div className="grid grid-cols-2 gap-3.5">
-        <DrawerField label="Template" required>
-          <select className={DRAWER_INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
+        <Field label="Template" required>
+          <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
             <option value="">Select…</option>
             {templates.map((t) => (
               <option key={t.id}>{t.name}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Recipient" required>
-          <input className={DRAWER_INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
-        </DrawerField>
+        </Field>
+        <Field label="Recipient" required>
+          <input className={INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
+        </Field>
       </div>
-      <DrawerField label="Subject" required className="mt-3.5">
-        <input className={DRAWER_INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
-      </DrawerField>
-      <DrawerField label="Message" className="mt-3.5">
+      <Field label="Subject" required className="mt-3.5">
+        <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
+      </Field>
+      <Field label="Message" className="mt-3.5">
         <textarea
           className="min-h-[150px] w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand"
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
-      </DrawerField>
+      </Field>
       <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
 
       <div className="mt-5">

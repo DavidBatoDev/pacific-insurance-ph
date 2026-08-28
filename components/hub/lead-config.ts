@@ -1,12 +1,12 @@
 /**
  * Lead Lifecycle constants shared by the board, list, forecast, Advance-Lead
- * modal and Contact Profile chips (design prospect-data.jsx; client-safe).
+ * modal and Contact Profile chips (client-safe).
  */
 
-import type { Tone } from "./data";
+import type { Tone } from "./tone";
 
 /** Axis 1 — lead_stage: the six board columns (exits: Converted / Lost). */
-export const LEAD_STAGES = [
+export const LEAD_BOARD_STAGES = [
   "New Lead",
   "Contacted",
   "Discovery",
@@ -14,7 +14,7 @@ export const LEAD_STAGES = [
   "Product Selected",
   "Application Started",
 ] as const;
-export type LeadStage = (typeof LEAD_STAGES)[number];
+export type LeadStage = (typeof LEAD_BOARD_STAGES)[number];
 
 /**
  * The forward-only spine (`docs/lead-stage-status.md`): a lead only ever moves to the
@@ -22,14 +22,14 @@ export type LeadStage = (typeof LEAD_STAGES)[number];
  * Returns null at the final stage, or for an unknown/terminal stage such as Lost/Converted.
  */
 export function nextLeadStage(stage: string | null | undefined): LeadStage | null {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   if (index === -1) return null;
-  return LEAD_STAGES[index + 1] ?? null;
+  return LEAD_BOARD_STAGES[index + 1] ?? null;
 }
 
 /** The stages selectable from `stage`: itself plus the next one. Backward jumps and skips are not offered. */
 export function allowedLeadStages(stage: string | null | undefined): string[] {
-  const current = stage ?? LEAD_STAGES[0];
+  const current = stage ?? LEAD_BOARD_STAGES[0];
   const next = nextLeadStage(current);
   return next ? [current, next] : [current];
 }
@@ -95,16 +95,16 @@ export const CONVERT_READY_STAGE: LeadStage = "Product Selected";
 export const APPLICATION_STARTED_STAGE: LeadStage = "Application Started";
 
 export function canConvertLead(stage: string | null | undefined): boolean {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   // An unknown or terminal stage (Converted / Lost) is never "ready" — those records aren't leads.
-  return index !== -1 && index >= LEAD_STAGES.indexOf(CONVERT_READY_STAGE);
+  return index !== -1 && index >= LEAD_BOARD_STAGES.indexOf(CONVERT_READY_STAGE);
 }
 
 /** Stages a convert from `stage` jumps over, e.g. Discovery → ["Proposal", "Product Selected"]. */
 export function stagesSkippedByConvert(stage: string | null | undefined): string[] {
-  const index = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
+  const index = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
   if (index === -1) return [];
-  return LEAD_STAGES.slice(index + 1, LEAD_STAGES.indexOf(CONVERT_READY_STAGE) + 1);
+  return LEAD_BOARD_STAGES.slice(index + 1, LEAD_BOARD_STAGES.indexOf(CONVERT_READY_STAGE) + 1);
 }
 
 /**
@@ -307,8 +307,40 @@ export const PRODUCT_COLORS: Record<string, string> = {
 };
 
 export const nextStage = (stage: string | null): LeadStage => {
-  const i = LEAD_STAGES.indexOf((stage ?? "") as LeadStage);
-  return i >= 0 && i < LEAD_STAGES.length - 1
-    ? LEAD_STAGES[i + 1]
-    : LEAD_STAGES[LEAD_STAGES.length - 1];
+  const i = LEAD_BOARD_STAGES.indexOf((stage ?? "") as LeadStage);
+  return i >= 0 && i < LEAD_BOARD_STAGES.length - 1
+    ? LEAD_BOARD_STAGES[i + 1]
+    : LEAD_BOARD_STAGES[LEAD_BOARD_STAGES.length - 1];
+};
+
+/* ---------- Lead list/board helpers ---------- */
+
+/** Toggle `value` in a multi-select filter array. */
+export const toggleFilterValue = (values: string[], value: string) =>
+  values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+
+/**
+ * C2a product routing: Select / Blue Royale proposals are generated in-house;
+ * every other product goes through Request Proposal (carrier portal).
+ * WARNING: matches on product *names* — renaming either product in /products
+ * silently flips its leads onto the other proposal workflow. Move to a
+ * `products` column before importing real client data (FUTURE-REFACTOR.md §E5).
+ */
+export const isIndividualProposalProduct = (product: string | null) =>
+  ["select", "blue royale"].includes(product?.trim().toLowerCase() ?? "");
+
+/** Days until the follow-up date (negative = overdue), or null when unset. */
+export const followDays = (d: string | null): number | null => {
+  if (!d) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(d + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
+};
+
+/** Expected-close bucket shared by the lead List drill-down and Forecast view. */
+export const monthBucket = (iso: string | null): string => {
+  if (!iso) return "Later";
+  const now = new Date();
+  const k = (new Date(iso).getFullYear() * 12 + new Date(iso).getMonth()) - (now.getFullYear() * 12 + now.getMonth());
+  return k <= 0 ? "This month" : k === 1 ? "Next month" : "Later";
 };

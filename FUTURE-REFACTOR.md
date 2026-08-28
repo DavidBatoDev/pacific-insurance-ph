@@ -13,6 +13,37 @@ Every claim below carries a `file:line`. Anything I could not confirm is marked 
 
 ---
 
+## Status — resolved 2026-08-27
+
+The refactor branch `JoshuaHM-p4/feat-codebase-restructure` executed the remaining items.
+Line references below describe the pre-refactor tree; the register is kept for its reasoning.
+
+- **Tier 1** — fully resolved earlier on master (live `/reports`, PAY_CHANNELS removed,
+  Sparkline deduped, live shell counts).
+- **Tier 2 (#7–#10)** — done. `data.ts` retired (`lib/format.ts` + `components/hub/tone.ts`);
+  dead screens, `drafts/`, stale DRAFT banners and prototype-era `(design *.jsx)` comments gone;
+  `TierBadge`, the unused `CountPill` import and `PageHead`'s dead `draft` prop removed.
+- **Tier 3 (#11–#15)** — done. `INPUT`/`AREA`/`SEL`/`SEL_SM`, `Field`, `Pill` (StatusBadge is
+  built on it) and `StatStrip` live in `primitives.tsx`, which is now server-safe with only
+  `Sparkline` in `primitives-interactive.tsx`.
+- **Tier 4 (#16–#19)** — done. `prospects-live` split into `screens/prospects/` views mounted
+  one-at-a-time; `contact-profile` split into `screens/contact-profile/` cards;
+  `createFromWizardAction` split along its section banners behind an explicit
+  `WizardCreateContext`; the dashboard queues share one generic `QueueCard`.
+- **Tier 5 (#20–#22)** — #21/#22 done (`lib/db-enums.ts`, `LEAD_BOARD_STAGES`).
+  **#20 deliberately deferred**: `isIndividualProposalProduct` is centralized in
+  `lead-config.ts` with its drift warning, but the `products.proposal_mode` column remains a
+  product decision to raise with Matt/Eman before the D1 client import.
+- **Tier 6 (#23–#26)** — done. Dead profile count queries dropped (and the 50-user fetch
+  replaced with a single owner lookup); payments status filter pushed into SQL; both fan-out
+  write loops batched (`findByIds` + `logOutboundEmails` + `recordActivities`, all-or-nothing
+  semantics documented at the call sites); all 16 react-hooks errors cleared and
+  `reactCompiler: true` enabled (one SSR whitespace quirk worked around in the dashboard
+  greeting, commented in place).
+
+
+---
+
 ## Corrections to the first pass
 
 Two items from the 2026-08-18 list were wrong or incomplete. Recording them so they don't get

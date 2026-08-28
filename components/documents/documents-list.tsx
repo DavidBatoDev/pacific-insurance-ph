@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 
 import { deleteDocumentAction } from "@/app/(app)/documents/actions";
 import { I } from "@/components/hub/icons";
-import { Card, TONE_BADGE } from "@/components/hub/primitives";
+import { Card, Pill } from "@/components/hub/primitives";
 import { Row, Table, Td, Th, useSort } from "@/components/hub/table";
-import type { Tone } from "@/components/hub/data";
-import { cn } from "@/lib/utils";
+import type { Tone } from "@/components/hub/tone";
 import type { DocumentListItem } from "@/lib/queries/documents-list";
 
 const VIS_TONE: Record<string, Tone> = {
@@ -82,14 +81,7 @@ export function DocumentsList({ items, total }: { items: DocumentListItem[]; tot
               <Td className="text-muted-foreground">{d.documentType ?? "—"}</Td>
               <Td className="text-muted-foreground">{d.clientName ?? "—"}</Td>
               <Td>
-                <span
-                  className={cn(
-                    "inline-flex h-[22px] items-center whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
-                    TONE_BADGE[VIS_TONE[d.visibility] ?? "slate"],
-                  )}
-                >
-                  {d.visibility}
-                </span>
+                <Pill tone={VIS_TONE[d.visibility] ?? "slate"}>{d.visibility}</Pill>
               </Td>
               <Td className="text-muted-foreground">{d.status}</Td>
               <Td className="text-muted-foreground">{fmtDate(d.createdAt)}</Td>

@@ -46,35 +46,29 @@ export function hitHref(hit: SearchHit): string {
 
 /** Debounced live multi-entity search (design: 130ms; kept close at 150ms). */
 export function useGlobalSearch(term: string) {
-  const [groups, setGroups] = useState<SearchGroup[]>([]);
-  const [searching, setSearching] = useState(false);
+  // Results are tagged with the term that produced them; `searching` and the
+  // empty-query case are derived, so the effect never writes state
+  // synchronously (react-hooks/set-state-in-effect).
+  const [result, setResult] = useState<{ term: string; groups: SearchGroup[] }>({ term: "", groups: [] });
   const seqRef = useRef(0);
+  const q = term.trim();
 
   useEffect(() => {
-    const q = term.trim();
-    if (!q) {
-      setGroups([]);
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
+    if (!q) return;
     const seq = ++seqRef.current;
     const t = setTimeout(() => {
       globalSearchAction(q)
         .then((g) => {
-          if (seqRef.current === seq) setGroups(g);
+          if (seqRef.current === seq) setResult({ term: q, groups: g });
         })
         .catch(() => {
-          if (seqRef.current === seq) setGroups([]);
-        })
-        .finally(() => {
-          if (seqRef.current === seq) setSearching(false);
+          if (seqRef.current === seq) setResult({ term: q, groups: [] });
         });
     }, 150);
     return () => clearTimeout(t);
-  }, [term]);
+  }, [q]);
 
-  return { groups, searching };
+  return { groups: q ? result.groups : [], searching: !!q && result.term !== q };
 }
 
 export function SearchHitRow({
@@ -144,12 +138,15 @@ export function SearchDropdown({
   // Rows: all hits, then the "view all" footer row (always last).
   const rowCount = flat.length + (q ? 1 : 0);
 
-  useEffect(() => {
+  // Render-phase adjustments: a new query restarts keyboard nav at the top,
+  // and a shrinking result list clamps the highlight into range.
+  const [prevQ, setPrevQ] = useState(q);
+  if (prevQ !== q) {
+    setPrevQ(q);
     setActiveIdx(0);
-  }, [q]);
-  useEffect(() => {
-    if (activeIdx >= rowCount) setActiveIdx(Math.max(0, rowCount - 1));
-  }, [rowCount, activeIdx]);
+  } else if (activeIdx >= rowCount && activeIdx > 0) {
+    setActiveIdx(Math.max(0, rowCount - 1));
+  }
 
   const openHit = (hit: SearchHit) => {
     router.push(hitHref(hit));

@@ -1,6 +1,6 @@
 /**
  * Domain types for Group Accounts — company-level Group HMO records with a
- * member roster (design group.jsx / group-account-page.md).
+ * member roster (see group-account-page.md).
  */
 
 export interface GroupAccount {

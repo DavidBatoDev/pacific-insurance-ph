@@ -6,7 +6,7 @@ import { useTransition } from "react";
 import { assignCommissionContactAction, updateCommissionAction } from "@/app/(app)/payments/actions";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { Commission } from "@/lib/repositories/payments";
-import { peso, pesoShort } from "../data";
+import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
@@ -103,7 +103,6 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
       title="Commissions"
       sub="Commission tracking · OR number → voucher requested → follow-up → received → paid"
       icon={I.peso}
-      draft={false}
       stats={[
         { val: count("Requested"), label: "Requested", color: "var(--violet)" },
         { val: count("Follow-up"), label: "Follow-up pending", color: "var(--amber)" },

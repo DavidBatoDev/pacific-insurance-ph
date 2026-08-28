@@ -14,17 +14,16 @@ import type { Payment } from "@/lib/repositories/payments/payment.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
-import { peso } from "../data";
+import { peso } from "@/lib/format";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn } from "../primitives";
-import { DRAWER_INPUT, DrawerField } from "./client-picker";
+import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
 /**
  * Send Payment Links — batch drawer from the Dashboard revenue widget
- * (design payment-links.jsx / new-modals.md §12). Every awaiting-payment
+ * (see new-modals.md §12). Every awaiting-payment
  * recipient is pre-checked across the three queues; each send is logged to
  * the contact's timeline and the source status advances.
  */
@@ -146,15 +145,15 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <DrawerField label="Official payment channel" required hint="Business payee — never a personal account">
+        <Field label="Official payment channel" required hint="Business payee — never a personal account">
           {channels.length > 0 ? (
-            <select className={DRAWER_INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
+            <select className={INPUT} value={payChannel} onChange={(e) => setPayChannel(e.target.value)}>
               {channels.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
           ) : loading ? (
-            <select className={DRAWER_INPUT} disabled />
+            <select className={INPUT} disabled />
           ) : channelsFailed ? (
             <div className="rounded-md border border-amber-border bg-amber-soft px-3.5 py-3 text-[12.5px] leading-relaxed text-amber">
               Couldn’t load the official payment channels. Close this drawer and try again.
@@ -166,8 +165,8 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
               to add one before logging instructions.
             </div>
           )}
-        </DrawerField>
-        <DrawerField label="Send via" required>
+        </Field>
+        <Field label="Send via" required>
           <div className="flex gap-1.5">
             {["Email", "WhatsApp", "Viber"].map((c) => {
               const on = via.includes(c);
@@ -186,7 +185,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[13px]">

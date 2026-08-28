@@ -11,16 +11,9 @@ import {
 import { PRODUCT_COLORS } from "@/components/hub/lead-config";
 import { TIERS } from "@/components/hub/overlays/log-call";
 import type { Client } from "@/lib/repositories/clients";
+import { CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { cn } from "@/lib/utils";
 
-const CLIENT_TYPES = [
-  "Prospect",
-  "Individual Client",
-  "Family Client",
-  "Corporate Contact",
-  "Former Client",
-];
-const CHANNELS = ["Gmail", "Phone", "Viber", "WhatsApp", "iMessage", "In-Person", "Other"];
 
 const inputCls =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-[13px] outline-none focus:border-brand";
@@ -178,7 +171,7 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
               className={inputCls}
             >
               <option value="">—</option>
-              {CHANNELS.map((c) => (
+              {PREFERRED_CHANNELS.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>

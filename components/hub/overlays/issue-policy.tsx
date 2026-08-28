@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 
 import { issuePolicyAction, listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -72,14 +72,14 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <DrawerField label="Client" required>
+      <Field label="Client" required>
         <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Product" required>
+        <Field label="Product" required>
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={productVersionId}
             onChange={(e) => {
               setProductVersionId(e.target.value);
@@ -93,10 +93,10 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Plan option">
+        </Field>
+        <Field label="Plan option">
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={planOptionId}
             onChange={(e) => setPlanOptionId(e.target.value)}
             disabled={!plans.length}
@@ -108,31 +108,31 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
-        </DrawerField>
+        </Field>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Pacific Cross policy no." hint="Distinct from the POL- reference">
-          <input className={DRAWER_INPUT} value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="PC-000000" />
-        </DrawerField>
-        <DrawerField label="Premium (₱)">
-          <input className={DRAWER_INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
-        </DrawerField>
+        <Field label="Pacific Cross policy no." hint="Distinct from the POL- reference">
+          <input className={INPUT} value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="PC-000000" />
+        </Field>
+        <Field label="Premium (₱)">
+          <input className={INPUT} inputMode="numeric" value={premium} onChange={(e) => setPremium(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
+        </Field>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-4">
-        <DrawerField label="Payment mode">
-          <select className={DRAWER_INPUT} value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+        <Field label="Payment mode">
+          <select className={INPUT} value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
             <option>Annual</option>
             <option>Semi-Annual</option>
           </select>
-        </DrawerField>
-        <DrawerField label="Effective date">
-          <input className={DRAWER_INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
-        </DrawerField>
-        <DrawerField label="Expiry date">
-          <input className={DRAWER_INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
-        </DrawerField>
+        </Field>
+        <Field label="Effective date">
+          <input className={INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
+        </Field>
+        <Field label="Expiry date">
+          <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+        </Field>
       </div>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">

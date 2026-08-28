@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
-import { recordActivity } from "@/lib/activity/log";
+import { recordActivities, recordActivity } from "@/lib/activity/log";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import {
   getCommissionsRepository,
@@ -16,9 +16,9 @@ import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
 import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { logOutboundEmails } from "@/lib/communications/log-outbound-email";
 
-/** First-year vs renewal vs travel commission estimate (design payments-data.jsx). */
+/** First-year vs renewal vs travel commission estimate. */
 const COMM_RATE: Record<string, number> = { Application: 0.18, Renewal: 0.1, Travel: 0.15 };
 
 const peso = (n: number) => "₱" + n.toLocaleString("en-PH");
@@ -133,8 +133,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
 
 /** Awaiting/Overdue payments for the Send Payment Links batch drawer. */
 export async function listAwaitingPaymentsAction(): Promise<Payment[]> {
-  const all = await getPaymentsRepository().list();
-  return all.filter((p) => p.status === "Awaiting" || p.status === "Overdue");
+  // Filter in SQL: the repository caps list() at 200 rows, so filtering the
+  // capped page in JS would silently under-report once payments outgrow it.
+  return getPaymentsRepository().list({ statusIn: ["Awaiting", "Overdue"] });
 }
 
 /**
@@ -150,21 +151,31 @@ export async function sendPaymentLinksAction(input: {
 }): Promise<ActionResult<number>> {
   const actor = await getActor();
   try {
-    const repo = getPaymentsRepository();
-    let logged = 0;
-    for (const id of input.paymentIds) {
-      const p = await repo.findById(id);
-      if (!p?.clientId) continue;
-      await logOutboundEmail({ clientId: p.clientId, subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(), summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`, notes: input.bodyBySource[p.source] ?? null, actorId: actor.id });
-      await recordActivity({
-        scopeType: "client",
+    // Batched: one read + one communications insert + one activity insert,
+    // instead of 3 round-trips per payment. The communications insert is a
+    // single statement, so a failure logs nothing rather than a partial batch.
+    const payments = (await getPaymentsRepository().findByIds(input.paymentIds)).filter(
+      (p): p is typeof p & { clientId: string } => !!p.clientId,
+    );
+    await logOutboundEmails(
+      payments.map((p) => ({
+        clientId: p.clientId,
+        subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(),
+        summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`,
+        notes: input.bodyBySource[p.source] ?? null,
+        actorId: actor.id,
+      })),
+    );
+    await recordActivities(
+      payments.map((p) => ({
+        scopeType: "client" as const,
         scopeId: p.clientId,
         activityType: "payment.instruction_logged",
         summary: `Payment instruction logged — ${p.sourceRef ?? p.referenceNo ?? ""} · ${peso(p.amount ?? 0)}`,
         actorId: actor.id,
-      });
-      logged++;
-    }
+      })),
+    );
+    const logged = payments.length;
     revalidatePath("/payments");
     revalidatePath("/dashboard");
     revalidatePath("/renewals");

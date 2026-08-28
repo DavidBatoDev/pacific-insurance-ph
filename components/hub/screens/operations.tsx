@@ -9,7 +9,7 @@ import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
 import type { Renewal } from "@/lib/repositories/renewals";
 import type { TravelRequest } from "@/lib/repositories/travel";
-import { peso, pesoShort } from "../data";
+import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
@@ -18,7 +18,7 @@ import { ClientCell, Row, Td } from "../table";
 import { ListScreen } from "./list-screen";
 
 /**
- * Wired operations list screens (design screens.jsx / screens-extra.jsx):
+ * Wired operations list screens:
  * Applications, Policies, Renewals, Claims, Travel over real repository rows.
  * Row click opens the contact; primary actions open the page-modal drawers.
  */
@@ -33,7 +33,7 @@ const daysUntil = (iso: string | null): number | null => {
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
-/** Clickable Group Account chip (design screens.jsx group cross-link). */
+/** Clickable Group Account chip (group cross-link). */
 function GroupChip({ id, name }: { id: string | null; name: string }) {
   const { openGroup } = useRecordNav();
   return (
@@ -101,7 +101,6 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
       title="Applications"
       sub={`${inProgress} application${inProgress === 1 ? "" : "s"} in progress${drafts ? ` · ${drafts} draft${drafts === 1 ? "" : "s"}` : ""} · ${awaiting} awaiting payment`}
       icon={I.fileText}
-      draft={false}
       primaryAction="New application"
       onPrimary={() => overlays.openWizard()}
       stats={[
@@ -190,7 +189,6 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
       title="Policies"
       sub={`${rows.length} policies under management`}
       icon={I.shield}
-      draft={false}
       primaryAction="Issue policy"
       onPrimary={() => overlays.openPageModal("issue-policy")}
       stats={[
@@ -277,7 +275,6 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
       title="Renewals"
       sub={`${rows.length} renewals tracked · ${due30} due within 30 days`}
       icon={I.refresh}
-      draft={false}
       primaryAction="Send notices"
       onPrimary={() => overlays.openEngage("Send Renewal Notice")}
       stats={[
@@ -339,7 +336,6 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
       title="Claims"
       sub={`${open} open claims · ${awaitingDocs} awaiting documents`}
       icon={I.clipboard}
-      draft={false}
       primaryAction="File claim"
       onPrimary={() => overlays.openPageModal("file-claim")}
       stats={[
@@ -405,7 +401,6 @@ export function TravelLive({ rows }: { rows: TravelRequest[] }) {
       title="Travel Insurance"
       sub={`${rows.length} open travel requests · ${awaiting} awaiting payment`}
       icon={I.plane}
-      draft={false}
       primaryAction="New travel quote"
       onPrimary={() => overlays.openPageModal("new-travel-quote")}
       stats={[

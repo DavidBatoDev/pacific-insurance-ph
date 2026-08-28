@@ -5,8 +5,8 @@ import { useState, useTransition } from "react";
 
 import { createLeadAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { LEAD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
-import { Btn } from "../primitives";
+import { LEAD_BOARD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
+import { Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -25,8 +25,6 @@ const SOURCES = [
   "Other",
 ];
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
 
 export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -155,7 +153,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Starting stage">
             <select className={INPUT} value={stage} onChange={(e) => setStage(e.target.value)}>
-              {LEAD_STAGES.map((s) => (
+              {LEAD_BOARD_STAGES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -187,30 +185,6 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </Drawer>
-  );
-}
-
-function Field({
-  label,
-  required,
-  hint,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label} {required && <span className="text-red">*</span>}
-      </label>
-      {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
-    </div>
   );
 }
 

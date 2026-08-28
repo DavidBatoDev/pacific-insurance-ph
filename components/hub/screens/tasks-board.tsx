@@ -12,8 +12,7 @@ import { Btn, Card, CountPill, PageHead } from "../primitives";
 import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "../task-buckets";
 
 /**
- * Tasks board — three due-date columns over real tasks rows (design
- * screens-extra.jsx TasksScreen, wired). Shares the table with the dashboard
+ * Tasks board — three due-date columns over real tasks rows. Shares the table with the dashboard
  * My-tasks widget; the Add Task drawer writes into the same store.
  */
 export function TasksBoard({ tasks }: { tasks: Task[] }) {
@@ -42,7 +41,6 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
       <PageHead
         icon={I.checkSquare}
         title="Tasks"
-        draft={false}
         sub={`Your workload across the agency · ${open} open`}
         actions={
           <Btn variant="primary" onClick={() => overlays.openAddTask()}>

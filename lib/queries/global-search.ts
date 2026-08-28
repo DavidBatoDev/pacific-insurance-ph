@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * Global multi-entity search backing the topbar dropdown, the ⌘K palette and
- * the /search page (design command-palette.jsx CK_search, wired to Supabase).
+ * the /search page, wired to Supabase.
  *
  * People match on name/email/mobile/reference; the operational registers match
  * on their reference numbers (POL- / APP- / CLM- / RNW- / TRV-, policy number,

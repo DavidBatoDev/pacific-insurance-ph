@@ -8,20 +8,19 @@ import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import type { Commission, Payment } from "@/lib/repositories/payments";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort, type Tone } from "../data";
+import { peso, pesoShort } from "@/lib/format";
+import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
-import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Btn, StatusBadge, TONE_BADGE } from "../primitives";
+import { Btn, Field, INPUT, Pill, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
 
 /**
- * Payments — Collections + Commissions tabs (design payments.jsx /
- * payments-page.md), wired to the payments and commissions tables.
+ * Payments — Collections + Commissions tabs (see payments-page.md), wired to the payments and commissions tables.
  */
 
 const SOURCE_TONE: Record<string, Tone> = {
@@ -79,7 +78,6 @@ export function PaymentsLive({
       title="Payments"
       sub="Premium collection across Applications, Renewals & Travel · verify payments and capture the OR number"
       icon={I.peso}
-      draft={false}
       stats={[
         { val: pesoShort(sum("Awaiting")), label: `Awaiting payment · ${cnt("Awaiting")}`, color: "var(--amber)" },
         { val: cnt("Received"), label: "Received · unverified", color: "var(--blue)" },
@@ -108,9 +106,7 @@ export function PaymentsLive({
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={p.clientName ?? "—"} sub={p.sourceRef ?? undefined} /></Td>
           <Td>
-            <span className={cn("inline-flex h-[20px] items-center rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[SOURCE_TONE[p.source]])}>
-              {p.source}
-            </span>
+            <Pill size="sm" tone={SOURCE_TONE[p.source]}>{p.source}</Pill>
           </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? peso(p.amount) : "—"}</Td>
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>
@@ -234,7 +230,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         ))}
       </div>
 
-      <DrawerField
+      <Field
         label="Proof of payment"
         required={!payment.proofDocumentId}
         hint="Screenshot or bank slip — saved to the client’s documents"
@@ -261,36 +257,36 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
             onChange={(e) => setProof(e.target.files?.[0] ?? null)}
           />
         </label>
-      </DrawerField>
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <DrawerField label="Payment method" required>
-          <select className={DRAWER_INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
+        <Field label="Payment method" required>
+          <select className={INPUT} value={method} onChange={(e) => setMethod(e.target.value)}>
             {["Portal", "Bank transfer", "Cashier", "Credit card", "Business link", "Other"].map((m) => (
               <option key={m}>{m}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Payment status" required hint="Awaiting → Received → Verified">
+        </Field>
+        <Field label="Payment status" required hint="Awaiting → Received → Verified">
           <select
-            className={DRAWER_INPUT}
+            className={INPUT}
             value={status}
             onChange={(e) => setStatus(e.target.value as "Received" | "Verified")}
           >
             <option>Received</option>
             <option>Verified</option>
           </select>
-        </DrawerField>
+        </Field>
       </div>
 
-      <DrawerField
+      <Field
         label="OR number"
         required={status === "Verified"}
         hint="Official Receipt from Pacific Cross (via Glynn) — also stamped on the policy"
         className="mt-4"
       >
-        <input className={DRAWER_INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
-      </DrawerField>
+        <input className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
+      </Field>
 
       <button
         onClick={() => setSubmitted(!submitted)}
@@ -305,14 +301,14 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         Submitted to Pacific Cross (Glynn) — the step that triggers the OR number
       </button>
 
-      <DrawerField label="Internal notes" className="mt-4">
+      <Field label="Internal notes" className="mt-4">
         <textarea
           className="min-h-[70px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Anything worth noting…"
         />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />

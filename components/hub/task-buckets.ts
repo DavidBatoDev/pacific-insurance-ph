@@ -1,5 +1,5 @@
 /** Due-date → board column bucketing shared by the Tasks board, the dashboard
- * widget, and the Add Task drawer preview (design add-task.jsx atBucket). */
+ * widget, and the Add Task drawer preview. */
 
 export type TaskBucket = "overdue" | "today" | "week";
 

@@ -6,7 +6,7 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import {
-  LEAD_STAGES,
+  LEAD_BOARD_STAGES,
   LEAD_STATUSES,
   PROPOSAL_STATUSES,
   allowedLeadStatuses,
@@ -64,10 +64,10 @@ export async function advanceLeadAction(
     // the immediately following one. Backward moves and skips are rejected here as well as
     // in the UI, so the rule holds for any caller. `Lost` is not a reachable value here at
     // all — it's a separate lifecycle transition (markLostAction).
-    const current = lead.leadStage ?? LEAD_STAGES[0];
-    const currentIndex = LEAD_STAGES.indexOf(current as LeadStage);
+    const current = lead.leadStage ?? LEAD_BOARD_STAGES[0];
+    const currentIndex = LEAD_BOARD_STAGES.indexOf(current as LeadStage);
     const next = nextLeadStage(current);
-    if (!LEAD_STAGES.includes(input.stage as LeadStage))
+    if (!LEAD_BOARD_STAGES.includes(input.stage as LeadStage))
       return { ok: false, error: `Unknown lead stage "${input.stage}".` };
     if (currentIndex !== -1 && input.stage !== current && input.stage !== next)
       return {

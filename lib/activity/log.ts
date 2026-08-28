@@ -48,3 +48,23 @@ export async function recordActivity(entry: ActivityEntry): Promise<void> {
     console.error("recordActivity failed:", error.message);
   }
 }
+
+/** Batch variant for fan-out actions (campaigns, payment links) — one insert. */
+export async function recordActivities(entries: ActivityEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  const { error } = await getSupabaseAdmin().from("activity_timeline").insert(
+    entries.map((entry) => ({
+      scope_type: entry.scopeType,
+      scope_id: entry.scopeId,
+      activity_type: entry.activityType,
+      summary: entry.summary,
+      actor_id: entry.actorId ?? null,
+      client_visible: entry.clientVisible ?? false,
+      metadata: entry.metadata ?? null,
+    })),
+  );
+
+  if (error) {
+    console.error("recordActivities failed:", error.message);
+  }
+}

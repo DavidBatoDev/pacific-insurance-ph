@@ -11,7 +11,7 @@ import { SCREEN_PATH, type ScreenId } from "../shell";
 import { hitHref, SEARCH_KIND_ICON, SearchHitRow, useGlobalSearch } from "./search-dropdown";
 
 /**
- * Global ⌘K command palette (design: command-palette.jsx). Live grouped
+ * Global ⌘K command palette. Live grouped
  * results across people, groups, policies, applications, claims, renewals and
  * travel via `globalSearchAction`; empty query shows "Jump to" screen entries.
  */
@@ -49,9 +49,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-  useEffect(() => {
-    setActiveIdx(0);
-  }, [term]);
+
 
   const go = (path: string) => {
     router.push(path);
@@ -65,9 +63,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const jumpEntries = term ? [] : SCREEN_ENTRIES;
   const rowCount = term ? flatHits.length + 1 : jumpEntries.length;
 
-  useEffect(() => {
-    if (activeIdx >= rowCount) setActiveIdx(Math.max(0, rowCount - 1));
-  }, [rowCount, activeIdx]);
+  // Render-phase adjustments: a new query restarts keyboard nav at the top,
+  // and a shrinking result list clamps the highlight into range.
+  const [prevTerm, setPrevTerm] = useState(term);
+  if (prevTerm !== term) {
+    setPrevTerm(term);
+    setActiveIdx(0);
+  } else if (activeIdx >= rowCount && activeIdx > 0) {
+    setActiveIdx(Math.max(0, rowCount - 1));
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -82,7 +86,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         setActiveIdx((a) => Math.max(0, a - 1));
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (!term) jumpEntries[activeIdx] && go(SCREEN_PATH[jumpEntries[activeIdx].id]);
+        if (!term) {
+          if (jumpEntries[activeIdx]) go(SCREEN_PATH[jumpEntries[activeIdx].id]);
+        }
         else if (activeIdx < flatHits.length) openHit(flatHits[activeIdx]);
         else go(`/search?q=${encodeURIComponent(term)}`);
       }

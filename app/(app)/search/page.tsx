@@ -38,7 +38,6 @@ export default async function SearchPage({
         iconName="search"
         title="Search"
         sub={query ? `Results for “${query}”` : "Type a query in the top bar"}
-        draft={false}
       />
 
       {query && groups.length === 0 && (

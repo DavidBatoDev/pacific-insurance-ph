@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/search/actions";
 import { I } from "../icons";
 import { Avatar } from "../primitives";
+import { useClientSearch } from "./use-client-search";
 
 export interface PickedClient {
   id: string;
@@ -26,25 +26,7 @@ export function ClientPicker({
   placeholder?: string;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<PaletteClientHit[]>([]);
-  const seq = useRef(0);
-
-  useEffect(() => {
-    const term = q.trim();
-    if (!term) {
-      setResults([]);
-      return;
-    }
-    const mySeq = ++seq.current;
-    const t = setTimeout(() => {
-      searchClientsForPalette(term)
-        .then((rows) => {
-          if (seq.current === mySeq) setResults(rows.slice(0, 5));
-        })
-        .catch(() => setResults([]));
-    }, 160);
-    return () => clearTimeout(t);
-  }, [q]);
+  const results = useClientSearch(q);
 
   if (value) {
     return (
@@ -103,29 +85,3 @@ export function ClientPicker({
   );
 }
 
-export const DRAWER_INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
-
-export function DrawerField({
-  label,
-  required,
-  hint,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label} {required && <span className="text-red">*</span>}
-      </label>
-      {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
-    </div>
-  );
-}

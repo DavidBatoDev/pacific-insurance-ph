@@ -44,8 +44,8 @@ import {
 } from "./wizard-data";
 
 /**
- * New Client Application — the 6-step wizard overlay (design
- * new-application.jsx / web/new-application-wizard.md). Adapts to the product
+ * New Client Application — the 6-step wizard overlay (see
+ * web/new-application-wizard.md). Adapts to the product
  * category (Health / Group HMO / Travel); the split Create button fans into
  * create / create & email / create & request documents / save draft.
  */

@@ -8,17 +8,17 @@ import { addGroupMemberAction, issueGroupEcardsAction } from "@/app/(app)/group/
 import type { TimelineEntry } from "@/lib/activity/read";
 import type { GroupAccount, GroupMember } from "@/lib/repositories/groups/group.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort, type Tone } from "../data";
+import { peso, pesoShort } from "@/lib/format";
+import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
-import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Avatar, Btn, Card, CardHead, TONE_BADGE } from "../primitives";
+import { Avatar, Btn, Card, CardHead, Field, INPUT, Pill } from "../primitives";
 
 /**
  * Group Account detail — the company-level equivalent of the Contact Profile
- * for a Group HMO account (design group.jsx), wired to group_accounts +
+ * for a Group HMO account, wired to group_accounts +
  * group_members.
  */
 
@@ -34,10 +34,7 @@ const GA_TONE: Record<string, Tone> = {
 const TIER_SHARE: Record<string, number> = { Executive: 96000, Premium: 62000, Standard: 44000 };
 
 const gaBadge = (val: string) => (
-  <span className={cn("inline-flex h-[20px] items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[GA_TONE[val] ?? "slate"])}>
-    <span className="size-1 rounded-full bg-current" />
-    {val}
-  </span>
+  <Pill size="sm" tone={GA_TONE[val] ?? "slate"} dot>{val}</Pill>
 );
 
 const fmtDate = (iso: string | null) =>
@@ -52,6 +49,8 @@ export function GroupLive({
   members: GroupMember[];
   activity: TimelineEntry[];
 }) {
+  // Stable "now" so server and client render the same countdown (purity rule).
+  const [renderedAt] = useState(() => Date.now());
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact } = useRecordNav();
@@ -63,7 +62,7 @@ export function GroupLive({
   const pending = members.filter((m) => m.status === "Pending").length;
   const pendingEcards = members.filter((m) => m.ecardStatus === "Pending").length;
   const renewalDays = group.expiryDate
-    ? Math.round((new Date(group.expiryDate + "T00:00:00").getTime() - Date.now()) / 86_400_000)
+    ? Math.round((new Date(group.expiryDate + "T00:00:00").getTime() - renderedAt) / 86_400_000)
     : null;
 
   const cycleUnit =
@@ -251,9 +250,9 @@ export function GroupLive({
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn("inline-flex h-[20px] items-center rounded-full border px-2 text-[10.5px] font-[650]", TONE_BADGE[m.relationship === "Principal" ? "green" : m.relationship === "Dependent" ? "violet" : "slate"])}>
+                      <Pill size="sm" tone={m.relationship === "Principal" ? "green" : m.relationship === "Dependent" ? "violet" : "slate"}>
                         {m.relationship}
-                      </span>
+                      </Pill>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{m.coverageTier}</td>
                     <td className="px-4 py-2.5">{gaBadge(m.ecardStatus)}</td>
@@ -388,28 +387,28 @@ function AddMemberDrawer({
         </>
       }
     >
-      <DrawerField label="Full name" required>
-        <input autoFocus className={DRAWER_INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan Dela Cruz" />
-      </DrawerField>
+      <Field label="Full name" required>
+        <input autoFocus className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan Dela Cruz" />
+      </Field>
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Relationship / role" required>
-          <select className={DRAWER_INPUT} value={relationship} onChange={(e) => setRelationship(e.target.value)}>
+        <Field label="Relationship / role" required>
+          <select className={INPUT} value={relationship} onChange={(e) => setRelationship(e.target.value)}>
             {["Principal", "Employee", "Dependent"].map((r) => (
               <option key={r}>{r}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Coverage tier" required>
-          <select className={DRAWER_INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
+        </Field>
+        <Field label="Coverage tier" required>
+          <select className={INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
             {["Standard", "Premium", "Executive"].map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
-        </DrawerField>
+        </Field>
       </div>
-      <DrawerField label="Join date" className="mt-4">
-        <input className={DRAWER_INPUT} type="date" value={join} onChange={(e) => setJoin(e.target.value)} />
-      </DrawerField>
+      <Field label="Join date" className="mt-4">
+        <input className={INPUT} type="date" value={join} onChange={(e) => setJoin(e.target.value)} />
+      </Field>
       <button
         onClick={() => setEcardNow(!ecardNow)}
         className={cn(

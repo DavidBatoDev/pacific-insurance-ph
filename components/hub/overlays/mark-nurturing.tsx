@@ -5,8 +5,7 @@ import { useState, useTransition } from "react";
 
 import { markNurturingAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { DRAWER_INPUT, DrawerField } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -66,21 +65,21 @@ export function MarkNurturingModal({
         </div>
       </div>
 
-      <DrawerField
+      <Field
         label="Re-engagement date"
         required
         hint="Puts the lead back in the follow-up queue on this date. A hold without one just goes quiet."
       >
-        <input className={DRAWER_INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </DrawerField>
-      <DrawerField label="Note" className="mt-3.5">
+        <input className={INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
+      <Field label="Note" className="mt-3.5">
         <textarea
           className="min-h-[100px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Why they’re on hold — budget timing, waiting on a spouse, renewal date…"
         />
-      </DrawerField>
+      </Field>
 
       <p className="mt-3.5 text-[11.5px] leading-relaxed text-faint">
         Logging a call or message with {clientName} while they’re on hold brings them back to

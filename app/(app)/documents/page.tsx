@@ -14,7 +14,6 @@ export default async function DocumentsPage() {
         iconName="folder"
         title="Documents"
         sub={`${total} document${total === 1 ? "" : "s"} in the repository`}
-        draft={false}
       />
 
       <Card className="mb-4 p-4">

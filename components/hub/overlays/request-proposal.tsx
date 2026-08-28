@@ -7,8 +7,8 @@ import { listProposalContactsAction, requestProposalAction } from "@/app/(app)/c
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -81,27 +81,27 @@ export function RequestProposalModal({
       </div>
 
       {!(clientId && clientName) && (
-        <DrawerField label="Lead / client" required className="mb-3.5">
+        <Field label="Lead / client" required className="mb-3.5">
           <ClientPicker
             value={picked}
             onPick={setPicked}
             onClear={() => setPicked(null)}
             placeholder="Search the lead this proposal is for…"
           />
-        </DrawerField>
+        </Field>
       )}
 
-      <DrawerField label="Proposal request note" required>
+      <Field label="Proposal request note" required>
         <textarea
           className="min-h-[110px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="What to request from the carrier (product, coverage, budget)…"
         />
-      </DrawerField>
-      <DrawerField label="Follow-up date" className="mt-3.5">
-        <input className={DRAWER_INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
-      </DrawerField>
+      </Field>
+      <Field label="Follow-up date" className="mt-3.5">
+        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+      </Field>
 
       <button
         onClick={() => setAlsoEmail(!alsoEmail)}
@@ -116,13 +116,13 @@ export function RequestProposalModal({
         Also log an email to Pacific Cross (not delivered)
       </button>
       {alsoEmail && (
-        <DrawerField label="Carrier recipient" className="mt-3">
-          <select className={DRAWER_INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
+        <Field label="Carrier recipient" className="mt-3">
+          <select className={INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
             <option value="">Enter another email…</option>
             {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.role ?? contact.department} · {contact.email}</option>)}
           </select>
-          {!carrierContactId && <input className={`${DRAWER_INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
-        </DrawerField>
+          {!carrierContactId && <input className={`${INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
+        </Field>
       )}
 
       <div className="mt-5 flex items-center justify-end gap-2.5">

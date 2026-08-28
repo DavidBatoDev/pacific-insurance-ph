@@ -6,8 +6,8 @@ import { useState, useTransition } from "react";
 
 import { generateProposalAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -72,14 +72,14 @@ export function GenerateProposalModal({
       </div>
 
       {!(clientId && clientName) && (
-        <DrawerField label="Lead / client" required className="mb-3.5">
+        <Field label="Lead / client" required className="mb-3.5">
           <ClientPicker
             value={picked}
             onPick={setPicked}
             onClear={() => setPicked(null)}
             placeholder="Search the Select or Blue Royale lead…"
           />
-        </DrawerField>
+        </Field>
       )}
 
       <div className="rounded-md border border-border-soft bg-surface-2 px-3.5 py-3 text-[12.5px] leading-relaxed text-muted-foreground">

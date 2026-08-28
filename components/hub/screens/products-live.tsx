@@ -12,15 +12,14 @@ import type { CatalogProduct, CatalogSnapshot } from "@/lib/repositories/product
 import { PRODUCT_CATEGORIES } from "@/lib/repositories/products/product.entity";
 import { cn } from "@/lib/utils";
 import { I, type IconName } from "../icons";
-import { DRAWER_INPUT, DrawerField } from "../overlays/client-picker";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, PageHead } from "../primitives";
+import { Btn, Card, Field, INPUT, PageHead, Pill, SEL, StatStrip } from "../primitives";
 import { ProductCatalogManager } from "./product-catalog-manager";
 
 /**
- * Products — system-configuration catalog (design products.jsx §13), wired to
+ * Products — system-configuration catalog, wired to
  * the products table. Categories are the fixed DB taxonomy; Admin gets full
  * CRUD, Staff/Agent are view-only; deletes are guarded by linked records.
  */
@@ -74,8 +73,8 @@ export function ProductsLive({
 
   const grouped = catFilter === "all" && statusFilter === "all" && !q.trim();
   const activeCount = products.filter((p) => p.active).length;
-  // The fixed taxonomy first (so empty categories still render in the grouped
-  // view, design products.jsx), then any stray values found in the data.
+  // The fixed taxonomy first (so empty categories still render in the
+  // grouped view), then any stray values found in the data.
   const categories = [
     ...new Set([...PRODUCT_CATEGORIES, ...products.map((p) => p.category ?? "Other")]),
   ];
@@ -181,15 +180,9 @@ export function ProductsLive({
                 )}
                 <td className="px-4 py-2.5 text-muted-foreground">{p.provider ?? "—"}</td>
                 <td className="px-4 py-2.5">
-                  <span
-                    className={cn(
-                      "inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]",
-                      p.active ? "border-green-border bg-green-soft text-green" : "border-transparent bg-slate-soft text-slate",
-                    )}
-                  >
-                    <span className="size-1.5 rounded-full bg-current" />
+                  <Pill tone={p.active ? "green" : "slate"} dot>
                     {p.active ? "Active" : "Inactive"}
-                  </span>
+                  </Pill>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums">{usage[p.id] ?? 0}</td>
                 {canEdit && <td className="px-4 py-2.5">{rowActions(p)}</td>}
@@ -206,7 +199,6 @@ export function ProductsLive({
       <PageHead
         iconName="folder"
         title="Products"
-        draft={false}
         sub="Master catalog of insurance products used across leads, policies, claims, payments & reports."
         actions={
           canEdit ? (
@@ -232,19 +224,16 @@ export function ProductsLive({
         )}
       </div>
 
-      <div className="mb-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-4"
+        stats={[
           { val: categories.length, label: "Categories" },
           { val: products.length, label: "Total products" },
           { val: activeCount, label: "Active", cls: "text-brand" },
           { val: products.length - activeCount, label: "Inactive", cls: "text-subtle" },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
@@ -292,7 +281,7 @@ export function ProductsLive({
 
       {grouped ? (
         // Grouped by category takes precedence over the table/card toggle
-        // (design products.jsx). Empty categories render with an "Add one" prompt.
+        // Empty categories render with an "Add one" prompt.
         categories.map((cat) => {
           const rows = filtered.filter((p) => (p.category ?? "Other") === cat);
           if (!rows.length && cat === "Other") return null; // catch-all only shown when populated
@@ -380,14 +369,7 @@ export function ProductsLive({
                       {p.category ?? "Other"}
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      "inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]",
-                      p.active ? "border-green-border bg-green-soft text-green" : "border-transparent bg-slate-soft text-slate",
-                    )}
-                  >
-                    {p.active ? "Active" : "Inactive"}
-                  </span>
+                  <Pill tone={p.active ? "green" : "slate"}>{p.active ? "Active" : "Inactive"}</Pill>
                 </div>
                 <p className="mt-2 line-clamp-2 min-h-[36px] text-[12.5px] text-muted-foreground">{p.description ?? "—"}</p>
                 <div className="mt-3 flex items-center justify-between border-t border-border-soft pt-3">
@@ -416,8 +398,6 @@ export function ProductsLive({
   );
 }
 
-const SEL =
-  "h-9 rounded-md border border-border-strong bg-card px-2.5 text-[12.5px] outline-none focus:border-brand";
 
 function IconBtn({
   title,
@@ -493,24 +473,24 @@ function ProductDrawer({
         </>
       }
     >
-      <DrawerField label="Product name" required>
-        <input autoFocus className={DRAWER_INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue Royale" />
-      </DrawerField>
-      <DrawerField label="Category" required className="mt-4">
-        <select className={DRAWER_INPUT} value={category ?? "Other"} onChange={(e) => setCategory(e.target.value)}>
+      <Field label="Product name" required>
+        <input autoFocus className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue Royale" />
+      </Field>
+      <Field label="Category" required className="mt-4">
+        <select className={INPUT} value={category ?? "Other"} onChange={(e) => setCategory(e.target.value)}>
           {PRODUCT_CATEGORIES.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
-      </DrawerField>
-      <DrawerField label="Short description" className="mt-4">
+      </Field>
+      <Field label="Short description" className="mt-4">
         <textarea
           className="min-h-[80px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={description ?? ""}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="One-line summary shown across the platform"
         />
-      </DrawerField>
+      </Field>
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
         <div>
           <div className="text-[13px] font-[600]">{active ? "Active" : "Inactive"}</div>

@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Btn, Card, CardHead, CountPill, PageHead } from "../primitives";
+import { Btn, Card, CardHead, Field, PageHead, StatStrip } from "../primitives";
 
 /**
- * Email Templates — two-pane list + editor over the email_templates table
- * (design: email-templates.jsx §14). Wired via server actions.
+ * Email Templates — two-pane list + editor over the email_templates table.
+ * Wired via server actions.
  */
 
 const PREVIEW_CTX = {
@@ -108,7 +108,6 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
       <PageHead
         iconName="mail"
         title="Email Templates"
-        draft={false}
         sub="One source of truth for outbound copy — reused by the Contact Profile composer, the application wizard, and every send-enabled modal."
         actions={
           canEdit ? (
@@ -119,19 +118,16 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
         }
       />
 
-      <div className="mb-[18px] grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
-        {[
+      <StatStrip
+        size="sm"
+        className="mb-[18px]"
+        stats={[
           { val: templates.length, label: "Templates" },
           { val: activeCount, label: "Active", cls: "text-brand" },
           { val: MERGE_FIELDS.length, label: "Merge fields" },
           { val: 3, label: "Consumers wired" },
-        ].map((s, i) => (
-          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
-            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)}>{s.val}</div>
-            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
 
       <div className="grid grid-cols-[340px_1fr] items-start gap-4 max-[1100px]:grid-cols-1">
         {/* List */}
@@ -297,21 +293,3 @@ export function TemplatesScreen({ templates }: { templates: EmailTemplate[] }) {
   );
 }
 
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}

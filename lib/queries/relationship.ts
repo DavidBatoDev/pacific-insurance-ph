@@ -3,8 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /**
- * Relationship touchpoints (design screens-extra.jsx RelationshipScreen /
- * new-campaign.jsx audiences), derived from real client records: birthdays
+ * Relationship touchpoints, derived from real client records: birthdays
  * from date_of_birth, anniversaries from created_at, re-nurture from
  * Nurturing/Lost leads.
  */

@@ -24,11 +24,10 @@ import { I } from "../icons";
 import { Modal } from "../overlays/modal";
 import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
-import { Avatar, Card, DraftBadge, PageHead, TONE_BADGE } from "../primitives";
+import { Avatar, Card, DraftBadge, INPUT as INPUT_BASE, PageHead, Pill } from "../primitives";
 
 /**
- * Settings — 6-tab workspace configuration (design settings.jsx /
- * settings-page.md). Team is wired to the real users table (Admin-only);
+ * Settings — 6-tab workspace configuration (see settings-page.md). Team is wired to the real users table (Admin-only);
  * the config-store tabs stay draft until their backing tables land.
  */
 
@@ -73,7 +72,6 @@ export function SettingsLive({
       <PageHead
         iconName="settings"
         title="Settings"
-        draft={false}
         sub="Manage your agency workspace and preferences"
       />
 
@@ -118,8 +116,8 @@ export function SettingsLive({
   );
 }
 
-const INPUT =
-  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand disabled:bg-surface-3 disabled:text-muted-foreground";
+/* Read-only team fields render disabled, hence the extra disabled: styles. */
+const INPUT = INPUT_BASE + " disabled:bg-surface-3 disabled:text-muted-foreground";
 
 function GeneralTab({ canEdit }: { canEdit: boolean }) {
   return (
@@ -229,10 +227,9 @@ function TeamTab({ users }: { users: User[] }) {
                   </select>
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className={cn("inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-[650]", TONE_BADGE[u.status === "Active" ? "green" : "red"])}>
-                    <span className="size-1.5 rounded-full bg-current" />
+                  <Pill tone={u.status === "Active" ? "green" : "red"} dot>
                     {u.status}
-                  </span>
+                  </Pill>
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <button
@@ -538,16 +535,8 @@ function PaymentChannelsTab({ channels, canEdit }: { channels: PaymentChannel[];
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-[13.5px] font-[650]">
                 {c.label}
-                {c.isDefault && (
-                  <span className={cn("inline-flex h-[19px] items-center rounded-full border px-2 text-[10.5px] font-bold", TONE_BADGE.green)}>
-                    Default
-                  </span>
-                )}
-                {!c.active && (
-                  <span className={cn("inline-flex h-[19px] items-center rounded-full border px-2 text-[10.5px] font-bold", TONE_BADGE.slate)}>
-                    Inactive
-                  </span>
-                )}
+                {c.isDefault && <Pill size="sm" tone="green">Default</Pill>}
+                {!c.active && <Pill size="sm" tone="slate">Inactive</Pill>}
               </div>
               <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
                 {c.channelType} · {c.accountName} · <span className="font-mono">{c.accountNumber}</span>

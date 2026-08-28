@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 
 import { fileClaimAction, listClientPoliciesAction } from "@/app/(app)/claims/actions";
 import { I } from "../icons";
-import { Btn } from "../primitives";
-import { ClientPicker, DRAWER_INPUT, DrawerField, type PickedClient } from "./client-picker";
+import { Btn, Field, INPUT } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
@@ -24,12 +24,16 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
+  // Render-phase adjustment: a different client invalidates the picked policy.
+  const [prevClient, setPrevClient] = useState(client);
+  if (prevClient !== client) {
+    setPrevClient(client);
     setPolicyId("");
-    if (!client) {
-      setPolicies([]);
-      return;
-    }
+    setPolicies([]);
+  }
+
+  useEffect(() => {
+    if (!client) return;
     listClientPoliciesAction(client.id).then(setPolicies).catch(() => setPolicies([]));
   }, [client]);
 
@@ -71,13 +75,13 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <DrawerField label="Claimant" required>
+      <Field label="Claimant" required>
         <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
-      </DrawerField>
+      </Field>
 
       {client && (
-        <DrawerField label="Policy" hint={policies.length ? undefined : "No policies on file for this contact"} className="mt-4">
-          <select className={DRAWER_INPUT} value={policyId} onChange={(e) => setPolicyId(e.target.value)} disabled={!policies.length}>
+        <Field label="Policy" hint={policies.length ? undefined : "No policies on file for this contact"} className="mt-4">
+          <select className={INPUT} value={policyId} onChange={(e) => setPolicyId(e.target.value)} disabled={!policies.length}>
             <option value="">None / not linked</option>
             {policies.map((p) => (
               <option key={p.id} value={p.id}>
@@ -85,34 +89,34 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
-        </DrawerField>
+        </Field>
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <DrawerField label="Claim type" required>
-          <select className={DRAWER_INPUT} value={claimType} onChange={(e) => setClaimType(e.target.value)}>
+        <Field label="Claim type" required>
+          <select className={INPUT} value={claimType} onChange={(e) => setClaimType(e.target.value)}>
             {["Hospitalization", "Outpatient", "Reimbursement", "Emergency", "Other"].map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
-        </DrawerField>
-        <DrawerField label="Incident date">
-          <input className={DRAWER_INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
-        </DrawerField>
+        </Field>
+        <Field label="Incident date">
+          <input className={INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
+        </Field>
       </div>
 
-      <DrawerField label="Amount claimed (₱)" className="mt-4">
-        <input className={DRAWER_INPUT} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
-      </DrawerField>
+      <Field label="Amount claimed (₱)" className="mt-4">
+        <input className={INPUT} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
+      </Field>
 
-      <DrawerField label="Notes" className="mt-4">
+      <Field label="Notes" className="mt-4">
         <textarea
           className="min-h-[80px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Incident context, hospital, documents expected…"
         />
-      </DrawerField>
+      </Field>
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
         <I.clipboard size={15} className="mt-0.5 shrink-0" />

@@ -6,15 +6,15 @@ import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { I, type IconName } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar } from "../primitives";
-import { ClientPicker, DrawerField, type PickedClient } from "./client-picker";
+import { Avatar, Field } from "../primitives";
+import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays, type EngageContact } from "./overlay-provider";
 import { EmailForm, type EmailTarget } from "./send-email";
 
 /**
  * Engage drawer — the shared human-in-the-loop **email** composer opened from anywhere
- * WITHOUT an open Contact Profile (design engage.jsx; on the profile the same
+ * WITHOUT an open Contact Profile (on the profile the same
  * fields render inline as the Email tab, via the same `EmailForm`). Until a provider is
  * connected, email actions create a communications row + timeline entry only.
  *
@@ -87,9 +87,9 @@ export function EngageDrawer({
       </div>
 
       {!contact && (
-        <DrawerField label="Recipient" required className="mb-4">
+        <Field label="Recipient" required className="mb-4">
           <ClientPicker value={null} onPick={pickContact} onClear={() => setContact(null)} placeholder="Search a lead or client…" />
-        </DrawerField>
+        </Field>
       )}
       {contact && (
         <div className="mb-4 flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">

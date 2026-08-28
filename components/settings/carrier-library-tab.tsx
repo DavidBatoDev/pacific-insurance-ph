@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 import { beginLibraryUploadAction, discardLibraryUploadAction, finalizeLibraryUploadAction, setLibraryDocumentStateAction, updateLibraryDocumentAction } from "@/app/(app)/settings/actions";
 import { I } from "@/components/hub/icons";
+import { INPUT } from "@/components/hub/primitives";
 import { Modal } from "@/components/hub/overlays/modal";
 import { useOverlays } from "@/components/hub/overlays/overlay-provider";
 import { LIBRARY_AGE_BANDS, LIBRARY_DOCUMENT_TYPES, type LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
@@ -12,7 +13,7 @@ import type { CatalogProductVersion } from "@/lib/repositories/products/product.
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
-const INPUT = "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13px] outline-none focus:border-brand";
+
 type FormState = { productVersionId: string; documentName: string; documentType: string; versionLabel: string; variant: string; ageBand: string; effectiveDate: string; expiryDate: string; notes: string; distributionNotes: string };
 const EMPTY: FormState = { productVersionId: "", documentName: "", documentType: "Brochure", versionLabel: "", variant: "", ageBand: "All Ages", effectiveDate: "", expiryDate: "", notes: "", distributionNotes: "" };
 

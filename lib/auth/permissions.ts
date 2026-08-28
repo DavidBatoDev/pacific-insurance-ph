@@ -1,7 +1,7 @@
 /**
- * Role → capability matrix (mirrors docs web/permissions.md and the design
- * prototype's permissions.jsx). Pure and isomorphic — usable from server
- * components, server actions, and client components alike.
+ * Role → capability matrix (mirrors docs web/permissions.md). Pure and
+ * isomorphic — usable from server components, server actions, and client
+ * components alike.
  *
  * The DB stores granular roles (`users.role`: Owner/Admin/Assistant/Viewer);
  * the app reasons in the three design roles. The "View as" switcher in the

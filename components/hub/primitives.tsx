@@ -1,10 +1,9 @@
-"use client";
-
-import { useId, type ComponentProps, type ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { avColor, initials, type Tier, type Tone } from "./data";
+import { avColor, initials } from "@/lib/format";
+import type { Tone } from "./tone";
 import { I, type IconName } from "./icons";
 
 /* ---------- Tone → utility-class maps (static so Tailwind keeps them) ---------- */
@@ -52,6 +51,105 @@ export const TONE_ALERT: Record<Tone, string> = {
   violet: "bg-violet-soft border-violet-border",
   slate: "bg-slate-soft border-transparent",
 };
+
+/* ---------- Shared form-control styles ---------- */
+/** Standard text input / select (drawers, forms, screens). */
+export const INPUT =
+  "h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none transition-colors focus:border-brand focus:ring-[3px] focus:ring-brand/20";
+/** Standard textarea. */
+export const AREA =
+  "w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand";
+/** Inline filter select. */
+export const SEL =
+  "h-9 rounded-md border border-border-strong bg-card px-2.5 text-[12.5px] outline-none focus:border-brand";
+/** Compact variant of `SEL` for dense widget headers. */
+export const SEL_SM =
+  "h-8 rounded-md border border-border-strong bg-card px-2 text-[12.5px] outline-none focus:border-brand";
+
+/* ---------- Form field wrapper ---------- */
+/** Uppercase field label + control (+ optional hint), used across drawers and forms. */
+export function Field({
+  label,
+  required,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+        {label} {required && <span className="text-red">*</span>}
+      </label>
+      {children}
+      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
+    </div>
+  );
+}
+
+/* ---------- Stat strip ---------- */
+export interface Stat {
+  val: ReactNode;
+  label: string;
+  /** Inline CSS colour for the value (used by callers with computed colours). */
+  color?: string;
+  /** Utility class for the value (e.g. "text-brand"). */
+  cls?: string;
+  /** Optional footer content below the label (progress bars etc.). */
+  extra?: ReactNode;
+}
+
+/** The four-up (or three-up) headline-number strip shown under a PageHead. */
+export function StatStrip({
+  stats,
+  size = "lg",
+  cols = 4,
+  className,
+}: {
+  stats: Stat[];
+  /** `lg` (22px value, list screens) or `sm` (19px value, dense screens). */
+  size?: "sm" | "lg";
+  cols?: 3 | 4;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-3",
+        cols === 4 ? "grid-cols-4 max-[900px]:grid-cols-2" : "grid-cols-3",
+        className,
+      )}
+    >
+      {stats.map((s, i) =>
+        size === "lg" ? (
+          <div key={i} className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
+            <div
+              className={cn("text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums", s.cls)}
+              style={{ color: s.color }}
+            >
+              {s.val}
+            </div>
+            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{s.label}</div>
+            {s.extra}
+          </div>
+        ) : (
+          <div key={i} className="rounded-md border border-border bg-card px-4 py-3">
+            <div className={cn("text-[19px] font-bold tabular-nums", s.cls)} style={{ color: s.color }}>
+              {s.val}
+            </div>
+            <div className="text-[11.5px] font-semibold text-subtle">{s.label}</div>
+            {s.extra}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
 
 /* ---------- Avatar ---------- */
 export function Avatar({
@@ -125,34 +223,42 @@ const STATUS_TONE: Record<string, Tone> = {
   "Follow-up": "amber",
 };
 
-export function StatusBadge({ status }: { status: string }) {
-  const tone = STATUS_TONE[status] ?? "slate";
+/** Tone-tinted rounded pill; the base shape behind every status/stage chip. */
+export function Pill({
+  tone = "slate",
+  size = "md",
+  dot,
+  className,
+  children,
+}: {
+  tone?: Tone;
+  /** `md` (22px, list rows) or `sm` (20px, dense tables/cards). */
+  size?: "sm" | "md";
+  /** Leading colour dot. */
+  dot?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <span
       className={cn(
-        "inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
+        "inline-flex items-center whitespace-nowrap rounded-full border font-[650]",
+        size === "md" ? "h-[22px] gap-1.5 px-2.5 text-[11.5px]" : "h-[20px] gap-1 px-2 text-[10.5px]",
         TONE_BADGE[tone],
+        className,
       )}
     >
-      <span className="size-1.5 rounded-full bg-current" />
-      {status}
+      {dot && <span className={cn("rounded-full bg-current", size === "md" ? "size-1.5" : "size-1")} />}
+      {children}
     </span>
   );
 }
 
-/* ---------- Client tier badge ---------- */
-const TIER_TONE: Record<Tier, Tone> = { Gold: "amber", Silver: "slate", Bronze: "violet" };
-
-export function TierBadge({ tier }: { tier: Tier }) {
+export function StatusBadge({ status }: { status: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex h-[22px] items-center whitespace-nowrap rounded-full border px-2.5 text-[11.5px] font-[650]",
-        TONE_BADGE[TIER_TONE[tier]],
-      )}
-    >
-      {tier}
-    </span>
+    <Pill tone={STATUS_TONE[status] ?? "slate"} dot>
+      {status}
+    </Pill>
   );
 }
 
@@ -178,60 +284,7 @@ export function DueCell({ days, label }: { days: number; label?: string }) {
   );
 }
 
-/* ---------- SVG sparkline ---------- */
-export function Sparkline({
-  data,
-  color = "var(--brand)",
-  w = 110,
-  h = 26,
-  fill = true,
-}: {
-  data: number[];
-  color?: string;
-  w?: number;
-  h?: number;
-  fill?: boolean;
-}) {
-  const gid = "spark" + useId().replace(/:/g, "");
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => [
-    (i / (data.length - 1)) * w,
-    h - 2 - ((v - min) / range) * (h - 4),
-  ]);
-  const line = pts
-    .map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1))
-    .join(" ");
-  const area = `${line} L ${w} ${h} L 0 ${h} Z`;
-  const last = pts[pts.length - 1];
-  return (
-    <svg
-      width="100%"
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      className="block overflow-visible"
-    >
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {fill && <path d={area} fill={`url(#${gid})`} />}
-      <path
-        d={line}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx={last[0]} cy={last[1]} r="2.3" fill={color} />
-    </svg>
-  );
-}
+export { Sparkline } from "./primitives-interactive";
 
 /* ---------- Card shell + button ---------- */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -321,7 +374,7 @@ export function Btn({
 }
 
 /* ---------- Draft / mock-only badge ---------- */
-/** Visible marker so prototype reviewers know a screen is static mock UI. */
+/** Marks a section that is not wired to live data yet. */
 export function DraftBadge() {
   return (
     <span
@@ -335,22 +388,19 @@ export function DraftBadge() {
 }
 
 /* ---------- Page header ---------- */
-/** Standard screen header: icon tile + title (+ draft badge) + sub + right actions. */
+/** Standard screen header: icon tile + title + sub + right actions. */
 export function PageHead({
   icon,
   iconName,
   title,
   sub,
   actions,
-  draft = true,
 }: {
   icon?: LucideIcon;
   iconName?: IconName;
   title: string;
   sub?: ReactNode;
   actions?: ReactNode;
-  /** Show the "Draft · mock data" badge. Real (wired) screens pass false. */
-  draft?: boolean;
 }) {
   const Icon = icon ?? (iconName ? I[iconName] : undefined);
   return (
@@ -363,7 +413,6 @@ export function PageHead({
             </span>
           )}
           {title}
-          {draft && <DraftBadge />}
         </h1>
         {sub && <p className="mt-[3px] text-[13.5px] text-muted-foreground">{sub}</p>}
       </div>
