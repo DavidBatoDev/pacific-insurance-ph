@@ -19,7 +19,7 @@ import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
 import { usePersona } from "./persona";
 import {
-  Btn, Card, CardHead, CardLink, DueCell, Sparkline, StatusBadge,
+  Btn, Card, CardHead, CardLink, DueCell, PageHead, Sparkline, StatusBadge,
   TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Td } from "./table";
@@ -59,23 +59,36 @@ function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
     { id: "applications", color: "violet", icon: "alertTri", num: stats.alerts.appsMissingRequirements, label: "Applications missing requirements" },
   ];
   return (
-    <div className="mb-[18px] grid grid-cols-4 gap-3 max-[1200px]:grid-cols-2">
+    <div className="mb-[18px] grid grid-cols-4 gap-3 max-[1200px]:grid-cols-2 max-[680px]:grid-cols-1">
       {alerts.map((a) => {
         const Ico = I[a.icon];
+        // A cleared queue is good news, not an alert: at zero the card drops to
+        // the neutral surface so the counts that do need attention stand out.
+        const clear = a.num === 0;
         return (
           <button
             key={a.id}
             onClick={() => setScreen(a.id)}
             className={cn(
               "group flex items-center gap-[13px] rounded-md border p-[13px] text-left transition-all hover:-translate-y-px hover:shadow-md",
-              TONE_ALERT[a.color],
+              clear ? "border-border bg-card" : TONE_ALERT[a.color],
             )}
           >
-            <span className={cn("grid size-[38px] shrink-0 place-items-center rounded-[9px]", TONE_SOLID[a.color])}>
+            <span
+              className={cn(
+                "grid size-[38px] shrink-0 place-items-center rounded-[9px]",
+                clear ? "bg-surface-3 text-subtle" : TONE_SOLID[a.color],
+              )}
+            >
               <Ico size={20} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className={cn("text-[19px] font-[750] leading-[1.1] tracking-[-0.02em] tabular-nums", TONE_TEXT[a.color])}>
+              <span
+                className={cn(
+                  "text-[19px] font-[750] leading-[1.1] tracking-[-0.02em] tabular-nums",
+                  clear ? "text-subtle" : TONE_TEXT[a.color],
+                )}
+              >
                 {a.num}
               </span>
               <span className="mt-px text-[12px] font-[550] text-muted-foreground">{a.label}</span>
@@ -100,36 +113,35 @@ function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   ];
   const dirIco: Record<KpiTrend["dir"], IconName> = { up: "arrowUp", down: "arrowDown", flat: "arrowRight" };
   return (
-    <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3">
+    <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3 max-[680px]:grid-cols-2">
       {kpis.map((k) => {
         const Ico = I[k.icon];
         const DirIco = I[dirIco[k.trend.dir]];
-        const sparkColor = k.trend.dir === "down" ? "var(--red)" : k.trend.dir === "flat" ? "var(--text-subtle)" : "var(--brand)";
         return (
           <button
             key={k.id}
             onClick={() => setScreen(k.id)}
             className="overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:shadow-md"
           >
-            <div className="flex items-center justify-between">
-              <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-                <Ico size={17} />
-              </span>
-              <span
-                title="New records this month vs last"
-                className={cn(
-                  "inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-bold tabular-nums",
-                  k.trend.dir === "up" ? "bg-green-soft text-green" : k.trend.dir === "down" ? "bg-red-soft text-red" : "bg-surface-3 text-subtle",
-                )}
-              >
-                <DirIco size={12} /> {k.trend.delta}
-              </span>
-            </div>
+            <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
+              <Ico size={17} />
+            </span>
             <div className="mt-3 text-[27px] font-[760] leading-none tracking-[-0.03em] tabular-nums">{k.value}</div>
             <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{k.label}</div>
-            <div className="mt-2.5">
-              <Sparkline data={k.trend.spark} color={sparkColor} />
+            {/* The delta counts newly created records, not a change in the headline
+                total, so it sits with the trend line it describes rather than beside
+                the number it would otherwise seem to modify. It stays neutral because
+                the direction is not good or bad on its own — fewer new claims and
+                fewer new clients point opposite ways. */}
+            <div className="mt-3 flex items-end gap-2">
+              <span className="min-w-0 flex-1">
+                <Sparkline data={k.trend.spark} color="var(--slate)" />
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-surface-3 px-1.5 py-px text-[11px] font-bold tabular-nums text-muted-foreground">
+                <DirIco size={12} /> {k.trend.delta.replace(/^[+-]/, "")}
+              </span>
             </div>
+            <div className="mt-1.5 text-[10.5px] font-[550] text-faint">new this month vs last</div>
           </button>
         );
       })}
@@ -144,7 +156,12 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   const rows = stats.revenue.rows;
   const max = Math.max(...rows.map((r) => r.amount), 1);
   const items = rows.reduce((a, r) => a + r.count, 0);
-  const colors: Record<string, string> = { Applications: "#059669", Renewals: "#2563eb", Travel: "#d97706" };
+  // Theme tokens, not literals: these bars sit on --card and have to re-tint in dark.
+  const colors: Record<string, string> = {
+    Applications: "var(--green)",
+    Renewals: "var(--blue)",
+    Travel: "var(--amber)",
+  };
   const icons: Record<string, IconName> = { Applications: "fileText", Renewals: "refresh", Travel: "plane" };
   const canSend = persona.role !== "agent"; // Admin & Staff only (§12)
 
@@ -158,23 +175,31 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
           {peso(stats.revenue.total)}
         </div>
         <div className="mt-2 flex items-center gap-1.5 text-[12px] text-subtle">
-          <I.trendUp size={13} className="text-brand" /> {items} items across 3 pipelines
+          <I.trendUp size={13} className="text-brand" /> {items} item{items === 1 ? "" : "s"} across{" "}
+          {rows.length} pipelines
         </div>
       </div>
       <div className="flex flex-col gap-2.5">
         {rows.map((row) => {
           const Ico = I[icons[row.source]];
+          // Wide: label | bar | amount. Narrow: label and amount share the first
+          // row and the bar spans beneath them, so nothing has to wrap.
           return (
-            <div key={row.source} className="grid grid-cols-[220px_1fr_110px] items-center gap-3.5 max-[1200px]:grid-cols-[150px_1fr_90px]">
-              <span className="flex items-center gap-2 text-[12.5px] font-[550] text-muted-foreground">
-                <Ico size={15} style={{ color: colors[row.source] }} />
+            <div
+              key={row.source}
+              className="grid grid-cols-[248px_1fr_110px] items-center gap-3.5 max-[1200px]:grid-cols-[1fr_auto] max-[1200px]:gap-x-3 max-[1200px]:gap-y-1.5"
+            >
+              <span className="flex items-center gap-2 whitespace-nowrap text-[12.5px] font-[550] text-muted-foreground max-[1200px]:col-start-1 max-[1200px]:row-start-1">
+                <Ico size={15} className="shrink-0" style={{ color: colors[row.source] }} />
                 {row.source} awaiting payment
                 <span className="tabular-nums text-subtle">· {row.count}</span>
               </span>
-              <span className="h-[9px] overflow-hidden rounded-full bg-surface-3">
+              <span className="h-[9px] overflow-hidden rounded-full bg-surface-3 max-[1200px]:col-span-2 max-[1200px]:row-start-2">
                 <span className="block h-full rounded-full" style={{ width: `${(row.amount / max) * 100}%`, background: colors[row.source] }} />
               </span>
-              <span className="text-right text-[13.5px] font-bold tabular-nums">{peso(row.amount)}</span>
+              <span className="text-right text-[13.5px] font-bold tabular-nums max-[1200px]:col-start-2 max-[1200px]:row-start-1">
+                {peso(row.amount)}
+              </span>
             </div>
           );
         })}
@@ -202,6 +227,7 @@ function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[
       setScreen={setScreen}
       rows={rows}
       slice={6}
+      empty="No applications need action right now."
       defaultSort={{ key: "createdAt", dir: "desc" }}
       columns={[
         { k: "referenceNo", label: "Application" },
@@ -212,7 +238,7 @@ function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[
       ]}
       renderRow={(a) => (
         <>
-          <Td><span className="font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
+          <Td><span className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={a.clientName ?? "—"} sub={a.applicationType} /></Td>
           <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
           <Td><StatusBadge status={a.status} /></Td>
@@ -233,6 +259,7 @@ function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count
       setScreen={setScreen}
       rows={rows}
       slice={6}
+      empty="No renewals in the queue."
       defaultSort={{ key: "renewalDueDate", dir: "asc" }}
       columns={[
         { k: "clientName", label: "Client" },
@@ -266,6 +293,7 @@ function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: nu
       setScreen={setScreen}
       rows={rows}
       slice={5}
+      empty="No claims need action right now."
       defaultSort={{ key: "updatedAt", dir: "desc" }}
       columns={[
         { k: "referenceNo", label: "Claim" },
@@ -274,7 +302,7 @@ function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: nu
       ]}
       renderRow={(c) => (
         <>
-          <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
+          <Td><span className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} /></Td>
           <Td><StatusBadge status={c.status} /></Td>
         </>
@@ -293,6 +321,7 @@ function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; c
       setScreen={setScreen}
       rows={rows}
       slice={5}
+      empty="No travel requests in the queue."
       defaultSort={{ key: "departureDate", dir: "asc" }}
       columns={[
         { k: "clientName", label: "Client" },
@@ -315,7 +344,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
   const router = useRouter();
   const overlays = useOverlays();
   const setScreen = useScreenNav();
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   const toggle = (t: RealTask) =>
     startTransition(async () => {
@@ -370,7 +399,8 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
                 <button
                   key={t.id}
                   onClick={() => toggle(t)}
-                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
+                  disabled={pending}
+                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover disabled:opacity-60"
                 >
                   <span className={cn(
                     "mt-px grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
@@ -577,6 +607,34 @@ function useExportErrorToast() {
 }
 
 /* ---------- Assembly ---------- */
+
+/**
+ * Greeting + date, both pinned to Asia/Manila. The brokerage works one timezone,
+ * and pinning it also keeps the server render and the client hydration agreeing
+ * on the same day and hour regardless of where the server runs.
+ */
+function manilaHeading() {
+  const now = new Date();
+  const hour = Number(
+    new Intl.DateTimeFormat("en-PH", {
+      timeZone: MANILA,
+      hour: "numeric",
+      hour12: false,
+    }).format(now),
+  );
+  return {
+    greeting: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
+    dateStr: now.toLocaleDateString("en-PH", {
+      timeZone: MANILA,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+  };
+}
+const MANILA = "Asia/Manila";
+
 export function Dashboard({
   stats,
   queues,
@@ -591,32 +649,17 @@ export function Dashboard({
   const setScreen = useScreenNav();
   const persona = usePersona();
   useExportErrorToast();
-  const dateStr = new Date().toLocaleDateString("en-PH", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const { greeting, dateStr } = manilaHeading();
   return (
     <div>
-      <div className="mb-[18px] flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.025em]">
-            Good morning, {persona.userName.split(" ")[0]}
-          </h1>
-          <p className="mt-[3px] text-[13.5px] text-muted-foreground">
-            {/* One expression, not `{dateStr} · text`: the React Compiler's SSR
-                output drops the leading space of a text node that follows an
-                expression, which hydration then rejects. */}
-            {`${dateStr} · Here’s what needs your attention today.`}
-          </p>
-        </div>
-        {persona.can("dashboard", "export") && (
-          <div className="flex items-center gap-2.5 max-[900px]:hidden">
-            <ExportMenu />
-          </div>
-        )}
-      </div>
+      <PageHead
+        title={`${greeting}, ${persona.userName.split(" ")[0]}`}
+        /* One expression, not `{dateStr} · text`: the React Compiler's SSR output
+           drops the leading space of a text node that follows an expression,
+           which hydration then rejects. */
+        sub={`${dateStr} · Here’s what needs your attention today.`}
+        actions={persona.can("dashboard", "export") ? <ExportMenu /> : undefined}
+      />
 
       <AlertBar setScreen={setScreen} stats={stats} />
       <KpiRow setScreen={setScreen} stats={stats} />
@@ -626,7 +669,10 @@ export function Dashboard({
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
           <ApplicationsCard setScreen={setScreen} rows={queues.applications} count={stats.kpis.applicationsInProgress} />
           <RenewalsCard setScreen={setScreen} rows={queues.renewals} count={stats.kpis.upcomingRenewals} />
-          <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
+          {/* Side by side only on a genuinely wide monitor: below that the pair
+              cannot fit client + status without clipping the status column, which
+              is the one cell these queues exist to show. */}
+          <div className="grid grid-cols-1 gap-4 min-[1700px]:grid-cols-2">
             <ClaimsCard setScreen={setScreen} rows={queues.claims} count={stats.kpis.openClaims} />
             <TravelCard setScreen={setScreen} rows={queues.travel} count={stats.kpis.openTravel} />
           </div>

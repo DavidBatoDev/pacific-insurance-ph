@@ -32,6 +32,7 @@ export function QueueCard<T extends { id: string; clientId: string }>({
   columns,
   defaultSort,
   renderRow,
+  empty,
 }: {
   icon: LucideIcon;
   title: string;
@@ -43,6 +44,8 @@ export function QueueCard<T extends { id: string; clientId: string }>({
   columns: QueueColumn<T>[];
   defaultSort: { key: keyof T; dir: "asc" | "desc" };
   renderRow: (row: T) => ReactNode;
+  /** Shown in place of the table body when the queue is clear. */
+  empty: string;
 }) {
   const top = rows.slice(0, slice);
   const { sorted, sort, toggle } = useSort(top, defaultSort.key, defaultSort.dir);
@@ -59,22 +62,29 @@ export function QueueCard<T extends { id: string; clientId: string }>({
           </CardLink>
         }
       />
-      <Table>
-        <thead>
-          <tr>
-            {columns.map((c) => (
-              <Th key={String(c.k)} label={c.label} k={c.k} sort={sort} toggle={toggle} num={c.num} />
+      {sorted.length === 0 ? (
+        <div className="flex items-center gap-2.5 px-[18px] py-[22px] text-[12.5px] text-subtle">
+          <I.check size={15} className="shrink-0 text-green" />
+          {empty}
+        </div>
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              {columns.map((c) => (
+                <Th key={String(c.k)} label={c.label} k={c.k} sort={sort} toggle={toggle} num={c.num} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((row) => (
+              <Row key={row.id} onClick={() => openContact(row.clientId)}>
+                {renderRow(row)}
+              </Row>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((row) => (
-            <Row key={row.id} onClick={() => openContact(row.clientId)}>
-              {renderRow(row)}
-            </Row>
-          ))}
-        </tbody>
-      </Table>
+          </tbody>
+        </Table>
+      )}
     </Card>
   );
 }
