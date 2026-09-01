@@ -56,10 +56,10 @@ const NAV_MAIN: NavEntry[] = [
   { id: "travel", label: "Travel Insurance", icon: "plane" },
 ];
 const NAV_WORK: NavEntry[] = [
+  { id: "tasks", label: "Tasks", icon: "checkSquare" },
   { id: "payments", label: "Payments", icon: "peso" },
   { id: "commissions", label: "Commissions", icon: "chart" },
   { id: "documents", label: "Documents", icon: "folder" },
-  { id: "tasks", label: "Tasks", icon: "checkSquare" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
 ];
 const NAV_SYS: NavEntry[] = [
