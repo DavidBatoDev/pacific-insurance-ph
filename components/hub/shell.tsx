@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { cn } from "@/lib/utils";
@@ -58,13 +58,13 @@ const NAV_MAIN: NavEntry[] = [
 const NAV_WORK: NavEntry[] = [
   { id: "tasks", label: "Tasks", icon: "checkSquare" },
   { id: "payments", label: "Payments", icon: "peso" },
-  { id: "commissions", label: "Commissions", icon: "chart" },
+  { id: "commissions", label: "Commissions", icon: "coins" },
   { id: "documents", label: "Documents", icon: "folder" },
   { id: "relationship", label: "Relationship Mgmt", icon: "heart" },
 ];
 const NAV_SYS: NavEntry[] = [
   { id: "reports", label: "Reports", icon: "chart" },
-  { id: "products", label: "Products", icon: "folder" },
+  { id: "products", label: "Products", icon: "package" },
   { id: "templates", label: "Email Templates", icon: "mail" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
@@ -77,6 +77,35 @@ const COUNT_KEY: Partial<Record<ScreenId, keyof ShellStats>> = {
   claims: "claims",
   travel: "travel",
   tasks: "tasks",
+};
+
+/**
+ * Remembers that the user closed the sidebar's workload summary.
+ *
+ * Read through useSyncExternalStore rather than an effect: localStorage is an
+ * external store, the server snapshot keeps hydration honest, and the custom
+ * event keeps the docked sidebar and the mobile drawer — two separate mounts of
+ * SidebarNav — in step without either owning the state.
+ */
+const WORKLOAD_HIDDEN_KEY = "pih:sidebar:workload-hidden";
+const WORKLOAD_CHANGED = "pih:sidebar:workload-changed";
+
+const workloadCard = {
+  subscribe(onChange: () => void) {
+    window.addEventListener("storage", onChange);
+    window.addEventListener(WORKLOAD_CHANGED, onChange);
+    return () => {
+      window.removeEventListener("storage", onChange);
+      window.removeEventListener(WORKLOAD_CHANGED, onChange);
+    };
+  },
+  isHidden: () => localStorage.getItem(WORKLOAD_HIDDEN_KEY) === "1",
+  /** The server can't know; assume visible and let hydration correct it. */
+  isHiddenOnServer: () => false,
+  hide() {
+    localStorage.setItem(WORKLOAD_HIDDEN_KEY, "1");
+    window.dispatchEvent(new Event(WORKLOAD_CHANGED));
+  },
 };
 
 const compactCount = new Intl.NumberFormat("en", {
@@ -117,8 +146,10 @@ function NavItem({
       // the accessible name instead of dropping it.
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
+      // Colour alone marked the current screen; this names it for assistive tech.
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative mb-px flex h-[37px] items-center rounded-sm text-[13.5px] font-[550] transition-colors",
+        "group relative mb-px flex h-[37px] shrink-0 items-center rounded-sm text-[13.5px] font-[550] transition-colors",
         collapsed ? "justify-center px-0" : "gap-[11px] px-[11px]",
         active
           ? "bg-brand-soft font-[650] text-brand-hover"
@@ -174,7 +205,7 @@ function NavSection({
   if (collapsed) {
     return (
       <>
-        <div role="separator" aria-label={label} className="mx-2 my-1.5 h-px bg-border-soft" />
+        <div role="separator" aria-label={label} className="mx-2 my-1.5 h-px shrink-0 bg-border-soft" />
         {items.map((it) => (
           <NavItem key={it.id} item={it} active={isActive(it.id)} collapsed />
         ))}
@@ -186,7 +217,8 @@ function NavSection({
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="group flex w-full items-center justify-between px-2.5 pb-1.5 pt-3.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint transition-colors hover:text-muted-foreground"
+        aria-expanded={open}
+        className="group flex w-full shrink-0 items-center justify-between rounded-sm px-2.5 pb-1.5 pt-3.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50"
       >
         {label}
         <I.chevDown
@@ -214,6 +246,13 @@ function SidebarNav({
 }) {
   const main = NAV_MAIN.map((item) => withLiveBadge(item, stats));
   const work = NAV_WORK.map((item) => withLiveBadge(item, stats));
+
+  const workloadHidden = useSyncExternalStore(
+    workloadCard.subscribe,
+    workloadCard.isHidden,
+    workloadCard.isHiddenOnServer,
+  );
+
   const workloadReady = stats.renewals != null && stats.applications != null;
   const renewalCount = stats.renewals ?? 0;
   const applicationCount = stats.applications ?? 0;
@@ -227,10 +266,18 @@ function SidebarNav({
       <NavSection label="System" items={NAV_SYS} isActive={isActive} collapsed={collapsed} />
 
       {/* Prose can't survive the icon rail; failed counts omit the card rather than showing zero. */}
-      {workloadReady && (
-        <div className={cn("mt-auto pt-3", collapsed && "hidden")}>
-          <div className="rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
-            <h5 className="mb-[3px] text-[12.5px] font-semibold">Current workload</h5>
+      {workloadReady && !workloadHidden && (
+        <div className={cn("mt-auto shrink-0 pt-3", collapsed && "hidden")}>
+          <div className="relative rounded-md border border-green-border bg-gradient-to-br from-brand-soft to-card p-[13px]">
+            <button
+              onClick={workloadCard.hide}
+              aria-label="Hide workload summary"
+              title="Hide workload summary"
+              className="absolute right-1 top-1 grid size-6 place-items-center rounded-sm text-subtle transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50"
+            >
+              <I.x size={14} />
+            </button>
+            <h5 className="mb-[3px] pr-6 text-[12.5px] font-semibold">Current workload</h5>
             <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
               {hasWork
                 ? `${renewalCount} open renewal${renewalCount === 1 ? "" : "s"} and ${applicationCount} application${applicationCount === 1 ? "" : "s"} in progress.`
@@ -270,13 +317,45 @@ export function Sidebar({
     return pathname === p || pathname.startsWith(p + "/");
   };
 
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * The drawer claims aria-modal, so it has to behave like one. Without this,
+   * focus stayed on the burger behind the scrim and the first Tab landed in the
+   * search field underneath — half the tab stops sat outside the dialog.
+   */
   useEffect(() => {
     if (!mobileOpen) return;
+    const returnTo = document.activeElement as HTMLElement | null;
+    const focusable = () => [
+      ...(drawerRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []),
+    ];
+
+    focusable()[0]?.focus();
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape") return onClose?.();
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const [first, last] = [items[0], items[items.length - 1]];
+      const inside = drawerRef.current?.contains(document.activeElement);
+      if (e.shiftKey && (document.activeElement === first || !inside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      returnTo?.focus();
+    };
   }, [mobileOpen, onClose]);
 
   return (
@@ -298,6 +377,7 @@ export function Sidebar({
             className="absolute inset-0 cursor-default bg-black/45"
           />
           <div
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Main navigation"
