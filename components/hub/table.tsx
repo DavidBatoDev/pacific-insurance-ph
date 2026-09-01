@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { I } from "./icons";
@@ -46,18 +46,29 @@ export function Th<T>({
   const active = sort.key === k;
   return (
     <th
-      onClick={() => toggle(k)}
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
       className={cn(
-        "sticky top-0 cursor-pointer select-none whitespace-nowrap border-b border-border-soft bg-surface px-[18px] py-[9px] text-[11px] font-bold uppercase tracking-[0.04em] text-subtle hover:text-muted-foreground",
+        "sticky top-0 whitespace-nowrap border-b border-border-soft bg-surface p-0 text-[11px] font-bold uppercase tracking-[0.04em] text-subtle",
         num ? "text-right" : "text-left",
       )}
     >
-      <span className="inline-flex items-center gap-1">
+      {/* The button spans the whole cell so the click target is unchanged, but
+          sorting is now reachable and announced for keyboard users. */}
+      <button
+        type="button"
+        onClick={() => toggle(k)}
+        className={cn(
+          // `uppercase` is repeated here because the UA stylesheet sets
+          // text-transform:none on button, which beats inheritance from the th.
+          "flex w-full select-none items-center gap-1 px-[18px] py-[9px] uppercase transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50",
+          num && "justify-end",
+        )}
+      >
         {label}
         <span className={cn(active ? "text-brand opacity-100" : "opacity-0")}>
           {active && sort.dir === "desc" ? <I.arrowDown size={12} /> : <I.arrowUp size={12} />}
         </span>
-      </span>
+      </button>
     </th>
   );
 }
@@ -93,9 +104,28 @@ export function ClientCell({ name, sub }: { name: string; sub?: string }) {
   );
 }
 
-export const Row = ({ className, ...props }: ComponentProps<"tr">) => (
+/**
+ * Clickable table row. Keeps native row semantics (no role override) but is
+ * focusable and activates on Enter/Space, so the row action is not mouse-only.
+ */
+export const Row = ({ className, onClick, onKeyDown, ...props }: ComponentProps<"tr">) => (
   <tr
-    className={cn("cursor-pointer transition-colors last:[&>td]:border-b-0 hover:bg-hover", className)}
+    tabIndex={onClick ? 0 : undefined}
+    onClick={onClick}
+    onKeyDown={(e) => {
+      onKeyDown?.(e);
+      if (!onClick || e.defaultPrevented) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onClick(e as unknown as MouseEvent<HTMLTableRowElement>);
+      }
+    }}
+    className={cn(
+      "transition-colors last:[&>td]:border-b-0",
+      onClick &&
+        "cursor-pointer hover:bg-hover focus-visible:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50",
+      className,
+    )}
     {...props}
   />
 );
