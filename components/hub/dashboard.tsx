@@ -2,7 +2,7 @@
 
 import { Popover } from "@base-ui/react/popover";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useTransition } from "react";
+import { useEffect, useOptimistic, useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
 import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
@@ -341,16 +341,33 @@ function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; c
 
 /* ---------- Rail widgets ---------- */
 function TasksWidget({ tasks }: { tasks: RealTask[] }) {
-  const router = useRouter();
   const overlays = useOverlays();
   const setScreen = useScreenNav();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  /**
+   * Ticking a box is a local, reversible edit, so it paints immediately and the
+   * server catches up. `toggleTaskAction` already revalidates /dashboard, so no
+   * router.refresh() is needed — the optimistic value holds until that fresh
+   * data arrives, then React drops it. If the action fails the optimistic edit
+   * is discarded the same way and the row snaps back, with a toast to say why.
+   */
+  const [shownTasks, toggleOptimistic] = useOptimistic(tasks, (state: RealTask[], id: string) =>
+    state.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+  );
 
   const toggle = (t: RealTask) =>
     startTransition(async () => {
-      const res = await toggleTaskAction(t.id);
-      if (!res.ok) overlays.toast("Couldn’t update task", res.error);
-      router.refresh();
+      toggleOptimistic(t.id);
+      try {
+        const res = await toggleTaskAction(t.id);
+        if (!res.ok) overlays.toast("Couldn’t update task", res.error);
+      } catch {
+        // The action only returns { ok: false } for errors it reaches the server
+        // to discover. A dropped connection rejects instead, and an unhandled
+        // rejection here would escape the transition and take the widget down.
+        overlays.toast("Couldn’t update task", "Check your connection and try again.");
+      }
     });
 
   const groups: { key: TaskBucket; overdue: boolean }[] = [
@@ -358,7 +375,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
     { key: "today", overdue: false },
     { key: "week", overdue: false },
   ];
-  const remaining = tasks.filter((t) => !t.done).length;
+  const remaining = shownTasks.filter((t) => !t.done).length;
   return (
     <Card>
       <CardHead
@@ -377,13 +394,13 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
         }
       />
       <div className="py-1">
-        {tasks.length === 0 && (
+        {shownTasks.length === 0 && (
           <div className="px-[18px] py-3 text-[12.5px] text-subtle">
             No tasks yet — create one with “+ New”.
           </div>
         )}
         {groups.map((g) => {
-          const items = tasks.filter((t) => taskBucket(t.dueDate).bucket === g.key);
+          const items = shownTasks.filter((t) => taskBucket(t.dueDate).bucket === g.key);
           if (!items.length) return null;
           return (
             <div key={g.key} className="py-1">
@@ -399,8 +416,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
                 <button
                   key={t.id}
                   onClick={() => toggle(t)}
-                  disabled={pending}
-                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover disabled:opacity-60"
+                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
                 >
                   <span className={cn(
                     "mt-px grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
