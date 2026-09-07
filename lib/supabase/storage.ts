@@ -46,3 +46,14 @@ export async function getObjectInfo(path: string) {
   if (error || !data) throw new Error(`Storage verification failed: ${error?.message ?? "unknown error"}`);
   return data;
 }
+
+/**
+ * Read an object's bytes with the service role. Lets a route stream a private
+ * file through our own origin instead of redirecting to a signed URL, so the
+ * response can carry our Content-Type and an inline disposition.
+ */
+export async function downloadObject(path: string): Promise<Blob> {
+  const { data, error } = await getSupabaseAdmin().storage.from(DOCUMENTS_BUCKET).download(path);
+  if (error || !data) throw new Error(`Storage download failed: ${error?.message ?? "unknown error"}`);
+  return data;
+}

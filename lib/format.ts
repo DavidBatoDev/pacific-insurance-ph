@@ -32,3 +32,14 @@ export const avColor = (name: string) =>
 /** en-PH short date ("Jan 5, 2026"), em-dash when unset. */
 export const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+/**
+ * Human file size, base-1000 to match what OS file managers and browser download
+ * UIs show ("4.6 MB", "998 KB"). Em dash when unset, like `fmtDate`.
+ */
+export const fileSize = (bytes: number | null | undefined) => {
+  if (bytes == null || bytes < 0) return "—";
+  if (bytes < 1000) return `${bytes} B`;
+  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} KB`;
+  return `${(bytes / 1_000_000).toFixed(1).replace(/\.0$/, "")} MB`;
+};

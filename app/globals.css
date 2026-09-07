@@ -296,3 +296,30 @@
     color: var(--foreground);
   }
 }
+
+/* ============================================================
+   docx-preview output (carrier document viewer).
+
+   Selectors are two classes deep on purpose: the library injects its own
+   <style> tag after ours, so equal specificity would lose on document order.
+   The "pcdocx" prefix is set via its `className` option so its generated CSS
+   can never collide with an app class.
+   ============================================================ */
+.docx-stage .pcdocx-wrapper {
+  /* Its default is `background: gray; padding: 30px` — let the stage's own
+     themed surface show through instead. */
+  background: transparent;
+  padding: 24px 0;
+}
+.docx-stage .pcdocx-wrapper > section.pcdocx {
+  box-shadow: var(--shadow-pop);
+  margin-bottom: 24px;
+}
+/* Preflight sets `img { display: block }`, which kicks every signature and logo
+   sitting inline in a Word paragraph onto its own line. */
+.docx-stage .pcdocx-wrapper img {
+  display: inline-block;
+  max-width: none;
+}
+/* Pages are paper: they stay white in dark mode by design. The stage backdrop
+   behind them carries the theme. */

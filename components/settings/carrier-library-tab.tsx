@@ -6,9 +6,11 @@ import { useState, useTransition } from "react";
 import { beginLibraryUploadAction, discardLibraryUploadAction, finalizeLibraryUploadAction, setLibraryDocumentStateAction, updateLibraryDocumentAction } from "@/app/(app)/settings/actions";
 import { I } from "@/components/hub/icons";
 import { INPUT } from "@/components/hub/primitives";
+import { DocumentViewer } from "@/components/hub/overlays/document-viewer";
 import { Modal } from "@/components/hub/overlays/modal";
 import { useOverlays } from "@/components/hub/overlays/overlay-provider";
 import { LIBRARY_AGE_BANDS, LIBRARY_DOCUMENT_TYPES, type LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
+import { fmtDate } from "@/lib/format";
 import type { CatalogProductVersion } from "@/lib/repositories/products/product.entity";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,11 @@ export function CarrierLibraryTab({ documents, productVersions }: { documents: L
   const [open, setOpen] = useState(false); const [editing, setEditing] = useState<LibraryDocument | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY); const [file, setFile] = useState<File | null>(null);
   const [pending, startTransition] = useTransition();
+  // Deliberately separate from `open`/`editing`, and keyed by id rather than the row:
+  // `operate()` refreshes after approve/archive, so re-deriving keeps the viewer's
+  // approval pill live and self-closes it if the row disappears.
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const preview = previewId ? documents.find((d) => d.id === previewId) ?? null : null;
   const set = (key: keyof FormState, value: string) => setForm((state) => ({ ...state, [key]: value }));
   const close = () => { setOpen(false); setEditing(null); setFile(null); setForm(EMPTY); };
   const edit = (doc: LibraryDocument) => { setEditing(doc); setForm({ productVersionId: doc.productVersionId ?? "", documentName: doc.documentName, documentType: doc.documentType ?? "Brochure", versionLabel: doc.versionLabel, variant: doc.variant ?? "", ageBand: doc.ageBand, effectiveDate: doc.effectiveDate ?? "", expiryDate: doc.expiryDate ?? "", notes: doc.notes ?? "", distributionNotes: doc.distributionNotes ?? "" }); setOpen(true); };
@@ -53,7 +60,7 @@ export function CarrierLibraryTab({ documents, productVersions }: { documents: L
   return <div>
     <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="text-[15px] font-bold">Carrier document library</h3><p className="mt-1 text-[12.5px] text-muted-foreground">Approved, versioned Pacific Cross originals. Uploads stay private and pending until reviewed.</p></div><button onClick={() => setOpen(true)} className="rounded-md bg-brand px-3 py-2 text-[12.5px] font-semibold text-white"><I.upload size={14} className="mr-1 inline" /> Upload asset</button></div>
     <div className="mb-4 rounded-md border border-amber-border bg-amber-soft px-4 py-3 text-[12.5px] text-amber"><b>No email delivery yet.</b> Selecting a library asset records the intended attachment; neither the email nor binary is transmitted.</div>
-    <div className="overflow-x-auto rounded-md border border-border-soft"><table className="w-full min-w-[880px] text-left text-[12px]"><thead><tr className="border-b border-border-soft text-[10.5px] uppercase tracking-[.05em] text-subtle">{["Asset","Product / variant","Version","Effective","Approval","Status",""] .map((h) => <th key={h} className="px-3 py-2.5">{h}</th>)}</tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className={cn("border-b border-border-soft last:border-0", doc.status === "Inactive" && "opacity-60")}><td className="px-3 py-2.5"><div className="font-semibold">{doc.documentName}</div><div className="text-[11px] text-subtle">{doc.documentType} · {doc.originalFileName}</div></td><td className="px-3 py-2.5">{doc.productName ?? "—"}<span className="block text-[11px] text-subtle">{[doc.variant, doc.ageBand].filter(Boolean).join(" · ")}</span></td><td className="px-3 py-2.5">{doc.versionLabel}</td><td className="px-3 py-2.5">{doc.effectiveDate ?? "Immediately"}<span className="block text-[11px] text-subtle">to {doc.expiryDate ?? "No expiry"}</span></td><td className="px-3 py-2.5">{doc.approvalStatus}</td><td className="px-3 py-2.5">{doc.status}</td><td className="px-3 py-2.5 text-right"><div className="flex justify-end gap-2"><a href={`/api/document-library/${doc.id}/download`} className="font-semibold text-brand-hover">Review</a><button onClick={() => edit(doc)} className="font-semibold text-brand-hover">Edit</button>{doc.approvalStatus !== "Approved" && doc.status === "Active" && <button onClick={() => operate(doc,"approve")} className="font-semibold text-brand-hover">Approve</button>}{doc.status === "Active" && <button onClick={() => operate(doc,"archive")} className="font-semibold text-red">Archive</button>}</div></td></tr>)}{documents.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">No carrier assets yet. Distribution clearance is required before uploading supplied files.</td></tr>}</tbody></table></div>
+    <div className="overflow-x-auto rounded-md border border-border-soft"><table className="w-full min-w-[880px] text-left text-[12px]"><thead><tr className="border-b border-border-soft text-[10.5px] uppercase tracking-[.05em] text-subtle">{["Asset","Product / variant","Version","Effective","Approval","Status",""] .map((h) => <th key={h} className="px-3 py-2.5">{h}</th>)}</tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className={cn("border-b border-border-soft last:border-0", doc.status === "Inactive" && "opacity-60")}><td className="px-3 py-2.5"><div className="font-semibold">{doc.documentName}</div><div className="text-[11px] text-subtle">{doc.documentType} · {doc.originalFileName}</div></td><td className="px-3 py-2.5">{doc.productName ?? "—"}<span className="block text-[11px] text-subtle">{[doc.variant, doc.ageBand].filter(Boolean).join(" · ")}</span></td><td className="px-3 py-2.5">{doc.versionLabel}</td><td className="px-3 py-2.5">{doc.effectiveDate ?? "Immediately"}<span className="block text-[11px] text-subtle">to {doc.expiryDate ?? "No expiry"}</span></td><td className="px-3 py-2.5">{doc.approvalStatus}</td><td className="px-3 py-2.5">{doc.status}</td><td className="px-3 py-2.5 text-right"><div className="flex justify-end gap-2"><button type="button" onClick={() => setPreviewId(doc.id)} className="font-semibold text-brand-hover">Review</button><button onClick={() => edit(doc)} className="font-semibold text-brand-hover">Edit</button>{doc.approvalStatus !== "Approved" && doc.status === "Active" && <button onClick={() => operate(doc,"approve")} className="font-semibold text-brand-hover">Approve</button>}{doc.status === "Active" && <button onClick={() => operate(doc,"archive")} className="font-semibold text-red">Archive</button>}</div></td></tr>)}{documents.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">No carrier assets yet. Distribution clearance is required before uploading supplied files.</td></tr>}</tbody></table></div>
     {open && <Modal onClose={close} maxWidth={680}><h3 className="mb-4 text-[16px] font-bold">{editing ? "Edit library asset" : "Upload library asset"}</h3><div className="grid grid-cols-2 gap-3">
       {!editing && <label className="col-span-2 text-[11px] font-bold uppercase text-subtle">File<input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-[13px]" /></label>}
       <label className="text-[11px] font-bold uppercase text-subtle">Product version<select className={`${INPUT} mt-1.5 font-normal normal-case`} value={form.productVersionId} disabled={!!editing} onChange={(e) => set("productVersionId",e.target.value)}><option value="">Select…</option>{productVersions.filter((v) => v.active).map((v) => <option key={v.id} value={v.id}>{v.productName} · {v.versionName}</option>)}</select></label>
@@ -62,5 +69,25 @@ export function CarrierLibraryTab({ documents, productVersions }: { documents: L
       <label className="text-[11px] font-bold uppercase text-subtle">Age band<select disabled={editing?.approvalStatus === "Approved"} className={`${INPUT} mt-1.5 font-normal normal-case disabled:opacity-60`} value={form.ageBand} onChange={(e) => set("ageBand",e.target.value)}>{LIBRARY_AGE_BANDS.map((v) => <option key={v}>{v}</option>)}</select></label>
       <label className="col-span-2 text-[11px] font-bold uppercase text-subtle">Distribution / approval note<textarea className="mt-1.5 min-h-20 w-full rounded-md border border-border-strong p-3 text-[13px] font-normal normal-case" value={form.distributionNotes} onChange={(e) => set("distributionNotes",e.target.value)} /></label>
     </div><div className="mt-5 flex justify-end gap-2"><button onClick={close} className="rounded-md border px-3 py-2 text-[13px]">Cancel</button><button disabled={pending || !form.productVersionId || !form.documentName.trim() || !form.versionLabel.trim() || (!editing && !file)} onClick={save} className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50">{pending ? "Saving…" : editing ? "Save changes" : "Upload for review"}</button></div></Modal>}
+    {preview && <DocumentViewer
+      src={`/api/document-library/${preview.id}/preview`}
+      downloadHref={`/api/document-library/${preview.id}/download`}
+      fileName={preview.originalFileName}
+      mimeType={preview.mimeType}
+      fileSizeBytes={preview.fileSizeBytes}
+      title={preview.documentName}
+      subtitle={preview.documentType}
+      meta={[
+        { label: "Product", value: [preview.productName, preview.productVersionName].filter(Boolean).join(" · ") || "—" },
+        { label: "Version", value: preview.versionLabel },
+        { label: "Variant", value: [preview.variant, preview.ageBand].filter(Boolean).join(" · ") || "—" },
+        { label: "Effective", value: `${preview.effectiveDate ? fmtDate(preview.effectiveDate) : "Immediately"} → ${preview.expiryDate ? fmtDate(preview.expiryDate) : "No expiry"}` },
+      ]}
+      pills={[
+        { label: preview.approvalStatus, tone: preview.approvalStatus === "Approved" ? "green" : preview.approvalStatus === "Rejected" ? "red" : "amber" },
+        { label: preview.status, tone: preview.status === "Active" ? "green" : "slate" },
+      ]}
+      onClose={() => setPreviewId(null)}
+    />}
   </div>;
 }
