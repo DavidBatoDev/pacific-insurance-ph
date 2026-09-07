@@ -29,7 +29,7 @@ history. Shared decisions must be reflected here or in the canonical documentati
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
-| Carrier assets | `document_library` plus communication-version links from migration `0023` | Aligned; library starts empty until assets are redacted and approved. |
+| Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07: 40 files as 46 Active + Approved rows via `scripts/load-carrier-library.mjs`; the 5 `TEST —` placeholders are archived. Distribution clearance treated as not-a-gate by client decision — see Carrier-document rules. |
 | Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
 | Proposal `Sent` | `Mark Sent` button (Contact Profile proposal panel + Leads board proposal-tracking panel; `setProposalStatusAction`, `app/(app)/prospects/actions.ts`) lets staff manually confirm delivery | Aligned as of 2026-08-13 for the manual half (`Mark externally sent`, reworded to `Mark Sent` — see note below). The automatic half (advancing on real provider-confirmed delivery) remains a gap: no email provider is wired up yet. |
 | Lead status `New → Attempted` on send | `sendEmailAction` (`app/(app)/clients/engage-actions.ts`) sets `lead_status = Attempted` on any successful email/brochure log, regardless of delivery | **Doc conflict, resolved 2026-08-13 in favor of code as written.** `../../docs/web/lead-workflow.md:65` and this file's own "Proposal `Sent`" row above say logging alone must not advance status without provider confirmation or an explicit `Mark externally sent` action. But the parent workspace's `CLAUDE.md` explicitly directs *"Lead-lifecycle behavior must follow `docs/lead-stage-status.md` (+ `-example.md`)"*, and that file states plainly: *"New → Attempted \| Send Email / Send Brochure (first touch) \| Eman's send sets this; no Lead reply required yet."* Kept matching `lead-stage-status.md` per that explicit instruction. `docs/INDEX.md` ranks `web/lead-workflow.md` as canonical and `lead-stage-status.md` as a secondary "plain-language explainer" — the two root docs disagree and this has not been reconciled between them. Note the asymmetry this leaves: `lead_status` now auto-advances on mere logging, while `proposal_status = Sent` (row above) still requires the explicit `Mark Sent` click — whoever owns doc reconciliation should resolve which rule (auto-advance-on-log, or require-explicit-confirmation) should actually govern both, since they currently behave differently for what the docs describe as the same underlying rule. |
@@ -119,6 +119,39 @@ history. Shared decisions must be reflected here or in the canonical documentati
   `checklist.md`. What blocks ingestion is the unchecked distribution clearance
   (`checklist.md:70-71`), not missing files; only the FlexiShield and Travel brochures are
   genuinely outstanding (`checklist.md:112`, `:115`).
+- **Superseded 2026-09-07 — the library is loaded.** 40 source files are in as 46 rows, all Active
+  and Approved, via `scripts/load-carrier-library.mjs` + `scripts/carrier-library-manifest.json`
+  (roadmap D3; the 5 `TEST —` placeholders from checklist E1 are archived, not deleted, because
+  `communication_library_documents` is `ON DELETE RESTRICT`). Both gated templates are now usable.
+  - **The distribution clearance (`checklist.md` A1) was treated as not-a-gate for this load, by
+    explicit client decision on 2026-09-07.** It remains unsigned. This is recorded rather than
+    silently assumed: if the clearance is refused, `--unapprove` reverts every loaded row to
+    Inactive in seconds and the library reads as empty again to every consumer.
+  - Four files that still leak recoverable client data (A2), the two per-client conforme letters,
+    the retired Easy Payment Options, the superseded marked-up Travel form, and the internal-only
+    Proposal Information Sheet are **excluded by name** in the manifest's `excluded[]`, each with
+    its reason. The loader never walks a directory, so adding a file is a deliberate edit to a
+    reviewed allowlist.
+  - Three received documents remain unloadable without a migration and are logged as a known gap:
+    the CET (`.xlsx`; the uploader accepts PDF/DOC/DOCX only) and the CCAF and Geographical Loading
+    sheets, for which none of the seven `document_type` values fits.
+  - Product-agnostic carrier forms (Agent's Attestation, Advisor's Declaration) are loaded **once
+    per product** — 8 rows from 2 files — because `approve_document_library_asset` raises when
+    `product_version_id` is null, so a genuinely shared row could never go live. This diverges from
+    `checklist.md` E2, which asks for one shared copy; closing that properly needs the RPC relaxed.
+- **Optional library attachments are template-agnostic by design (2026-09-07).** The mandatory rule
+  above is unchanged and still keyed to the two exact template names. Alongside it, every composer
+  can now attach any approved asset for the contact's product, of any of the seven types, up to
+  five per email. No template→type map was added for that path: `email_templates.template_name` is
+  free text with no uniqueness constraint and deliberate casing duplicates (`Policy issued` and
+  `Policy Issued` both seeded in `0011`), so an exact-name map silently misses the twin while a
+  normalised one starts matching retired rows — and an optional attachment has no wrong choice to
+  prevent. The required and optional paths share no resolver, no action and no component, and
+  `sendEmailAction` takes them as separate fields so the server never has to infer which selection
+  satisfies the gate.
+- **The gate's exact-name matching is a known limitation kept on purpose.** Because `Policy issued`
+  and `Policy Issued` coexist, making the match case-insensitive would start gating a retired
+  template. Do not "fix" it without first resolving the duplicate rows.
 
 ## Reconciliation checklist
 
