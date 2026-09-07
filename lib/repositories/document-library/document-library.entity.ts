@@ -22,6 +22,8 @@ export interface LibraryDocument {
   variant: string | null;
   ageBand: string;
   filePath: string | null;
+  /** PDF rendering of `filePath`, for previewing Word faithfully. Null for PDFs and unconverted uploads. */
+  previewPath: string | null;
   originalFileName: string | null;
   mimeType: string | null;
   fileSizeBytes: number | null;

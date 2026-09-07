@@ -64,6 +64,7 @@ export function DocumentViewer({
   fileName,
   mimeType,
   fileSizeBytes,
+  previewIsPdf = false,
   title,
   subtitle,
   meta = [],
@@ -76,6 +77,8 @@ export function DocumentViewer({
   fileName: string | null;
   mimeType: string | null;
   fileSizeBytes: number | null;
+  /** The preview URL serves a PDF rendering, so show it in the PDF tier whatever the source is. */
+  previewIsPdf?: boolean;
   title: string;
   subtitle?: string | null;
   meta?: ViewerMeta[];
@@ -111,7 +114,9 @@ export function DocumentViewer({
   // so a .docx can be stored as msword.
   const ext = (fileName ?? src).split(".").pop()?.toLowerCase();
   const tier: Tier =
-    mimeType === "application/pdf" || ext === "pdf" ? "pdf"
+    // A rendered companion outranks the source type: the browser cannot show
+    // Word faithfully, so when a PDF of it exists that is what gets displayed.
+    previewIsPdf || mimeType === "application/pdf" || ext === "pdf" ? "pdf"
     : mimeType === DOCX_MIME || ext === "docx" ? "docx"
     : "unsupported";
 
@@ -374,7 +379,15 @@ export function DocumentViewer({
 
         {tier === "pdf" && (
           <p className="mt-2 text-[11.5px] text-faint">
-            Not rendering? Open it in a new tab or download it.
+            {previewIsPdf
+              ? "Rendered from the Word original for viewing. Download gives you the editable file."
+              : "Not rendering? Open it in a new tab or download it."}
+          </p>
+        )}
+        {tier === "docx" && load.k === "ready" && (
+          <p className="mt-2 text-[11.5px] text-faint">
+            Approximate preview — positioned images, text boxes and form-field shading are not
+            reproduced in the browser. Download for the exact document.
           </p>
         )}
 

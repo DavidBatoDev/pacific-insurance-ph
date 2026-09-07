@@ -17,7 +17,7 @@ const toDomain = (row: Joined): LibraryDocument => ({
   productVersionName: row.product_versions?.version_name ?? null,
   documentName: row.document_name, documentType: row.document_type,
   versionLabel: row.version_label, variant: row.variant, ageBand: row.age_band,
-  filePath: row.file_path, originalFileName: row.original_file_name,
+  filePath: row.file_path, previewPath: row.preview_path ?? null, originalFileName: row.original_file_name,
   mimeType: row.mime_type, fileSizeBytes: row.file_size_bytes,
   effectiveDate: row.effective_date, expiryDate: row.expiry_date,
   status: row.status, approvalStatus: row.approval_status, notes: row.notes,

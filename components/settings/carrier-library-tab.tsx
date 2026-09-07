@@ -111,6 +111,7 @@ export function CarrierLibraryTab({ documents, productVersions }: { documents: L
       fileName={preview.originalFileName}
       mimeType={preview.mimeType}
       fileSizeBytes={preview.fileSizeBytes}
+      previewIsPdf={!!preview.previewPath}
       title={preview.documentName}
       subtitle={preview.documentType}
       meta={[

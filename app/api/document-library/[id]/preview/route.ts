@@ -40,15 +40,25 @@ async function resolve(request: Request, id: string) {
   if (toAppRole(user.role) !== "admin") return { error: new NextResponse("Forbidden", { status: 403 }) };
   const asset = await getDocumentLibraryRepository().findById(id);
   if (!asset?.filePath) return { error: new NextResponse("Not found", { status: 404 }) };
+
+  // A Word asset with a rendered companion is previewed as that PDF. The browser
+  // cannot show .docx faithfully — docx-preview implements no anchored images,
+  // VML shapes or legacy form fields, which is most of a carrier form — so the
+  // companion is the only way this route returns the document staff recognise.
+  // `download/route.ts` is untouched and still serves the original file.
+  const servingPreview = !!asset.previewPath;
+  const objectPath = asset.previewPath ?? asset.filePath;
   // The stored path is always `library/<uuid>.<ext>`, so it is a more reliable
   // extension source than the display name.
-  const ext = asset.filePath.split(".").pop() ?? "bin";
+  const ext = objectPath.split(".").pop() ?? "bin";
+  const baseName = (asset.originalFileName ?? `${asset.documentName}.${ext}`).replace(/\.[^.]+$/, "");
   return {
     user,
     asset,
+    objectPath,
     headers: {
-      "Content-Type": CONTENT_TYPES[asset.mimeType ?? ""] ?? "application/octet-stream",
-      "Content-Disposition": inlineDisposition(asset.originalFileName ?? `${asset.documentName}.${ext}`),
+      "Content-Type": servingPreview ? "application/pdf" : (CONTENT_TYPES[asset.mimeType ?? ""] ?? "application/octet-stream"),
+      "Content-Disposition": inlineDisposition(servingPreview ? `${baseName}.pdf` : (asset.originalFileName ?? `${asset.documentName}.${ext}`)),
       // No CSP exists app-wide, so this is what stops a mislabelled body being
       // sniffed as HTML on our own origin.
       "X-Content-Type-Options": "nosniff",
@@ -67,7 +77,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   let body: Blob;
   try {
-    body = await downloadObject(resolved.asset.filePath!);
+    body = await downloadObject(resolved.objectPath);
   } catch (e) {
     // The row outlived its object, or storage is down. A status code is what the
     // caller wants — this URL is only ever an `iframe src` or a `fetch`, never a
