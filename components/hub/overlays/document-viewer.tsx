@@ -33,6 +33,9 @@ const SESSION_EXPIRED = "Your session expired. Refresh the page and try again.";
 const UNREADABLE = "Couldn’t load this document. It may have been removed from storage.";
 const NOT_RENDERABLE = "This Word file couldn’t be rendered in the browser. Download it to open in Word.";
 
+/** Fixed stops rather than free zooming: a Word page only reads well at a few sizes. */
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 /**
  * docx-preview writes document-authored markup into the DOM. Text can't inject
  * — it builds nodes with createElement/textContent — but hyperlink targets are
@@ -84,6 +87,24 @@ export function DocumentViewer({
   const rootRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [load, setLoad] = useState<Load>({ k: "loading" });
+  const [zoom, setZoom] = useState(1);
+  // The src the current zoom belongs to. Reopening the modal on a different
+  // document has to start at 100%, and this project's react-hooks rules reject a
+  // setState in an effect body — so the reset happens during render, the pattern
+  // React documents for adjusting state when a prop changes. React re-runs the
+  // component before committing, so no frame is painted at the stale zoom.
+  const [zoomedSrc, setZoomedSrc] = useState(src);
+  if (zoomedSrc !== src) {
+    setZoomedSrc(src);
+    setZoom(1);
+  }
+
+  const zoomIndex = ZOOM_STEPS.indexOf(zoom);
+  const stepZoom = (delta: number) =>
+    setZoom((z) => {
+      const next = ZOOM_STEPS.indexOf(z) + delta;
+      return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, next))];
+    });
 
   // Derived, never stored: MIME first, extension as tiebreak, because the upload
   // action trusts the browser-reported type before falling back to the extension,
@@ -178,65 +199,72 @@ export function DocumentViewer({
             inside the PDF iframe, which a document-level guard would not. */}
         <span data-sentinel tabIndex={0} onFocus={() => focusables().at(-1)?.focus()} />
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 gap-3">
-            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-[9px] bg-brand-soft text-brand-hover">
-              <I.fileText size={18} />
-            </span>
-            <div className="min-w-0">
-              <h3 id={titleId} className="text-[16px] font-bold leading-snug tracking-[-0.01em]">
-                {title}
-              </h3>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-subtle">
-                {subtitle && <span>{subtitle}</span>}
-                {subtitle && <span aria-hidden>·</span>}
-                <span className="font-mono text-[11.5px]">{fileName ?? "—"}</span>
-                <span aria-hidden>·</span>
-                <span className="tabular-nums">{fileSize(fileSizeBytes)}</span>
+        <div className="flex min-w-0 gap-3">
+          <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-[9px] bg-brand-soft text-brand-hover">
+            <I.fileText size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 id={titleId} className="text-[16px] font-bold leading-snug tracking-[-0.01em]">
+              {title}
+            </h3>
+            {/* Status and actions share a row so the title gets the full width and
+                the caption stays one unbroken line. The pill container is rendered
+                even when empty — justify-between then still parks the actions right. */}
+            <div className="mt-1 flex items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {pills.map((p) => (
+                  <Pill key={p.label} tone={p.tone} size="sm" dot>
+                    {p.label}
+                  </Pill>
+                ))}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <a
+                  href={downloadHref}
+                  className="inline-flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-border-strong bg-card px-2.5 text-[12.5px] font-semibold transition-colors hover:border-faint hover:bg-hover"
+                >
+                  <I.download size={14} /> Download
+                </a>
+                <a
+                  href={src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-border-strong bg-card px-2.5 text-[12.5px] font-semibold transition-colors hover:border-faint hover:bg-hover"
+                >
+                  <I.arrowUpRight size={14} /> New tab
+                </a>
+                <button
+                  ref={closeRef}
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close document viewer"
+                  className="grid size-[30px] place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+                >
+                  <I.x size={17} />
+                </button>
               </div>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <a
-              href={downloadHref}
-              className="inline-flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-border-strong bg-card px-2.5 text-[12.5px] font-semibold transition-colors hover:border-faint hover:bg-hover"
-            >
-              <I.download size={14} /> Download
-            </a>
-            <a
-              href={src}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-border-strong bg-card px-2.5 text-[12.5px] font-semibold transition-colors hover:border-faint hover:bg-hover"
-            >
-              <I.arrowUpRight size={14} /> New tab
-            </a>
-            <button
-              ref={closeRef}
-              type="button"
-              onClick={onClose}
-              aria-label="Close document viewer"
-              className="grid size-[30px] place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-            >
-              <I.x size={17} />
-            </button>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-subtle">
+              {subtitle && <span>{subtitle}</span>}
+              {subtitle && <span aria-hidden>·</span>}
+              <span className="font-mono text-[11.5px]">{fileName ?? "—"}</span>
+              <span aria-hidden>·</span>
+              <span className="tabular-nums">{fileSize(fileSizeBytes)}</span>
+            </div>
           </div>
         </div>
 
-        {(meta.length > 0 || pills.length > 0) && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border-soft pt-3">
+        {/* Label over value, not label-space-value: inline pairs read as a run-on
+            sentence because the gap between pairs outweighs the one inside them. */}
+        {meta.length > 0 && (
+          <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2.5 border-t border-border-soft pt-3">
             {meta.map((m) => (
-              <span key={m.label} className="text-[12px]">
-                <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-subtle">{m.label} </span>
-                <span className="text-muted-foreground">{m.value}</span>
-              </span>
+              <div key={m.label}>
+                <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-faint">{m.label}</dt>
+                <dd className="mt-0.5 text-[12.5px] leading-snug text-foreground">{m.value}</dd>
+              </div>
             ))}
-            {pills.map((p) => (
-              <Pill key={p.label} tone={p.tone} size="sm" dot>
-                {p.label}
-              </Pill>
-            ))}
-          </div>
+          </dl>
         )}
 
         {/* The height must be explicit. The modal card is flex-col with only a
@@ -265,7 +293,44 @@ export function DocumentViewer({
             />
           )}
 
-          {tier === "docx" && <div ref={hostRef} />}
+          {/* CSS `zoom`, not `transform: scale()` — zoom participates in layout, so
+              the stage's scrollbars keep matching the scaled page. A transform would
+              leave the scroll extent at the unscaled size and need manual
+              width/height compensation. */}
+          {tier === "docx" && <div ref={hostRef} style={{ zoom }} />}
+
+          {tier === "docx" && (
+            /* Over a white document page, so it carries its own card surface. */
+            <div className="absolute bottom-3 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border-strong bg-card/95 p-0.5 shadow-pop backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => stepZoom(-1)}
+                disabled={zoomIndex <= 0}
+                aria-label="Zoom out"
+                className="grid size-7 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <I.minus size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom(1)}
+                aria-label="Reset zoom to 100%"
+                title="Reset zoom to 100%"
+                className="h-7 min-w-[46px] rounded-sm px-1 text-[11.5px] font-semibold tabular-nums text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => stepZoom(1)}
+                disabled={zoomIndex >= ZOOM_STEPS.length - 1}
+                aria-label="Zoom in"
+                className="grid size-7 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <I.plus size={14} />
+              </button>
+            </div>
+          )}
 
           {tier === "unsupported" && (
             <div className="grid h-full place-items-center px-6 text-center">
