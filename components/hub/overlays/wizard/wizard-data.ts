@@ -198,6 +198,8 @@ export interface WizardForm {
    * `createFromWizardAction` re-validates it server-side before it logs anything.
    */
   emailLibraryDocumentId: string;
+  /** Optional extras. Separate from the gate field above, which drives the Create button. */
+  emailOptionalLibraryDocumentIds: string[];
   createTask: boolean;
   followDate: string;
   internalNote: string;
@@ -423,6 +425,7 @@ export function emptyWizardForm(): WizardForm {
     emailSubject: "",
     emailBody: "",
     emailLibraryDocumentId: "",
+  emailOptionalLibraryDocumentIds: [],
     createTask: true,
     followDate: "",
     internalNote: "",

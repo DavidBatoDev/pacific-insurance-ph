@@ -1,8 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
-import { listWizardEmailAttachmentsAction } from "@/app/(app)/applications/wizard-actions";
+import {
+  listOptionalWizardAttachmentsAction, listWizardEmailAttachmentsAction,
+} from "@/app/(app)/applications/wizard-actions";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
@@ -10,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../../icons";
 import { AREA, Field, INPUT } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
+import { OptionalLibraryAttachments } from "../optional-library-attachments";
 import { Section, type StepProps } from "./steps-1";
 import { EXTERNAL_COVERAGE_TYPES } from "@/lib/repositories/external-coverage/external-coverage.entity";
 import {
@@ -643,12 +646,18 @@ export function Step5({
   templates,
   agentName,
 }: StepProps & { templates: EmailTemplate[]; agentName: string }) {
+  // Resolves from the form, not a saved contact — the wizard has no client yet.
+  const loadOptionalAttachments = useCallback(
+    () => listOptionalWizardAttachmentsAction({ productName: f.productName, dob: f.dob }),
+    [f.productName, f.dob],
+  );
+
   const applyTemplate = (name: string) => {
     const t = templates.find((x) => x.name === name);
     // A staged carrier asset belongs to the template that required it — clear it on every switch,
     // the same way `EmailForm` (../send-email.tsx) does.
     if (!t) {
-      set({ emailTemplate: name, emailLibraryDocumentId: "" });
+      set({ emailTemplate: name, emailLibraryDocumentId: "", emailOptionalLibraryDocumentIds: [] });
       return;
     }
     const ctx = {
@@ -663,6 +672,7 @@ export function Step5({
       emailBody: fillTemplate(t.body, ctx),
       emailRecipient: f.emailRecipient || f.email,
       emailLibraryDocumentId: "",
+      emailOptionalLibraryDocumentIds: [],
     });
   };
 
@@ -701,6 +711,12 @@ export function Step5({
               dob={f.dob}
               value={f.emailLibraryDocumentId}
               onChange={(id) => set({ emailLibraryDocumentId: id })}
+            />
+            <OptionalLibraryAttachments
+              load={loadOptionalAttachments}
+              value={f.emailOptionalLibraryDocumentIds}
+              onChange={(ids) => set({ emailOptionalLibraryDocumentIds: ids })}
+              exclude={f.emailLibraryDocumentId || undefined}
             />
           </div>
         )}

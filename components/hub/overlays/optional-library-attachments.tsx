@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { listOptionalLibraryDocumentsAction, type AttachmentFix } from "@/app/(app)/clients/engage-actions";
+import type { ActionResult } from "@/lib/actions/context";
 import type { LibraryDocument } from "@/lib/repositories/document-library";
 import {
   LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
@@ -25,36 +25,42 @@ import { usePersona } from "../persona";
  * Amber and red belong to the required path. Nothing here uses them.
  */
 export function OptionalLibraryAttachments({
-  clientId,
+  load,
   value,
   onChange,
   exclude,
+  fixHref,
 }: {
-  clientId: string;
+  /**
+   * Resolves the eligible set server-side. A function rather than a client id so
+   * the wizard — which has no saved contact yet and resolves from its own form
+   * values — can reuse this control unchanged.
+   */
+  load: () => Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>>;
   value: string[];
   onChange: (ids: string[]) => void;
   /** The id chosen in the required picker — shown there, so hidden here. */
   exclude?: string;
+  /** Where to send someone whose contact is missing a product interest. */
+  fixHref?: string;
 }) {
   const persona = usePersona();
   const allowed = persona.can("documentLibrary", "view");
   const [open, setOpen] = useState(false);
   const [docs, setDocs] = useState<LibraryDocument[] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
-  const [fix, setFix] = useState<AttachmentFix | undefined>();
 
   useEffect(() => {
     if (!allowed) return;
     let live = true;
-    listOptionalLibraryDocumentsAction(clientId).then((res) => {
+    load().then((res) => {
       if (!live) return;
       if (!res.ok) { setDocs([]); setReason(res.error); return; }
       setDocs(res.data.documents);
       setReason(res.data.reason);
-      setFix(res.data.fix);
     });
     return () => { live = false; };
-  }, [clientId, allowed]);
+  }, [load, allowed]);
 
   if (!allowed) return null;
 
@@ -93,10 +99,10 @@ export function OptionalLibraryAttachments({
       {docs !== null && !available.length && (
         <div className="mt-2 text-[12px] leading-relaxed text-subtle">
           {reason ?? "No approved library assets match this contact yet."}
-          {fix === "product-interest" && (
+          {fixHref && (
             <>
               {" "}
-              <a href={`/clients/${clientId}/edit`} className="font-semibold text-brand-hover hover:text-brand">
+              <a href={fixHref} className="font-semibold text-brand-hover hover:text-brand">
                 Set product interest
               </a>
             </>

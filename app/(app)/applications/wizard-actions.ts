@@ -17,7 +17,10 @@ import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getApplicationRequirementsRepository, type NewApplicationRequirement, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
-import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
+import {
+  getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
+  type LibraryDocument,
+} from "@/lib/repositories/document-library";
 import { getExternalCoverageRepository, type ExternalCoverageType } from "@/lib/repositories/external-coverage";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 import { getTasksRepository } from "@/lib/repositories/tasks";
@@ -273,6 +276,45 @@ async function resolveWizardAttachments(
     documents,
     reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${productName}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.`,
   };
+}
+
+/**
+ * Optional attachments for Step 5 — every approved asset for the product, of any
+ * type, independent of the email template. The twin of
+ * `resolveOptionalLibraryDocuments` in `engage-actions.ts`; the two surfaces must
+ * keep offering the same set for the same person and product.
+ */
+async function resolveOptionalWizardAttachments(
+  productName: string,
+  dob: string,
+): Promise<{ documents: LibraryDocument[]; reason: string | null }> {
+  if (!productName.trim())
+    return { documents: [], reason: "Select a product in Step 1 to browse the carrier library." };
+  // "All Ages" narrows to All-Ages rows rather than meaning "any band", so fall back
+  // to it wherever the required gate would also have refused the age.
+  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
+  if (dob) {
+    const age = ageFromDob(dob);
+    if (age !== "" && age >= 0 && age <= 100) ageBand = age <= 70 ? "0-70" : "71-100";
+  }
+  const documents = await getDocumentLibraryRepository().listEligible({
+    productName, documentTypes: LIBRARY_DOCUMENT_TYPES, ageBand,
+  });
+  return { documents, reason: documents.length ? null : `No approved library assets match ${productName} yet.` };
+}
+
+export async function listOptionalWizardAttachmentsAction(input: {
+  productName: string;
+  dob: string;
+}): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
+  try {
+    const actor = await getActor();
+    if (!can(toAppRole(actor.role), "documentLibrary", "view"))
+      return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    return { ok: true, data: await resolveOptionalWizardAttachments(input.productName, input.dob) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." };
+  }
 }
 
 /** Feeds Step 5's carrier-attachment picker. Mirrors `listEligibleLibraryDocumentsAction`. */
@@ -946,9 +988,10 @@ async function createWizardFollowUpTask(ctx: WizardCreateContext) {
     // communication and rolls its own row back if that link fails.
 async function logWizardInitialEmail(ctx: WizardCreateContext) {
   const { form, actor, resolvedClientId, result } = ctx;
-  const attachmentIds = form.emailLibraryDocumentId?.trim() ? [form.emailLibraryDocumentId.trim()] : [];
+  const requiredId = form.emailLibraryDocumentId?.trim() || null;
+  const attachmentIds = [...new Set([requiredId, ...(form.emailOptionalLibraryDocumentIds ?? [])].filter((id): id is string => Boolean(id)))];
   await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id, libraryDocumentIds: attachmentIds });
-  result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? " with its carrier attachment" : ""}.`;
+  result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? ` with ${attachmentIds.length} carrier attachment${attachmentIds.length === 1 ? "" : "s"}` : ""}.`;
 }
 
     // Travel lives in its own lane: it already persists travel requirements
@@ -1024,7 +1067,18 @@ export async function createFromWizardAction(
       if (!attachmentId || !eligible.documents.some((doc) => doc.id === attachmentId))
         return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this application in Step 5.` };
     } else if (attachmentId) {
-      return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
+      return { ok: false, error: "This email template does not require a carrier attachment." };
+    }
+    const optionalIds = [...new Set(form.emailOptionalLibraryDocumentIds ?? [])].filter((id) => id !== attachmentId);
+    if (optionalIds.length) {
+      // Its own permission check: the one above only runs when a template gates.
+      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
+        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+      if (optionalIds.length > MAX_OPTIONAL_ATTACHMENTS)
+        return { ok: false, error: `Attach at most ${MAX_OPTIONAL_ATTACHMENTS} library assets.` };
+      const allowed = await resolveOptionalWizardAttachments(form.productName, form.dob);
+      if (optionalIds.some((id) => !allowed.documents.some((doc) => doc.id === id)))
+        return { ok: false, error: "One or more selected attachments are no longer available. Reopen the attachment list in Step 5." };
     }
   }
 

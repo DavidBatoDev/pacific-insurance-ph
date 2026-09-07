@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 
-import { sendEmailAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
+import {
+  listOptionalLibraryDocumentsAction, sendEmailAction, type LeadAdvanceSuggestion,
+} from "@/app/(app)/clients/engage-actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
@@ -101,6 +103,11 @@ export function EmailForm({
     }
   };
 
+  const loadOptional = useCallback(
+    () => listOptionalLibraryDocumentsAction(target.clientId),
+    [target.clientId],
+  );
+
   const canSend = !pending && !!recipient.trim() && !!subject.trim();
   const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!requiredLibraryDocumentId);
 
@@ -148,10 +155,11 @@ export function EmailForm({
       </Field>
       <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
       <OptionalLibraryAttachments
-        clientId={target.clientId}
+        load={loadOptional}
         value={optionalLibraryDocumentIds}
         onChange={setOptionalLibraryDocumentIds}
         exclude={requiredLibraryDocumentId || undefined}
+        fixHref={`/clients/${target.clientId}/edit`}
       />
 
       <div className="mt-5">
