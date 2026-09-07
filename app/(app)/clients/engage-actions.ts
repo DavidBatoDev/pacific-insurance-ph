@@ -12,7 +12,10 @@ import { getExternalContactsRepository, type ExternalContact } from "@/lib/repos
 import type { Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
 import { can, toAppRole } from "@/lib/auth/permissions";
-import { getDocumentLibraryRepository, type LibraryDocument } from "@/lib/repositories/document-library";
+import {
+  getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
+  type LibraryDocument,
+} from "@/lib/repositories/document-library";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import { nextLeadStage } from "@/components/hub/lead-config";
 
@@ -103,7 +106,13 @@ export async function sendEmailAction(input: {
   body: string;
   templateName?: string | null;
   externalContactId?: string | null;
-  libraryDocumentIds?: string[];
+  /**
+   * Split on purpose. With one flat array the server would have to *infer*
+   * which id was meant to satisfy the mandatory gate, and every natural way of
+   * inferring that ("one of them is an eligible brochure") quietly relaxes it.
+   */
+  requiredLibraryDocumentId?: string | null;
+  optionalLibraryDocumentIds?: string[];
 }): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.recipient.trim() || !input.subject.trim())
@@ -112,16 +121,35 @@ export async function sendEmailAction(input: {
   const client = await getClientsRepository().findById(input.clientId);
   if (!client) return { ok: false, error: "Contact not found." };
   const requirement = attachmentRequirement(input.templateName ?? null);
-  const ids = [...new Set(input.libraryDocumentIds ?? [])];
+  const requiredId = input.requiredLibraryDocumentId?.trim() || null;
+  const optionalIds = [...new Set(input.optionalLibraryDocumentIds ?? [])].filter((id) => id !== requiredId);
   let attachmentName: string | null = null;
+
+  // Branch A — the mandatory gate. Unchanged in strictness.
   if (requirement) {
     if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
     const eligible = await resolveEligibleLibraryDocuments(client, requirement);
     if (eligible.reason) return { ok: false, error: eligible.reason };
-    if (ids.length !== 1 || !eligible.documents.some((doc) => doc.id === ids[0]))
+    if (!requiredId || !eligible.documents.some((doc) => doc.id === requiredId))
       return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this contact.` };
-    attachmentName = eligible.documents.find((doc) => doc.id === ids[0])?.documentName ?? null;
-  } else if (ids.length) return { ok: false, error: "This email template does not accept carrier-library attachments yet." };
+    attachmentName = eligible.documents.find((doc) => doc.id === requiredId)?.documentName ?? null;
+  } else if (requiredId) {
+    return { ok: false, error: "This email template does not require a carrier attachment." };
+  }
+
+  // Branch B — optional attachments, resolved independently of the template.
+  if (optionalIds.length) {
+    // This check lived inside branch A, so an optional-only send would have
+    // skipped it entirely.
+    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    if (optionalIds.length > MAX_OPTIONAL_ATTACHMENTS)
+      return { ok: false, error: `Attach at most ${MAX_OPTIONAL_ATTACHMENTS} library assets.` };
+    const allowed = await resolveOptionalLibraryDocuments(client);
+    if (optionalIds.some((id) => !allowed.documents.some((doc) => doc.id === id)))
+      return { ok: false, error: "One or more selected attachments are no longer available. Reopen the attachment list and choose again." };
+  }
+
+  const ids = [...new Set([requiredId, ...optionalIds].filter((id): id is string => Boolean(id)))];
 
   try {
     await logOutboundEmail({ clientId: input.clientId, subject: input.subject, summary: input.body.split("\n").find(Boolean) ?? "", notes: input.body, actorId: actor.id, externalContactId: input.externalContactId, libraryDocumentIds: ids });
@@ -184,6 +212,42 @@ async function resolveEligibleLibraryDocuments(client: Client, documentType: Req
   }
   const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentTypes: [documentType], ageBand });
   return { documents, reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${client.productInterest}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.` };
+}
+
+/**
+ * Optional attachments: everything approved for this contact's product, of any
+ * type, with no reference to the email template. Template names are free text
+ * with casing duplicates, so a name→type map would either miss the twin or
+ * start matching retired rows — and an optional attachment has no wrong choice
+ * to prevent anyway.
+ */
+async function resolveOptionalLibraryDocuments(client: Client): Promise<EligibleLibraryDocuments> {
+  if (!client.productInterest?.trim())
+    return { documents: [], reason: "Set the contact’s product interest to browse the carrier library.", fix: "product-interest" };
+  // "All Ages" narrows to All-Ages rows rather than meaning "any band", so fall
+  // back to it whenever the required gate would also have refused the age —
+  // the optional list must never offer what the gate would reject.
+  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
+  if (client.dateOfBirth) {
+    const age = ageOn(client.dateOfBirth);
+    if (age >= 0 && age <= 100) ageBand = age <= 70 ? "0-70" : "71-100";
+  }
+  const documents = await getDocumentLibraryRepository().listEligible({
+    productName: client.productInterest,
+    documentTypes: LIBRARY_DOCUMENT_TYPES,
+    ageBand,
+  });
+  return { documents, reason: documents.length ? null : `No approved library assets match ${client.productInterest} yet.` };
+}
+
+export async function listOptionalLibraryDocumentsAction(clientId: string): Promise<ActionResult<EligibleLibraryDocuments>> {
+  try {
+    const actor = await getActor();
+    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    const client = await getClientsRepository().findById(clientId);
+    if (!client) return { ok: false, error: "Contact not found." };
+    return { ok: true, data: await resolveOptionalLibraryDocuments(client) };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." }; }
 }
 
 export async function listEligibleLibraryDocumentsAction(clientId: string, templateName: string): Promise<ActionResult<EligibleLibraryDocuments>> {

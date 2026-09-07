@@ -10,6 +10,7 @@ import { I } from "../icons";
 import { usePersona } from "../persona";
 import { Avatar, Btn, Field, INPUT } from "../primitives";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
+import { OptionalLibraryAttachments } from "./optional-library-attachments";
 import { useOverlays } from "./overlay-provider";
 
 /**
@@ -59,7 +60,11 @@ export function EmailForm({
   const [recipient, setRecipient] = useState(target.email ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [libraryDocumentId, setLibraryDocumentId] = useState("");
+  // Named "required" so `grep requiredLibraryDocumentId` enumerates every read of
+  // the mandatory gate. Optional attachments live in their own state and must
+  // never appear in canComplete or the red banner below.
+  const [requiredLibraryDocumentId, setRequiredLibraryDocumentId] = useState("");
+  const [optionalLibraryDocumentIds, setOptionalLibraryDocumentIds] = useState<string[]>([]);
   // Guards the seed below so it only ever fires once per mount — needed because a caller
   // (EngageDrawer) may still be fetching `templates` when this mounts, so the initial template
   // can't always be seeded synchronously from a useState initializer.
@@ -87,7 +92,8 @@ export function EmailForm({
 
   const applyTemplate = (name: string) => {
     setTpl(name);
-    setLibraryDocumentId("");
+    setRequiredLibraryDocumentId("");
+    setOptionalLibraryDocumentIds([]);
     const t = templates.find((x) => x.name === name);
     if (t) {
       setSubject(fillTemplate(t.subject, ctx));
@@ -96,7 +102,7 @@ export function EmailForm({
   };
 
   const canSend = !pending && !!recipient.trim() && !!subject.trim();
-  const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!libraryDocumentId);
+  const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!requiredLibraryDocumentId);
 
   const submit = () =>
     startTransition(async () => {
@@ -107,7 +113,8 @@ export function EmailForm({
         body,
         templateName: tpl || null,
         externalContactId: target.externalContactId ?? null,
-        libraryDocumentIds: libraryDocumentId ? [libraryDocumentId] : [],
+        requiredLibraryDocumentId: requiredLibraryDocumentId || null,
+        optionalLibraryDocumentIds,
       });
       if (!res.ok) return overlays.toast("Couldn’t log email", res.error);
       router.refresh();
@@ -139,7 +146,13 @@ export function EmailForm({
           onChange={(e) => setBody(e.target.value)}
         />
       </Field>
-      <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={libraryDocumentId} onChange={setLibraryDocumentId} />
+      <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
+      <OptionalLibraryAttachments
+        clientId={target.clientId}
+        value={optionalLibraryDocumentIds}
+        onChange={setOptionalLibraryDocumentIds}
+        exclude={requiredLibraryDocumentId || undefined}
+      />
 
       <div className="mt-5">
         <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-subtle">
@@ -164,7 +177,7 @@ export function EmailForm({
         </div>
       </div>
 
-      {templateNeedsLibraryAttachment(tpl) && !libraryDocumentId && (
+      {templateNeedsLibraryAttachment(tpl) && !requiredLibraryDocumentId && (
         <div className="mt-3.5 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
           <I.alertTri size={16} className="mt-0.5 shrink-0" />
           <div>

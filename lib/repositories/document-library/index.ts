@@ -8,4 +8,6 @@ export type { DocumentLibraryRepository, EligibleLibraryInput } from "./document
 export type {
   LibraryAgeBand, LibraryDocument, LibraryDocumentType, LibraryDocumentUpdate, NewLibraryDocument,
 } from "./document-library.entity";
-export { LIBRARY_AGE_BANDS, LIBRARY_APPROVAL_STATUSES, LIBRARY_DOCUMENT_TYPES } from "./document-library.entity";
+export {
+  LIBRARY_AGE_BANDS, LIBRARY_APPROVAL_STATUSES, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
+} from "./document-library.entity";
