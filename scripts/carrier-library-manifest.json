@@ -1,0 +1,1138 @@
+{
+  "version": 1,
+  "loadTag": "carrier-library-2026-09",
+  "sourceRoot": "../../docs/attachments",
+  "generatedFrom": "one-off authoring script; hashes and sizes read from the files on disk",
+  "productVersions": {
+    "select": {
+      "id": "b90ffe1b-6d70-444e-b7d5-699aed00f788",
+      "product": "Select"
+    },
+    "blueRoyale": {
+      "id": "427d8fa0-2ce1-4a20-90bc-b477b6a13e0c",
+      "product": "Blue Royale"
+    },
+    "flexiShield": {
+      "id": "6e8e02c0-bd57-4be4-9a18-a00f8cf6e048",
+      "product": "FlexiShield"
+    },
+    "bcFlexi": {
+      "id": "3fedf55d-ab5e-4b24-947d-5f7c46a5de63",
+      "product": "BC Flexi"
+    },
+    "travel": {
+      "id": "7539edb8-a0db-4393-8f6f-080238b3ae5d",
+      "product": "Travel Insurance"
+    },
+    "travelSafe": {
+      "id": "e6f25cd4-71a6-4bf9-8670-76358dca6e16",
+      "product": "TravelSafe"
+    }
+  },
+  "sources": [
+    {
+      "key": "select-brochure",
+      "path": "new_business/Select Brochure 2025.pdf",
+      "originalFileName": "Select-Brochure-2025.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Select Brochure 2025",
+          "documentType": "Brochure",
+          "versionLabel": "2025",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable product brochure for Select.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "86deeae48f7f4c6aaf7f52fb156cd68f",
+      "bytes": 4760569,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "blue-royale-brochure",
+      "path": "new_business/Blue Royale Brochure 2025.pdf",
+      "originalFileName": "Blue-Royale-Brochure-2025.pdf",
+      "rows": [
+        {
+          "productVersion": "blueRoyale",
+          "documentName": "Blue Royale Brochure 2025",
+          "documentType": "Brochure",
+          "versionLabel": "2025",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable product brochure for Blue Royale.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "37e161ab2674534fe1e2c076567cb626",
+      "bytes": 4361200,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "flexishield-brochure",
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/FlexiShiled Brochure.pdf",
+      "originalFileName": "FlexiShield-Brochure.pdf",
+      "rows": [
+        {
+          "productVersion": "flexiShield",
+          "documentName": "FlexiShield Brochure",
+          "documentType": "Brochure",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable product brochure for FlexiShield.",
+          "extraNotes": "Source filename misspells the product as 'FlexiShiled'. No edition marker on the document."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "363a8f36a229074f73ebbe299ebe3e8d",
+      "bytes": 703781,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "travel-brochure",
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Travel Brochure 2024.pdf",
+      "originalFileName": "Travel-Brochure-2024.pdf",
+      "rows": [
+        {
+          "productVersion": "travel",
+          "documentName": "Travel Brochure 2024",
+          "documentType": "Brochure",
+          "versionLabel": "2024",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable travel brochure. Confirmed by Eman on 2026-08-24 as the current edition.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "363baa45a93bd5ef555a9886e5fc08e9",
+      "bytes": 2003838,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "select-app-0-70",
+      "path": "applications/Select Application Form Regular.docx",
+      "originalFileName": "Select-Application-Form-Ages-0-70.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Select Application Form — Ages 0–70",
+          "documentType": "Application Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "0-70",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Regular Select application form for applicants aged 0–70.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [
+        "new_business/Select Application Regular.docx"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "d087a44f0cc303ecf34cca8f0d65190a",
+      "bytes": 190237,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "select-app-71-100",
+      "path": "new_business/Select Application Form 71 up.docx",
+      "originalFileName": "Select-Application-Form-Ages-71-100.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Select Application Form — Ages 71–100",
+          "documentType": "Application Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "71-100",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Select application form for applicants aged 71 and above.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [
+        "applications/Select Application Form 71-100.docx"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "add9bd0a0d21ba54f9d82573d8ef09c1",
+      "bytes": 139787,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "blue-royale-app-0-70",
+      "path": "applications/Blue Royale App Form 2025.docx",
+      "originalFileName": "Blue-Royale-Application-Form-Ages-0-70.docx",
+      "rows": [
+        {
+          "productVersion": "blueRoyale",
+          "documentName": "Blue Royale Application Form — Ages 0–70",
+          "documentType": "Application Form",
+          "versionLabel": "2025",
+          "variant": null,
+          "ageBand": "0-70",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Regular Blue Royale application form for applicants aged 0–70.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [
+        "new_business/Blue Royale Application Form Regular.docx"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "98e07deac52882bff875c9f7d566d49a",
+      "bytes": 215032,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "blue-royale-app-71-100",
+      "path": "applications/Blue Royale Application Form 71-100.docx",
+      "originalFileName": "Blue-Royale-Application-Form-Ages-71-100.docx",
+      "rows": [
+        {
+          "productVersion": "blueRoyale",
+          "documentName": "Blue Royale Application Form — Ages 71–100",
+          "documentType": "Application Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "71-100",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Blue Royale application form for applicants aged 71 and above.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [
+        "new_business/Blue Royale Applcation Form 71up.docx"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "4ef52f429f5adc884e720f134a758232",
+      "bytes": 153897,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "flexishield-app-fillable",
+      "path": "applications/FlexiShield Application Form.docx",
+      "originalFileName": "FlexiShield-Application-Form-Fillable-2024-04.docx",
+      "rows": [
+        {
+          "productVersion": "flexiShield",
+          "documentName": "FlexiShield Application Form — Fillable Word Edition",
+          "documentType": "Application Form",
+          "versionLabel": "2024-04",
+          "variant": "FlexiShield",
+          "ageBand": "All Ages",
+          "effectiveDate": "2024-04-01",
+          "expiryDate": null,
+          "distributionNotes": "Individual or family with more than one dependent. Soft copy is accepted for evaluation; a signed print-out is still required afterwards.",
+          "extraNotes": "Carries the canonical 'FlexiShield' variant used by the application wizard's carrier-form matching. Do not change this string."
+        }
+      ],
+      "supersedes": [
+        "other_documents_and_travel/MattxAugust - Other Documents and Travel/FlexiShield Application Form.docx"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "c9db768328d547af2cb5024d0fb0b8be",
+      "bytes": 1044120,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "flexishield-app-print",
+      "path": "Flexishield_Requirements/685ac8e11e786ddc902783ef_FlexiShield Application Form_2024-09 (September 02).pdf",
+      "originalFileName": "FlexiShield-Application-Form-Print-2024-09.pdf",
+      "rows": [
+        {
+          "productVersion": "flexiShield",
+          "documentName": "FlexiShield Application Form — Print Edition",
+          "documentType": "Application Form",
+          "versionLabel": "2024-09",
+          "variant": "FlexiShield Print Edition",
+          "ageBand": "All Ages",
+          "effectiveDate": "2024-09-02",
+          "expiryDate": null,
+          "distributionNotes": "Individual or family with one dependent of minor age. Ballpen or signpen, block letters; unsigned or undated forms are returned. Use the fillable Word edition for more than one dependent.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "58b0bf74b9dfc17406bbea393ce55372",
+      "bytes": 759965,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "travel-app",
+      "path": "applications/Travel Application Form (A4)_2026-01 (January 09) 2[28].pdf",
+      "originalFileName": "Travel-Application-Form-2026-01.pdf",
+      "rows": [
+        {
+          "productVersion": "travel",
+          "documentName": "Travel Application Form",
+          "documentType": "Application Form",
+          "versionLabel": "2026-01",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": "2026-01-09",
+          "expiryDate": null,
+          "distributionNotes": "Clean copy. Requirements are the completed form plus a passport or government-issued valid ID.",
+          "extraNotes": "The marked-up copy under other_documents_and_travel/ is an older version and is deliberately not loaded (Eman, 2026-08-24)."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "7de82217f95dcbfcc34d9b65f9c71e15",
+      "bytes": 536704,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "bc-flexi-franchise",
+      "path": "BC_FLEXI_Requirements/Franchise AppForm_2016-8 (Aug10) (1) (1)_1 (1) (2).pdf",
+      "originalFileName": "BC-Flexi-Franchise-Application-Form-2016-08.pdf",
+      "rows": [
+        {
+          "productVersion": "bcFlexi",
+          "documentName": "BC Flexi Franchise Application Form",
+          "documentType": "Application Form",
+          "versionLabel": "2016-08",
+          "variant": "Franchise",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Required only when the group has no previous HMO.",
+          "extraNotes": "2016 edition, branded 'Formerly Blue Cross Philippines'. Confirmed current by Eman on 2026-08-24; no newer edition exists."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "d88c6b0fcc47c80e610a959febc0a5df",
+      "bytes": 127083,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "agents-attestation",
+      "path": "new_business/ATTESTATION LETTER 2024.pdf",
+      "originalFileName": "Agents-Attestation-Letter-2024.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Agent's Attestation Letter",
+          "documentType": "Attestation Letter",
+          "versionLabel": "2024",
+          "variant": "Face-to-Face Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Face-to-face selling only. Mutually exclusive with the Advisor's Declaration, which covers remote or online submissions.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "blueRoyale",
+          "documentName": "Agent's Attestation Letter",
+          "documentType": "Attestation Letter",
+          "versionLabel": "2024",
+          "variant": "Face-to-Face Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Face-to-face selling only. Mutually exclusive with the Advisor's Declaration, which covers remote or online submissions.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "flexiShield",
+          "documentName": "Agent's Attestation Letter",
+          "documentType": "Attestation Letter",
+          "versionLabel": "2024",
+          "variant": "Face-to-Face Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Face-to-face selling only. Mutually exclusive with the Advisor's Declaration, which covers remote or online submissions.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "bcFlexi",
+          "documentName": "Agent's Attestation Letter",
+          "documentType": "Attestation Letter",
+          "versionLabel": "2024",
+          "variant": "Face-to-Face Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Face-to-face selling only. Mutually exclusive with the Advisor's Declaration, which covers remote or online submissions.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [
+        "BC_FLEXI_Requirements/AGENT'S ATTESTATION LETTER.pdf",
+        "Flexishield_Requirements/AGENT'S ATTESTATION LETTER.pdf",
+        "Flexishield_Requirements/AGENT'S ATTESTATION LETTER_1.pdf"
+      ],
+      "md5": "d98e6bc33b2b6e3cb87f58f5771f9d3e",
+      "bytes": 389985,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "advisors-declaration",
+      "path": "Flexishield_Requirements/Advisors Declaration_1.pdf",
+      "originalFileName": "Advisors-Declaration.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Advisor's Declaration",
+          "documentType": "Attestation Letter",
+          "versionLabel": "Undated",
+          "variant": "Remote Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Remote or online submissions only. Mutually exclusive with the Agent's Attestation Letter, which covers face-to-face selling.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "blueRoyale",
+          "documentName": "Advisor's Declaration",
+          "documentType": "Attestation Letter",
+          "versionLabel": "Undated",
+          "variant": "Remote Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Remote or online submissions only. Mutually exclusive with the Agent's Attestation Letter, which covers face-to-face selling.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "flexiShield",
+          "documentName": "Advisor's Declaration",
+          "documentType": "Attestation Letter",
+          "versionLabel": "Undated",
+          "variant": "Remote Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Remote or online submissions only. Mutually exclusive with the Agent's Attestation Letter, which covers face-to-face selling.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        },
+        {
+          "productVersion": "bcFlexi",
+          "documentName": "Advisor's Declaration",
+          "documentType": "Attestation Letter",
+          "versionLabel": "Undated",
+          "variant": "Remote Sale",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Remote or online submissions only. Mutually exclusive with the Agent's Attestation Letter, which covers face-to-face selling.",
+          "extraNotes": "Product-agnostic carrier form. One row per product because the approve routine refuses an asset with no product version."
+        }
+      ],
+      "supersedes": [
+        "BC_FLEXI_Requirements/Advisors Declaration_1.pdf"
+      ],
+      "alsoDeliveredAs": [
+        "new_business/Advisors Declaration copy.docx"
+      ],
+      "md5": "fab4afe82a94d3679c809de5b5035fe9",
+      "bytes": 672356,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "medical-noc",
+      "path": "applications/NOC.pdf",
+      "originalFileName": "Medical-Notification-of-Claim.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Medical Notification of Claim",
+          "documentType": "Claim Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Page 4 carries the claims reimbursement checklist, split into in-patient and out-patient requirements.",
+          "extraNotes": "Product-agnostic carrier form filed under Select as the primary-medical anchor."
+        }
+      ],
+      "supersedes": [
+        "Pacific_Claims_and_Pre-Approval/NOC.pdf"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "ab0aac818c45f0d3ed10ec9290eb3a56",
+      "bytes": 475170,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "pre-approval",
+      "path": "Pacific_Claims_and_Pre-Approval/PRE-APPROVAL FORM 2024.pdf",
+      "originalFileName": "Pre-Approval-Assessment-Form-2024.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Pre-Approval Assessment Form for In-Patient Treatment",
+          "documentType": "Claim Form",
+          "versionLabel": "V03.24",
+          "variant": "Pre-Approval",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Submit with medical results. Pacific Cross requests further documents case by case after assessment.",
+          "extraNotes": "Product-agnostic carrier form filed under Select as the primary-medical anchor."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "abe56edeee5397eb5e3e2fd65871a680",
+      "bytes": 153849,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "travelsafe-noc",
+      "path": "applications/NOC Travelsafe Insurance_2026-02 (February 02)[67][37][73].pdf",
+      "originalFileName": "TravelSafe-Notification-of-Claim-2026-02.pdf",
+      "rows": [
+        {
+          "productVersion": "travelSafe",
+          "documentName": "TravelSafe Notification of Claim",
+          "documentType": "Claim Form",
+          "versionLabel": "2026-02",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": "2026-02-02",
+          "expiryDate": null,
+          "distributionNotes": "Benefit-specific requirements are printed on the form itself.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [
+        "Pacific_Claims_and_Pre-Approval/NOC Travelsafe Insurance_2026-02 (February 02)[67].pdf"
+      ],
+      "alsoDeliveredAs": [],
+      "md5": "5553b51df8957050ae0a5200dc7249d1",
+      "bytes": 553429,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "amendment",
+      "path": "renewal_business/MattxAugust - Renewal Business/Amendment of Insurance Policy.pdf",
+      "originalFileName": "Amendment-of-Insurance-Policy.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Amendment of Insurance Policy",
+          "documentType": "Renewal Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Blank carrier form for amending an in-force policy at renewal.",
+          "extraNotes": "Product-agnostic carrier form filed under Select as the primary-medical anchor."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "4922167d8fd3196cece01606db9895b0",
+      "bytes": 293686,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "reinstatement",
+      "path": "renewal_business/MattxAugust - Renewal Business/Reinstatement of Insurance Policy.pdf",
+      "originalFileName": "Reinstatement-of-Insurance-Policy.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Reinstatement of Insurance Policy",
+          "documentType": "Renewal Form",
+          "versionLabel": "Undated",
+          "variant": "Reinstatement",
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Blank carrier form for reinstating a lapsed policy.",
+          "extraNotes": "Product-agnostic carrier form filed under Select as the primary-medical anchor."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "ff1193601e7654585993ef22be69449b",
+      "bytes": 281352,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "email-confirmation",
+      "path": "new_business/2026 UPDATED EMAIL CONFIRMATION TEMPLATE copy.pdf",
+      "originalFileName": "Remote-Selling-Email-Confirmation-Template-2026.pdf",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Remote-Selling Email Confirmation Template 2026",
+          "documentType": "Email Template Attachment",
+          "versionLabel": "2026",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Accompanies remote or online submissions alongside the Advisor's Declaration.",
+          "extraNotes": "Product-agnostic carrier form filed under Select as the primary-medical anchor."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "e705e7fd860466d5b63e2a6cff6a59d1",
+      "bytes": 236075,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "questionnaire-chest-pain",
+      "path": "new_business/Medical Questionnaires/Chest Pain Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Chest-Pain-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Chest Pain Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Chest Pain",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "552a6e1b52153025d87d6a74538efa94",
+      "bytes": 155119,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-cholesterol",
+      "path": "new_business/Medical Questionnaires/Cholesterol Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Cholesterol-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Cholesterol Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Cholesterol",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "5e4d8a14a71fc3e522935c1b41fa13d4",
+      "bytes": 150794,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-covid-19-recovery",
+      "path": "new_business/Medical Questionnaires/COVID-19 Recovery Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-COVID-19-Recovery-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "COVID-19 Recovery Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "COVID-19 Recovery",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "c37f48cfed1b91ddb550995bf7bcd3c5",
+      "bytes": 151336,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-cyst-lump-mass-tumor",
+      "path": "new_business/Medical Questionnaires/Cyst, Lump, Mass & Tumor Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Cyst-Lump-Mass-Tumor-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Cyst, Lump, Mass & Tumor Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Cyst, Lump, Mass & Tumor",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "f203be539bd38893708c2a6cda5af71e",
+      "bytes": 152700,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-diabetes",
+      "path": "new_business/Medical Questionnaires/Diabetes Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Diabetes-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Diabetes Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Diabetes",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "0f1677a407c88a93bc842d6b1cc96939",
+      "bytes": 154967,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-digestive-disorder",
+      "path": "new_business/Medical Questionnaires/Digestive Disorder Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Digestive-Disorder-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Digestive Disorder Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Digestive Disorder",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "3dc476a2a0f04c09ee4fefea9c2d7ab2",
+      "bytes": 152993,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-ear-disorders",
+      "path": "new_business/Medical Questionnaires/Ear Disorders Questionnaire_2023-05 (May 23).doc",
+      "originalFileName": "Medical-Questionnaire-Ear-Disorders-2023-05.doc",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Ear Disorders Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Ear Disorders",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "448ca4d5108180eacb31b282456d425f",
+      "bytes": 252928,
+      "mimeType": "application/msword"
+    },
+    {
+      "key": "questionnaire-eye-disorders",
+      "path": "new_business/Medical Questionnaires/Eye Disorders Questionnaire_2023-05 (May 23).doc",
+      "originalFileName": "Medical-Questionnaire-Eye-Disorders-2023-05.doc",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Eye Disorders Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Eye Disorders",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "553588e1d236b1acef639cb583ac69c2",
+      "bytes": 260608,
+      "mimeType": "application/msword"
+    },
+    {
+      "key": "questionnaire-genito-urinary",
+      "path": "new_business/Medical Questionnaires/Genito-Urinary Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Genito-Urinary-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Genito-Urinary Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Genito-Urinary",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "40b724fccc8d0b50a95b8d5fae15fc3c",
+      "bytes": 153548,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-gynecological",
+      "path": "new_business/Medical Questionnaires/Gynecological Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Gynecological-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Gynecological Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Gynecological",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "16e6a2ac7eab998144873151d41d56b8",
+      "bytes": 154069,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-headache-migraine",
+      "path": "new_business/Medical Questionnaires/Headache & Migraine Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Headache-Migraine-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Headache & Migraine Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Headache & Migraine",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "631246bb672050e2bac7883617e49b50",
+      "bytes": 150855,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-hypertension",
+      "path": "new_business/Medical Questionnaires/Hypertension Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Hypertension-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Hypertension Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Hypertension",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "bf726ff779a4f97e3468f658d3218edb",
+      "bytes": 153804,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-mental-health",
+      "path": "new_business/Medical Questionnaires/Mental Health Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Mental-Health-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Mental Health Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Mental Health",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "dbb93cd91d002c4d8dc3324b5c8fd06b",
+      "bytes": 155445,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-musculoskeletal",
+      "path": "new_business/Medical Questionnaires/Musculoskeletal Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Musculoskeletal-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Musculoskeletal Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Musculoskeletal",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "27d16c5dac2ea698c1c5f9c9c960eb78",
+      "bytes": 156383,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-respiratory",
+      "path": "new_business/Medical Questionnaires/Respiratory Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Respiratory-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Respiratory Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Respiratory",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "7280147708b48f8e448b02879ed170b2",
+      "bytes": 153774,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-seizure-epilepsy",
+      "path": "new_business/Medical Questionnaires/Seizure-Epilepsy Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Seizure-Epilepsy-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Seizure-Epilepsy Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Seizure-Epilepsy",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "337884f641ae1572774c78e500a08055",
+      "bytes": 156254,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-sleep-apnea",
+      "path": "new_business/Medical Questionnaires/Sleep Apnea Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Sleep-Apnea-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Sleep Apnea Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Sleep Apnea",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "e8b280a47abe515462337a3ac7995787",
+      "bytes": 150642,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-thyroid-disorder",
+      "path": "new_business/Medical Questionnaires/Thyroid Disorder Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Thyroid-Disorder-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Thyroid Disorder Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Thyroid Disorder",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "ae43b44e77220441121711800fd679fb",
+      "bytes": 156117,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-venous-diseases",
+      "path": "new_business/Medical Questionnaires/Venous Diseases Questionnaire - Applicant_2023-05 (May 23) (Final).docx",
+      "originalFileName": "Medical-Questionnaire-Venous-Diseases-2023-05.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Venous Diseases Questionnaire",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-05",
+          "variant": "Venous Diseases",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-05-23",
+          "expiryDate": null,
+          "distributionNotes": "Underwriting questionnaire, completed by the applicant when the medical panel calls for it. Filed under Select as the primary-medical anchor; the form itself is not product-specific.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "1659163e6cdaadea282db3aa6f0b8f63",
+      "bytes": 152187,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "key": "questionnaire-attending-physicians-statement",
+      "path": "new_business/Medical Questionnaires/Attending Physician_s Statement - Applicant_2023-06 (Jun 14).docx",
+      "originalFileName": "Attending-Physicians-Statement-2023-06.docx",
+      "rows": [
+        {
+          "productVersion": "select",
+          "documentName": "Attending Physician's Statement",
+          "documentType": "Medical Questionnaire",
+          "versionLabel": "2023-06",
+          "variant": "Attending Physician's Statement",
+          "ageBand": "All Ages",
+          "effectiveDate": "2023-06-14",
+          "expiryDate": null,
+          "distributionNotes": "Completed by the applicant's attending physician when the carrier requests it.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "b14f32c4673f06d011610e5c99ed0f64",
+      "bytes": 157135,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    }
+  ],
+  "excluded": [
+    {
+      "path": "new_business/Illustrative Proposal.pdf",
+      "reason": "Per-client Pacific Cross output. Client name and full street address are still recoverable — the text was hidden by colouring it white, not deleted (checklist A2). Never a library asset."
+    },
+    {
+      "path": "renewal_business/MattxAugust - Renewal Business/Sample Renewal Notice.pdf",
+      "reason": "Per-client Pacific Cross output. Name, mailing address, policy number and both premium amounts recoverable (checklist A2)."
+    },
+    {
+      "path": "renewal_business/MattxAugust - Renewal Business/Medical Condition Coverage Endorsement.pdf",
+      "reason": "Per-client Pacific Cross output. Names an individual beside their medical conditions (checklist A2)."
+    },
+    {
+      "path": "renewal_business/MattxAugust - Renewal Business/Sample Exclusion Endorsement.pdf",
+      "reason": "Per-client Pacific Cross output. Names an individual beside their excluded conditions (checklist A2)."
+    },
+    {
+      "path": "new_business/Treatment Area Limitation.pdf",
+      "reason": "Per-client carrier output issued for signature, not a blank template. Sanitised, but never a document-library candidate."
+    },
+    {
+      "path": "new_business/Client_s Application for Coverage.pdf",
+      "reason": "Per-client carrier output issued after evaluation, not a blank template. Blank as delivered, but never a document-library candidate."
+    },
+    {
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Easy Payment Options.pdf",
+      "reason": "Retired. Eman instructed us to disregard it and not load it into the client-sendable library."
+    },
+    {
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Travel Application Form .pdf",
+      "reason": "Superseded marked-up copy. Eman confirmed on 2026-08-24 that only the clean 2026-01 edition is sent."
+    },
+    {
+      "path": "BC_FLEXI_Requirements/PROPOSAL INFORMATION SHEET_Revised_2018 (1) (1) (1)_1.doc",
+      "reason": "Header reads 'FOR INTERNAL USE ONLY (to be filled out by Pacific Cross Sales Personnel)'. Checklist question C3 (who completes it) is unanswered; loading it as a BC Flexi application form would put it one click from a client email. Hold until answered."
+    },
+    {
+      "path": "BC_FLEXI_Requirements/CET (2)_1 (2) (1).xlsx",
+      "reason": "Spreadsheet. The library uploader accepts PDF, DOC and DOCX only; loading it would need a MIME allowlist migration."
+    },
+    {
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/CCAF (Credit Card Authorization Form).pdf",
+      "reason": "No document_type in the fixed seven-value list fits an authorization form; would need a schema migration."
+    },
+    {
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Geographical Loading.pdf",
+      "reason": "Reference sheet. No document_type in the fixed seven-value list fits; would need a schema migration."
+    }
+  ]
+}
