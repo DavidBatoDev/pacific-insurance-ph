@@ -1,11 +1,18 @@
-import type { LibraryDocument, LibraryDocumentUpdate, NewLibraryDocument } from "./document-library.entity";
+import type {
+  LibraryAgeBand, LibraryDocument, LibraryDocumentType, LibraryDocumentUpdate, NewLibraryDocument,
+} from "./document-library.entity";
 
 export interface EligibleLibraryInput {
   productName: string;
   productVersionId?: string;
   variant?: string | null;
-  documentType: "Brochure" | "Application Form";
-  ageBand: "All Ages" | "0-70" | "71-100";
+  /**
+   * Types to consider — always explicit, never "omit to mean every type". This
+   * query is the sole authority behind a *required* attachment, so a dropped
+   * field must fail to compile rather than silently widen what may satisfy it.
+   */
+  documentTypes: readonly [LibraryDocumentType, ...LibraryDocumentType[]];
+  ageBand: LibraryAgeBand;
   onDate?: string;
 }
 

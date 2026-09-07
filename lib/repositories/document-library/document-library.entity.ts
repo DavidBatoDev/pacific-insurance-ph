@@ -5,6 +5,9 @@ export const LIBRARY_DOCUMENT_TYPES = [
 export const LIBRARY_AGE_BANDS = ["All Ages", "0-70", "71-100"] as const;
 export const LIBRARY_APPROVAL_STATUSES = ["Draft", "Pending Approval", "Approved", "Rejected"] as const;
 
+export type LibraryDocumentType = (typeof LIBRARY_DOCUMENT_TYPES)[number];
+export type LibraryAgeBand = (typeof LIBRARY_AGE_BANDS)[number];
+
 export interface LibraryDocument {
   id: string;
   productVersionId: string | null;

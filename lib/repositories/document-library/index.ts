@@ -5,5 +5,7 @@ export function getDocumentLibraryRepository(): DocumentLibraryRepository {
   return instance ??= new SupabaseDocumentLibraryRepository();
 }
 export type { DocumentLibraryRepository, EligibleLibraryInput } from "./document-library.repository";
-export type { LibraryDocument, LibraryDocumentUpdate, NewLibraryDocument } from "./document-library.entity";
+export type {
+  LibraryAgeBand, LibraryDocument, LibraryDocumentType, LibraryDocumentUpdate, NewLibraryDocument,
+} from "./document-library.entity";
 export { LIBRARY_AGE_BANDS, LIBRARY_APPROVAL_STATUSES, LIBRARY_DOCUMENT_TYPES } from "./document-library.entity";

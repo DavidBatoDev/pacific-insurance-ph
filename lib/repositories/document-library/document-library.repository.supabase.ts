@@ -3,6 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError } from "../types";
+import { LIBRARY_DOCUMENT_TYPES } from "./document-library.entity";
 import type { LibraryDocument, LibraryDocumentUpdate, NewLibraryDocument } from "./document-library.entity";
 import type { DocumentLibraryRepository, EligibleLibraryInput } from "./document-library.repository";
 
@@ -52,18 +53,31 @@ export class SupabaseDocumentLibraryRepository implements DocumentLibraryReposit
     return (data ?? []).map(toDomain);
   }
   async listEligible(input: EligibleLibraryInput) {
+    // Belt and braces for a dynamically built list: `.in("document_type", [])`
+    // returns nothing, which a required attachment would render as "no approved
+    // asset matches" — a bug wearing the costume of the expected empty state.
+    if (!input.documentTypes.length) return [];
     const date = input.onDate ?? new Date().toISOString().slice(0, 10);
     let query = getSupabaseAdmin().from("document_library").select(SELECT)
-      .eq("status", "Active").eq("approval_status", "Approved").eq("document_type", input.documentType)
+      .eq("status", "Active").eq("approval_status", "Approved")
+      .in("document_type", input.documentTypes as unknown as string[])
       .in("age_band", input.ageBand === "All Ages" ? ["All Ages"] : ["All Ages", input.ageBand])
       .or(`effective_date.is.null,effective_date.lte.${date}`).or(`expiry_date.is.null,expiry_date.gte.${date}`);
     if (input.productVersionId) query = query.eq("product_version_id", input.productVersionId);
     if (input.variant) query = query.ilike("variant", input.variant);
     const { data, error } = await query.returns<Joined[]>();
     if (error) throw toRepositoryError("DocumentLibraryRepository.listEligible", error);
+    // Type rank sorts first so a caller can group by walking LIBRARY_DOCUMENT_TYPES
+    // in order. With a single-element `documentTypes` every row ranks equal, so the
+    // remaining comparators are unchanged and `matchCarrierForm`'s docs[0] is the
+    // same document it was before.
+    const rank = (doc: LibraryDocument) =>
+      LIBRARY_DOCUMENT_TYPES.indexOf(doc.documentType as (typeof LIBRARY_DOCUMENT_TYPES)[number]);
     return (data ?? []).map(toDomain)
       .filter((doc) => doc.productName?.toLowerCase() === input.productName.toLowerCase())
-      .sort((a, b) => Number(b.ageBand === input.ageBand) - Number(a.ageBand === input.ageBand) || (b.effectiveDate ?? "").localeCompare(a.effectiveDate ?? ""));
+      .sort((a, b) => rank(a) - rank(b)
+        || Number(b.ageBand === input.ageBand) - Number(a.ageBand === input.ageBand)
+        || (b.effectiveDate ?? "").localeCompare(a.effectiveDate ?? ""));
   }
   async create(input: NewLibraryDocument) {
     const { data, error } = await getSupabaseAdmin().from("document_library").insert({

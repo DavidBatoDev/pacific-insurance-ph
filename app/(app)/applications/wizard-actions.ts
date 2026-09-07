@@ -220,7 +220,7 @@ async function matchCarrierForm(form: WizardForm, ageBand: "0-70" | "71-100" | "
   const docs = await getDocumentLibraryRepository().listEligible({
     productName: form.productName,
     productVersionId: form.productVersionId || undefined,
-    documentType: "Application Form",
+    documentTypes: ["Application Form"],
     ageBand,
     variant,
   });
@@ -268,7 +268,7 @@ async function resolveWizardAttachments(
   // Only product + type + age band — no `productVersionId` / `variant` narrowing, unlike
   // `matchCarrierForm` above, which picks the application's own carrier forms. This list must match
   // what the Contact Profile composer offers for the same person and product.
-  const documents = await getDocumentLibraryRepository().listEligible({ productName, documentType, ageBand });
+  const documents = await getDocumentLibraryRepository().listEligible({ productName, documentTypes: [documentType], ageBand });
   return {
     documents,
     reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${productName}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.`,

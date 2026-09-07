@@ -182,7 +182,7 @@ async function resolveEligibleLibraryDocuments(client: Client, documentType: Req
     if (age < 0 || age > 100) return { documents: [], reason: "No supported application-form age band matches this contact.", fix: "date-of-birth" };
     ageBand = age <= 70 ? "0-70" : "71-100";
   }
-  const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentType, ageBand });
+  const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentTypes: [documentType], ageBand });
   return { documents, reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${client.productInterest}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.` };
 }
 
