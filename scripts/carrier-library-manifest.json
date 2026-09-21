@@ -127,6 +127,54 @@
       "mimeType": "application/pdf"
     },
     {
+      "key": "ccaf",
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/CCAF (Credit Card Authorization Form).pdf",
+      "originalFileName": "CCAF-Credit-Card-Authorization-Form.pdf",
+      "rows": [
+        {
+          "productVersion": "travel",
+          "documentName": "Credit Card Authorization Form",
+          "documentType": "Authorization Form",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable. Client completes and returns to authorize card payment for premium setup.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "5a1cd4df798c9cef19a86916890aea68",
+      "bytes": 235606,
+      "mimeType": "application/pdf"
+    },
+    {
+      "key": "geographical-loading",
+      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Geographical Loading.pdf",
+      "originalFileName": "Geographical-Loading.pdf",
+      "rows": [
+        {
+          "productVersion": "travel",
+          "documentName": "Geographical Loading",
+          "documentType": "Reference Document",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Internal underwriting/pricing reference — not client-facing collateral, for staff to consult when pricing Travel coverage.",
+          "extraNotes": null
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "7071b228cecf83b80bfb070338584221",
+      "bytes": 481962,
+      "mimeType": "application/pdf"
+    },
+    {
       "key": "select-app-0-70",
       "path": "applications/Select Application Form Regular.docx",
       "originalFileName": "Select-Application-Form-Ages-0-70.docx",
@@ -1125,14 +1173,6 @@
     {
       "path": "BC_FLEXI_Requirements/CET (2)_1 (2) (1).xlsx",
       "reason": "Spreadsheet. The library uploader accepts PDF, DOC and DOCX only; loading it would need a MIME allowlist migration."
-    },
-    {
-      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/CCAF (Credit Card Authorization Form).pdf",
-      "reason": "No document_type in the fixed seven-value list fits an authorization form; would need a schema migration."
-    },
-    {
-      "path": "other_documents_and_travel/MattxAugust - Other Documents and Travel/Geographical Loading.pdf",
-      "reason": "Reference sheet. No document_type in the fixed seven-value list fits; would need a schema migration."
     }
   ]
 }
