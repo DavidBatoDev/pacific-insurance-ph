@@ -49,7 +49,7 @@ export function QueueCard<T extends { id: string; clientId: string }>({
 }) {
   const top = rows.slice(0, slice);
   const { sorted, sort, toggle } = useSort(top, defaultSort.key, defaultSort.dir);
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   return (
     <Card>
       <CardHead
@@ -78,7 +78,7 @@ export function QueueCard<T extends { id: string; clientId: string }>({
           </thead>
           <tbody>
             {sorted.map((row) => (
-              <Row key={row.id} onClick={() => openContact(row.clientId)}>
+              <Row key={row.id} onClick={() => openContact(row.clientId)} onMouseEnter={() => prefetchContact(row.clientId)}>
                 {renderRow(row)}
               </Row>
             ))}

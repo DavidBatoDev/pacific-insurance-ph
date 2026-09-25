@@ -98,7 +98,11 @@ export function ClientsList({
           </thead>
           <tbody>
             {sorted.map((c) => (
-              <Row key={c.id} onClick={() => router.push(`/clients/${c.id}`)}>
+              <Row
+                key={c.id}
+                onClick={() => router.push(`/clients/${c.id}`)}
+                onMouseEnter={() => router.prefetch(`/clients/${c.id}`)}
+              >
                 <Td>
                   <div className="flex items-center gap-2">
                     <ClientCell name={c.fullName} sub={c.email ?? undefined} />

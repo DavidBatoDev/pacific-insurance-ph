@@ -23,6 +23,7 @@ export function useRecordNav() {
   return {
     openContact: (clientId: string, from?: "prospects") =>
       router.push(`/clients/${clientId}${from === "prospects" ? "?from=prospects" : ""}`),
+    prefetchContact: (clientId: string) => router.prefetch(`/clients/${clientId}`),
     openGroup: (groupId: string) => router.push(`/group/${groupId}`),
   };
 }

@@ -75,7 +75,7 @@ function applicationCompleteness(application: Application) {
 
 export function ApplicationsLive({ rows }: { rows: Application[] }) {
   const overlays = useOverlays();
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   const viewRows = rows.map((application) => {
     const completeness = applicationCompleteness(application);
     return {
@@ -126,7 +126,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
         { k: "id", label: "" },
       ]}
       renderRow={(a) => (
-        <Row key={a.id} onClick={() => openContact(a.clientId)}>
+        <Row key={a.id} onClick={() => openContact(a.clientId)} onMouseEnter={() => prefetchContact(a.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{a.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={a.clientName ?? "—"} sub={a.productName ?? undefined} /></Td>
           <Td className="text-muted-foreground">{a.productName ?? "—"}</Td>
@@ -177,7 +177,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
 /* --------------------------------- Policies -------------------------------- */
 export function PoliciesLive({ rows }: { rows: Policy[] }) {
   const overlays = useOverlays();
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   const groupNames = [...new Set(rows.map((p) => p.groupName).filter(Boolean))] as string[];
   const lapsing = rows.filter((p) => {
     const d = daysUntil(p.expiryDate);
@@ -216,7 +216,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
         const d = daysUntil(p.expiryDate);
         const isLapsing = p.status === "Active" && d != null && d <= 30;
         return (
-          <Row key={p.id} onClick={() => openContact(p.clientId)}>
+          <Row key={p.id} onClick={() => openContact(p.clientId)} onMouseEnter={() => prefetchContact(p.clientId)}>
             <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
             <Td>
               <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
 export function RenewalsLive({ rows }: { rows: Renewal[] }) {
   const router = useRouter();
   const overlays = useOverlays();
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   const [, startTransition] = useTransition();
 
   const due30 = rows.filter((r) => {
@@ -296,7 +296,7 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
         { k: "id", label: "" },
       ]}
       renderRow={(r) => (
-        <Row key={r.id} onClick={() => openContact(r.clientId)}>
+        <Row key={r.id} onClick={() => openContact(r.clientId)} onMouseEnter={() => prefetchContact(r.clientId)}>
           <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
           <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
           <Td>
@@ -326,7 +326,7 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
 /* ---------------------------------- Claims --------------------------------- */
 export function ClaimsLive({ rows }: { rows: Claim[] }) {
   const overlays = useOverlays();
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   const groupNames = [...new Set(rows.map((c) => c.groupName).filter(Boolean))] as string[];
   const awaitingDocs = rows.filter((c) => c.status === "Documents Pending").length;
   const open = rows.filter((c) => !["Closed", "Rejected", "Credited"].includes(c.status)).length;
@@ -360,7 +360,7 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
         { k: "id", label: "" },
       ]}
       renderRow={(c) => (
-        <Row key={c.id} onClick={() => openContact(c.clientId)}>
+        <Row key={c.id} onClick={() => openContact(c.clientId)} onMouseEnter={() => prefetchContact(c.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
           <Td>
             <div className="flex items-center gap-2">

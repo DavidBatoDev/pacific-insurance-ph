@@ -43,7 +43,7 @@ export function PaymentsLive({
   commissions: Commission[];
   commissionContacts: ExternalContact[];
 }) {
-  const { openContact } = useRecordNav();
+  const { openContact, prefetchContact } = useRecordNav();
   const [tab, setTab] = useState<"collections" | "commissions">("collections");
   const [verify, setVerify] = useState<Payment | null>(null);
 
@@ -102,7 +102,7 @@ export function PaymentsLive({
         { k: "id", label: "" },
       ]}
       renderRow={(p) => (
-        <Row key={p.id} onClick={() => p.clientId && openContact(p.clientId)}>
+        <Row key={p.id} onClick={() => p.clientId && openContact(p.clientId)} onMouseEnter={() => p.clientId && prefetchContact(p.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={p.clientName ?? "—"} sub={p.sourceRef ?? undefined} /></Td>
           <Td>
