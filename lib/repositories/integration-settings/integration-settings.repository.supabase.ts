@@ -38,17 +38,17 @@ export class SupabaseIntegrationSettingsRepository implements IntegrationSetting
   }
 
   async getProposalPortal(): Promise<PacificCrossIntegrationSettings | null> {
-    const current = await this.getProvider("pacific_cross_proposal");
-    if (current) return current;
-    // Rolling-deploy compatibility with migration 0020's original provider key.
+    // `pacific_cross` is migration 0020's original key, kept for rolling-deploy compatibility.
     const { data, error } = await getSupabaseAdmin()
       .from("integration_settings")
       .select("*")
-      .eq("provider", "pacific_cross")
-      .maybeSingle();
+      .in("provider", ["pacific_cross_proposal", "pacific_cross"]);
     if (error?.code === "PGRST205") return null;
     if (error) throw toRepositoryError("IntegrationSettingsRepository.getProposalPortal", error);
-    return data ? { ...toPacificCrossDomain(data), provider: "pacific_cross_proposal" } : null;
+    const current = data?.find((row) => row.provider === "pacific_cross_proposal");
+    if (current) return toPacificCrossDomain(current);
+    const legacy = data?.find((row) => row.provider === "pacific_cross");
+    return legacy ? { ...toPacificCrossDomain(legacy), provider: "pacific_cross_proposal" } : null;
   }
 
   getTravelPortal(): Promise<PacificCrossIntegrationSettings | null> {

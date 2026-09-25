@@ -23,27 +23,19 @@ export async function getActivity(
 
   const { data, error } = await admin
     .from("activity_timeline")
-    .select("id, activity_type, summary, client_visible, created_at, actor_id")
+    .select("id, activity_type, summary, client_visible, created_at, actor:users!activity_timeline_actor_id_fkey(full_name)")
     .eq("scope_type", scopeType)
     .eq("scope_id", scopeId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) throw toRepositoryError("getActivity", error);
-  const rows = data ?? [];
 
-  const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((v): v is string => !!v))];
-  const names = new Map<string, string>();
-  if (actorIds.length) {
-    const { data: users } = await admin.from("users").select("id, full_name").in("id", actorIds);
-    for (const u of users ?? []) names.set(u.id, u.full_name);
-  }
-
-  return rows.map((r) => ({
+  return (data ?? []).map((r) => ({
     id: r.id,
     activityType: r.activity_type,
     summary: r.summary,
-    actorName: r.actor_id ? (names.get(r.actor_id) ?? null) : null,
+    actorName: r.actor?.full_name ?? null,
     clientVisible: r.client_visible,
     createdAt: r.created_at,
   }));

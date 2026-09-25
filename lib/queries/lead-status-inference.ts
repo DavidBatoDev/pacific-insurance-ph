@@ -75,20 +75,40 @@ export async function withInferredLeadStatus(client: Client): Promise<Client> {
   return applyInference(client, data ?? []);
 }
 
-/** Batched version for the Prospects board — one communications query for every candidate lead
- * instead of N+1. */
-export async function withInferredLeadStatuses(clients: Client[]): Promise<Client[]> {
-  const candidateIds = clients.filter(isInferenceCandidate).map((c) => c.id);
-  if (!candidateIds.length) return clients;
-
+/** The communications {@link withInferredLeadStatus} would read, fetched by id alone so it can run
+ * alongside the client lookup. Pair with {@link applyLeadStatusInference}. */
+export async function leadInferenceCommunications(clientId: string): Promise<CommunicationRow[]> {
   const { data } = await getSupabaseAdmin()
     .from("communications")
     .select("client_id, direction, channel, subject, occurred_at")
-    .in("client_id", candidateIds)
+    .eq("client_id", clientId)
     .order("occurred_at", { ascending: true });
+  return data ?? [];
+}
 
+export function applyLeadStatusInference(client: Client, rows: CommunicationRow[]): Client {
+  return applyInference(client, rows);
+}
+
+/** Communications for every inference-candidate lead, filtered in the query so it can run
+ * alongside `listLeads`. Pair with {@link withInferredLeadStatusesFrom}. */
+export async function candidateLeadCommunications(): Promise<CommunicationRow[]> {
+  const { data } = await getSupabaseAdmin()
+    .from("communications")
+    .select("client_id, direction, channel, subject, occurred_at, clients!inner(lifecycle_stage, lead_status)")
+    .eq("clients.lifecycle_stage", "Lead")
+    .in("clients.lead_status", [...UNRESPONSIVE_SOURCE_STATUSES])
+    .order("occurred_at", { ascending: true });
+  return (data ?? []).map(({ client_id, direction, channel, subject, occurred_at }) => ({
+    client_id, direction, channel, subject, occurred_at,
+  }));
+}
+
+/** Batched version for the Prospects board — one communications query for every candidate lead
+ * instead of N+1. */
+export function withInferredLeadStatusesFrom(clients: Client[], data: CommunicationRow[]): Client[] {
   const byClient = new Map<string, CommunicationRow[]>();
-  for (const row of data ?? []) {
+  for (const row of data) {
     if (!row.client_id) continue;
     const rows = byClient.get(row.client_id);
     if (rows) rows.push(row);

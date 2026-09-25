@@ -10,9 +10,8 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
+  const [user, shellStats] = await Promise.all([getCurrentUser(), getShellStats()]);
   if (!user) redirect("/login");
-  const shellStats = await getShellStats();
 
   return (
     <AppShell userName={user.fullName} userRole={user.role} shellStats={shellStats}>

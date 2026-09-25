@@ -14,12 +14,11 @@ export default async function Page({
 }) {
   const { id } = await params;
   const repo = getGroupsRepository();
-  const group = await repo.findById(id);
-  if (!group) notFound();
-
-  const [members, activity] = await Promise.all([
+  const [group, members, activity] = await Promise.all([
+    repo.findById(id),
     repo.membersOf(id),
     getActivity("group_account", id, 20),
   ]);
+  if (!group) notFound();
   return <GroupLive group={group} members={members} activity={activity} />;
 }

@@ -36,6 +36,17 @@ export class SupabaseUsersRepository implements UsersRepository {
     return data ? toDomain(data) : null;
   }
 
+  async findAssigneeOfClient(clientId: string): Promise<User | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("clients")
+      .select("assignee:users!clients_assigned_user_id_fkey(*)")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    if (error) throw toRepositoryError("UsersRepository.findAssigneeOfClient", error);
+    return data?.assignee ? toDomain(data.assignee) : null;
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const { data, error } = await getSupabaseAdmin()
       .from("users")

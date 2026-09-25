@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ContactProfile } from "@/components/hub/screens/contact-profile";
 import { getClientRelatedCounts } from "@/lib/queries/client-summary";
 import { getContactTimeline } from "@/lib/queries/contact-timeline";
-import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
+import { applyLeadStatusInference, leadInferenceCommunications } from "@/lib/queries/lead-status-inference";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
@@ -27,21 +27,21 @@ export default async function ContactProfilePage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  const rawClient = await getClientsRepository().findById(id);
-  if (!rawClient) notFound();
-  const client = await withInferredLeadStatus(rawClient);
-
-  const [counts, dependents, documents, timeline, templates, owner, pacificCross, applications] = await Promise.all([
+  // Everything keys off `id` alone, so it all runs in one round; a missing client just discards the rest.
+  const [rawClient, inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications] = await Promise.all([
+    getClientsRepository().findById(id),
+    leadInferenceCommunications(id),
     getClientRelatedCounts(id),
     getDependentsRepository().listByClient(id),
     getDocumentsRepository().listByClient(id),
     getContactTimeline(id),
     getTemplatesRepository().list(true),
-    // Only the assigned owner's name is displayed, so look up that one user.
-    client.assignedUserId ? getUsersRepository().findById(client.assignedUserId) : null,
+    getUsersRepository().findAssigneeOfClient(id),
     getIntegrationSettingsRepository().getProposalPortal(),
     getApplicationsRepository().listByClient(id),
   ]);
+  if (!rawClient) notFound();
+  const client = applyLeadStatusInference(rawClient, inferenceRows);
 
   return (
     <ContactProfile

@@ -7,6 +7,7 @@ import type { NewUser, User, UserUpdate } from "./user.entity";
  */
 export interface UsersRepository {
   findById(id: string): Promise<User | null>;
+  findAssigneeOfClient(clientId: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   list(params?: ListParams): Promise<Paginated<User>>;
   create(input: NewUser): Promise<User>;

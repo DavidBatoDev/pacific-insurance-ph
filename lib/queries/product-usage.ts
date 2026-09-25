@@ -9,9 +9,12 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
  */
 export async function getProductUsageCounts(): Promise<Record<string, number>> {
   const supabase = getSupabaseAdmin();
-  const { data: versions, error } = await supabase
-    .from("product_versions")
-    .select("id, product_id");
+  const [{ data: versions, error }, policies, applications, travel] = await Promise.all([
+    supabase.from("product_versions").select("id, product_id"),
+    supabase.from("policies").select("product_version_id"),
+    supabase.from("applications").select("product_version_id"),
+    supabase.from("travel_requests").select("product_version_id"),
+  ]);
   if (error || !versions) return {};
 
   const versionToProduct = new Map(versions.map((v) => [v.id, v.product_id]));
@@ -23,11 +26,6 @@ export async function getProductUsageCounts(): Promise<Record<string, number>> {
     if (productId) usage[productId] = (usage[productId] ?? 0) + 1;
   };
 
-  const [policies, applications, travel] = await Promise.all([
-    supabase.from("policies").select("product_version_id"),
-    supabase.from("applications").select("product_version_id"),
-    supabase.from("travel_requests").select("product_version_id"),
-  ]);
   for (const row of policies.data ?? []) bump(row.product_version_id);
   for (const row of applications.data ?? []) bump(row.product_version_id);
   for (const row of travel.data ?? []) bump(row.product_version_id);

@@ -99,7 +99,7 @@ const delta = (current: MoneyTotals, previous: MoneyTotals) => {
   return parts.join(" · ") || "No prior activity";
 };
 
-export async function getReportsData(filters: ReportFilters, scope: ReportScope): Promise<ReportsData> {
+export async function getReportsData(filters: ReportFilters, scopeInput: ReportScope | Promise<ReportScope>): Promise<ReportsData> {
   const db = getSupabaseAdmin();
   const [clientsQ, usersQ, policiesQ, appsQ, travelQ, paymentsQ, commissionsQ, renewalsQ] = await Promise.all([
     db.from("clients").select("id,reference_no,first_name,last_name,assigned_user_id,created_at,lead_stage,lead_status,lifecycle_stage,product_interest",{count:"exact"}).limit(5000),
@@ -111,6 +111,7 @@ export async function getReportsData(filters: ReportFilters, scope: ReportScope)
     db.from("commissions").select("id,client_id,policy_id,or_number,voucher_status,created_at,updated_at,paid_date,received_date,follow_up_date,amount,estimated_amount,currency,clients(first_name,last_name,assigned_user_id),policies(reference_no,premium_amount,assigned_user_id),external_contacts(name)",{count:"exact"}).limit(5000),
     db.from("renewals").select("id,reference_no,client_id,policy_id,status,renewal_due_date,created_at,clients(first_name,last_name,assigned_user_id),policies(reference_no,policy_number,premium_amount,currency,assigned_user_id)",{count:"exact"}).limit(5000),
   ]);
+  const scope = await scopeInput;
   const failure = [clientsQ, usersQ, policiesQ, appsQ, travelQ, paymentsQ, commissionsQ, renewalsQ].find((q) => q.error)?.error;
   if (failure) throw new Error(`Reports query failed: ${failure.message}`);
   const sourceCounts:[string,number|null][]=[["contacts",clientsQ.count],["users",usersQ.count],["policies",policiesQ.count],["applications",appsQ.count],["travel",travelQ.count],["payments",paymentsQ.count],["commissions",commissionsQ.count],["renewals",renewalsQ.count]];

@@ -55,6 +55,24 @@ export class SupabaseDocumentsRepository implements DocumentsRepository {
     return { rows: (data ?? []).map(toDomain), total: count ?? 0 };
   }
 
+  async listWithClientName(params: ListParams = {}) {
+    const { limit = 50, offset = 0, orderBy = "created_at", ascending = false } = params;
+    const { data, error, count } = await getSupabaseAdmin()
+      .from("documents")
+      .select("*, client:clients!documents_client_id_fkey(first_name, last_name)", { count: "exact" })
+      .order(orderBy, { ascending })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw toRepositoryError("DocumentsRepository.listWithClientName", error);
+    return {
+      rows: (data ?? []).map(({ client, ...row }) => ({
+        ...toDomain(row),
+        clientName: client ? `${client.first_name} ${client.last_name}` : null,
+      })),
+      total: count ?? 0,
+    };
+  }
+
   async listByClient(clientId: string): Promise<DocumentRecord[]> {
     const { data, error } = await getSupabaseAdmin()
       .from("documents")
