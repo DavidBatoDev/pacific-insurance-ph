@@ -23,7 +23,6 @@ import {
   INQUIRY_APP_TYPE,
   isFlexiShieldProduct,
   SMOKER_STATUSES,
-  uniquePlanPreferenceMatch,
   WIZ_OPTS,
   type WizardForm,
   type WizardMember,
@@ -119,7 +118,6 @@ function BmiReadout({ heightInches, weightLbs }: { heightInches: string; weightL
 
 function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
   const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
-  const preferredPlan = uniquePlanPreferenceMatch(f.coverageTier, plans);
   return (
     <div>
       <Section title="Plan & coverage">
@@ -143,15 +141,10 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <Field label="Family size / people to cover" hint="Includes the principal applicant.">
             <input className={INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
           </Field>
-          <Field label="Coverage tier / room preference" hint="Discovery preference; the catalog plan above is the actual selection.">
+          <Field label="Coverage tier / room preference">
             <input className={INPUT} value={f.coverageTier} onChange={(e) => set({ coverageTier: e.target.value })} placeholder="e.g. Ward, Private, Plan A" />
           </Field>
         </div>
-        {f.coverageTier && !f.planOptionId && (
-          <div className="mt-3 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">
-            Preference retained: <b>{f.coverageTier}</b>. {preferredPlan ? "Select the matched plan option above." : "It does not identify one unique plan, so choose the actual plan option above."}
-          </div>
-        )}
         {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
@@ -161,7 +154,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <Field label="Existing Pacific Cross client?">
             <YesNo value={f.existingPC} onChange={(v) => set({ existingPC: v })} />
           </Field>
-          <Field label="Pre-existing conditions?" required hint="Required before Pacific Cross submission.">
+          <Field label="Pre-existing conditions?" required>
             <YesNo value={f.preExisting} onChange={(v) => set({ preExisting: v })} unknown />
           </Field>
         </div>
@@ -191,8 +184,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
         <div className="mt-4 rounded-md border border-border-soft bg-surface-2 p-3.5">
           <div className="mb-1 text-[12px] font-semibold">Beneficiary</div>
           <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
-            Naming a beneficiary adds a valid-ID requirement for them. Leave blank if none is
-            nominated — nothing is requested.
+            Naming a beneficiary adds a valid-ID requirement.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Beneficiary name">
@@ -218,9 +210,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <div className="mt-4 rounded-md border border-border-soft bg-surface-2 p-3.5">
             <div className="mb-1 text-[12px] font-semibold">First-layer HMO coverage</div>
             <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
-              FlexiShield pays after the client&rsquo;s existing plan is exhausted, so Pacific Cross
-              needs that plan declared. Take these from the client&rsquo;s Certificate of Coverage —
-              the same document the checklist asks them to send.
+              Take these from the client&rsquo;s Certificate of Coverage.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Type of existing cover">
@@ -234,7 +224,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
               <Field label="Type / name of plan">
                 <input className={INPUT} value={f.firstLayerPlan} onChange={(e) => set({ firstLayerPlan: e.target.value })} placeholder="e.g. Prima Gold" />
               </Field>
-              <Field label="Maximum benefit limit (₱)" hint="The figure FlexiShield pays above.">
+              <Field label="Maximum benefit limit (₱)">
                 <input className={INPUT} value={f.firstLayerMbl} onChange={(e) => set({ firstLayerMbl: e.target.value })} placeholder="0.00" inputMode="decimal" />
               </Field>
               <Field label="Effective date">
@@ -247,19 +237,9 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           </div>
         )}
         {f.preExisting === "Yes" && (
-          <>
-            <Field label="Medical notes" required className="mt-4">
-              <textarea className={AREA} value={f.medicalNotes} onChange={(e) => set({ medicalNotes: e.target.value })} placeholder="Describe condition(s), treatment history, and current status" />
-            </Field>
-            <div className="mt-3 flex gap-2.5 rounded-md border border-amber-border bg-amber-soft p-3.5 text-[12.5px] leading-relaxed">
-              <I.alertTri size={16} className="mt-0.5 shrink-0 text-amber" />
-              <div>
-                <b>Because pre-existing conditions = Yes:</b> the application is typed{" "}
-                <b>Medical Evaluation</b>, and medical records + the Pacific Cross questionnaire are
-                flagged required on the checklist.
-              </div>
-            </div>
-          </>
+          <Field label="Medical notes" required className="mt-4">
+            <textarea className={AREA} value={f.medicalNotes} onChange={(e) => set({ medicalNotes: e.target.value })} placeholder="Describe condition(s), treatment history, and current status" />
+          </Field>
         )}
       </Section>
 
@@ -329,7 +309,7 @@ function CetMemberFields({
       <Field label="Place of birth">
         <input aria-label={`Member ${index + 1} place of birth`} className={INPUT} value={field("placeOfBirth")} onChange={(e) => onChange({ placeOfBirth: e.target.value })} />
       </Field>
-      <Field label="Coverage effective date" hint="CET effective date, per member">
+      <Field label="Coverage effective date">
         <input aria-label={`Member ${index + 1} effective date`} className={INPUT} type="date" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
       </Field>
       <Field label="Occupation / grade">
@@ -506,14 +486,11 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
     <div>
       <div className="mb-5 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
         <I.plane size={16} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          Travel insurance is a <b>lighter, per-trip workflow</b> — saving creates a TRV- request at
-          Awaiting Payment; the policy is purchased in the portal after payment.
-        </div>
+        <div>The policy is purchased in the portal after payment.</div>
       </div>
       <Section title="Traveler">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Passport number" required hint="Before issuance">
+          <Field label="Passport number" required>
             <input className={INPUT} value={f.passport} onChange={(e) => set({ passport: e.target.value })} placeholder="P1234567A" />
           </Field>
           <Field label="Travel purpose">
@@ -528,7 +505,7 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
         </div>
       </Section>
       <Section title="Persons to be insured">
-        <div className="mb-2 flex items-center justify-between"><span className="text-[12px] text-muted-foreground">Capture each traveler and beneficiary needed for portal processing.</span><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
+        <div className="mb-2 flex items-center justify-end"><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
         <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
         <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
       </Section>
@@ -546,7 +523,7 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
         </div>
         {days !== "" && (
           <div className="mt-2 text-[12.5px] text-muted-foreground">
-            Travel days: <b className="text-foreground">{days}</b> (auto-calculated)
+            Travel days: <b className="text-foreground">{days}</b>
           </div>
         )}
         <Field label="Itinerary / route" className="mt-4"><textarea className={AREA} value={f.itinerary} onChange={(e) => set({ itinerary: e.target.value })} placeholder="Cities, flight route, or trip notes" /></Field>
@@ -557,7 +534,7 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
           <Field label="Quoted premium (₱)">
             <input className={INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
           </Field>
-          <Field label="Official payment channel" hint="Business payee; may be selected later"><select className={INPUT} value={f.paymentChannelId} onChange={(e) => set({ paymentChannelId: e.target.value })}><option value="">Select later…</option>{paymentChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.label}</option>)}</select></Field>
+          <Field label="Official payment channel"><select className={INPUT} value={f.paymentChannelId} onChange={(e) => set({ paymentChannelId: e.target.value })}><option value="">Select later…</option>{paymentChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.label}</option>)}</select></Field>
         </div>
       </Section>
     </div>
@@ -569,13 +546,6 @@ export function Step4({ f, set }: StepProps) {
   const list = f.checklist;
   return (
     <div>
-      <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
-        <I.clipboard size={16} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          This checklist was <b>auto-generated from the selected product</b>. Check off items as
-          they&apos;re received; request the rest with the split Create button.
-        </div>
-      </div>
       <div className="flex flex-col gap-1.5">
         {list.map((r, index) => (
           <Fragment key={r.name}>
@@ -726,14 +696,14 @@ export function Step5({
         <Toggle
           on={f.createTask}
           onToggle={() => set({ createTask: !f.createTask })}
-          label="Create a follow-up task on the board + dashboard"
+          label="Create a follow-up task"
         />
         {f.createTask && (
           <Field label="Follow-up date" className="mt-3">
             <input className={INPUT} type="date" value={f.followDate} onChange={(e) => set({ followDate: e.target.value })} />
           </Field>
         )}
-        <Field label="Internal note" className="mt-4" hint="Adds a private note to the record">
+        <Field label="Internal note" className="mt-4">
           <textarea className={AREA} value={f.internalNote} onChange={(e) => set({ internalNote: e.target.value })} />
         </Field>
       </Section>

@@ -59,7 +59,7 @@ export interface ConfirmOptions {
   kind?: "danger" | "warn";
   title: string;
   /** Plain-text body (no HTML injection). */
-  message: ReactNode;
+  message?: ReactNode;
   cancelLabel?: string;
   confirmLabel?: string;
 }
@@ -85,7 +85,7 @@ export function ConfirmDialog({
           <I.alertTri size={24} />
         </div>
         <h3 className="text-[16px] font-bold tracking-[-0.01em]">{options.title}</h3>
-        <div className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{options.message}</div>
+        {options.message && <div className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{options.message}</div>}
         <div className="mt-5 flex w-full items-center justify-center gap-2.5">
           <Btn onClick={() => onResolve(false)}>{options.cancelLabel ?? "Cancel"}</Btn>
           <Btn

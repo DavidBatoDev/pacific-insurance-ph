@@ -123,7 +123,6 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
     <Drawer
       icon="send"
       title="Log payment links"
-      sub="Record intended payment instructions for everyone with money awaiting collection"
       wide
       onClose={onClose}
       footer={
@@ -137,11 +136,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
     >
       <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          <b>Human-in-the-loop batch.</b> Every recipient is pre-selected across the queues —
-          uncheck anyone to exclude them, then <b>Log all</b>. Each personalized instruction is
-          recorded to the timeline but is not delivered.
-        </div>
+        <div>Each personalized instruction is recorded to the timeline but is not delivered.</div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -201,7 +196,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
       {loading && <div className="py-6 text-center text-[13px] text-subtle">Loading queues…</div>}
       {!loading && payments.length === 0 && (
         <div className="py-6 text-center text-[13px] text-subtle">
-          Nothing awaiting payment right now — the queues are clear. 🎉
+          Nothing awaiting payment right now.
         </div>
       )}
 

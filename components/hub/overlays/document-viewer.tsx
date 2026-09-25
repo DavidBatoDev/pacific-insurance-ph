@@ -383,17 +383,14 @@ export function DocumentViewer({
           )}
         </div>
 
-        {tier === "pdf" && (
+        {tier === "pdf" && previewIsPdf && (
           <p className="mt-2 text-[11.5px] text-faint">
-            {previewIsPdf
-              ? "Rendered as a PDF for viewing. Download gives you the editable original."
-              : "Not rendering? Open it in a new tab or download it."}
+            Rendered as a PDF for viewing. Download gives you the editable original.
           </p>
         )}
         {tier === "docx" && load.k === "ready" && (
           <p className="mt-2 text-[11.5px] text-faint">
-            Approximate preview — positioned images, text boxes and form-field shading are not
-            reproduced in the browser. Download for the exact document.
+            Approximate preview — download for the exact document.
           </p>
         )}
 

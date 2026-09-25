@@ -192,9 +192,7 @@ export function SearchDropdown({
       <div ref={listRef} className="max-h-[420px] overflow-y-auto py-1">
         {flat.length === 0 && (
           <div className="px-4 py-6 text-center text-[12.5px] text-subtle">
-            {searching ? "Searching…" : (
-              <>No results for “{q}” — try a name, email, or a POL- / CLM- / APP- number.</>
-            )}
+            {searching ? "Searching…" : <>No results for “{q}”</>}
           </div>
         )}
         {groups.map((g) => {
@@ -245,7 +243,6 @@ export function SearchDropdown({
         )}
       >
         <I.search size={14} /> View all results for “{q}”
-        <span className="ml-auto rounded-[4px] border border-border bg-surface px-1.5 text-[10.5px] text-subtle">↵</span>
       </button>
     </div>
   );

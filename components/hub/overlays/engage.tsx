@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { I, type IconName } from "../icons";
-import { usePersona } from "../persona";
 import { Avatar, Field } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
@@ -27,16 +26,16 @@ import { EmailForm, type EmailTarget } from "./send-email";
 interface ActionCfg {
   tpl?: string;
   icon: IconName;
-  sub: string;
+  sub?: string;
 }
 
 export const ENGAGE_ACTIONS: Record<string, ActionCfg> = {
-  "Send Email": { tpl: "New inquiry response", icon: "mail", sub: "Compose from a template and log the intended email." },
-  "Send Payment Instruction": { tpl: "Payment instruction", icon: "peso", sub: "Log the intended payment-options email." },
-  "Send Renewal Notice": { tpl: "Renewal reminder", icon: "refresh", sub: "Log the intended renewal-notice email." },
+  "Send Email": { tpl: "New inquiry response", icon: "mail" },
+  "Send Payment Instruction": { tpl: "Payment instruction", icon: "peso" },
+  "Send Renewal Notice": { tpl: "Renewal reminder", icon: "refresh" },
   "Send Proposal": { tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
-  "Request Commission Voucher": { tpl: "Commission Voucher Request", icon: "mail", sub: "Email the Pacific Cross commission contact to request the voucher." },
-  "Log Commission Follow-Up": { tpl: "Commission Follow-Up", icon: "mail", sub: "Chase a commission voucher that hasn't arrived yet." },
+  "Request Commission Voucher": { tpl: "Commission Voucher Request", icon: "mail" },
+  "Log Commission Follow-Up": { tpl: "Commission Follow-Up", icon: "mail" },
 };
 
 export function EngageDrawer({
@@ -52,7 +51,6 @@ export function EngageDrawer({
 }) {
   const cfg = ENGAGE_ACTIONS[action] ?? ENGAGE_ACTIONS["Send Email"];
   const overlays = useOverlays();
-  const persona = usePersona();
 
   const [contact, setContact] = useState<EngageContact | null>(initialContact ?? null);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -80,10 +78,7 @@ export function EngageDrawer({
     <Drawer icon={cfg.icon} title={action.replace(/^Send /, "Log ")} sub={cfg.sub} onClose={onClose}>
       <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed text-foreground">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          <b>Human-in-the-loop.</b> Review the draft, then click <b>Log email</b>. Emails and attachments are recorded only and are not delivered. The touch is logged to{" "}
-          {contact ? contact.name + "’s" : "the contact’s"} timeline.
-        </div>
+        <div>Emails and attachments are recorded only and are not delivered.</div>
       </div>
 
       {!contact && (
@@ -94,12 +89,7 @@ export function EngageDrawer({
       {contact && (
         <div className="mb-4 flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
           <Avatar name={contact.name} size={30} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-[650]">{contact.name}</div>
-            <div className="truncate text-[11.5px] text-subtle">
-              Merge: {contact.name.split(" ")[0]} · {contact.product ?? "your plan"} · {persona.userName}
-            </div>
-          </div>
+          <div className="min-w-0 flex-1 text-[13px] font-[650]">{contact.name}</div>
           {!initialContact && (
             <button
               onClick={() => setContact(null)}

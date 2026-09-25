@@ -55,7 +55,6 @@ export function NewTravelQuoteDrawer({ onClose }: { onClose: () => void }) {
     <Drawer
       icon="plane"
       title="New travel quote"
-      sub="Per-trip travel insurance — payment is collected before the policy is purchased"
       onClose={onClose}
       footer={
         <>
@@ -89,7 +88,7 @@ export function NewTravelQuoteDrawer({ onClose }: { onClose: () => void }) {
       </div>
       {days != null && (
         <div className="mt-1.5 text-[12px] text-muted-foreground">
-          Travel days: <b>{days}</b> (auto-calculated)
+          Travel days: <b>{days}</b>
         </div>
       )}
 
@@ -99,10 +98,7 @@ export function NewTravelQuoteDrawer({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
         <I.plane size={15} className="mt-0.5 shrink-0" />
-        <div>
-          Creates a TRV- request at <b>Awaiting Payment</b>. Send the payment instruction from the
-          contact&apos;s composer; the policy is purchased in the portal after payment is verified.
-        </div>
+        <div>The policy is purchased in the portal after payment is verified.</div>
       </div>
     </Drawer>
   );

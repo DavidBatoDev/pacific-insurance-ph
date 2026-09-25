@@ -53,7 +53,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       </Section>
 
       <Section title="Product">
-        <Field label="Product" required hint="Products come from the editable Products module; the category drives the workflow.">
+        <Field label="Product" required>
           <select
             className={INPUT}
             value={f.productVersionId}
@@ -84,12 +84,6 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             list — pick the closest match above.
           </div>
         )}
-        {f.category && (
-          <div className="mt-2 text-[12px] text-muted-foreground">
-            Workflow:{" "}
-            <b>{f.category === "hmo" ? "Group HMO" : f.category === "travel" ? "Travel Insurance" : "Health Insurance"}</b>
-          </div>
-        )}
       </Section>
 
       <Section title={f.convertClientId ? "Lead" : "Client"}>
@@ -98,16 +92,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
         {f.convertClientId && !f.draftApplicationId ? (
           <div className="flex items-center gap-3 rounded-md border border-brand/30 bg-brand-soft px-3.5 py-3">
             <Avatar name={f.convertClientName || "Lead"} size={32} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-[650]">{f.convertClientName}</div>
-              <div className="truncate text-[11.5px] text-muted-foreground">
-                {/* The app type decides this: the inquiry type derives status Lead, which the
-                    server reads as "don't convert". Say which one is about to happen. */}
-                {f.status === "Lead"
-                  ? "Stays a Lead — an application is created against this record, nothing converts yet."
-                  : "Converting this lead — the same record is used, no duplicate is created."}
-              </div>
-            </div>
+            <div className="min-w-0 flex-1 text-[13px] font-[650]">{f.convertClientName}</div>
             <span
               className={cn(
                 "rounded-full border px-2 py-0.5 text-[10.5px] font-bold",
@@ -125,7 +110,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-[650]">Linked lead/client</div>
               <div className="truncate text-[11.5px] text-muted-foreground">
-                {f.existingClientName || f.displayName} · This draft always updates the same record.
+                {f.existingClientName || f.displayName}
               </div>
             </div>
             <span className="rounded-full border border-green-border bg-green-soft px-2 py-0.5 text-[10.5px] font-bold text-green">
@@ -138,10 +123,10 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
               <div className="grid grid-cols-2 gap-2.5">
                 {(
                   [
-                    ["new", "New client", "Create a fresh client profile"],
-                    ["existing", "Existing client", "Add application under an existing record"],
+                    ["new", "New client"],
+                    ["existing", "Existing client"],
                   ] as const
-                ).map(([modeVal, title, desc]) => (
+                ).map(([modeVal, title]) => (
                   <button
                     key={modeVal}
                     type="button"
@@ -164,16 +149,13 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
                     >
                       {f.clientMode === modeVal && <span className="size-2 rounded-full bg-brand" />}
                     </span>
-                    <span>
-                      <span className="block text-[13px] font-[650]">{title}</span>
-                      <span className="block text-[11.5px] text-subtle">{desc}</span>
-                    </span>
+                    <span className="text-[13px] font-[650]">{title}</span>
                   </button>
                 ))}
               </div>
             </Field>
             {f.clientMode === "existing" && !f.convertClientId && (
-              <Field label="Search existing client" required className="mt-3" hint="Contact details are pulled from the existing record — the same record is used, no duplicate.">
+              <Field label="Search existing client" required className="mt-3">
                 <ClientPicker
                   value={f.existingClientId ? { id: f.existingClientId, name: f.existingClientName } : null}
                   onPick={(c: PickedClient) =>
@@ -259,15 +241,13 @@ function LeadDetailsPanel({ details, clientId }: { details: LeadDetails; clientI
             </Fragment>
           ))}
         </dl>
-        <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-          These come from the lead record and can’t be changed here — the application is written
-          against that same record.{" "}
-          {clientId && (
+        {clientId && (
+          <p className="mt-3 text-[11.5px]">
             <Link href={`/clients/${clientId}/edit`} className="font-semibold text-brand-hover hover:text-brand">
               Edit the lead →
             </Link>
-          )}
-        </p>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -282,13 +262,6 @@ export function Step2({
   if (f.category === "hmo") {
     return (
       <div>
-        <div className="mb-5 flex gap-2.5 rounded-md border border-blue-border bg-blue-soft p-3.5 text-[12.5px] leading-relaxed">
-          <I.building size={16} className="mt-0.5 shrink-0 text-blue" />
-          <div>
-            Group HMO creates a <b>Company / Group account</b> with multiple members. Enter the
-            primary contact here — members are added in the next step.
-          </div>
-        </div>
         <Section title="Company / group" last>
           <Field label="Company / group name" required>
             <input className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
@@ -326,18 +299,7 @@ export function Step2({
       {linked && (
         <div className="mb-5 flex items-center gap-3 rounded-md border border-border-soft bg-surface-2 px-4 py-3">
           <Avatar name={linkedName || "Client"} size={36} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-[650]">{linkedName}</div>
-            <div className="text-[12px] text-subtle">
-              {resumedDraft
-                ? "Linked lead/client · the same record is updated when this draft is saved."
-                : f.convertClientId
-                ? f.status === "Lead"
-                  ? "Stays a Lead — the application is created against this record. Change the application type to convert."
-                  : "Converting from Lead → Applicant when the application is created. The same record is used — no duplicate."
-                : "Linked existing client · profile pulled in automatically."}
-            </div>
-          </div>
+          <div className="min-w-0 flex-1 text-[14px] font-[650]">{linkedName}</div>
           <span className="inline-flex h-[22px] items-center gap-1.5 rounded-full border border-green-border bg-green-soft px-2.5 text-[11.5px] font-[650] text-green">
             <span className="size-1.5 rounded-full bg-current" />
             {resumedDraft
@@ -377,10 +339,10 @@ export function Step2({
       <Section title="Contact">
         {!lockIdentity && (
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Email address" hint="Required if email communication will be used.">
+            <Field label="Email address">
               <input className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
             </Field>
-            <Field label="Mobile number" required hint="Enables call, WhatsApp, and Viber documentation.">
+            <Field label="Mobile number" required>
               <input className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
           </div>
@@ -417,7 +379,7 @@ export function Step2({
               <Field label="Date of birth">
                 <input className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
               </Field>
-              <Field label="Age" hint="Auto-calculated">
+              <Field label="Age">
                 <input className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
               </Field>
             </>
@@ -444,7 +406,7 @@ export function Step2({
             <input className={INPUT} value={f.occupation} onChange={(e) => set({ occupation: e.target.value })} />
           </Field>
         </div>
-        <Field label="Address" className="mt-4" hint="Optional now; may be required before final submission.">
+        <Field label="Address" className="mt-4">
           <textarea className={AREA} value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="Unit, street, barangay, city, province" />
         </Field>
         <Field label="Notes" className="mt-4">

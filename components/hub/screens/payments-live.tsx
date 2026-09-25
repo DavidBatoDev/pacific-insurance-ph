@@ -203,7 +203,6 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
     <Drawer
       icon="peso"
       title="Verify payment"
-      sub="Confirm proof, then capture the OR number to start commission tracking"
       onClose={onClose}
       footer={
         <>
@@ -233,7 +232,6 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
       <Field
         label="Proof of payment"
         required={!payment.proofDocumentId}
-        hint="Screenshot or bank slip — saved to the client’s documents"
         className="mb-4"
       >
         <label
@@ -248,7 +246,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
           {proof
             ? proof.name
             : payment.proofDocumentId
-              ? "Proof already on file — attach a new file to replace it"
+              ? "Proof already on file"
               : "Attach screenshot / bank slip…"}
           <input
             type="file"
@@ -267,7 +265,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
             ))}
           </select>
         </Field>
-        <Field label="Payment status" required hint="Awaiting → Received → Verified">
+        <Field label="Payment status" required>
           <select
             className={INPUT}
             value={status}
@@ -282,7 +280,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
       <Field
         label="OR number"
         required={status === "Verified"}
-        hint="Official Receipt from Pacific Cross (via Glynn) — also stamped on the policy"
+        hint="Official Receipt from Pacific Cross"
         className="mt-4"
       >
         <input className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
@@ -298,7 +296,7 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
         <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", submitted ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
           {submitted && <I.check size={13} />}
         </span>
-        Submitted to Pacific Cross (Glynn) — the step that triggers the OR number
+        Submitted to Pacific Cross
       </button>
 
       <Field label="Internal notes" className="mt-4">
@@ -309,24 +307,6 @@ function VerifyPaymentDrawer({ payment, onClose }: { payment: Payment; onClose: 
           placeholder="Anything worth noting…"
         />
       </Field>
-
-      <div className="mt-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
-        <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          {status === "Verified" ? (
-            <>
-              <b>On verify:</b> logs Payment verified + OR recorded to the client&apos;s timeline,
-              advances the {payment.source.toLowerCase()}, stamps the policy&apos;s OR number, and
-              auto-creates a commission row + follow-up task.
-            </>
-          ) : (
-            <>
-              Marks the payment <b>Received</b>. Add the OR number and set status to{" "}
-              <b>Verified</b> to start commission tracking.
-            </>
-          )}
-        </div>
-      </div>
     </Drawer>
   );
 }

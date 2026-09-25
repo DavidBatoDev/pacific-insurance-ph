@@ -242,9 +242,9 @@ export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
  * is only reachable through it.
  */
 export const PROPOSAL_DECISIONS = [
-  { value: "Awaiting Decision", hint: "Sent — no reply from the client yet." },
-  { value: "Negotiating", hint: "The client replied and is discussing terms." },
-  { value: "Declined", hint: "The client turned this proposal down." },
+  { value: "Awaiting Decision" },
+  { value: "Negotiating" },
+  { value: "Declined" },
 ] as const;
 export type ProposalDecision = (typeof PROPOSAL_DECISIONS)[number]["value"];
 

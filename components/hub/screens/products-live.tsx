@@ -88,7 +88,7 @@ export function ProductsLive({
         ? linked > 0
           ? `This product is linked to ${linked} record${linked === 1 ? "" : "s"}. It will be hidden from new records but stays visible in historical data.`
           : "This product will no longer appear as a selectable option in new records."
-        : "This product will become selectable again across all modules.",
+        : undefined,
       confirmLabel: p.active ? "Deactivate" : "Reactivate",
     });
     if (!ok) return;
@@ -462,7 +462,6 @@ function ProductDrawer({
     <Drawer
       icon="fileText"
       title={product ? "Edit product" : "New product"}
-      sub={product ? "Update product configuration" : "Add a product to the master catalog"}
       onClose={onClose}
       footer={
         <>
@@ -492,12 +491,7 @@ function ProductDrawer({
         />
       </Field>
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5">
-        <div>
-          <div className="text-[13px] font-[600]">{active ? "Active" : "Inactive"}</div>
-          <div className="text-[11.5px] text-subtle">
-            Inactive products are hidden from new records but stay in historical data.
-          </div>
-        </div>
+        <div className="text-[13px] font-[600]">{active ? "Active" : "Inactive"}</div>
         <button
           onClick={() => setActive(!active)}
           className={cn("relative h-[22px] w-[40px] rounded-full transition-colors", active ? "bg-brand" : "bg-border-strong")}
@@ -507,7 +501,7 @@ function ProductDrawer({
       </div>
       <label className="mt-3 flex items-start gap-2.5 rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[12.5px]">
         <input type="checkbox" className="mt-0.5" checked={quoteOnly} onChange={(e) => setQuoteOnly(e.target.checked)} />
-        <span><b>Quote-only pricing</b><span className="mt-0.5 block text-[11.5px] text-subtle">No published rate table; staff must obtain a carrier quote.</span></span>
+        <b>Quote-only pricing</b>
       </label>
     </Drawer>
   );

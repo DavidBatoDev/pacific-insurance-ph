@@ -56,20 +56,10 @@ export function MarkNurturingModal({
         <div className="grid size-10 place-items-center rounded-[10px] bg-violet-soft text-violet">
           <I.clock size={20} />
         </div>
-        <div>
-          <h3 className="text-[16px] font-bold tracking-[-0.01em]">Mark as nurturing</h3>
-          <div className="text-[12.5px] text-muted-foreground">
-            A long-term hold for a lead who is interested but not ready. The stage doesn’t move —
-            only the status.
-          </div>
-        </div>
+        <h3 className="text-[16px] font-bold tracking-[-0.01em]">Mark as nurturing</h3>
       </div>
 
-      <Field
-        label="Re-engagement date"
-        required
-        hint="Puts the lead back in the follow-up queue on this date. A hold without one just goes quiet."
-      >
+      <Field label="Re-engagement date" required>
         <input className={INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
       <Field label="Note" className="mt-3.5">
@@ -80,11 +70,6 @@ export function MarkNurturingModal({
           placeholder="Why they’re on hold — budget timing, waiting on a spouse, renewal date…"
         />
       </Field>
-
-      <p className="mt-3.5 text-[11.5px] leading-relaxed text-faint">
-        Logging a call or message with {clientName} while they’re on hold brings them back to
-        Qualified automatically — the discovery details already on file are kept.
-      </p>
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>

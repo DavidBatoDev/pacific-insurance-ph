@@ -360,13 +360,13 @@ export function NewApplicationWizard({
   };
 
   const stepProps = { f, set, products, users, paymentChannels };
-  const heads: Record<number, [string, string]> = {
-    1: ["Client type & application setup", "Tell the system what workflow to prepare."],
-    2: [f.category === "hmo" ? "Company information" : "Client information", "Create or update the main profile."],
-    3: ["Product-specific details", "Configure details for the selected product."],
-    4: ["Requirements & documents", "Auto-generated checklist based on the product."],
-    5: ["Communication & follow-up", "Prepare the next action for the client."],
-    6: ["Review & create application", "Final confirmation before saving."],
+  const heads: Record<number, string> = {
+    1: "Client type & application setup",
+    2: f.category === "hmo" ? "Company information" : "Client information",
+    3: "Product-specific details",
+    4: "Requirements & documents",
+    5: "Communication & follow-up",
+    6: "Review & create application",
   };
 
   return createPortal(
@@ -391,9 +391,6 @@ export function NewApplicationWizard({
             <span className="text-[12.5px] font-bold">Pacific Insurance PH</span>
           </div>
           <div className="text-[17px] font-bold tracking-[-0.01em]">New Client Application</div>
-          <div className="mt-1 text-[12px] leading-snug text-muted-foreground">
-            Create a client record and start an insurance application workflow.
-          </div>
           <div className="mt-5 flex flex-col gap-1">
             {WIZ_STEPS.map((s) => (
               <button
@@ -416,10 +413,7 @@ export function NewApplicationWizard({
                 >
                   {step > s.n ? <I.check size={13} /> : s.n}
                 </span>
-                <span>
-                  <span className={cn("block text-[12.5px] font-[650]", step === s.n ? "text-brand-hover" : "")}>{s.label}</span>
-                  <span className="block text-[10.5px] text-subtle">{s.desc}</span>
-                </span>
+                <span className={cn("text-[12.5px] font-[650]", step === s.n ? "text-brand-hover" : "")}>{s.label}</span>
               </button>
             ))}
           </div>
@@ -441,21 +435,17 @@ export function NewApplicationWizard({
                   Saying "Converting" there would contradict Step 1's own "Stays a Lead" pill. */}
               {f.status === "Lead" ? (
                 <div>
-                  <b>{f.convertClientName}</b> stays a Lead. The application is created against the
-                  same record — <b>no duplicate is created</b> — and nothing converts. Change the
-                  application type away from “{INQUIRY_APP_TYPE}” to convert them to an Applicant.
+                  <b>{f.convertClientName}</b> stays a Lead — change the application type to convert.
                 </div>
               ) : (
                 <div>
-                  Converting <b>{f.convertClientName}</b> from Lead → Applicant. The same record is
-                  used — <b>no duplicate is created.</b> The conversion happens when you create the
-                  application; <b>Save draft keeps them a lead</b> and you can pick this up later.
+                  Converting <b>{f.convertClientName}</b> from Lead → Applicant on create; Save draft
+                  keeps them a lead.
                 </div>
               )}
             </div>
           )}
-          <h2 className="text-[18px] font-bold tracking-[-0.01em]">{heads[step][0]}</h2>
-          <p className="mb-5 mt-0.5 text-[13px] text-muted-foreground">{heads[step][1]}</p>
+          <h2 className="mb-5 text-[18px] font-bold tracking-[-0.01em]">{heads[step]}</h2>
           {resumeLoading ? (
             <div className="rounded-md border border-border-soft bg-surface-2 px-4 py-5 text-[13px] text-muted-foreground">
               Loading the linked lead and saved application details…
@@ -501,7 +491,7 @@ export function NewApplicationWizard({
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {canDraft ? "Draft can be saved" : "Add a name and contact method to save a draft"}
+            {!canDraft && "Add a name and contact method to save a draft"}
           </span>
           <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
             Save draft

@@ -376,7 +376,6 @@ function AddMemberDrawer({
     <Drawer
       icon="users"
       title="Add member"
-      sub={`Enroll a person under ${group.name}'s group policy`}
       onClose={onClose}
       footer={
         <>
@@ -419,15 +418,8 @@ function AddMemberDrawer({
         <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", ecardNow ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
           {ecardNow && <I.check size={13} />}
         </span>
-        Issue e-card immediately — otherwise queued as Pending for the next batch
+        Issue e-card immediately
       </button>
-      <div className="mt-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
-        <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
-        <div>
-          Adds <b>{name.trim() || "the member"}</b> to the roster (status Pending), updates the
-          census, and logs <b>Member added</b> to the group timeline.
-        </div>
-      </div>
     </Drawer>
   );
 }

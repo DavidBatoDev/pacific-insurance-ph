@@ -154,14 +154,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                       <Ico size={15} />
                     </span>
                     <span className="flex-1 text-[13.5px] font-[550]">{s.label}</span>
-                    <span className="text-[11.5px] text-subtle">Open screen</span>
                   </button>
                 );
               })}
-              <div className="px-4 pb-2 pt-2.5 text-[11.5px] leading-snug text-faint">
-                Type to search across people, groups, policies, applications, claims, renewals and
-                travel.
-              </div>
             </>
           ) : flatHits.length === 0 ? (
             <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center text-subtle">
@@ -169,11 +164,6 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               <div className="text-[13.5px] font-semibold text-foreground">
                 {searching ? "Searching…" : <>No results for “{term}”</>}
               </div>
-              {!searching && (
-                <div className="text-[12px]">
-                  Try a name, a record ID, a POL- / CLM- / APP- number, or a company.
-                </div>
-              )}
             </div>
           ) : (
             groups.map((g) => {
@@ -229,12 +219,6 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               <I.search size={14} /> View all results for “{term}”
             </button>
           )}
-        </div>
-
-        <div className="flex items-center gap-4 border-t border-border-soft bg-surface-2 px-4 py-2 text-[11px] font-semibold text-subtle">
-          <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span>esc close</span>
         </div>
       </div>
     </div>,

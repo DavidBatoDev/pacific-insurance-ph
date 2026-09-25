@@ -127,9 +127,7 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
             <div className="mt-5 rounded-md border border-dashed border-border-strong px-4 py-8 text-center">
               <p className="text-[13px] font-semibold">No checklist generated yet</p>
               <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Generate the medical Notification of Claim&apos;s page-4 checklist for this claim. Travel
-                claims carry their requirements inside the TravelSafe NOC form itself, so there is
-                nothing to generate for those — work from the form directly.
+                Travel claims: nothing to generate — work from the TravelSafe NOC form directly.
               </p>
               <div className="mt-4 flex justify-center gap-2">
                 {CLAIM_CHECKLIST_TYPES.map((type) => (

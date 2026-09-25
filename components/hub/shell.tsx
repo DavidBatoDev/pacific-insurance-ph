@@ -614,12 +614,7 @@ export function Topbar({
                         on ? "bg-brand-soft" : "hover:bg-hover",
                       )}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-[600]">{persona.labelFor(r)}</div>
-                        <div className="text-[11px] text-subtle">
-                          {r === persona.realRole ? "Your role" : "Preview a narrower role"}
-                        </div>
-                      </div>
+                      <div className="min-w-0 flex-1 text-[13px] font-[600]">{persona.labelFor(r)}</div>
                       {on && <I.check size={15} className="text-brand" />}
                     </button>
                   );

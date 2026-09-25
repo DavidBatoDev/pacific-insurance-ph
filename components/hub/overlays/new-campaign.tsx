@@ -117,7 +117,6 @@ export function NewCampaignDrawer({
     <Drawer
       icon="heart"
       title="New campaign"
-      sub={step === 1 ? "Batch a personal touchpoint to a segment of contacts" : "Review the segment and preview before sending"}
       wide
       onClose={onClose}
       footer={
@@ -170,7 +169,7 @@ export function NewCampaignDrawer({
             <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="Internal label" />
           </Field>
 
-          <Field label="Type" required hint="Picking a type pre-fills the audience segment and greeting template" className="mt-4">
+          <Field label="Type" required className="mt-4">
             <div className="grid grid-cols-4 gap-2 max-[700px]:grid-cols-2">
               {Object.keys(NC_TYPES).map((t) => {
                 const TI = I[NC_TYPES[t].icon];
@@ -193,7 +192,7 @@ export function NewCampaignDrawer({
           </Field>
 
           <div className="mt-4 grid grid-cols-2 gap-4">
-            <Field label="Template" required hint="From Email Templates — merged per recipient">
+            <Field label="Template" required>
               <select className={INPUT} value={tpl} onChange={(e) => setTpl(e.target.value)}>
                 {templates.map((t) => (
                   <option key={t.id}>{t.name}</option>
@@ -280,8 +279,7 @@ export function NewCampaignDrawer({
           <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
             <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
             <div>
-              <b>Logged only.</b> Clicking <b>Log campaign</b> records each personalized message on
-              the timeline; no message is delivered.
+              <b>Logged only</b> — no message is delivered.
             </div>
           </div>
 

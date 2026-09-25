@@ -140,15 +140,7 @@ export function LogCallForm({
         <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
       </Field>
 
-      <div className="mt-3.5 flex items-center justify-between gap-3">
-        {reached ? (
-          <span className="flex items-center gap-1.5 text-[11.5px] text-faint">
-            <I.check size={12} /> Structured discovery writes to the record — budget &amp; product
-            interest carry into Convert to Application.
-          </span>
-        ) : (
-          <span />
-        )}
+      <div className="mt-3.5 flex items-center justify-end gap-3">
         <Btn variant="primary" disabled={pending} onClick={submit}>
           <I.phone size={15} /> Log call
         </Btn>
@@ -175,14 +167,7 @@ export function LogCallModal({ target, onClose }: { target?: LogCallTarget; onCl
         <div className="grid size-10 place-items-center rounded-[10px] bg-brand-soft text-brand-hover">
           <I.phone size={20} />
         </div>
-        <div>
-          <h3 className="text-[16px] font-bold tracking-[-0.01em]">Log call</h3>
-          <p className="text-[12.5px] text-muted-foreground">
-            {resolved
-              ? `Outcome and discovery details for ${resolved.name}.`
-              : "Pick the contact this call was with."}
-          </p>
-        </div>
+        <h3 className="text-[16px] font-bold tracking-[-0.01em]">Log call</h3>
       </div>
 
       {!target && (

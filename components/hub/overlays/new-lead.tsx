@@ -81,7 +81,6 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
     <Drawer
       icon="trendUp"
       title="New lead"
-      sub="Creates a unified contact record at lifecycle stage Lead"
       onClose={onClose}
       footer={
         <>
@@ -92,7 +91,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <FieldGroup title="Lead identity" sub="The details needed to identify this prospective client.">
+      <FieldGroup title="Lead identity">
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="First name" required>
             <input autoFocus className={INPUT} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -117,7 +116,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </div>
       </FieldGroup>
 
-      <FieldGroup title="Lead context" sub="Optional details that help prioritize the first follow-up.">
+      <FieldGroup title="Lead context">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Product interest">
             <select className={INPUT} value={product} onChange={(e) => setProduct(e.target.value)}>
@@ -149,7 +148,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
         </div>
       </FieldGroup>
 
-      <FieldGroup title="Pipeline placement" sub="Leave the defaults for a new inquiry; change them only for a warm or migrated lead.">
+      <FieldGroup title="Pipeline placement">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Starting stage">
             <select className={INPUT} value={stage} onChange={(e) => setStage(e.target.value)}>
@@ -176,14 +175,6 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
           placeholder="Inquiry context, discovery notes…"
         />
       </FieldGroup>
-
-      <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        <I.trendUp size={15} className="mt-0.5 shrink-0" />
-        <div>
-          The lead lands in the <b>{stage}</b> column with status <b>{status}</b>. One record per
-          person — converting later flips the same record to Applicant, never a duplicate.
-        </div>
-      </div>
     </Drawer>
   );
 }

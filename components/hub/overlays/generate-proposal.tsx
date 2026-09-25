@@ -66,7 +66,7 @@ export function GenerateProposalModal({
         <div>
           <h3 className="text-[16px] font-bold tracking-[-0.01em]">Generate proposal</h3>
           <div className="text-[12.5px] text-muted-foreground">
-            For Select and Blue Royale. This opens Pacific Cross&apos;s generator; status stays unchanged until you mark the finished proposal Received.
+            For Select and Blue Royale.
           </div>
         </div>
       </div>

@@ -55,12 +55,12 @@ export function MarkLostModal({
         </div>
       </div>
 
-      <Field label="Note" hint="Optional — why this lead didn’t convert.">
+      <Field label="Note">
         <textarea
           className="min-h-[100px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="What happened? Logged to the timeline…"
+          placeholder="What happened?"
         />
       </Field>
 

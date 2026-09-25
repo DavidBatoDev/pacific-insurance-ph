@@ -176,12 +176,8 @@ export function EmailForm({
               <div className="text-[11.5px] text-subtle">To: {recipient || target.name}</div>
             </div>
           </div>
-          <div className="text-[13.5px] font-[650]">
-            {subject || <span className="font-normal text-faint">No subject yet — pick a template above</span>}
-          </div>
-          <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">
-            {body || <span className="text-faint">Message body will appear here.</span>}
-          </div>
+          <div className="text-[13.5px] font-[650]">{subject}</div>
+          <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{body}</div>
         </div>
       </div>
 
@@ -197,7 +193,7 @@ export function EmailForm({
 
       <div className="mt-3.5 flex items-center justify-between gap-3">
         <span className="text-[11.5px] text-faint">
-          Logged only — neither the email nor selected attachments are delivered. Actor: {persona.userName}.
+          Logged only — neither the email nor selected attachments are delivered.
         </span>
         <Btn variant="primary" disabled={!canComplete} onClick={submit}>
           <I.send size={15} /> {pending ? "Logging…" : "Log email"}

@@ -97,33 +97,6 @@ function TransitionArrow() {
   );
 }
 
-/** Hover/click popover on the info icon, revealing what triggered the suggestion. No shared
- * Tooltip/Popover primitive exists in this codebase yet, so this stays self-contained here. */
-function TriggerInfoPopover({ detail, occurredAt }: { detail: string; occurredAt?: string }) {
-  const [open, setOpen] = useState(false);
-  const dateLabel = occurredAt
-    ? new Date(occurredAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
-    : null;
-  return (
-    <div className="relative inline-flex" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="grid size-[22px] place-items-center rounded-full border border-border-strong text-subtle hover:bg-hover"
-        aria-label="What triggered this suggestion"
-      >
-        <I.info size={14} />
-      </button>
-      {open && (
-        <div className="absolute left-1/2 top-full z-10 mt-1.5 w-max max-w-[220px] -translate-x-1/2 rounded-md border border-border-strong bg-card px-2.5 py-2 text-[11.5px] leading-snug shadow-pop">
-          <div className="font-[650]">{detail}</div>
-          {dateLabel && <div className="mt-0.5 text-faint">Date: {dateLabel}</div>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function AdvanceLeadModal({
   lead,
   preset,
@@ -238,9 +211,8 @@ export function AdvanceLeadModal({
             status={preset?.previousStatus ?? lead.status}
           />
         </div>
-        <div className="flex items-center justify-center gap-1.5 py-1">
+        <div className="flex items-center justify-center py-1">
           <TransitionArrow />
-          {preset?.detail && <TriggerInfoPopover detail={preset.detail} occurredAt={preset.occurredAt} />}
         </div>
         <IdentityCard name={lead.name} referenceNo={lead.referenceNo} stage={stage} status={status} />
       </div>
@@ -295,11 +267,6 @@ export function AdvanceLeadModal({
                   <option key={s}>{s}</option>
                 ))}
               </select>
-              {lead.status !== "Nurturing" && (
-                <div className="mt-1 text-[11px] text-faint">
-                  On hold? Use <b>Mark as Nurturing</b> on the profile — it sets the re-engagement date.
-                </div>
-              )}
             </div>
           </div>
 
@@ -309,7 +276,7 @@ export function AdvanceLeadModal({
             </label>
             <textarea
               className="min-h-[70px] w-full rounded-md border border-border-strong bg-card px-3 py-2 text-[13px] outline-none focus:border-brand"
-              placeholder="What happened? Logged to the timeline…"
+              placeholder="What happened?"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />

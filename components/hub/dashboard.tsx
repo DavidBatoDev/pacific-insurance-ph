@@ -548,9 +548,9 @@ function RelationshipWidget({ touchpoints }: { touchpoints: TouchpointRow[] }) {
 /* ---------- Export ---------- */
 
 const EXPORT_OPTIONS = [
-  { format: "xlsx", label: "Excel workbook", ext: ".xlsx", sub: "All sheets, formatted" },
-  { format: "ods", label: "OpenDocument", ext: ".ods", sub: "All sheets, for LibreOffice" },
-  { format: "csv", label: "Summary CSV", ext: ".csv", sub: "Headline figures only" },
+  { format: "xlsx", label: "Excel workbook", ext: ".xlsx" },
+  { format: "ods", label: "OpenDocument", ext: ".ods" },
+  { format: "csv", label: "Summary CSV", ext: ".csv" },
 ] as const;
 
 /**
@@ -589,11 +589,8 @@ function ExportMenu() {
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
                 >
                   <I.download size={15} className="shrink-0 text-subtle" />
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-[550]">
-                      {o.label} <span className="font-mono text-[11.5px] text-subtle">{o.ext}</span>
-                    </span>
-                    <span className="block text-[11.5px] text-faint">{o.sub}</span>
+                  <span className="min-w-0 text-[13px] font-[550]">
+                    {o.label} <span className="font-mono text-[11.5px] text-subtle">{o.ext}</span>
                   </span>
                 </a>
               ))}

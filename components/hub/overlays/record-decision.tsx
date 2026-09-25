@@ -57,8 +57,7 @@ export function RecordDecisionModal({
         <div>
           <h3 className="text-[16px] font-bold tracking-[-0.01em]">Record decision</h3>
           <div className="text-[12.5px] text-muted-foreground">
-            What came back from {clientName} on this proposal. The stage doesn’t move — advancing to
-            Product Selected stays a separate, deliberate step.
+            What came back from {clientName} on this proposal.
           </div>
         </div>
       </div>
@@ -83,21 +82,11 @@ export function RecordDecisionModal({
                 checked={active}
                 onChange={() => setDecision(option.value)}
               />
-              <span className="min-w-0">
-                <span className="block text-[13px] font-[650]">{option.value}</span>
-                <span className="block text-[11.5px] text-muted-foreground">{option.hint}</span>
-              </span>
+              <span className="min-w-0 text-[13px] font-[650]">{option.value}</span>
             </label>
           );
         })}
       </div>
-
-      {decision === "Declined" && (
-        <p className="mt-3.5 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[11.5px] leading-relaxed text-amber">
-          Recording a decline makes <b>Mark Lost</b> available on this lead’s ⋮ menu — the record is
-          kept either way, so nothing is deleted.
-        </p>
-      )}
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>

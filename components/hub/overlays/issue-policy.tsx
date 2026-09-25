@@ -61,7 +61,6 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
     <Drawer
       icon="shield"
       title="Issue policy"
-      sub="Manually encode a policy or activate an approved application"
       onClose={onClose}
       footer={
         <>
@@ -133,14 +132,6 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
         <Field label="Expiry date">
           <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
-      </div>
-
-      <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        <I.shield size={15} className="mt-0.5 shrink-0" />
-        <div>
-          Creates an <b>Active</b> policy with a POL- reference number and logs{" "}
-          <b>Policy issued</b> to the client&apos;s timeline.
-        </div>
       </div>
     </Drawer>
   );

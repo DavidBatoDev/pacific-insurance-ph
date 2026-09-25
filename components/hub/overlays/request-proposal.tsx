@@ -71,13 +71,7 @@ export function RequestProposalModal({
         <div className="grid size-10 place-items-center rounded-[10px] bg-brand-soft text-brand-hover">
           <I.fileText size={20} />
         </div>
-        <div>
-          <h3 className="text-[16px] font-bold tracking-[-0.01em]">Request proposal</h3>
-          <div className="text-[12.5px] text-muted-foreground">
-            Internal request to the carrier — logs a note and a follow-up task, and sets the proposal
-            status to Requested.
-          </div>
-        </div>
+        <h3 className="text-[16px] font-bold tracking-[-0.01em]">Request proposal</h3>
       </div>
 
       {!(clientId && clientName) && (

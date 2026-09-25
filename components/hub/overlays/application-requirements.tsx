@@ -136,7 +136,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                       <div className="text-[12px] font-semibold">{phase}</div>
                       {items.every((item) => !item.isRequired) && (
                         <div className="mt-0.5 text-[11.5px] text-muted-foreground">
-                          Not requested yet — these {items.length} become outstanding once the group accepts the proposal.
+                          Not requested yet
                         </div>
                       )}
                     </div>
@@ -156,7 +156,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                 ))}
               </Fragment>
             ))}
-            {!requirements.length && <div className="rounded-md border border-dashed border-border-strong px-4 py-8 text-center text-[12.5px] text-muted-foreground">No template requirements were configured when this application was created.</div>}
+            {!requirements.length && <div className="rounded-md border border-dashed border-border-strong px-4 py-8 text-center text-[12.5px] text-muted-foreground">No requirements.</div>}
           </div>
         </div>
       )}

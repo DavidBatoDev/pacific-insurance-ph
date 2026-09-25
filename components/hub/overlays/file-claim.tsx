@@ -64,7 +64,6 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
     <Drawer
       icon="clipboard"
       title="File claim"
-      sub="Creates a claim linked to the client and policy, starting at Documents Pending"
       onClose={onClose}
       footer={
         <>
@@ -117,14 +116,6 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
           placeholder="Incident context, hospital, documents expected…"
         />
       </Field>
-
-      <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        <I.clipboard size={15} className="mt-0.5 shrink-0" />
-        <div>
-          Creates a CLM- claim at <b>Documents Pending</b> and logs <b>Claim filed</b> to the
-          contact&apos;s timeline. Request requirements from the claimant via the composer.
-        </div>
-      </div>
     </Drawer>
   );
 }

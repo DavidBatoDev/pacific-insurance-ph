@@ -13,7 +13,7 @@ import type { TaskLinkOption } from "@/lib/queries/task-links";
 import { TASK_TAGS } from "@/lib/repositories/tasks/task.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
-import { BUCKET_LABEL, BUCKET_TONE, taskBucket } from "../task-buckets";
+import { BUCKET_LABEL, taskBucket } from "../task-buckets";
 import { Avatar, Btn, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
@@ -113,7 +113,6 @@ export function AddTaskDrawer({
     <Drawer
       icon="checkSquare"
       title="New task"
-      sub="Create a follow-up — it lands on the board and your dashboard"
       onClose={onClose}
       footer={
         <>
@@ -142,7 +141,7 @@ export function AddTaskDrawer({
             ))}
           </select>
         </FieldBlock>
-        <FieldBlock label="Assigned to" hint="Defaults to you">
+        <FieldBlock label="Assigned to">
           <select className={INPUT} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
             <option value="">Me</option>
             {users.map((u) => (
@@ -157,14 +156,8 @@ export function AddTaskDrawer({
       <div className="mt-4 grid grid-cols-2 gap-4">
         <FieldBlock label="Due date" required>
           <input className={INPUT} type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-          {due && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <span className={cn("size-1.5 rounded-full", "bg-" + BUCKET_TONE[bucket])} />
-              Lands in <b>{BUCKET_LABEL[bucket]}</b>
-            </div>
-          )}
         </FieldBlock>
-        <FieldBlock label="Priority" hint="Optional">
+        <FieldBlock label="Priority">
           <div className="flex gap-1.5">
             {PRIORITIES.map((p) => (
               <button
@@ -187,11 +180,11 @@ export function AddTaskDrawer({
 
       <div className="mt-5">
         <div className="mb-2 text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
-          Link to a contact <span className="font-medium normal-case tracking-normal">· optional</span>
+          Link to a contact
         </div>
         <ContactPicker contact={contact} onPick={setContact} onClear={() => setContact(null)} />
         {contact && linkOptions.length > 0 && (
-          <FieldBlock label="Specific record" hint="Attach to one of this contact's records" className="mt-3">
+          <FieldBlock label="Specific record" className="mt-3">
             <select className={INPUT} value={linked} onChange={(e) => setLinked(e.target.value)}>
               <option value="">None — contact only</option>
               {linkOptions.map((o) => (
@@ -204,12 +197,12 @@ export function AddTaskDrawer({
         )}
         {contact && linkOptions.length === 0 && (
           <div className="mt-2 rounded-md bg-surface-2 px-3 py-2 text-[12px] text-subtle">
-            No open records under {contact.name} — the task links to the contact.
+            No open records under {contact.name}.
           </div>
         )}
       </div>
 
-      <FieldBlock label="Notes" hint="Optional detail or context" className="mt-4">
+      <FieldBlock label="Notes" className="mt-4">
         <textarea
           className={cn(INPUT, "min-h-[80px] py-2")}
           value={notes}
@@ -217,20 +210,6 @@ export function AddTaskDrawer({
           placeholder="Anything the assignee should know…"
         />
       </FieldBlock>
-
-      <div className="mt-4 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        <I.checkSquare size={15} className="mt-0.5 shrink-0" />
-        <div>
-          Saving adds this to the <b>{BUCKET_LABEL[bucket]}</b> column and the dashboard My-tasks
-          widget.
-          {contact ? (
-            <>
-              {" "}
-              Marking it done later logs <b>Task completed</b> to {contact.name}&apos;s timeline.
-            </>
-          ) : null}
-        </div>
-      </div>
     </Drawer>
   );
 }
@@ -239,13 +218,11 @@ export function AddTaskDrawer({
 function FieldBlock({
   label,
   required,
-  hint,
   children,
   className,
 }: {
   label: string;
   required?: boolean;
-  hint?: string;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -255,7 +232,6 @@ function FieldBlock({
         {label} {required && <span className="text-red">*</span>}
       </label>
       {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
     </div>
   );
 }

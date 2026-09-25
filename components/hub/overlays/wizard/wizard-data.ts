@@ -208,12 +208,12 @@ export interface WizardForm {
 }
 
 export const WIZ_STEPS = [
-  { n: 1, label: "Client type & setup", desc: "Workflow & product" },
-  { n: 2, label: "Client information", desc: "Profile details" },
-  { n: 3, label: "Product details", desc: "Plan-specific" },
-  { n: 4, label: "Requirements", desc: "Documents" },
-  { n: 5, label: "Communication", desc: "Email & follow-up" },
-  { n: 6, label: "Review & create", desc: "Confirm" },
+  { n: 1, label: "Client type & setup" },
+  { n: 2, label: "Client information" },
+  { n: 3, label: "Product details" },
+  { n: 4, label: "Requirements" },
+  { n: 5, label: "Communication" },
+  { n: 6, label: "Review & create" },
 ] as const;
 
 /**
