@@ -377,6 +377,30 @@
       "mimeType": "application/pdf"
     },
     {
+      "key": "bc-flexi-cet",
+      "path": "BC_FLEXI_Requirements/CET (2)_1 (2) (1).xlsx",
+      "originalFileName": "BC-Flexi-Corporate-Enrollment-Template.xlsx",
+      "rows": [
+        {
+          "productVersion": "bcFlexi",
+          "documentName": "Corporate Enrollment Template",
+          "documentType": "Enrollment Template",
+          "versionLabel": "Undated",
+          "variant": null,
+          "ageBand": "All Ages",
+          "effectiveDate": null,
+          "expiryDate": null,
+          "distributionNotes": "Client-sendable blank template. The company fills in one row per member (Principal, Dependent, Inclusion and Deletion sheets) and returns it for BC Flexi group enrollment.",
+          "extraNotes": "Download serves the editable .xlsx; the viewer shows a LibreOffice-rendered PDF companion."
+        }
+      ],
+      "supersedes": [],
+      "alsoDeliveredAs": [],
+      "md5": "245564de89de5ff8f8fb99777fb645d9",
+      "bytes": 311832,
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
       "key": "agents-attestation",
       "path": "new_business/ATTESTATION LETTER 2024.pdf",
       "originalFileName": "Agents-Attestation-Letter-2024.pdf",
@@ -1169,10 +1193,6 @@
     {
       "path": "BC_FLEXI_Requirements/PROPOSAL INFORMATION SHEET_Revised_2018 (1) (1) (1)_1.doc",
       "reason": "Header reads 'FOR INTERNAL USE ONLY (to be filled out by Pacific Cross Sales Personnel)'. Checklist question C3 (who completes it) is unanswered; loading it as a BC Flexi application form would put it one click from a client email. Hold until answered."
-    },
-    {
-      "path": "BC_FLEXI_Requirements/CET (2)_1 (2) (1).xlsx",
-      "reason": "Spreadsheet. The library uploader accepts PDF, DOC and DOCX only; loading it would need a MIME allowlist migration."
     }
   ]
 }

@@ -40,6 +40,7 @@ const LIBRARY_MAX_BYTES = 25 * 1024 * 1024;
 const LIBRARY_MIME_TYPES = new Set([
   "application/pdf", "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]);
 
 function libraryMimeType(fileName: string, supplied: string) {
@@ -48,6 +49,7 @@ function libraryMimeType(fileName: string, supplied: string) {
   if (extension === "pdf") return "application/pdf";
   if (extension === "doc") return "application/msword";
   if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (extension === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   return null;
 }
 
@@ -60,7 +62,7 @@ export async function beginLibraryUploadAction(input: { fileName: string; mimeTy
     if (!input.fileName.trim() || input.size <= 0) return { ok: false, error: "Choose a file to upload." };
     if (input.size > LIBRARY_MAX_BYTES) return { ok: false, error: "Library files must be 25 MB or smaller." };
     const mimeType = libraryMimeType(input.fileName, input.mimeType);
-    if (!mimeType) return { ok: false, error: "Only PDF, DOC, and DOCX files are allowed." };
+    if (!mimeType) return { ok: false, error: "Only PDF, DOC, DOCX, and XLSX files are allowed." };
     const ext = input.fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
     return { ok: true, data: { ...await createSignedUpload(`library/${randomUUID()}.${ext}`), mimeType } };
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." }; }
@@ -77,7 +79,7 @@ export async function finalizeLibraryUploadAction(path: string, input: LibraryUp
     if (!LIBRARY_AGE_BANDS.includes((input.ageBand ?? "All Ages") as (typeof LIBRARY_AGE_BANDS)[number]))
       return { ok: false, error: "Choose a supported age band." };
     if (!libraryMimeType(input.originalFileName, input.mimeType))
-      return { ok: false, error: "Only PDF, DOC, and DOCX files are allowed." };
+      return { ok: false, error: "Only PDF, DOC, DOCX, and XLSX files are allowed." };
     if (input.expiryDate && input.effectiveDate && input.expiryDate < input.effectiveDate)
       return { ok: false, error: "Expiry date cannot be before the effective date." };
     const info = await getObjectInfo(path);

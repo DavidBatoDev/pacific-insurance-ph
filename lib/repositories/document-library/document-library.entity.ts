@@ -1,7 +1,7 @@
 export const LIBRARY_DOCUMENT_TYPES = [
   "Brochure", "Application Form", "Attestation Letter", "Medical Questionnaire",
   "Renewal Form", "Claim Form", "Email Template Attachment",
-  "Authorization Form", "Reference Document",
+  "Authorization Form", "Reference Document", "Enrollment Template",
 ] as const;
 export const LIBRARY_AGE_BANDS = ["All Ages", "0-70", "71-100"] as const;
 export const LIBRARY_APPROVAL_STATUSES = ["Draft", "Pending Approval", "Approved", "Rejected"] as const;

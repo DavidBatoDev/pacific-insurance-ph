@@ -345,8 +345,14 @@ export function DocumentViewer({
                 </span>
                 <div className="text-[14px] font-bold">Preview not available for this format</div>
                 <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
-                  Legacy Word documents (the 1997–2003 <span className="font-mono text-[11.5px]">.doc</span>{" "}
-                  format) can’t be rendered in a browser. Download it to open in Word.
+                  {ext === "xlsx" ? (
+                    <>Spreadsheets can’t be previewed in the browser. Download it to open in Excel.</>
+                  ) : (
+                    <>
+                      Legacy Word documents (the 1997–2003 <span className="font-mono text-[11.5px]">.doc</span>{" "}
+                      format) can’t be rendered in a browser. Download it to open in Word.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -380,7 +386,7 @@ export function DocumentViewer({
         {tier === "pdf" && (
           <p className="mt-2 text-[11.5px] text-faint">
             {previewIsPdf
-              ? "Rendered from the Word original for viewing. Download gives you the editable file."
+              ? "Rendered as a PDF for viewing. Download gives you the editable original."
               : "Not rendering? Open it in a new tab or download it."}
           </p>
         )}
