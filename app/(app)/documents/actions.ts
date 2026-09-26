@@ -4,12 +4,13 @@ import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 
-import { getActor } from "@/lib/actions/context";
+import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { PDF_UPLOAD_MAX_BYTES, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { removeObject, uploadObject } from "@/lib/supabase/storage";
+import { createSignedUpload, removeObject, uploadObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
 function str(fd: FormData, key: string): string | undefined {
@@ -17,6 +18,29 @@ function str(fd: FormData, key: string): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim();
   return s === "" ? undefined : s;
+}
+
+/**
+ * Signed URL for a browser-to-Storage PDF upload. Server Actions cap request
+ * bodies at 1 MB, which a carrier-issued PDF can exceed, so the bytes bypass them.
+ */
+export async function beginPdfUploadAction(input: {
+  clientId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+}): Promise<ActionResult<{ path: string; token: string }>> {
+  try {
+    await getActor();
+    if (!input.clientId) return { ok: false, error: "Missing client." };
+    if (input.size <= 0) return { ok: false, error: "Choose a file to upload." };
+    if (input.size > PDF_UPLOAD_MAX_BYTES) return { ok: false, error: "PDFs must be 25 MB or smaller." };
+    const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
+    if (!isPdf) return { ok: false, error: "Only PDF files can be uploaded here." };
+    return { ok: true, data: await createSignedUpload(pdfUploadPath(input.clientId, randomUUID())) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." };
+  }
 }
 
 export async function uploadDocumentAction(formData: FormData) {

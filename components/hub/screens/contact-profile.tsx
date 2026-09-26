@@ -177,6 +177,7 @@ export function ContactProfile({
             <ProposalCard
               client={client}
               pacificCrossPortalUrl={pacificCrossPortalUrl}
+              proposalDocument={documents.find((d) => d.documentType === "Illustrative Proposal") ?? null}
               onGenerate={() => setGenerateProposalOpen(true)}
               onRequest={() => setProposalOpen(true)}
               onLogEmail={() => focusEmail("Proposal / Quote Delivery")}

@@ -7,6 +7,7 @@ import { listProposalContactsAction, requestProposalAction } from "@/app/(app)/c
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
+import { addBusinessDays, HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS } from "../lead-config";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
@@ -36,7 +37,7 @@ export function RequestProposalModal({
     clientId && clientName ? { id: clientId, name: clientName } : null,
   );
   const [note, setNote] = useState("");
-  const [follow, setFollow] = useState("");
+  const [follow, setFollow] = useState(() => addBusinessDays(HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS));
   const [alsoEmail, setAlsoEmail] = useState(false);
   const [carrier, setCarrier] = useState("");
   const [carrierContactId, setCarrierContactId] = useState("");

@@ -3,8 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { getTravelWorkflowAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
+import { getTravelWorkflowAction, recordTravelPolicyAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { PdfUpload } from "@/components/documents/pdf-upload";
+import { openPortalWindow } from "./portal-window";
 import { Modal } from "./modal";
 import { Btn, INPUT, StatusBadge } from "../primitives";
 import { I } from "../icons";
@@ -20,6 +22,8 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
   const [paymentStatus, setPaymentStatus] = useState("Not Yet");
   const [portalRef, setPortalRef] = useState("");
   const [portalAmount, setPortalAmount] = useState("");
+  const [policyNumber, setPolicyNumber] = useState("");
+  const [policyUploaded, setPolicyUploaded] = useState(false);
 
   useEffect(() => {
     getTravelWorkflowAction(travelRequestId).then((result) => {
@@ -29,6 +33,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       setPaymentStatus(result.data.travel.portalPaymentStatus);
       setPortalRef(result.data.travel.portalPaymentReference ?? "");
       setPortalAmount(result.data.travel.portalPaymentAmount?.toString() ?? "");
+      setPolicyNumber(result.data.travel.policyNumber ?? "");
     });
   }, [travelRequestId]);
 
@@ -38,6 +43,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       portalPaymentStatus: paymentStatus,
       portalPaymentReference: portalRef || null,
       portalPaymentAmount: portalAmount ? Number(portalAmount) : null,
+      policyNumber: policyNumber.trim() || null,
       status: portalStatus === "Issued" ? "Policy Issued" : payload?.travel.status,
     });
     if (!result.ok) return overlays.toast("Couldn’t update Travel request", result.error);
@@ -61,7 +67,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
 
       <div className="mt-5 grid grid-cols-2 gap-4"><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Travelers</div>{payload.travelers.map((traveler) => <div key={traveler.id} className="border-b border-border-soft py-2 last:border-0"><div className="text-[13px] font-semibold">{traveler.fullName}</div><div className="text-[11.5px] text-muted-foreground">{traveler.dateOfBirth ?? "DOB missing"} · {traveler.idType ?? "ID"} {traveler.idNumber ?? "missing"}</div><div className="text-[11.5px] text-muted-foreground">Beneficiary: {traveler.beneficiaryName ?? "Not recorded"}</div></div>)}</div><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Collection</div>{payload.payments.length ? payload.payments.map((payment) => <div key={payment.id} className="flex items-center justify-between py-1 text-[12.5px]"><span>{payment.referenceNo ?? "Expected payment"}</span><StatusBadge status={payment.status} /></div>) : <div className="text-[12px] text-muted-foreground">No expected payment yet.</div>}<p className="mt-3 text-[11px] text-muted-foreground">Communications are logged/prepared only; the app does not deliver them without an email provider.</p></div></div>
 
-      <div className="mt-4 rounded-md border border-border-soft p-3"><div className="mb-3 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal processing</div>{payload.portalUrl ? <a href={payload.portalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</a> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div><div className="grid grid-cols-4 gap-2"><select className={INPUT} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select><input className={INPUT} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /><input className={INPUT} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /><select className={INPUT} value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></div><p className="mt-2 text-[11px] text-muted-foreground">The carrier purchase remains manual. Portal credentials are held outside this app.</p></div>
+      <div className="mt-4 rounded-md border border-border-soft p-3"><div className="mb-3 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal processing</div>{payload.portalUrl ? <button type="button" onClick={() => openPortalWindow(payload.portalUrl ?? undefined, "pacific-cross-travel-portal")} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</button> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div><div className="grid grid-cols-4 gap-2"><select className={INPUT} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select><input className={INPUT} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /><input className={INPUT} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /><select className={INPUT} value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></div><div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 max-[680px]:grid-cols-1"><input className={INPUT} value={policyNumber} onChange={(event) => setPolicyNumber(event.target.value)} placeholder={portalStatus === "Issued" ? "Policy number (required)" : "Policy number"} aria-label="Policy number" /><PdfUpload clientId={payload.travel.clientId} prompt={policyUploaded ? "Policy PDF attached — upload another…" : "Upload the issued policy PDF…"} onUploaded={async (path, fileName) => { const result = await recordTravelPolicyAction(travelRequestId, path, fileName); if (result.ok) { setPolicyUploaded(true); overlays.toast("Travel policy attached"); router.refresh(); } return result; }} /></div><p className="mt-2 text-[11px] text-muted-foreground">The carrier purchase remains manual. Portal credentials are held outside this app.</p></div>
 
       <div className="mt-4"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div><div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className="rounded-md border border-border-soft p-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div><div className="text-[11px] text-muted-foreground">{item.appliesTo}</div></div><select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} disabled={pending} onChange={(event) => setRequirement(item.id, event.target.value as typeof item.status)}><option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option></select></div><div className="mt-2"><DocumentUploadForm clientId={payload.travel.clientId} travelRequestId={travelRequestId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined} /></div></div>)}</div></div>
     </div>}

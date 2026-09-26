@@ -4,18 +4,22 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { setProposalStatusAction } from "@/app/(app)/prospects/actions";
+import { recordProposalReceivedAction, setProposalStatusAction } from "@/app/(app)/prospects/actions";
+import { PdfUpload } from "@/components/documents/pdf-upload";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
 import { isIndividualProposalProduct, proposalStatusLine } from "../../lead-config";
 import { useOverlays } from "../../overlays/overlay-provider";
+import { openPortalWindow } from "../../overlays/portal-window";
 import { Btn, Card, CardHead } from "../../primitives";
+import type { Doc } from "./records-cards";
 
 /** Lead-only proposal tracking card (stage-gated actions per proposal status). */
 export function ProposalCard({
   client,
   pacificCrossPortalUrl,
+  proposalDocument,
   onGenerate,
   onRequest,
   onLogEmail,
@@ -23,6 +27,8 @@ export function ProposalCard({
 }: {
   client: Client;
   pacificCrossPortalUrl: string | null;
+  /** Most recent uploaded illustrative proposal, if any. */
+  proposalDocument: Doc | null;
   onGenerate: () => void;
   onRequest: () => void;
   /** Focus the composer preset to the proposal-delivery template. */
@@ -67,14 +73,13 @@ export function ProposalCard({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {pacificCrossPortalUrl && (
-                    <a
-                      href={pacificCrossPortalUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => openPortalWindow(pacificCrossPortalUrl)}
                       className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
                     >
                       <I.arrowUpRight size={14} /> Open Pacific Cross portal
-                    </a>
+                    </button>
                   )}
                   {!pacificCrossPortalUrl && isIndividualProposalProduct(client.productInterest) && (
                     <Link
@@ -91,7 +96,7 @@ export function ProposalCard({
                   )}
                   {client.leadStage === "Proposal" && client.proposalStatus === "Requested" && (
                     <Btn size="sm" disabled={pending} onClick={() => markProposal("Received")}>
-                      {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received"}
+                      {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received without PDF"}
                     </Btn>
                   )}
                   {client.leadStage === "Proposal" && client.proposalStatus === "Received" && (
@@ -116,6 +121,31 @@ export function ProposalCard({
                     </Btn>
                   )}
                 </div>
+                {client.leadStage === "Proposal" && client.proposalStatus === "Requested" && (
+                  <div className="mt-3">
+                    <PdfUpload
+                      clientId={client.id}
+                      prompt="Upload the proposal PDF…"
+                      onUploaded={async (path, fileName) => {
+                        const res = await recordProposalReceivedAction(client.id, path, fileName);
+                        if (res.ok) {
+                          overlays.toast("Proposal received", `${client.fullName} — PDF attached and marked Received.`);
+                          router.refresh();
+                        }
+                        return res;
+                      }}
+                    />
+                  </div>
+                )}
+                {proposalDocument && client.proposalStatus && client.proposalStatus !== "Requested" && (
+                  <a
+                    href={`/api/documents/${proposalDocument.id}/download`}
+                    className="mt-3 flex items-center gap-2 rounded-md border border-border-soft px-3 py-2 text-[12.5px] font-semibold text-brand-hover transition-colors hover:bg-hover"
+                  >
+                    <I.fileText size={15} className="shrink-0" />
+                    <span className="truncate">{proposalDocument.name}</span>
+                  </a>
+                )}
                 {client.leadStage !== "Proposal" && client.proposalStatus && (
                   <p className="mt-2 text-[11.5px] text-faint">
                     Proposal actions are available once this lead reaches the <b>Proposal</b> stage.

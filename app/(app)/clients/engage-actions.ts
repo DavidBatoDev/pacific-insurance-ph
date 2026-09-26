@@ -17,7 +17,7 @@ import {
   type LibraryDocument,
 } from "@/lib/repositories/document-library";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
-import { nextLeadStage } from "@/components/hub/lead-config";
+import { addBusinessDays, HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS, nextLeadStage } from "@/components/hub/lead-config";
 
 /**
  * Engage composer mutations (contact-profile.md; human-in-the-loop). Emails,
@@ -470,7 +470,7 @@ export async function requestProposalAction(input: {
       tag: "Application",
       clientId: input.clientId,
       assignedUserId: actor.id,
-      dueDate: input.followUpDate ?? null,
+      dueDate: input.followUpDate || addBusinessDays(HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS),
       priority: "Normal",
     });
     if (input.alsoEmailCarrier && carrierRecipient) {

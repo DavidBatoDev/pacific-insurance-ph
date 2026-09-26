@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import {
   getTravelRepository,
   type NewTravelRequest,
@@ -80,6 +81,9 @@ export async function updateTravelWorkflowAction(id: string, input: TravelReques
   try {
     const previous = await getTravelRepository().findById(id);
     if (!previous) return { ok: false, error: "Travel request not found." };
+    const policyNumber = input.policyNumber !== undefined ? input.policyNumber?.trim() : previous.policyNumber;
+    if (input.portalProcessingStatus === "Issued" && !policyNumber)
+      return { ok: false, error: "Enter the policy number the Travel portal issued before marking it Issued." };
     const updated = await getTravelRepository().update(id, input);
     await recordAudit({ actorId: actor.id, action: "update", tableName: "travel_requests", recordId: id, previousValue: previous as unknown as Json, newValue: updated as unknown as Json });
     revalidatePath("/travel");
@@ -87,6 +91,40 @@ export async function updateTravelWorkflowAction(id: string, input: TravelReques
     return { ok: true, data: updated };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to update Travel workflow." };
+  }
+}
+
+/** Attach the policy PDF the Travel portal issued (uploaded to Storage by the browser). */
+export async function recordTravelPolicyAction(
+  travelRequestId: string,
+  path: string,
+  fileName: string,
+): Promise<ActionResult<{ documentId: string }>> {
+  const actor = await getActor();
+  try {
+    const travel = await getTravelRepository().findById(travelRequestId);
+    if (!travel) return { ok: false, error: "Travel request not found." };
+    const doc = await registerUploadedPdf({
+      path,
+      name: `Travel policy — ${travel.referenceNo ?? travelRequestId.slice(0, 8)} (${fileName})`,
+      clientId: travel.clientId,
+      travelRequestId,
+      documentType: "Travel Policy",
+      actorId: actor.id,
+    });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: travel.clientId,
+      activityType: "document.uploaded",
+      summary: `Travel policy uploaded — ${travel.referenceNo ?? "travel request"}`,
+      actorId: actor.id,
+    });
+    revalidatePath("/travel");
+    revalidatePath(`/clients/${travel.clientId}`);
+    revalidatePath("/documents");
+    return { ok: true, data: { documentId: doc.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Couldn’t record the travel policy." };
   }
 }
 

@@ -62,6 +62,26 @@ export function advanceLeadActionDefaults(
   return { note: defaults.note, followUpDate: `${year}-${month}-${day}` };
 }
 
+/**
+ * Expected wait for an HMO proposal from Pacific Cross. A general placeholder: the real
+ * turnaround varies by HMO and hasn't been confirmed, so change it here once it is.
+ */
+export const HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS = 5;
+
+/** `yyyy-mm-dd` for `days` weekdays after `from` (Sat/Sun skipped; holidays not known). */
+export function addBusinessDays(days: number, from = new Date()): string {
+  const d = new Date(from);
+  d.setHours(12, 0, 0, 0);
+  let left = days;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) left--;
+  }
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /** Human phrasing for a `yyyy-mm-dd` follow-up date. Local-calendar comparison. */
 export function formatFollowUpDate(dateStr: string, today = new Date()): string {
   if (!dateStr) return "";

@@ -23,6 +23,9 @@ import {
   type Client,
   type ClientUpdate,
 } from "@/lib/repositories/clients";
+import { ageFromDob } from "@/components/hub/overlays/wizard/wizard-data";
+import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
+import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import type { Json } from "@/lib/supabase/types";
@@ -410,16 +413,22 @@ export async function setProposalStatusAction(
   }
 }
 
+export interface ProposalPortalDetail {
+  label: string;
+  value: string;
+}
+
 /**
- * Return the configured Select / Blue Royale proposal-generator URL.
+ * Return the configured Select / Blue Royale proposal-generator URL, plus the
+ * lead's details for staff to copy into the portal.
  *
- * Opening a third-party site is not evidence that its work was completed. The
- * proposal therefore stays in its current state until staff use the existing
- * Mark Received action after the illustration actually exists.
+ * Opening the portal moves the proposal to Requested — generation has started —
+ * but never to Received: that happens only when the PDF is uploaded back
+ * (recordProposalReceivedAction) or staff mark it by hand.
  */
 export async function generateProposalAction(
   clientId: string,
-): Promise<ActionResult<{ portalUrl: string }>> {
+): Promise<ActionResult<{ portalUrl: string; details: ProposalPortalDetail[] }>> {
   const actor = await getActor();
   try {
     const repo = getClientsRepository();
@@ -445,6 +454,12 @@ export async function generateProposalAction(
         error: "The Pacific Cross portal URL has not been configured. Open Settings → Integrations to add it.",
       };
 
+    const [dependents] = await Promise.all([
+      getDependentsRepository().listByClient(clientId),
+      lead.proposalStatus
+        ? null
+        : repo.update(clientId, { proposalStatus: "Requested", proposalDecision: null }),
+    ]);
     await recordActivity({
       scopeType: "client",
       scopeId: clientId,
@@ -452,9 +467,71 @@ export async function generateProposalAction(
       summary: `Pacific Cross proposal portal opened — ${lead.productInterest}`,
       actorId: actor.id,
     });
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${clientId}`);
 
-    return { ok: true, data: { portalUrl } };
+    const age = lead.dateOfBirth ? ageFromDob(lead.dateOfBirth) : "";
+    const details: ProposalPortalDetail[] = [
+      { label: "Full name", value: lead.fullName },
+      { label: "Date of birth", value: lead.dateOfBirth ?? "" },
+      { label: "Age", value: age === "" ? "" : String(age) },
+      { label: "Product", value: lead.productInterest ?? "" },
+      { label: "Coverage tier", value: lead.coverageTier ?? "" },
+      { label: "Family size", value: lead.familySize?.toString() ?? "" },
+      ...dependents.map((d) => ({
+        label: d.relationship ? `Dependent (${d.relationship})` : "Dependent",
+        value: [d.fullName, d.dateOfBirth].filter(Boolean).join(" · "),
+      })),
+    ].filter((d) => d.value);
+
+    return { ok: true, data: { portalUrl, details } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to generate proposal." };
+  }
+}
+
+/**
+ * Attach the carrier's illustrative proposal PDF (uploaded to Storage by the
+ * browser) and mark the proposal Received. Covers both the portal-generated
+ * individual proposal and an HMO proposal that came back by email.
+ */
+export async function recordProposalReceivedAction(
+  clientId: string,
+  path: string,
+  fileName: string,
+): Promise<ActionResult<Client>> {
+  const actor = await getActor();
+  try {
+    const repo = getClientsRepository();
+    const lead = await repo.findById(clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    if (lead.lifecycleStage !== "Lead")
+      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+    if (lead.proposalStatus && lead.proposalStatus !== "Requested")
+      return { ok: false, error: `This proposal is already ${lead.proposalStatus.toLowerCase()}.` };
+
+    const product = lead.productInterest ?? "carrier";
+    await registerUploadedPdf({
+      path,
+      name: `Illustrative proposal — ${product} (${fileName})`,
+      clientId,
+      documentType: "Illustrative Proposal",
+      actorId: actor.id,
+    });
+    const updated = await repo.update(clientId, { proposalStatus: "Received", proposalDecision: null });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: clientId,
+      activityType: "lead.proposal",
+      summary: `Proposal received — ${product} illustrative proposal uploaded`,
+      actorId: actor.id,
+    });
+
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/documents");
+    return { ok: true, data: updated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t record the proposal." };
   }
 }
