@@ -18,6 +18,7 @@ export interface Doc {
   name: string;
   documentType: string | null;
   visibility: string | null;
+  status: string;
 }
 
 export function AssociatedRecordsCard({ counts }: { counts: ClientRelatedCounts }) {

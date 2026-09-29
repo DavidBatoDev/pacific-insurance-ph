@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import type { LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
@@ -67,7 +66,6 @@ export function ContactProfile({
   applications,
   draftApplications,
 }: Props) {
-  const router = useRouter();
   const overlays = useOverlays();
 
   const isLead = client.lifecycleStage === "Lead";
@@ -90,6 +88,18 @@ export function ContactProfile({
   const [markLostOpen, setMarkLostOpen] = useState(false);
   const [recordDecisionOpen, setRecordDecisionOpen] = useState(false);
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
+
+  // A just-confirmed proposal status, shown until the refreshed `client` prop replaces it.
+  const [proposalOverride, setProposalOverride] = useState<{ base: Client; status: string } | null>(null);
+  const proposalClient =
+    proposalOverride?.base === client
+      ? {
+          ...client,
+          proposalStatus: proposalOverride.status,
+          proposalDecision: proposalOverride.status === "Decision" ? client.proposalDecision : null,
+        }
+      : client;
+  const showProposalStatus = (status: string) => setProposalOverride({ base: client, status });
 
   // Converting is the Product-Selected payoff; earlier is possible but has to be deliberate.
   const convertReady = canConvertLead(client.leadStage);
@@ -175,13 +185,16 @@ export function ContactProfile({
         <div className="col-span-3 flex flex-col gap-4 max-[1200px]:col-span-1">
           {isLead && (
             <ProposalCard
-              client={client}
+              client={proposalClient}
               pacificCrossPortalUrl={pacificCrossPortalUrl}
-              proposalDocument={documents.find((d) => d.documentType === "Illustrative Proposal") ?? null}
+              proposalDocument={
+                documents.find((d) => d.documentType === "Illustrative Proposal" && d.status !== "Replaced") ?? null
+              }
               onGenerate={() => setGenerateProposalOpen(true)}
               onRequest={() => setProposalOpen(true)}
               onLogEmail={() => focusEmail("Proposal / Quote Delivery")}
               onRecordDecision={() => setRecordDecisionOpen(true)}
+              onStatusChange={showProposalStatus}
             />
           )}
           <AssociatedRecordsCard counts={counts} />
@@ -227,7 +240,7 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setProposalOpen(false)}
-          onDone={() => router.refresh()}
+          onDone={showProposalStatus}
         />
       )}
       {generateProposalOpen && (
@@ -235,7 +248,7 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setGenerateProposalOpen(false)}
-          onDone={() => router.refresh()}
+          onDone={showProposalStatus}
         />
       )}
       {nurturingOpen && (

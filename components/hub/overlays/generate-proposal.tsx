@@ -8,6 +8,7 @@ import {
   generateProposalAction,
   recordProposalReceivedAction,
   type ProposalPortalDetail,
+  type UploadedProposal,
 } from "@/app/(app)/prospects/actions";
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { I } from "../icons";
@@ -31,7 +32,7 @@ export function GenerateProposalModal({
   clientId?: string;
   clientName?: string;
   onClose: () => void;
-  onDone?: () => void;
+  onDone?: (proposalStatus: string) => void;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -41,6 +42,7 @@ export function GenerateProposalModal({
   );
   const [needsSettings, setNeedsSettings] = useState(false);
   const [portal, setPortal] = useState<{ url: string; details: ProposalPortalDetail[] } | null>(null);
+  const [uploaded, setUploaded] = useState<UploadedProposal | null>(null);
 
   const confirm = () => {
     if (!picked) return;
@@ -58,6 +60,7 @@ export function GenerateProposalModal({
       if (win) win.location.href = res.data.portalUrl;
       else overlays.toast("Pop-up blocked", "Allow pop-ups for this site, then use Reopen portal.");
       setPortal({ url: res.data.portalUrl, details: res.data.details });
+      onDone?.("Requested");
       router.refresh();
     });
   };
@@ -111,7 +114,18 @@ export function GenerateProposalModal({
         </>
       )}
 
-      {portal && picked && (
+      {portal && picked && uploaded && (
+        <>
+          <ProposalUploadedNotice proposal={uploaded} heading="Proposal attached and marked Received" />
+          <div className="mt-5 flex items-center justify-end">
+            <Btn variant="primary" onClick={onClose}>
+              Done
+            </Btn>
+          </div>
+        </>
+      )}
+
+      {portal && picked && !uploaded && (
         <>
           {portal.details.length > 0 && (
             <div className="mb-4 rounded-md border border-border-soft">
@@ -143,9 +157,9 @@ export function GenerateProposalModal({
                 const res = await recordProposalReceivedAction(picked.id, path, fileName);
                 if (res.ok) {
                   overlays.toast("Proposal received", `${picked.name} — PDF attached and marked Received.`);
-                  onDone?.();
+                  setUploaded(res.data);
+                  onDone?.("Received");
                   router.refresh();
-                  onClose();
                 }
                 return res;
               }}
@@ -161,5 +175,46 @@ export function GenerateProposalModal({
         </>
       )}
     </Modal>
+  );
+}
+
+export function ProposalUploadedNotice({
+  proposal,
+  heading,
+  onDone,
+}: {
+  proposal: UploadedProposal;
+  heading: string;
+  onDone?: () => void;
+}) {
+  return (
+    <div role="status" className="rounded-md border border-green-border bg-green-soft px-3.5 py-3">
+      <div className="flex items-start gap-2.5">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-card text-green">
+          <I.check size={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-foreground">{heading}</div>
+          <div className="mt-0.5 truncate text-[12.5px] text-muted-foreground" title={proposal.name}>
+            {proposal.name}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <a
+          href={`/api/documents/${proposal.id}/download`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-border-strong bg-card px-2.5 text-[12.5px] font-semibold text-foreground transition-colors hover:border-faint hover:bg-hover"
+        >
+          <I.eye size={14} /> Preview
+        </a>
+        {onDone && (
+          <Btn size="sm" variant="primary" onClick={onDone}>
+            Done
+          </Btn>
+        )}
+      </div>
+    </div>
   );
 }

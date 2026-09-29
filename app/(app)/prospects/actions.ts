@@ -26,6 +26,7 @@ import {
 import { ageFromDob } from "@/components/hub/overlays/wizard/wizard-data";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
+import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import type { Json } from "@/lib/supabase/types";
@@ -490,6 +491,14 @@ export async function generateProposalAction(
   }
 }
 
+export interface UploadedProposal {
+  id: string;
+  name: string;
+}
+
+const proposalDocumentName = (product: string, fileName: string) =>
+  `Illustrative proposal — ${product} (${fileName})`;
+
 /**
  * Attach the carrier's illustrative proposal PDF (uploaded to Storage by the
  * browser) and mark the proposal Received. Covers both the portal-generated
@@ -499,7 +508,7 @@ export async function recordProposalReceivedAction(
   clientId: string,
   path: string,
   fileName: string,
-): Promise<ActionResult<Client>> {
+): Promise<ActionResult<UploadedProposal>> {
   const actor = await getActor();
   try {
     const repo = getClientsRepository();
@@ -511,14 +520,14 @@ export async function recordProposalReceivedAction(
       return { ok: false, error: `This proposal is already ${lead.proposalStatus.toLowerCase()}.` };
 
     const product = lead.productInterest ?? "carrier";
-    await registerUploadedPdf({
+    const doc = await registerUploadedPdf({
       path,
-      name: `Illustrative proposal — ${product} (${fileName})`,
+      name: proposalDocumentName(product, fileName),
       clientId,
       documentType: "Illustrative Proposal",
       actorId: actor.id,
     });
-    const updated = await repo.update(clientId, { proposalStatus: "Received", proposalDecision: null });
+    await repo.update(clientId, { proposalStatus: "Received", proposalDecision: null });
     await recordActivity({
       scopeType: "client",
       scopeId: clientId,
@@ -530,8 +539,65 @@ export async function recordProposalReceivedAction(
     revalidatePath("/prospects");
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/documents");
-    return { ok: true, data: updated };
+    return { ok: true, data: { id: doc.id, name: doc.name } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn’t record the proposal." };
+  }
+}
+
+/** Swap in a corrected proposal PDF; earlier ones are marked Replaced, never deleted. */
+export async function replaceProposalPdfAction(
+  clientId: string,
+  path: string,
+  fileName: string,
+): Promise<ActionResult<UploadedProposal>> {
+  const actor = await getActor();
+  try {
+    const lead = await getClientsRepository().findById(clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    if (lead.lifecycleStage !== "Lead")
+      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
+    if (!lead.proposalStatus || lead.proposalStatus === "Requested")
+      return { ok: false, error: "There’s no received proposal to replace yet." };
+
+    const docs = getDocumentsRepository();
+    const previous = (await docs.listByClient(clientId)).filter(
+      (d) => d.documentType === "Illustrative Proposal" && d.status !== "Replaced",
+    );
+    const product = lead.productInterest ?? "carrier";
+    const doc = await registerUploadedPdf({
+      path,
+      name: proposalDocumentName(product, fileName),
+      clientId,
+      documentType: "Illustrative Proposal",
+      actorId: actor.id,
+    });
+    await Promise.all(
+      previous.map(async (d) => {
+        await docs.update(d.id, { status: "Replaced" });
+        await recordAudit({
+          actorId: actor.id,
+          action: "update",
+          tableName: "documents",
+          recordId: d.id,
+          previousValue: { status: d.status } as Json,
+          newValue: { status: "Replaced", replacedBy: doc.id } as Json,
+        });
+      }),
+    );
+    await recordActivity({
+      scopeType: "client",
+      scopeId: clientId,
+      activityType: "lead.proposal",
+      summary: `Proposal PDF replaced — ${product} illustrative proposal re-uploaded`,
+      actorId: actor.id,
+    });
+
+    revalidatePath("/prospects");
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/documents");
+    return { ok: true, data: { id: doc.id, name: doc.name } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t replace the proposal PDF." };
   }
 }

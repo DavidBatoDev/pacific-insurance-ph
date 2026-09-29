@@ -28,7 +28,7 @@ export function RequestProposalModal({
   clientId?: string;
   clientName?: string;
   onClose: () => void;
-  onDone?: () => void;
+  onDone?: (proposalStatus: string) => void;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -57,7 +57,7 @@ export function RequestProposalModal({
       });
       if (res.ok) {
         overlays.toast("Proposal requested", `Note + follow-up task added for ${picked.name}.`);
-        onDone?.();
+        onDone?.("Requested");
         router.refresh();
         onClose();
       } else {
