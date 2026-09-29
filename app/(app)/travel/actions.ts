@@ -99,19 +99,24 @@ export async function recordTravelPolicyAction(
   travelRequestId: string,
   path: string,
   fileName: string,
-): Promise<ActionResult<{ documentId: string }>> {
+): Promise<ActionResult<{ documentId: string; requirementId: string | null }>> {
   const actor = await getActor();
   try {
     const travel = await getTravelRepository().findById(travelRequestId);
     if (!travel) return { ok: false, error: "Travel request not found." };
+    const workflows = getCarrierWorkflowsRepository();
+    const requirement = (await workflows.listTravelRequirements(travelRequestId))
+      .find((item) => item.documentName === "Issued Travel policy") ?? null;
     const doc = await registerUploadedPdf({
       path,
       name: `Travel policy — ${travel.referenceNo ?? travelRequestId.slice(0, 8)} (${fileName})`,
       clientId: travel.clientId,
       travelRequestId,
+      travelRequirementId: requirement?.id ?? null,
       documentType: "Travel Policy",
       actorId: actor.id,
     });
+    if (requirement) await workflows.updateTravelRequirement(requirement.id, "Received");
     await recordActivity({
       scopeType: "client",
       scopeId: travel.clientId,
@@ -122,7 +127,7 @@ export async function recordTravelPolicyAction(
     revalidatePath("/travel");
     revalidatePath(`/clients/${travel.clientId}`);
     revalidatePath("/documents");
-    return { ok: true, data: { documentId: doc.id } };
+    return { ok: true, data: { documentId: doc.id, requirementId: requirement?.id ?? null } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Couldn’t record the travel policy." };
   }
