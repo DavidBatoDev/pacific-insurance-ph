@@ -22,6 +22,10 @@ Prospect model, that has since been superseded by the canonical sibling document
   current schema and records intentional adapters, known code gaps, and superseded assumptions.
 - [Build Roadmap](build-roadmap.md) — current implementation status and near-term engineering
   priorities.
+- [`TO-BE-UPDATE-PLAN.md`](../TO-BE-UPDATE-PLAN.md) — detailed execution history and remaining
+  client-dependent work; use the Build Roadmap for current sequencing.
+- [Archived Refactor Notes](archive/future-refactor.md) — completed 2026-08-27; retained as
+  implementation history, not an active task list.
 - [Canonical Documentation Index](../../docs/INDEX.md) — what the product should do.
 
 ## Historical baseline

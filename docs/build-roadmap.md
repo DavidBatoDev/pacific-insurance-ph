@@ -1,6 +1,6 @@
 # Build Roadmap — Current Implementation State
 
-> Engineering companion, last reconciled **2026-08-26**. The canonical product specification is
+> Engineering companion, last reconciled **2026-10-02**. The canonical product specification is
 > in [`../../docs/`](../../docs/INDEX.md). See
 > [Development Alignment](development-alignment.md) for mappings and known differences.
 
@@ -9,7 +9,7 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0037` exist in source and the remote ledger |
+| Data | Supabase repositories and server actions; migrations through `0040` exist in source. The remote ledger was last verified through `0037` on 2026-08-27; verify `0038`–`0040` before release. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
 | Communications | Composers create communication records only; no email provider delivers them yet |
@@ -31,6 +31,10 @@ historical. They no longer describe this repository.
   communication-to-document-version links.
 - Source-dated Products catalog with 513 published carrier rates, quote-only BC Flexi, provenance,
   control totals, and audited Admin editing.
+- Carrier Library seeded from an explicit allowlist. Follow-up migrations add authorization/reference
+  document types and Excel enrollment-template support; the Proposal Information Sheet remains
+  excluded pending a client decision.
+- Proposal and Travel portal handoffs with upload-back flows for the resulting proposal or policy PDF.
 - Six live Reports families with role scoping, drill-down, separate-currency metrics, and audited
   XLSX/ODS/CSV export.
 - Tasks, documents, renewals, claims, travel, relationship management, email templates, and
@@ -40,11 +44,11 @@ historical. They no longer describe this repository.
 
 - **No outbound provider exists.** A composer action logs an intended communication with
   `delivery_status = logged`; it does not prove that an email or attachment was delivered.
-- Logging an email must not automatically change a lead from `New` to `Attempted` or set a
-  proposal to `Sent`. Those transitions require confirmed provider delivery or an explicit
-  `Mark externally sent` action.
-- Carrier assets under `../../docs/attachments/` are research inputs only. Illustrative proposals,
-  CAC, TAL, renewal, and travel samples must not be ingested until redacted and approved.
+- A logged email is not evidence of delivery. Proposal status `Sent` still requires the explicit
+  staff action; lead lifecycle status follows the current engagement rules documented in
+  [Development Alignment](development-alignment.md).
+- Do not ingest excluded or client-identifiable carrier samples. The 2026-09 library load and its
+  file-specific exclusions are documented in [Development Alignment](development-alignment.md).
 - Several screens retain prototype data or partial workflows. A rendered screen is not evidence
   that the underlying process is production complete.
 
@@ -54,22 +58,21 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. Treat the next migration number as **`0038`** unless a newer migration has landed.
+5. Treat the next migration number as **`0041`** unless a newer migration has landed.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 
 ## Near-term execution order
 
-1. Obtain Eman's remaining signer/PIS/CET/BMI/beneficiary/pre-approval answers and the missing
-   Employer's Application attachment without ingesting unapproved samples.
-2. Profile and clean the received client workbook, produce a mapping/exceptions report and obtain
-   import approval; do not load production rows during this step.
-3. Keep the deployed source-dated Product catalog reconciled when Pacific Cross issues new
-   editions; never derive unpublished instalments or combine currencies.
-4. Keep calculated in-app proposal generation deferred; use the separately configured proposal and
-   Travel portal links for V1 and keep portal credentials outside the app.
-5. Validate renewal medical triggers, pre-approvals and the commission lifecycle after Eman answers
-   the remaining workflow questions.
+1. Profile and clean the received client workbook, produce a mapping/exceptions report, and obtain
+   recency, deduplication, privacy, and import approval before loading production rows.
+2. Resolve the remaining carrier decisions, including the Proposal Information Sheet, pre-approval
+   record model, and any missing form or signer details; keep excluded assets out of the library.
+3. Validate renewal medical triggers and the commission lifecycle with the client.
+4. Keep the source-dated Product catalog reconciled as Pacific Cross issues new editions; do not
+   derive unpublished instalments or combine currencies.
+5. Keep calculated in-app proposal generation deferred for V1; use the configured carrier portals
+   and keep portal credentials outside the app.
 
 ## Verification gate
 

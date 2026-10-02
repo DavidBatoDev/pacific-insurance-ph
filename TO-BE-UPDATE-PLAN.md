@@ -5,9 +5,9 @@
 On **2026-07-23** the team ran a client demo walkthrough + validation meeting with Matt and Eman
 (notes/transcript now in the sibling notes repo: `../docs/Demo Validation Meeting - Notes.md` and
 `… - Transcript.md`). That meeting produced a list of feature requests and fixes, and Joshua noticed
-several additional gaps live in the demo. This plan turns all of that into a **single execution
-checklist for future Claude Code sessions** — each item grounded in the exact files to touch, with
-what already exists vs. what's genuinely new, and dependencies/blockers called out.
+several additional gaps live in the demo. This file preserves the detailed implementation checklist
+and completion history. Use [docs/build-roadmap.md](docs/build-roadmap.md) for current priorities;
+many sections below describe work that has since shipped.
 
 **Attachment-readiness update (2026-08-01):** Eman supplied current Select and Blue Royale forms,
 health brochures, medical questionnaires, remote-selling material, an illustrative proposal,
@@ -33,6 +33,12 @@ production rollout each retain the explicit dependencies listed below.
 rate rows; Discovery family size/coverage tier now carry safely into the application wizard; and
 all six Reports families are live with RBAC, drill-down and audited XLSX/ODS/CSV export. Client
 workbook processing and outbound email remain outside this implementation slice.
+
+**Follow-up implementation update (2026-09-25):** the Carrier Library load has been extended with
+CCAF, Geographical Loading, and the Corporate Enrollment Template (migrations `0039` and `0040`;
+remote deployment still needs verification). Proposal and Travel portal results can be uploaded
+back into the corresponding records. The dated audit and Phase G checklists below remain useful
+history; confirm current status against the build roadmap before acting on unchecked items.
 
 ## Implementation audit (2026-08-03)
 
@@ -205,9 +211,10 @@ issues.
     review, approve, edit metadata, and archive versioned assets in the private `documents` bucket
     under `library/`. Admins and staff can select active approved brochure/application-form assets
     strictly matched by product, variant, and age band. Communications snapshot exact versions in
-    `communication_library_documents` instead of logging decorative filenames. The library ships
-    empty pending distribution clearance. The connected Supabase ledger confirms
-    `0023_document_library_attachments` is deployed, and generated types contain its schema.
+    `communication_library_documents` instead of logging decorative filenames. At the original
+    2026-08-03 audit the library was empty pending clearance; it was subsequently loaded, as recorded
+    in the Carrier-document rules in `docs/development-alignment.md`. The connected Supabase ledger
+    confirms `0023_document_library_attachments` is deployed, and generated types contain its schema.
     **C6b (BLOCKED — R1):** transmit the actual binary attachments when a real email provider is
     implemented. Until then the UI must state that the action is logged but not delivered.
   - Do not ingest the illustrative proposal, CAC, or TAL samples until they are redacted and approved
@@ -695,16 +702,19 @@ is the backlog. Severity: 🔴 blocker · 🟠 major · 🟡 minor.
   `eman@pacificinsurance.ph` (Admin) and `matt@pacificinsurance.ph` (Owner) both exist as staff
   users (confirmed live in the `users` table); credentials provisioned and shared with both.
 
-- [ ] **D3. Load the received carrier assets into the document library.** C6a shipped the upload /
-  approve / version UI, but nobody has put anything through it — `document_library` is still 0 rows.
-  Most of the files are already in hand (`../docs/attachments/checklist.md`): Select Brochure 2025,
-  Blue Royale Brochure 2025, and the Select / Blue Royale / FlexiShield application forms across both
-  age bands. Upload each as an Active + Approved asset matched to its product, variant and age band.
-  **Blocked on the distribution clearance** at `checklist.md:70-71` ("confirm that every received
-  form, brochure, and template may be stored in the private production document library and sent to
-  clients by staff"). Do not ingest the Illustrative Proposal, CAC or TAL samples (R4). FlexiShield
-  and Travel brochures are still outstanding from Eman (`checklist.md:112`, `:115`). Until this runs,
-  `Send brochure` and `Send application form` stay blocked on every composer.
+- [x] **D3. Load the received carrier assets into the document library — DONE 2026-09-07.** C6a
+  shipped the upload / approve / version UI; the load itself ran via
+  `scripts/load-carrier-library.mjs`, landing 40 source files as 46 Active + Approved rows in
+  `document_library`, matched to product, variant and age band, with the 5 `TEST —` placeholder
+  rows archived. The distribution clearance at `checklist.md:70-71` remains **unsigned**, but was
+  explicitly treated as not-a-gate by client decision the same day (see the Carrier-document rules
+  in `docs/development-alignment.md`). The Illustrative Proposal, CAC and TAL samples were
+  correctly excluded per R4. `Send brochure` and `Send application form` are unblocked on every
+  composer. **CCAF + Geographical Loading followed on 2026-09-21** (migration `0039`, two new
+  `document_type` values). **The CET followed on 2026-09-25** (migration `0040`, `Enrollment Template`
+  type, `.xlsx` allowed end to end) — `document_library` is now 49 rows.
+  **Not fully closed: the Proposal Information Sheet remains excluded, blocked on a client answer to
+  checklist C3 — see "Received but not loaded" below.**
 
 ---
 
@@ -1249,6 +1259,33 @@ largest and least urgent since neither Claims nor group enrollment is in active 
   specs, but production attachment flows need the renewal notice, coverage/exclusion endorsements,
   amendment form, and reinstatement form before they can be considered complete.
 
+### Received but not loaded — wanted assets still blocked (2026-09-07)
+
+The carrier-library load put 40 source files into `document_library` as 46 Active + Approved rows.
+Twelve received files were deliberately left out; every one is named with its reason in
+`scripts/carrier-library-manifest.json` → `excluded[]`.
+
+**Eight of those twelve are closed questions, not backlog** — six per-client Pacific Cross outputs
+that were never library candidates (four of them still carry recoverable client data, checklist
+A2), the retired Easy Payment Options, and the superseded marked-up Travel form. Nothing to do.
+
+Three of the four are now loaded; only the Proposal Information Sheet is still out.
+
+| Asset | Why it is wanted | What blocked it | Status |
+| :--- | :--- | :--- | :--- |
+| **CCAF** (Credit Card Authorization Form, `.pdf`) | Payment setup; already named as needed collateral in the Travel bullet above | The `document_library_document_type_check` CHECK constraint — seven fixed values, none of which fit an authorization form | **DONE 2026-09-21.** Migration `0039_document_library_document_types.sql` added `Authorization Form` + `Reference Document` to the CHECK constraint (and `LIBRARY_DOCUMENT_TYPES` in the entity, and the loader's own type set). Loaded as `document_type = 'Authorization Form'`, attached to Travel Insurance. |
+| **Geographical Loading** (`.pdf`) | Pricing / underwriting reference; also named in the Travel bullet | Same CHECK constraint — a reference sheet fit none of the seven types | **DONE 2026-09-21**, same migration. Loaded as `document_type = 'Reference Document'`, attached to Travel Insurance. `document_library` is now 48 rows (was 46). |
+| **Proposal Information Sheet** (BC Flexi, `.doc`) | Part of the BC Flexi requirement pack | Header reads *"FOR INTERNAL USE ONLY (to be filled out by Pacific Cross Sales Personnel)"* and checklist **C3 — who completes it — is unanswered**. Loaded as a BC Flexi application form it would sit one click from a client email. | **Still open.** No code change needed at all: `.doc` is already an accepted format. This is the only one of the four that is purely a business decision — needs a client answer to C3. |
+| **CET** (Corporate Enrollment Template, `.xlsx`) | BC Flexi PDF enrollment derives from it (see the 2026-08-24 carrier follow-up row in `docs/development-alignment.md`) | The PDF/DOC/DOCX allowlist, in more places than first listed: the Settings upload action, the file picker's `accept`, the loader's `MIME_TYPES`/`EXT_FOR_MIME`, the preview route's content types, the viewer, and the loader's Word-only PDF conversion. Also no fitting `document_type` — and `Application Form` was unsafe, because `matchCarrierForm` takes BC Flexi's first eligible Application Form and the undated Franchise form would tie with an undated CET. | **DONE 2026-09-25.** Migration `0040` added `Enrollment Template`; `.xlsx` accepted in every gate above. The loader renders a LibreOffice PDF companion (5 landscape pages) so the viewer can show it, while Download still serves the editable `.xlsx`. Loaded under BC Flexi; the Franchise form remains BC Flexi's only Application Form. `document_library` is now 49 rows. |
+
+What's left: only the Proposal Information Sheet. It needs no engineering at all — only an answer
+from the client, and it should stay out of the library until that answer exists.
+
+Related and still open: the **A1 distribution clearance is unsigned** and was treated as not-a-gate
+for the load by explicit client decision on 2026-09-07 (recorded in `docs/development-alignment.md`).
+If it is ever refused, `scripts/load-carrier-library.mjs --apply --unapprove` reverts every loaded
+row to Inactive in seconds and the library reads as empty to every consumer.
+
 ## Noted, not yet prioritized (from the meeting, no task requested)
 
 - ~~Dashboard **Export-to-spreadsheet** is a stub~~ — **BUILT 2026-08-17.** The button now opens a
@@ -1317,7 +1354,11 @@ the only actionable work in this plan, and the whole of it is actionable today.
 - **C6b** — actually transmitting attachments (blocked on a real email provider, R1)
 - **D1** — workbook received; import now waits on recency confirmation, cleaning, mapping,
   deduplication, dry-run approval and real-client-data clearance
-- **D3** — load carrier assets into the document library (blocked on distribution-clearance sign-off)
+- **D3 core load — DONE 2026-09-07**, **CCAF + Geographical Loading — DONE 2026-09-21**, **CET —
+  DONE 2026-09-25** (see Phase E above; migrations `0039` and `0040`). Distribution clearance was
+  treated as not-a-gate by client decision, not resolved by a signature. One wanted asset remains
+  excluded — the **Proposal Information Sheet**, blocked on a client answer to checklist question
+  C3 (see "Received but not loaded" above).
 - Claims, Travel collateral, Renewals — each waiting on specific client-supplied assets/permissions
 
 **Worth sequencing before D1:** G1 changes BC Flexi's product category and reconciles the
@@ -1328,4 +1369,4 @@ Dashboard export-to-spreadsheet, a WYSIWYG email editor, and the Gmail migration
 not requested as tasks (see "Noted, not yet prioritized" above). The fabricated notifications,
 sidebar counts, dated close-out card and Prospects Intake Forms widget were removed or live-backed
 on 2026-08-25. The mock Reports route was replaced on 2026-08-26; lower-priority cleanup findings
-remain tracked separately in `FUTURE-REFACTOR.md`.
+remain documented in the archived [`docs/archive/future-refactor.md`](docs/archive/future-refactor.md).

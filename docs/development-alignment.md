@@ -1,6 +1,6 @@
 # Development Alignment Register
 
-Last reconciled: **2026-08-27**.
+Last reconciled: **2026-10-02**.
 
 This register connects the canonical specification in [`../../docs/`](../../docs/INDEX.md) to the
 current application. It prevents implementation adapters from being mistaken for changed client
@@ -13,8 +13,9 @@ requirements and keeps known gaps explicit.
 3. Code and migrations show what exists today. A mismatch is a tracked gap, not an implicit spec
    change.
 
-`TO-BE-UPDATE-PLAN.md` is a local working checklist and is intentionally not part of shared Git
-history. Shared decisions must be reflected here or in the canonical documentation.
+The archived `docs/archive/` plans record completed investigations and past execution checklists;
+they are historical references, not active sources of task status. Current priorities belong in
+`docs/build-roadmap.md`. Shared decisions must be reflected here or in the canonical documentation.
 
 ## Canonical-to-implementation mapping
 
@@ -29,7 +30,7 @@ history. Shared decisions must be reflected here or in the canonical documentati
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
-| Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07: 40 files as 46 Active + Approved rows via `scripts/load-carrier-library.mjs`; the 5 `TEST —` placeholders are archived. Distribution clearance treated as not-a-gate by client decision — see Carrier-document rules. |
+| Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07 and extended through 2026-09-25: 40 source files represented by 49 library rows, including CCAF, Geographical Loading, and the CET. The 5 `TEST —` placeholders are archived. Distribution clearance was treated as not-a-gate by client decision — see Carrier-document rules. |
 | Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
 | Proposal `Sent` | `Mark Sent` button (Contact Profile proposal panel + Leads board proposal-tracking panel; `setProposalStatusAction`, `app/(app)/prospects/actions.ts`) lets staff manually confirm delivery | Aligned as of 2026-08-13 for the manual half (`Mark externally sent`, reworded to `Mark Sent` — see note below). The automatic half (advancing on real provider-confirmed delivery) remains a gap: no email provider is wired up yet. |
 | Lead status `New → Attempted` on send | `sendEmailAction` (`app/(app)/clients/engage-actions.ts`) sets `lead_status = Attempted` on any successful email/brochure log, regardless of delivery | **Doc conflict, resolved 2026-08-13 in favor of code as written.** `../../docs/web/lead-workflow.md:65` and this file's own "Proposal `Sent`" row above say logging alone must not advance status without provider confirmation or an explicit `Mark externally sent` action. But the parent workspace's `CLAUDE.md` explicitly directs *"Lead-lifecycle behavior must follow `docs/lead-stage-status.md` (+ `-example.md`)"*, and that file states plainly: *"New → Attempted \| Send Email / Send Brochure (first touch) \| Eman's send sets this; no Lead reply required yet."* Kept matching `lead-stage-status.md` per that explicit instruction. `docs/INDEX.md` ranks `web/lead-workflow.md` as canonical and `lead-stage-status.md` as a secondary "plain-language explainer" — the two root docs disagree and this has not been reconciled between them. Note the asymmetry this leaves: `lead_status` now auto-advances on mere logging, while `proposal_status = Sent` (row above) still requires the explicit `Mark Sent` click — whoever owns doc reconciliation should resolve which rule (auto-advance-on-log, or require-explicit-confirmation) should actually govern both, since they currently behave differently for what the docs describe as the same underlying rule. |
@@ -40,14 +41,14 @@ history. Shared decisions must be reflected here or in the canonical documentati
 | BC Flexi application and two-phase requirements | A completed Group HMO wizard creates both the company-level `group_accounts` record and a canonical `applications` row for its primary contact; migration `0035_requirement_phase.sql` snapshots four `For proposal` requirements and thirteen initially non-required `Once the group agrees` requirements | Aligned as of 2026-08-24. The Group Account remains the operational roster view, while the Application owns checklist completeness, document links, and missing-document communication. `Mark agreed` activates the second gate as one audited, idempotent action. The initial G9 implementation exposed that fresh Group HMO submissions skipped `applications` entirely (draft-resume did not); the shared application-create path now covers both entry paths. |
 | Pacific Cross portal handoffs | Proposal generation and Travel fulfillment use separately configurable HTTPS URLs; credentials are not stored. Both portals open in a sized pop-up window (`components/hub/overlays/portal-window.ts`) — neither can be embedded: the Travel portal sends `X-Frame-Options: DENY` and the proposal portal's session cookies are `SameSite=Lax`, so an iframe on our domain loses the login. Opening the proposal portal sets `proposal_status = Requested` (generation started); `Received` is set only when the illustrative proposal PDF is uploaded back (`recordProposalReceivedAction`, stored as a client document of type `Illustrative Proposal`) or by the explicit `Mark Received without PDF` fallback. Travel: marking the portal step `Issued` requires the portal-issued policy number, and the issued policy PDF can be uploaded back as a `Travel Policy` document | Corrected 2026-08-24 from the earlier C2a behavior that marked `Received` merely for opening a third-party tab. **Extended 2026-09-25** with the pop-up + upload-back flow, per the client decision (2026-09-25) that the portal PDF *is* the official illustrative proposal. That also fixes a gap in the 2026-08-24 version: opening the portal set no status at all, and `Mark Received` only renders from `Requested`, so individual-product leads had no path forward. HMO requests now default their follow-up task to `HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS` (5, a placeholder — the real turnaround varies by HMO and is unconfirmed). Carrier purchase and policy issuance remain manual, consistent with the canonical V1 boundary. |
 | Eman client workbook | `EWMS List Of Client as of October 2024.xlsx` received 2026-08-24; 15 sheets and 105 nonblank Masterlist data rows identified | Receipt is complete, import is not. No client rows were loaded. Recency confirmation, privacy clearance, profiling, normalization, mapping, deduplication, exception review, dry run and approval remain mandatory. |
-| 2026-08-24 carrier follow-up | Clean Travel form only; current document editions confirmed; Easy Payment retired; FlexiShield first-layer documents client-supplied; BC Flexi PDF enrollment derives from CET and Secretary's Certificate is client-supplied | PIS recipient, officer-attestation signer mismatch, absent Employer's Application attachment, renewal medical triggers, CET export contract, BMI thresholds, beneficiary source, pre-approval model and partial commission rules remain open in `../../docs/message.md`. |
+| 2026-08-24 carrier follow-up | Clean Travel form only; current document editions confirmed; Easy Payment retired; FlexiShield first-layer documents client-supplied; BC Flexi PDF enrollment derives from CET and Secretary's Certificate is client-supplied | Subsequent app work added CET member fields (`0030`), BMI capture (`0033`), beneficiary capture (`0034`), and the two-phase BC Flexi checklist (`0035`). CET remains carrier-provided, not generated as a spreadsheet. Client decisions still open include the Proposal Information Sheet recipient, officer-attestation signer, missing Employer's Application, renewal medical triggers, pre-approval record model, and partial commission rules; see `../../docs/message.md`. |
 | Migration `0036` deployment | Idempotent source migration renames the legacy proposal integration key, adds the Travel portal row and corrects two BC Flexi requirement notes | Deployed and verified in the remote migration ledger on 2026-08-26. |
 | Source-dated carrier product/rate catalog | Migration `0037_carrier_rate_catalog.sql`, Products repository and Admin catalog editor cover versions, plans, add-ons, discounts and published rates; Staff/Agent remain read-only | Deployed 2026-08-26 with 513 explicitly published rate rows: Select 220, Blue Royale 82, FlexiShield 14 and TravelSafe 197. BC Flexi is quote-only. Semi-annual instalments are not derived, provenance is retained, and mixed currencies remain separate. |
 | Reports | Six live URL-filtered families (Overview, Sales, Commission, Agents, Conversion, Renewal) with scoped drill-down and audited XLSX/ODS/CSV export | Implemented 2026-08-26. Revenue uses verified payments by payment date; product mix uses issued-record counts; Agent sees assigned records, Staff sees agency aggregates without other-agent commission row amounts/by-agent commission chart, and Admin sees all. Detail output is capped at 500 with an explicit notice; source-query caps are also disclosed. Currency values are never converted or combined. |
 | `Request Proposal` / `Generate Proposal` / `Log Call` as Lead Lifecycle **board** quick actions | Removed from the `/prospects` board header (`components/hub/screens/prospects-live.tsx`); all three remain reachable pre-scoped to the lead from the Contact Profile nurture chip row (`contact-profile.tsx:231-242`) | **Doc conflict, resolved 2026-08-15 in favor of code as changed.** `../../docs/web/lead-workflow.md:45` and `../../docs/web/pages.md:74` both still list these as board-level quick actions (`pages.md:74` is already partly stale — it also still lists the Send Intake Form/Send Brochure buttons removed the same day, and a "Convert to Application" board button that has never existed in code). Same redundancy as the `Send Brochure`/`Send Intake Form` row above: with no lead in scope, all three detoured through a `ClientPicker` search before landing on the exact same modal/form the Contact Profile already opens pre-scoped, with a required date field (Log Call's discovery capture) or a proposal-status precondition (Request/Generate Proposal) that a search-first flow adds no value to. The board header now only has `New Lead` plus the view toggles and filter. `ENGAGE_ACTIONS` (`engage.tsx`) had no entries for these three, so no map cleanup was needed. The Proposal Tracking panel's own per-lead `Generate Proposal` button (`prospects-live.tsx`, a different, already-lead-scoped call site) is untouched. |
 
 | Dashboard export row scoping for the `agent` role | `app/api/dashboard/export/route.ts` gates on `can(role, "dashboard", "export")` but returns the same full dataset to every role — no per-row filtering | Known gap, deferred deliberately (2026-08-17). `MATRIX.dashboard.agent = "own"` (`lib/auth/permissions.ts:42`) implies an agent should see only their own records, and the export widens what one request returns from the ~12 rows the cards render to up to 500 per queue. It ships unscoped because `app/(app)/dashboard/page.tsx` itself has no row scoping either — scoping only the export would make the file disagree with the screen it is named after, which is the more confusing failure. All six users currently in `users` are Owner/Admin (→ `admin`); no staff or agent account exists, so nothing is over-exposed today and the branch could not be exercised if written. Revisit together with dashboard-page scoping when the first real agent account is created. |
-| Campaign / payment-link fan-out logging | `sendCampaignAction` and `sendPaymentLinksAction` write one batched `communications` insert + one batched `activity_timeline` insert (`lib/communications/log-outbound-email.ts` `logOutboundEmails`, `lib/activity/log.ts` `recordActivities`) | **Deliberate semantics change, 2026-08-27** (refactor Tier 6 / FUTURE-REFACTOR.md F3). Previously a serial per-recipient loop could fail mid-batch and keep an unreported partial set of logged rows; the batch insert is a single statement, so a failure now logs nothing and the action reports the error. Attachment-carrying emails keep the single-row path with its per-row rollback. |
+| Campaign / payment-link fan-out logging | `sendCampaignAction` and `sendPaymentLinksAction` write one batched `communications` insert + one batched `activity_timeline` insert (`lib/communications/log-outbound-email.ts` `logOutboundEmails`, `lib/activity/log.ts` `recordActivities`) | **Deliberate semantics change, 2026-08-27** (refactor Tier 6 / [archived refactor notes](archive/future-refactor.md#f3-two-real-n1-write-loops-in-server-actions)). Previously a serial per-recipient loop could fail mid-batch and keep an unreported partial set of logged rows; the batch insert is a single statement, so a failure now logs nothing and the action reports the error. Attachment-carrying emails keep the single-row path with its per-row rollback. |
 | Dashboard export visual styling | Column widths, number formats (`"₱"#,##0.00`, `yyyy"-"mm"-"dd`), merged title rows and autofilters — but no bold/coloured header cells and no frozen header row | SheetJS community edition cannot style cells (bold/fill/borders are a paid-tier feature) and has no `!freeze` handling at all — verified, the string appears nowhere in the shipped library, so setting it would be a silent no-op. Readability is therefore carried entirely by layout. Note the format strings are quoted deliberately: the obvious spellings (`₱#,##0.00`, `yyyy-mm-dd`) silently degrade in the **ODS** writer to `1,250,000.00` and `20260803`, since SheetJS's ODF writer drops unquoted literal characters. Both formats were verified by writing each file type and reading the rendered output back through LibreOffice. |
 
 | `proposal_decision` value set | `null · Awaiting Decision · Negotiating · **Declined**` (`supabase/migrations/0027_proposal_decision.sql`, `components/hub/lead-config.ts`) | **Deliberate extension, 2026-08-17.** `../../docs/web/data-model.md:75` lists only `null · Awaiting Decision · Negotiating`. `Declined` was added because the spec left an outright rejection unrepresentable: `Unresponsive` is defined as *no reply* (wrong for a client who did reply, saying no), and `Lost` was only reachable through `Unresponsive`. Without it, a declined proposal could only be dispositioned by waiting out the 3-touch no-reply inference — i.e. by recording "never answered" about someone who answered. The column was specced but never built at all until this migration; the sub-state is cleared whenever `proposal_status` leaves `Decision`, enforced in the actions and backstopped by the `clients_proposal_decision_scope` check constraint. |
@@ -82,13 +83,14 @@ history. Shared decisions must be reflected here or in the canonical documentati
 
 ## Migration and deployment state
 
-- Migration files and the remote ledger exist through `0037_carrier_rate_catalog.sql`; the next
-  source migration is `0038_*`.
+- Migration files exist through `0040_document_library_enrollment_template.sql`; the next source
+  migration is `0041_*`. The remote ledger was last verified through `0037_carrier_rate_catalog.sql`
+  on 2026-08-27; deployment of `0038`–`0040` has not been verified here.
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.
 - Regenerate `lib/supabase/types.ts` after applying migrations and review the diff.
-- Carrier-library and application-requirements UI must not be considered deploy-ready until their
-  migrations exist remotely.
+- Carrier-library document preview and new document-type UI must not be considered deploy-ready
+  until migrations `0038`–`0040` are confirmed in the target remote ledger.
 
 ## Carrier-document rules
 
@@ -109,36 +111,19 @@ history. Shared decisions must be reflected here or in the canonical documentati
   Keeping one surface exempt was the larger divergence, since `pages.md:321` names "the application
   wizard" among the composers that select library assets. If the client intends these templates to
   be sendable without an attachment, the requirement — not the wizard — is what should be relaxed.
-- `document_library` ships empty by design, not by oversight: `../../app/TO-BE-UPDATE-PLAN.md:46`
-  calls it "the intentional pre-clearance state" and `:191` "the library ships empty pending
-  distribution clearance" (R4, `:89-92`). Confirmed still empty on the shared dev project
-  2026-08-13. Consequence for the rule above: both gated templates are currently unusable on
-  **every** composer, and each one explains why in place rather than failing silently.
-  Source assets live in `../../docs/attachments/` and are mostly already received — the Select and
-  Blue Royale brochures and both application-form age bands are ticked in that folder's
-  `checklist.md`. What blocks ingestion is the unchecked distribution clearance
-  (`checklist.md:70-71`), not missing files; only the FlexiShield and Travel brochures are
-  genuinely outstanding (`checklist.md:112`, `:115`).
-- **Superseded 2026-09-07 — the library is loaded.** 40 source files are in as 46 rows, all Active
-  and Approved, via `scripts/load-carrier-library.mjs` + `scripts/carrier-library-manifest.json`
-  (roadmap D3; the 5 `TEST —` placeholders from checklist E1 are archived, not deleted, because
-  `communication_library_documents` is `ON DELETE RESTRICT`). Both gated templates are now usable.
-  - **The distribution clearance (`checklist.md` A1) was treated as not-a-gate for this load, by
-    explicit client decision on 2026-09-07.** It remains unsigned. This is recorded rather than
-    silently assumed: if the clearance is refused, `--unapprove` reverts every loaded row to
-    Inactive in seconds and the library reads as empty again to every consumer.
-  - Four files that still leak recoverable client data (A2), the two per-client conforme letters,
-    the retired Easy Payment Options, the superseded marked-up Travel form, and the internal-only
-    Proposal Information Sheet are **excluded by name** in the manifest's `excluded[]`, each with
-    its reason. The loader never walks a directory, so adding a file is a deliberate edit to a
-    reviewed allowlist.
-  - Three received documents remain unloadable without a migration and are logged as a known gap:
-    the CET (`.xlsx`; the uploader accepts PDF/DOC/DOCX only) and the CCAF and Geographical Loading
-    sheets, for which none of the seven `document_type` values fits.
-  - Product-agnostic carrier forms (Agent's Attestation, Advisor's Declaration) are loaded **once
-    per product** — 8 rows from 2 files — because `approve_document_library_asset` raises when
-    `product_version_id` is null, so a genuinely shared row could never go live. This diverges from
-    `checklist.md` E2, which asks for one shared copy; closing that properly needs the RPC relaxed.
+- The Carrier Library is loaded through an explicit allowlist in
+  `scripts/carrier-library-manifest.json`, not by scanning the attachments folder. The September
+  2026 load included 40 source files; follow-up migrations `0039` and `0040` added support for
+  CCAF, Geographical Loading, and the CET spreadsheet. The current manifest has 49 library rows.
+- The 2026-09-07 client decision treated the unsigned distribution-clearance form as not-a-gate for
+  that load. This remains an explicit recorded decision; if the clearance is refused,
+  `scripts/load-carrier-library.mjs --apply --unapprove` reverts loaded rows to Inactive.
+- Keep files with recoverable client data and internal-only documents excluded. The Proposal
+  Information Sheet remains excluded pending a client decision on who completes it. Product-agnostic
+  Agent's Attestation and Advisor's Declaration assets are loaded once per product because the
+  approval RPC requires a product version.
+- Migrations `0038`–`0040` are present in source. Their remote deployment has not been verified here;
+  check the target project's migration ledger before release.
 - **Optional library attachments are template-agnostic by design (2026-09-07).** The mandatory rule
   above is unchanged and still keyed to the two exact template names. Alongside it, every composer
   can now attach any approved asset for the contact's product, of any of the seven types, up to

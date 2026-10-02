@@ -4,10 +4,9 @@ Findings from a codebase health check first run on 2026-08-18, **deepened and pa
 2026-08-19** by a full end-to-end audit of every sidebar route, the four oversized files, the
 duplication surface, and the data layer.
 
-**Not urgent.** The project is feature-complete-for-v1 and currently blocked on external client
-input (see `TO-BE-UPDATE-PLAN.md` — D1 needs Eman's spreadsheet, D3 needs distribution clearance,
-C2b needs Edzen's formula). That block is a reasonable window to pick this up, but none of it
-should interrupt active feature/bugfix work.
+> Archived implementation notes. The refactor work was resolved on 2026-08-27; this file is kept
+> for the findings and rationale, not as an active task list. Some pre-refactor details and line
+> references below are intentionally historical.
 
 Every claim below carries a `file:line`. Anything I could not confirm is marked **UNVERIFIED**.
 

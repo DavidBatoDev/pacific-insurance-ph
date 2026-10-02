@@ -344,7 +344,8 @@ export const toggleFilterValue = (values: string[], value: string) =>
  * every other product goes through Request Proposal (carrier portal).
  * WARNING: matches on product *names* — renaming either product in /products
  * silently flips its leads onto the other proposal workflow. Move to a
- * `products` column before importing real client data (FUTURE-REFACTOR.md §E5).
+ * `products` column before importing production client data; see the archived refactor notes in
+ * `docs/archive/future-refactor.md` §E5.
  */
 export const isIndividualProposalProduct = (product: string | null) =>
   ["select", "blue royale"].includes(product?.trim().toLowerCase() ?? "");
