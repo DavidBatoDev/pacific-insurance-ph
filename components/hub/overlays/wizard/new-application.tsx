@@ -420,6 +420,9 @@ export function NewApplicationWizard({
     ...(f.category === "travel" && !f.destination ? [{ label: "Destination", step: blockerStep(3) }] : []),
     ...(f.category === "travel" && !f.departure ? [{ label: "Departure date", step: blockerStep(3) }] : []),
     ...(f.category === "travel" && !f.returnDate ? [{ label: "Return date", step: blockerStep(3) }] : []),
+    ...(f.category === "travel" && f.departure && f.returnDate && f.returnDate < f.departure
+      ? [{ label: "Return date after departure", step: blockerStep(3) }]
+      : []),
     ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3) }] : []),
     ...(f.category === "health" && !f.planOptionId ? [{ label: "Plan option", step: 3 }] : []),
     ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3 }] : []),
@@ -673,7 +676,7 @@ export function NewApplicationWizard({
             <>
               {isTravel ? (
                 currentStep === 1 ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <Step1 {...stepProps} unmatchedProduct={unmatchedProduct} />
                     {travelFilledFrom && travelFilledFrom.clientId === f.existingClientId && (
                       <div className="flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3 text-[12.5px]">
@@ -702,7 +705,7 @@ export function NewApplicationWizard({
                     />
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <Step5 {...stepProps} templates={templates} agentName={persona.userName} />
                     <Step6 {...stepProps} />
                   </div>
@@ -785,7 +788,7 @@ export function NewApplicationWizard({
               <button
                 onClick={() => setSplitOpen((o) => !o)}
                 disabled={!canCreate || resumeLoading || !!resumeError}
-                className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+                className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:border-border disabled:border-l-border-strong disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3"
               >
                 <I.chevDown size={15} className="rotate-180" />
               </button>

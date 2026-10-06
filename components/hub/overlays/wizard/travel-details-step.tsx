@@ -1,6 +1,6 @@
 "use client";
 
-import { I } from "../../icons";
+import { FilePickField } from "@/components/documents/file-pick-field";
 import { Section } from "./steps-1";
 import type { WizardForm } from "./wizard-data";
 
@@ -37,57 +37,37 @@ export function TravelRequirementUploads({
       return { key: `traveler:${index}`, label: `${idLabel} — ${traveler.name}`, sub: traveler.idNumber ? `No. ${traveler.idNumber}` : "Traveler ID" };
     }),
   ];
+  const attached = rows.filter((row) => files[row.key]).length;
   return (
-    <Section title="Requirements">
-      <p className="-mt-1 mb-3 text-[12px] text-muted-foreground">
-        Attach what the client sent back. Files upload when the request is created; payment proof and the issued policy are
-        added later in the Travel workflow.
+    <Section
+      title="Requirements"
+      state={{
+        status: attached === rows.length ? "done" : "todo",
+        label: `${attached} of ${rows.length} attached`,
+      }}
+    >
+      <p className="mb-2 text-[12px] text-muted-foreground">
+        Attach what the client sent back. Files upload when the request is created; payment proof and the issued policy
+        are added later in the Travel workflow.
       </p>
-      <div className="space-y-2">
-        {rows.map((row) => {
-          const file = files[row.key];
-          return (
-            <div key={row.key} className="flex items-center gap-3 rounded-md border border-border-soft px-3 py-2.5">
-              <div
-                className={`grid size-7 shrink-0 place-items-center rounded-full ${file ? "bg-green text-white" : "bg-surface-3 text-muted-foreground"}`}
-              >
-                {file ? <I.check size={14} /> : <I.upload size={13} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold">{row.label}</div>
-                <div className="truncate text-[11.5px] text-muted-foreground">{file ? file.name : row.sub}</div>
-              </div>
-              {file ? (
-                <button
-                  type="button"
-                  onClick={() => onFile(row.key, null)}
-                  className="rounded-md px-2 py-1 text-[12px] font-semibold text-muted-foreground hover:bg-hover"
-                >
-                  Remove
-                </button>
-              ) : (
-                <label className="cursor-pointer rounded-md border border-border-strong px-2.5 py-1 text-[12px] font-semibold hover:bg-hover">
-                  Attach
-                  <input
-                    type="file"
-                    aria-label={`Attach ${row.label}`}
-                    accept={TRAVEL_UPLOAD_ACCEPT}
-                    className="hidden"
-                    onChange={(e) => {
-                      const picked = e.target.files?.[0];
-                      if (picked) onFile(row.key, picked);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
+      <ul className="divide-y divide-border-soft">
+        {rows.map((row) => (
+          <li key={row.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5 first:pt-1 last:pb-0">
+            <div className="min-w-[180px] flex-1">
+              <div className="text-[13px] font-semibold">{row.label}</div>
+              <div className="text-[11.5px] text-muted-foreground">{row.sub}</div>
             </div>
-          );
-        })}
-        {rows.length === 1 && (
-          <p className="text-[11.5px] text-subtle">Add a traveler above to attach their passport or ID.</p>
-        )}
-      </div>
+            <FilePickField
+              className="flex-none"
+              file={files[row.key] ?? null}
+              onChange={(file) => onFile(row.key, file)}
+              accept={TRAVEL_UPLOAD_ACCEPT}
+              ariaLabel={`Attach ${row.label}`}
+            />
+          </li>
+        ))}
+      </ul>
+      {rows.length === 1 && <p className="mt-2 text-[11.5px] text-subtle">Add a traveler above to attach their passport or ID.</p>}
     </Section>
   );
 }

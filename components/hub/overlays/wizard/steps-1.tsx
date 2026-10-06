@@ -12,8 +12,10 @@ import { ClientPicker, type PickedClient } from "../client-picker";
 import {
   ageFromDob,
   categoryForProduct,
+  sectionStatus,
   uniquePlanPreferenceMatch,
   WIZ_OPTS,
+  type SectionState,
   type WizardForm,
 } from "./wizard-data";
 
@@ -31,7 +33,7 @@ export interface StepProps {
 export function Step1({ f, set, products, users, unmatchedProduct }: StepProps & { unmatchedProduct?: string | null }) {
   return (
     <div>
-      <Section title="Workflow">
+      <Section title="Workflow" state={sectionStatus(f, "workflow")}>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Application type" required>
             <select className={INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
@@ -52,7 +54,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
         </div>
       </Section>
 
-      <Section title="Product">
+      <Section title="Product" state={sectionStatus(f, "product")}>
         <Field label="Product" required>
           <select
             className={INPUT}
@@ -86,7 +88,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
         )}
       </Section>
 
-      <Section title={f.convertClientId ? "Lead" : "Client"}>
+      <Section title={f.convertClientId ? "Lead" : "Client"} state={sectionStatus(f, "client")}>
         {/* Converting: the record is fixed, so the New/Existing chooser below would be a control
             that cannot do anything. Show what is being converted instead. */}
         {f.convertClientId && !f.draftApplicationId ? (
@@ -267,7 +269,7 @@ export function Step2({
   if (f.category === "hmo") {
     return (
       <div>
-        <Section title="Company / group" last>
+        <Section title="Company / group" state={sectionStatus(f, "name")} last>
           <Field label="Company / group name" required>
             <input autoComplete="off" className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
           </Field>
@@ -321,7 +323,7 @@ export function Step2({
         <LeadDetailsPanel details={leadDetails} clientId={f.convertClientId} />
       )}
       {!lockIdentity && (
-        <Section title="Name">
+        <Section title="Name" state={sectionStatus(f, "name")}>
           <div className="grid grid-cols-2 gap-4">
             <Field label="First name" required>
               <input autoComplete="off"
@@ -341,7 +343,7 @@ export function Step2({
         </Section>
       )}
 
-      <Section title="Contact">
+      <Section title="Contact" state={sectionStatus(f, "contact")}>
         {!lockIdentity && (
           <div className="grid grid-cols-2 gap-4">
             <Field label="Email address">
@@ -422,19 +424,57 @@ export function Step2({
   );
 }
 
+/**
+ * A wizard input group: a bordered card with a title and, for groups with required inputs, a
+ * completeness indicator — neutral until complete, green when done, amber when something filled in
+ * is wrong. The border carries the same tone as the dot so a scan down the form reads at a glance.
+ */
 export function Section({
   title,
+  state,
   children,
-  last,
 }: {
   title: string;
+  /** From `sectionStatus(f, key)`; omit for optional or informational groups. */
+  state?: SectionState;
   children: React.ReactNode;
+  /** Kept for call-site compatibility; spacing now comes from the card stack. */
   last?: boolean;
 }) {
+  const tone = state?.status;
   return (
-    <div className={last ? "" : "mb-6"}>
-      <div className="mb-3 text-[11.5px] font-bold uppercase tracking-[0.07em] text-subtle">{title}</div>
-      {children}
-    </div>
+    <section
+      className={cn(
+        "mb-4 rounded-lg border bg-card last:mb-0",
+        tone === "done" ? "border-green-border" : tone === "attention" ? "border-amber-border" : tone === "todo" ? "border-border" : "border-border-soft",
+      )}
+    >
+      <header className="flex items-center gap-2 border-b border-border-soft px-4 py-2.5">
+        {tone && (
+          <span
+            aria-hidden
+            className={cn(
+              "grid size-4 shrink-0 place-items-center rounded-full",
+              tone === "done" ? "bg-green text-white" : tone === "attention" ? "bg-amber text-white" : "border-[1.5px] border-faint",
+            )}
+          >
+            {tone === "done" && <I.check size={10} strokeWidth={3} />}
+            {tone === "attention" && <span className="text-[10px] font-bold leading-none">!</span>}
+          </span>
+        )}
+        <h3 className="flex-1 text-[11.5px] font-bold uppercase tracking-[0.07em] text-subtle">{title}</h3>
+        {state && (
+          <span
+            className={cn(
+              "text-[11.5px] font-semibold",
+              tone === "done" ? "text-green" : tone === "attention" ? "text-amber" : "text-faint",
+            )}
+          >
+            {state.label}
+          </span>
+        )}
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
   );
 }

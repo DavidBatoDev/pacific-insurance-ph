@@ -358,12 +358,15 @@ export function Btn({
     <button
       className={cn(
         "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-semibold transition-colors",
+        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:shadow-none",
         size === "md" ? "h-9 px-3.5 text-[13px]" : "h-[30px] rounded-sm px-2.5 text-[12.5px]",
         variant === "default" &&
-          "border-border-strong bg-card text-foreground hover:border-faint hover:bg-hover",
+          "border-border-strong bg-card text-foreground hover:border-faint hover:bg-hover disabled:opacity-50 disabled:hover:border-border-strong disabled:hover:bg-card",
+        // A blocked primary must not read as available: drop the brand fill entirely rather than
+        // dimming it, so "Create" next to a "Still needed" list is unmistakably off.
         variant === "primary" &&
-          "border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(4,120,87,0.25)] hover:bg-brand-hover",
-        variant === "ghost" && "border-transparent bg-transparent hover:bg-hover",
+          "border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(4,120,87,0.25)] hover:bg-brand-hover disabled:border-border disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3",
+        variant === "ghost" && "border-transparent bg-transparent hover:bg-hover disabled:opacity-50 disabled:hover:bg-transparent",
         className,
       )}
       {...props}

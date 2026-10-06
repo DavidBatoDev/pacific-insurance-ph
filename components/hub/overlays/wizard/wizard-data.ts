@@ -607,3 +607,65 @@ export const parseAmount = (v: string): number | null => {
   const n = Number(v.replace(/[^0-9]/g, ""));
   return v && !isNaN(n) && n > 0 ? n : null;
 };
+
+/* ---------- Section completeness (form polish, 2026-10-06) ---------- */
+
+/**
+ * Per-group completeness for the wizard's section cards: neutral until a group's required inputs
+ * are filled, green when complete, amber when something is filled in but wrong. Derived from the
+ * same fields as the Create blockers in new-application.tsx so the two never disagree.
+ */
+export type SectionStatus = "todo" | "done" | "attention";
+export type SectionKey =
+  | "workflow"
+  | "product"
+  | "client"
+  | "name"
+  | "contact"
+  | "plan"
+  | "trip"
+  | "travelers"
+  | "group";
+
+export interface SectionState {
+  status: SectionStatus;
+  label: string;
+}
+
+const neededLabel = (missing: number): SectionState =>
+  missing === 0 ? { status: "done", label: "Complete" } : { status: "todo", label: `${missing} needed` };
+
+export function sectionStatus(f: WizardForm, key: SectionKey): SectionState {
+  const linked = !!(f.existingClientId || f.convertClientId);
+  switch (key) {
+    case "workflow":
+      return neededLabel([f.appType, f.source].filter((value) => !value).length);
+    case "product":
+      return neededLabel(f.productVersionId ? 0 : 1);
+    case "client":
+      if (f.clientMode === "existing" && !linked) return { status: "todo", label: "Pick a client" };
+      return linked ? { status: "done", label: "Linked" } : { status: "todo", label: "New client" };
+    case "name":
+      if (linked) return { status: "done", label: "Linked" };
+      return neededLabel(f.category === "hmo" ? (f.companyName ? 0 : 1) : [f.firstName, f.lastName].filter((value) => !value.trim()).length);
+    case "contact":
+      if (linked) return { status: "done", label: "Linked" };
+      return neededLabel(f.email || f.mobile ? 0 : 1);
+    case "plan":
+      return neededLabel([f.planOptionId, f.coverage].filter((value) => !value).length);
+    case "trip": {
+      if (f.departure && f.returnDate && f.returnDate < f.departure) {
+        return { status: "attention", label: "Return is before departure" };
+      }
+      return neededLabel([f.destination, f.departure, f.returnDate].filter((value) => !value?.trim()).length);
+    }
+    case "travelers": {
+      const named = f.travelers.filter((traveler) => traveler.name.trim()).length;
+      return named ? { status: "done", label: `${named} traveler${named === 1 ? "" : "s"}` } : { status: "todo", label: "Add a traveler" };
+    }
+    case "group": {
+      const members = f.members.filter((member) => member.name.trim()).length;
+      return members >= 3 ? { status: "done", label: `${members} members` } : { status: "todo", label: `${members} of 3 members` };
+    }
+  }
+}

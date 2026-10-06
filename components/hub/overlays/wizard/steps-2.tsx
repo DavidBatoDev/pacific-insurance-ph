@@ -23,6 +23,7 @@ import {
   INQUIRY_APP_TYPE,
   isFlexiShieldProduct,
   SMOKER_STATUSES,
+  sectionStatus,
   uniquePlanPreferenceMatch,
   WIZ_OPTS,
   type WizardForm,
@@ -127,7 +128,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
   };
   return (
     <div>
-      <Section title="Plan & coverage">
+      <Section title="Plan & coverage" state={sectionStatus(f, "plan")}>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Plan option" required>
             <select className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
@@ -385,7 +386,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
         </div>
       </Section>
 
-      <Section title="Member list" last>
+      <Section title="Member list" state={sectionStatus(f, "group")} last>
         <div className={cn("mb-2 text-[12px] font-semibold", tooFew ? "text-red" : "text-brand")}>
           {named} member{named === 1 ? "" : "s"} {tooFew ? "· minimum 3" : "✓"}
         </div>
@@ -515,12 +516,12 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
           </Field>
         </div>
       </Section>
-      <Section title="Persons to be insured">
+      <Section title="Persons to be insured" state={sectionStatus(f, "travelers")}>
         <div className="mb-2 flex items-center justify-end"><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
         <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
         <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
       </Section>
-      <Section title="Trip">
+      <Section title="Trip" state={sectionStatus(f, "trip")}>
         <div className="grid grid-cols-3 gap-4 max-[700px]:grid-cols-1">
           <Field label="Destination country" required>
             <input className={INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
