@@ -2,21 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import {
   generateProposalAction,
+  getProposalLeadDefaultsAction,
   recordProposalReceivedAction,
   type ProposalPortalDetail,
   type UploadedProposal,
 } from "@/app/(app)/prospects/actions";
+import { PAYMENT_FREQUENCIES } from "@/lib/db-enums";
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { I } from "../icons";
-import { Btn, Field } from "../primitives";
+import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 import { openPortalWindow } from "./portal-window";
+
+const DETAIL_GROUPS = ["Header", "Principal", "Dependents", "Generate step"] as const;
 
 /**
  * Individual proposal handoff: the Pacific Cross portal opens in a pop-up (it can't
@@ -40,17 +44,31 @@ export function GenerateProposalModal({
   const [picked, setPicked] = useState<PickedClient | null>(
     clientId && clientName ? { id: clientId, name: clientName } : null,
   );
+  const [frequency, setFrequency] = useState("");
   const [needsSettings, setNeedsSettings] = useState(false);
   const [portal, setPortal] = useState<{ url: string; details: ProposalPortalDetail[] } | null>(null);
   const [uploaded, setUploaded] = useState<UploadedProposal | null>(null);
 
+  // Prefill the frequency from what the lead already has on file.
+  const pickedId = picked?.id;
+  useEffect(() => {
+    if (!pickedId) return;
+    let live = true;
+    void getProposalLeadDefaultsAction(pickedId).then((res) => {
+      if (live && res.ok) setFrequency(res.data.paymentFrequency ?? "");
+    });
+    return () => {
+      live = false;
+    };
+  }, [pickedId]);
+
   const confirm = () => {
-    if (!picked) return;
+    if (!picked || !frequency) return;
     setNeedsSettings(false);
     // Opened inside the click handler, before any await, so pop-up blockers allow it.
     const win = openPortalWindow();
     startTransition(async () => {
-      const res = await generateProposalAction(picked.id);
+      const res = await generateProposalAction(picked.id, frequency);
       if (!res.ok) {
         win?.close();
         setNeedsSettings(res.error.includes("has not been configured"));
@@ -64,6 +82,8 @@ export function GenerateProposalModal({
       router.refresh();
     });
   };
+
+  const missingCount = portal ? portal.details.filter((d) => d.missing).length : 0;
 
   const copy = (value: string) => {
     void navigator.clipboard.writeText(value).then(() => overlays.toast("Copied", value));
@@ -96,6 +116,21 @@ export function GenerateProposalModal({
             </Field>
           )}
 
+          <Field label="Payment frequency" required className="mb-3.5">
+            <select
+              className={INPUT}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+            >
+              <option value="">Select…</option>
+              {PAYMENT_FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <div className="rounded-md border border-border-soft bg-surface-2 px-3.5 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
             The proposal calculator and PDF remain in the Pacific Cross portal for this release. HMO proposals continue through Request Proposal.
           </div>
@@ -107,7 +142,7 @@ export function GenerateProposalModal({
 
           <div className="mt-5 flex items-center justify-end gap-2.5">
             <Btn onClick={onClose}>Cancel</Btn>
-            <Btn variant="primary" disabled={pending || !picked} onClick={confirm}>
+            <Btn variant="primary" disabled={pending || !picked || !frequency} onClick={confirm}>
               {pending ? "Opening…" : "Generate in Pacific Cross"}
             </Btn>
           </div>
@@ -132,20 +167,49 @@ export function GenerateProposalModal({
               <div className="border-b border-border-soft px-3.5 py-2 text-[11px] font-bold uppercase tracking-[.05em] text-subtle">
                 Details to encode
               </div>
-              {portal.details.map((d) => (
-                <div key={`${d.label}-${d.value}`} className="flex items-center gap-3 border-b border-border-soft px-3.5 py-2 text-[12.5px] last:border-0">
-                  <span className="w-36 shrink-0 text-muted-foreground">{d.label}</span>
-                  <span className="min-w-0 flex-1 truncate font-semibold">{d.value}</span>
-                  <button
-                    type="button"
-                    onClick={() => copy(d.value)}
-                    title={`Copy ${d.label.toLowerCase()}`}
-                    className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-                  >
-                    <I.copy size={14} />
-                  </button>
+              {missingCount > 0 && (
+                <div role="alert" className="border-b border-amber-border bg-amber-soft px-3.5 py-2 text-[12.5px] font-semibold text-amber">
+                  {missingCount} required portal field{missingCount === 1 ? " is" : "s are"} missing
                 </div>
-              ))}
+              )}
+              {DETAIL_GROUPS.map((group) => {
+                const rows = portal.details.filter((d) => d.group === group);
+                if (rows.length === 0) return null;
+                return (
+                  <div key={group}>
+                    <div className="border-b border-border-soft bg-surface-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[.05em] text-subtle">
+                      {group}
+                    </div>
+                    {rows.map((d) => (
+                      <div key={d.label} className="flex items-center gap-3 border-b border-border-soft px-3.5 py-2 text-[12.5px] last:border-0">
+                        <span className="w-44 shrink-0 text-muted-foreground">
+                          {d.label}
+                          {d.required && <span className="text-red"> *</span>}
+                        </span>
+                        {d.missing ? (
+                          <span className="min-w-0 flex-1 font-semibold text-amber">
+                            Missing — add to the lead before encoding
+                          </span>
+                        ) : (
+                          <span className={`min-w-0 flex-1 truncate ${d.value ? "font-semibold" : "text-faint"}`}>
+                            {d.value || d.hint || "—"}
+                          </span>
+                        )}
+                        {d.value && (
+                          <button
+                            type="button"
+                            onClick={() => copy(d.value)}
+                            title={`Copy ${d.label.toLowerCase()}`}
+                            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                          >
+                            <I.copy size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
 

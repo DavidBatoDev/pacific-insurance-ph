@@ -23,6 +23,7 @@ import {
   type Client,
   type ClientUpdate,
 } from "@/lib/repositories/clients";
+import { PAYMENT_FREQUENCIES } from "@/lib/db-enums";
 import { ageFromDob } from "@/components/hub/overlays/wizard/wizard-data";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
@@ -417,6 +418,27 @@ export async function setProposalStatusAction(
 export interface ProposalPortalDetail {
   label: string;
   value: string;
+  /** Portal field marked with * (must be filled to proceed). */
+  required: boolean;
+  /** Required by the portal but empty on the lead. */
+  missing: boolean;
+  hint?: string;
+  /** Grouping shown in the modal. */
+  group: "Header" | "Principal" | "Dependents" | "Generate step";
+}
+
+/** The lead's saved portal inputs, to prefill the Generate Proposal modal. */
+export async function getProposalLeadDefaultsAction(
+  clientId: string,
+): Promise<ActionResult<{ paymentFrequency: string | null; gender: string | null }>> {
+  await getActor();
+  try {
+    const lead = await getClientsRepository().findById(clientId);
+    if (!lead) return { ok: false, error: "Lead not found." };
+    return { ok: true, data: { paymentFrequency: lead.paymentFrequency, gender: lead.gender } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to load lead." };
+  }
 }
 
 /**
@@ -429,9 +451,12 @@ export interface ProposalPortalDetail {
  */
 export async function generateProposalAction(
   clientId: string,
+  paymentFrequency: string,
 ): Promise<ActionResult<{ portalUrl: string; details: ProposalPortalDetail[] }>> {
   const actor = await getActor();
   try {
+    if (!(PAYMENT_FREQUENCIES as readonly string[]).includes(paymentFrequency))
+      return { ok: false, error: "Choose a payment frequency: Annual or Semi-annual." };
     const repo = getClientsRepository();
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
@@ -457,9 +482,12 @@ export async function generateProposalAction(
 
     const [dependents] = await Promise.all([
       getDependentsRepository().listByClient(clientId),
-      lead.proposalStatus
-        ? null
-        : repo.update(clientId, { proposalStatus: "Requested", proposalDecision: null }),
+      repo.update(
+        clientId,
+        lead.proposalStatus
+          ? { paymentFrequency }
+          : { paymentFrequency, proposalStatus: "Requested", proposalDecision: null },
+      ),
     ]);
     await recordActivity({
       scopeType: "client",
@@ -472,18 +500,40 @@ export async function generateProposalAction(
     revalidatePath(`/clients/${clientId}`);
 
     const age = lead.dateOfBirth ? ageFromDob(lead.dateOfBirth) : "";
+    const field = (
+      group: ProposalPortalDetail["group"],
+      label: string,
+      value: string | null | undefined,
+      required: boolean,
+      hint?: string,
+    ): ProposalPortalDetail => ({
+      group,
+      label,
+      value: value ?? "",
+      required,
+      missing: required && !value,
+      hint,
+    });
     const details: ProposalPortalDetail[] = [
-      { label: "Full name", value: lead.fullName },
-      { label: "Date of birth", value: lead.dateOfBirth ?? "" },
-      { label: "Age", value: age === "" ? "" : String(age) },
-      { label: "Product", value: lead.productInterest ?? "" },
-      { label: "Coverage tier", value: lead.coverageTier ?? "" },
-      { label: "Family size", value: lead.familySize?.toString() ?? "" },
-      ...dependents.map((d) => ({
-        label: d.relationship ? `Dependent (${d.relationship})` : "Dependent",
-        value: [d.fullName, d.dateOfBirth].filter(Boolean).join(" · "),
-      })),
-    ].filter((d) => d.value);
+      field("Header", "Policy holder", lead.fullName, true),
+      field("Header", "Product", lead.productInterest, true),
+      field("Header", "Total principals", String(1 + dependents.length), true),
+      field("Principal", "First name", lead.firstName, true),
+      field("Principal", "Last name", lead.lastName, true),
+      field("Principal", "Gender", lead.gender, true),
+      field("Principal", "Date of birth", lead.dateOfBirth, true),
+      field("Principal", "Age", age === "" ? "" : String(age), false),
+      field("Principal", "Plan", lead.coverageTier, false),
+      field("Principal", "Optional benefit", "", false, "Choose in portal"),
+      field("Principal", "Discount", "", false, "Choose in portal"),
+      ...dependents.flatMap((d, n) => [
+        field("Dependents", `Dependent ${n + 1} — name`, d.fullName, false),
+        field("Dependents", `Dependent ${n + 1} — gender`, d.gender, true),
+        field("Dependents", `Dependent ${n + 1} — date of birth`, d.dateOfBirth, true),
+        field("Dependents", `Dependent ${n + 1} — relationship`, d.relationship, false),
+      ]),
+      field("Generate step", "Payment frequency", paymentFrequency, true),
+    ];
 
     return { ok: true, data: { portalUrl, details } };
   } catch (e) {

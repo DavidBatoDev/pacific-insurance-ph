@@ -18,6 +18,8 @@ function toDomain(row: ClientRow): Client {
     lastName: row.last_name,
     fullName: [row.first_name, row.last_name].filter(Boolean).join(" "),
     dateOfBirth: row.date_of_birth,
+    gender: row.gender,
+    paymentFrequency: row.payment_frequency,
     email: row.email,
     mobileNumber: row.mobile_number,
     address: row.address,
@@ -96,6 +98,8 @@ export class SupabaseClientsRepository implements ClientsRepository {
       first_name: input.firstName,
       last_name: input.lastName,
       date_of_birth: input.dateOfBirth ?? null,
+      gender: input.gender ?? null,
+      payment_frequency: input.paymentFrequency ?? null,
       email: input.email ?? null,
       mobile_number: input.mobileNumber ?? null,
       address: input.address ?? null,
@@ -134,6 +138,8 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.firstName !== undefined) patch.first_name = input.firstName;
     if (input.lastName !== undefined) patch.last_name = input.lastName;
     if (input.dateOfBirth !== undefined) patch.date_of_birth = input.dateOfBirth;
+    if (input.gender !== undefined) patch.gender = input.gender;
+    if (input.paymentFrequency !== undefined) patch.payment_frequency = input.paymentFrequency;
     if (input.email !== undefined) patch.email = input.email;
     if (input.mobileNumber !== undefined) patch.mobile_number = input.mobileNumber;
     if (input.address !== undefined) patch.address = input.address;

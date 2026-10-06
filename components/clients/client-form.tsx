@@ -8,6 +8,7 @@ import {
   updateClientAction,
   type ClientFormState,
 } from "@/app/(app)/clients/actions";
+import { WIZ_OPTS } from "@/components/hub/overlays/wizard/wizard-data";
 import { PRODUCT_COLORS } from "@/components/hub/lead-config";
 import { CoverageTierSelect } from "@/components/hub/overlays/coverage-tier-select";
 import type { Client } from "@/lib/repositories/clients";
@@ -24,6 +25,7 @@ interface Values {
   email: string;
   mobileNumber: string;
   dateOfBirth: string;
+  gender: string;
   clientType: string;
   leadSource: string;
   preferredChannel: string;
@@ -44,6 +46,7 @@ function initialValues(client?: Client): Values {
     email: client?.email ?? "",
     mobileNumber: client?.mobileNumber ?? "",
     dateOfBirth: client?.dateOfBirth ?? "",
+    gender: client?.gender ?? "",
     clientType: client?.clientType ?? "Prospect",
     leadSource: client?.leadSource ?? "",
     preferredChannel: client?.preferredChannel ?? "",
@@ -140,6 +143,20 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
               onChange={(e) => set("dateOfBirth", e.target.value)}
               className={inputCls}
             />
+          </Field>
+          <Field label="Gender">
+            <select
+              name="gender"
+              value={v.gender}
+              onChange={(e) => set("gender", e.target.value)}
+              className={inputCls}
+            >
+              {WIZ_OPTS.gender.map((g) => (
+                <option key={g} value={g}>
+                  {g || "—"}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Client type">
             <select

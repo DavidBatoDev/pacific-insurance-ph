@@ -18,6 +18,9 @@ export interface Client {
   /** Derived convenience field: "First Last". */
   fullName: string;
   dateOfBirth: string | null;
+  gender: string | null;
+  /** Pacific Cross proposal portal — 'Annual' | 'Semi-annual' (PAYMENT_FREQUENCIES). */
+  paymentFrequency: string | null;
   email: string | null;
   mobileNumber: string | null;
   address: string | null;
@@ -52,6 +55,8 @@ export interface NewClient {
   firstName: string;
   lastName: string;
   dateOfBirth?: string | null;
+  gender?: string | null;
+  paymentFrequency?: string | null;
   email?: string | null;
   mobileNumber?: string | null;
   address?: string | null;
@@ -80,6 +85,8 @@ export interface ClientUpdate {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string | null;
+  gender?: string | null;
+  paymentFrequency?: string | null;
   email?: string | null;
   mobileNumber?: string | null;
   address?: string | null;
