@@ -17,6 +17,7 @@ import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getApplicationRequirementsRepository, type NewApplicationRequirement, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
+import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import {
   getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
   type LibraryDocument,
@@ -38,6 +39,13 @@ export interface WizardResult {
   clientId: string | null;
   applicationId?: string;
   travelRequestId?: string;
+  /**
+   * Travel (H6d): server requirement ids for the files picked on the wizard's travel screen —
+   * the signed application form, then one passport/ID row per named traveler, in form order.
+   */
+  travelUploadTargets?: { applicationForm: string | null; travelers: (string | null)[] };
+  /** Travel (H6b): the TravelSafe portal to open once the request exists. */
+  travelPortalUrl?: string | null;
   groupId?: string;
   /** Human summary for the toast. */
   summary: string;
@@ -167,6 +175,54 @@ export async function listProductRequirementPreviewAction(productVersionId: stri
     isRequired: item.is_required,
     phase: (item.phase as ChecklistItem["phase"]) ?? undefined,
   }));
+}
+
+/** What the travel screen fills — visibly — when a repeat traveler is picked (H6c / DH12). */
+export interface TravelClientFill {
+  clientName: string;
+  traveler: { name: string; dob: string; nationality: string; gender: string; contact: string; idType: string; idNumber: string };
+  /** True when the passport/nationality came from an earlier travel request, not just the client record. */
+  fromPastTrip: boolean;
+}
+
+/**
+ * A picked client's details for the travel screen: the client record plus their most recent
+ * traveler row (passport, nationality) when they've travelled with us before. Returned for the
+ * wizard to show in editable fields marked "Filled from …" — never applied silently.
+ */
+export async function getTravelClientFillAction(clientId: string): Promise<ActionResult<TravelClientFill>> {
+  await getActor();
+  try {
+    const client = await getClientsRepository().findById(clientId);
+    if (!client) return { ok: false, error: "Client not found." };
+    const { data: rows, error } = await getSupabaseAdmin()
+      .from("travelers")
+      .select("full_name, date_of_birth, nationality, gender, contact_number, id_type, id_number, created_at, travel_requests!inner(client_id)")
+      .eq("travel_requests.client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw new Error(error.message);
+    const sameName = (name: string) => name.trim().toLowerCase() === client.fullName.trim().toLowerCase();
+    const past = (rows ?? []).find((row) => sameName(row.full_name)) ?? null;
+    return {
+      ok: true,
+      data: {
+        clientName: client.fullName,
+        fromPastTrip: !!past,
+        traveler: {
+          name: client.fullName,
+          dob: client.dateOfBirth ?? past?.date_of_birth ?? "",
+          nationality: past?.nationality ?? "",
+          gender: client.gender ?? past?.gender ?? "",
+          contact: client.mobileNumber ?? past?.contact_number ?? "",
+          idType: past?.id_type ?? "Passport",
+          idNumber: past?.id_number ?? "",
+        },
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load the client’s details." };
+  }
 }
 
 /** Copy the current configurable template into an immutable application checklist. */
@@ -992,6 +1048,14 @@ async function createTravelRecord(ctx: WizardCreateContext) {
         { documentName: "Payment proof", appliesTo: "Client collection", isRequired: true, sortOrder: 500 },
         { documentName: "Issued Travel policy", appliesTo: "After portal issuance", isRequired: false, sortOrder: 510 },
       ]);
+      // Hand the client the requirement ids its picked files belong to (H6d), keyed the same way the
+      // rows were just written: the form at sort 10, traveler i's ID at 20 + i·10.
+      const requirementRows = await getCarrierWorkflowsRepository().listTravelRequirements(travel.id);
+      result.travelUploadTargets = {
+        applicationForm: requirementRows.find((row) => row.sortOrder === 10)?.id ?? null,
+        travelers: validTravelers.map((_, index) => requirementRows.find((row) => row.sortOrder === 20 + index * 10)?.id ?? null),
+      };
+      result.travelPortalUrl = (await getIntegrationSettingsRepository().getTravelPortal())?.portalUrl ?? null;
       const premium = parseAmount(form.premium);
       if (premium && !(await getPaymentsRepository().listByTravelRequest(travel.id)).length) {
         await getPaymentsRepository().create({ clientId: resolvedClientId, travelRequestId: travel.id, amount: premium, status: "Awaiting", notes: "Travel collection created by application workflow" });

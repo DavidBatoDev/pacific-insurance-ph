@@ -216,6 +216,12 @@ export const WIZ_STEPS = [
   { n: 6, label: "Review & create" },
 ] as const;
 
+/** Travel's two screens (H6b / DH11): everything Eman collects on one, then review & create. */
+export const WIZ_TRAVEL_STEPS = [
+  { n: 1, label: "Client, trip & requirements" },
+  { n: 2, label: "Review & create" },
+] as const;
+
 /**
  * The application type that keeps a record a Lead.
  *

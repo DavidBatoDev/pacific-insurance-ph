@@ -7,11 +7,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   createFromWizardAction,
   getDraftResumeAction,
+  getTravelClientFillAction,
   type AutoFilledWizardField,
   type WizardMode,
   listProductRequirementPreviewAction,
 } from "@/app/(app)/applications/wizard-actions";
+import { beginDocumentUploadAction } from "@/app/(app)/documents/actions";
 import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
+import { recordTravelRequirementUploadAction } from "@/app/(app)/travel/actions";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import { listPaymentChannelOptionsAction } from "@/app/(app)/payments/actions";
 import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/tasks/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
@@ -23,8 +27,10 @@ import { BrandGlyph } from "../../shell";
 import { Btn } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { useOverlays } from "../overlay-provider";
+import { openPortalWindow } from "../portal-window";
 import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
+import { namedTravelerIndexes, TravelRequirementUploads, type TravelUploadFiles } from "./travel-details-step";
 import {
   emptyWizardForm,
   initialiseFamilySizeSuggestion,
@@ -41,6 +47,7 @@ import {
   uniquePlanPreferenceMatch,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
+  WIZ_TRAVEL_STEPS,
   type ChecklistItem,
   type WizardForm,
 } from "./wizard-data";
@@ -163,7 +170,12 @@ export function NewApplicationWizard({
       // and no indication why. `current.appType ||` still yields to a user's own choice.
       setF((current) => ({
         ...current,
-        appType: current.appType || INQUIRY_APP_TYPE,
+        // A travel quote is a sale, not an inquiry (H6g): it starts as a New Insurance Application.
+        appType:
+          current.appType ||
+          (product && categoryForProduct(product.productName, product.productCategory) === "travel"
+            ? "New Insurance Application"
+            : INQUIRY_APP_TYPE),
         ...(product
           ? {
               productVersionId: product.productVersionId,
@@ -214,6 +226,35 @@ export function NewApplicationWizard({
     if (!keys.every((k) => k === "checklist")) dirtyRef.current = true;
     setF((s) => ({ ...s, ...patch }));
   };
+
+  // Travel (H6b–d): files attached on the travel screen, and the "Filled from …" marker (DH12).
+  const [travelFiles, setTravelFiles] = useState<TravelUploadFiles>({});
+  const [travelFilledFrom, setTravelFilledFrom] = useState<{ clientId: string; name: string; fromPastTrip: boolean } | null>(null);
+  const isTravel = f.category === "travel";
+  useEffect(() => {
+    const clientId = f.existingClientId;
+    if (!isTravel || !clientId || travelFilledFrom?.clientId === clientId) return;
+    let cancelled = false;
+    getTravelClientFillAction(clientId).then((res) => {
+      if (cancelled || !res.ok) return;
+      const fill = res.data;
+      setTravelFilledFrom({ clientId, name: fill.clientName, fromPastTrip: fill.fromPastTrip });
+      setF((s) => {
+        // Visible, editable fill of the first traveler row (DH12: no silent autofill). A row the
+        // user already typed someone else into is left alone.
+        const first = s.travelers[0];
+        if (first && first.name.trim() && first.name.trim().toLowerCase() !== fill.clientName.trim().toLowerCase()) return s;
+        const filled = {
+          ...(first ?? { planOptionId: s.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }),
+          ...fill.traveler,
+        };
+        return { ...s, applicantIsTraveler: true, passport: s.passport || fill.traveler.idNumber, travelers: [filled, ...s.travelers.slice(1)] };
+      });
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isTravel, f.existingClientId, travelFilledFrom?.clientId]);
 
   // H3a: the authoritative requirement list for template-driven (non-health, non-travel) products.
   const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
@@ -347,8 +388,13 @@ export function NewApplicationWizard({
   // H3a: the product decides every later step (details, requirements), so it is chosen first.
   // Drafts are exempt — an early inquiry may not know its product yet.
   const productChosen = !!f.productVersionId;
+  const steps = isTravel ? WIZ_TRAVEL_STEPS : WIZ_STEPS;
+  const lastStep = steps.length;
+  // A category switch (or a travel draft saved under the six-step flow) can leave `step` past the
+  // end of the shorter travel list; clamp rather than render nothing.
+  const currentStep = Math.min(step, lastStep);
   const go = (n: number) => {
-    const next = Math.max(1, Math.min(6, productChosen ? n : 1));
+    const next = Math.max(1, Math.min(lastStep, productChosen ? n : 1));
     setStep(next);
     setF((s) => ({ ...s, draftStep: next }));
   };
@@ -360,7 +406,43 @@ export function NewApplicationWizard({
       return current !== autoFilled[field];
     });
 
+  /** Upload the travel screen's files against the new request's requirement rows (H6d). */
+  const uploadTravelFiles = async (
+    clientId: string,
+    travelRequestId: string,
+    targets: { applicationForm: string | null; travelers: (string | null)[] },
+  ): Promise<number> => {
+    const jobs: { file: File; requirementId: string }[] = [];
+    if (travelFiles.form && targets.applicationForm) jobs.push({ file: travelFiles.form, requirementId: targets.applicationForm });
+    travelerIndexesAtSubmit.current.forEach((formIndex, i) => {
+      const file = travelFiles[`traveler:${formIndex}`];
+      const requirementId = targets.travelers[i];
+      if (file && requirementId) jobs.push({ file, requirementId });
+    });
+    let failed = 0;
+    for (const job of jobs) {
+      try {
+        const begin = await beginDocumentUploadAction({ clientId, fileName: job.file.name, mimeType: job.file.type, size: job.file.size });
+        if (!begin.ok) throw new Error(begin.error);
+        const put = await getSupabaseBrowser()
+          .storage.from("documents")
+          .uploadToSignedUrl(begin.data.path, begin.data.token, job.file, { contentType: job.file.type });
+        if (put.error) throw new Error(put.error.message);
+        const done = await recordTravelRequirementUploadAction(travelRequestId, job.requirementId, begin.data.path, job.file.name);
+        if (!done.ok) throw new Error(done.error);
+      } catch {
+        failed += 1;
+      }
+    }
+    return failed;
+  };
+  const travelerIndexesAtSubmit = useRef<number[]>([]);
+
   const finish = async (mode: WizardMode) => {
+    // Travel (H6b): reserve the portal pop-up inside the click, before any await — pop-up
+    // blockers only allow opens tied to the gesture. It is pointed at the portal on success.
+    const portal = isTravel && mode !== "draft" ? openPortalWindow() : null;
+    travelerIndexesAtSubmit.current = namedTravelerIndexes(f);
     const changedFields = changedAutoFilledFields();
     if (changedFields.length > 0) {
       const confirmed = await overlays.confirm({
@@ -373,7 +455,10 @@ export function NewApplicationWizard({
         confirmLabel: "Save changes",
         cancelLabel: "Review changes",
       });
-      if (!confirmed) return;
+      if (!confirmed) {
+        portal?.close();
+        return;
+      }
     }
     startTransition(async () => {
       const res = await createFromWizardAction(f, mode, { confirmedSkip: prefill?.confirmedSkip });
@@ -387,6 +472,25 @@ export function NewApplicationWizard({
         // Travel submissions live in the Travel Insurance lane (travel_requests / /travel),
         // not Applications — surface that instead of the generic "Application created" titles.
         const title = res.data.travelRequestId ? "Client moved to Travel Insurance" : titles[mode];
+        if (res.data.travelRequestId && mode !== "draft") {
+          if (portal && res.data.travelPortalUrl) portal.location.href = res.data.travelPortalUrl;
+          else portal?.close();
+          const failed =
+            res.data.clientId && res.data.travelUploadTargets
+              ? await uploadTravelFiles(res.data.clientId, res.data.travelRequestId, res.data.travelUploadTargets)
+              : 0;
+          overlays.toast(
+            title,
+            failed
+              ? `${res.data.summary} ${failed} file${failed === 1 ? "" : "s"} didn’t upload — attach ${failed === 1 ? "it" : "them"} in the Travel workflow.`
+              : res.data.summary,
+          );
+          router.refresh();
+          onClose();
+          overlays.openTravelWorkflow(res.data.travelRequestId);
+          return;
+        }
+        portal?.close();
         overlays.toast(title, res.data.summary);
         router.refresh();
         if (res.data.groupId) router.push(`/group/${res.data.groupId}`);
@@ -397,13 +501,16 @@ export function NewApplicationWizard({
           overlays.openApplicationRequirements(res.data.applicationId);
         }
       } else {
+        portal?.close();
         overlays.toast("Couldn’t create the application", res.error);
       }
     });
   };
 
   const stepProps = { f, set, products, users, paymentChannels };
-  const heads: Record<number, string> = {
+  const heads: Record<number, string> = isTravel
+    ? { 1: "Client, trip & requirements", 2: "Review & create travel request" }
+    : {
     1: "Client type & application setup",
     2: f.category === "hmo" ? "Company information" : "Client information",
     3: "Product-specific details",
@@ -435,7 +542,7 @@ export function NewApplicationWizard({
           </div>
           <div className="text-[17px] font-bold tracking-[-0.01em]">New Client Application</div>
           <div className="mt-5 flex flex-col gap-1">
-            {WIZ_STEPS.map((s) => (
+            {steps.map((s) => (
               <button
                 key={s.n}
                 onClick={() => go(s.n)}
@@ -443,22 +550,22 @@ export function NewApplicationWizard({
                 title={s.n > 1 && !productChosen ? "Choose a product in Step 1 first" : undefined}
                 className={cn(
                   "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
-                  step === s.n ? "bg-brand-soft" : "hover:bg-hover",
+                  currentStep === s.n ? "bg-brand-soft" : "hover:bg-hover",
                 )}
               >
                 <span
                   className={cn(
                     "grid size-6 shrink-0 place-items-center rounded-full text-[11.5px] font-bold",
-                    step > s.n
+                    currentStep > s.n
                       ? "bg-brand text-white"
-                      : step === s.n
+                      : currentStep === s.n
                         ? "border-2 border-brand text-brand"
                         : "border border-border-strong text-subtle",
                   )}
                 >
-                  {step > s.n ? <I.check size={13} /> : s.n}
+                  {currentStep > s.n ? <I.check size={13} /> : s.n}
                 </span>
-                <span className={cn("text-[12.5px] font-[650]", step === s.n ? "text-brand-hover" : "")}>{s.label}</span>
+                <span className={cn("text-[12.5px] font-[650]", currentStep === s.n ? "text-brand-hover" : "")}>{s.label}</span>
               </button>
             ))}
           </div>
@@ -490,7 +597,7 @@ export function NewApplicationWizard({
               )}
             </div>
           )}
-          <h2 className="mb-5 text-[18px] font-bold tracking-[-0.01em]">{heads[step]}</h2>
+          <h2 className="mb-5 text-[18px] font-bold tracking-[-0.01em]">{heads[currentStep]}</h2>
           {resumeLoading ? (
             <div className="rounded-md border border-border-soft bg-surface-2 px-4 py-5 text-[13px] text-muted-foreground">
               Loading the linked lead and saved application details…
@@ -501,6 +608,44 @@ export function NewApplicationWizard({
             </div>
           ) : (
             <>
+              {isTravel ? (
+                currentStep === 1 ? (
+                  <div className="space-y-6">
+                    <Step1 {...stepProps} unmatchedProduct={unmatchedProduct} />
+                    {travelFilledFrom && travelFilledFrom.clientId === f.existingClientId && (
+                      <div className="flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3 text-[12.5px]">
+                        <I.user size={15} className="mt-0.5 shrink-0 text-brand" />
+                        <div>
+                          Traveler details filled from <b>{travelFilledFrom.name}</b>
+                          {travelFilledFrom.fromPastTrip ? " and their last trip" : ""} — check and edit them below before creating.
+                        </div>
+                      </div>
+                    )}
+                    {f.clientMode !== "existing" && (
+                      <Step2 {...stepProps} linkedClientName={linkedClientName} />
+                    )}
+                    <Step3 {...stepProps} />
+                    <TravelRequirementUploads
+                      f={f}
+                      files={travelFiles}
+                      onFile={(key, file) =>
+                        setTravelFiles((current) => {
+                          const next = { ...current };
+                          if (file) next[key] = file;
+                          else delete next[key];
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <Step5 {...stepProps} templates={templates} agentName={persona.userName} />
+                    <Step6 {...stepProps} />
+                  </div>
+                )
+              ) : (
+              <>
               {step === 1 && <Step1 {...stepProps} unmatchedProduct={unmatchedProduct} />}
               {step === 2 && (
                 <Step2
@@ -522,29 +667,31 @@ export function NewApplicationWizard({
               {step === 4 && <Step4 {...stepProps} />}
               {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
               {step === 6 && <Step6 {...stepProps} />}
+              </>
+              )}
             </>
           )}
         </div>
 
         {/* Footer */}
         <div className="col-start-2 flex items-center gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5 max-[800px]:col-start-1">
-          {step > 1 ? (
-            <Btn onClick={() => go(step - 1)}>
+          {currentStep > 1 ? (
+            <Btn onClick={() => go(currentStep - 1)}>
               <I.chevRight size={15} className="rotate-180" /> Back
             </Btn>
           ) : (
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {step === 1 && !productChosen
+            {currentStep === 1 && !productChosen
               ? "Choose a product to continue — it decides the requirements"
               : !canDraft && "Add a name and contact method to save a draft"}
           </span>
           <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
             Save draft
           </Btn>
-          {step < 6 ? (
-            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (step === 1 && !productChosen)} onClick={() => go(step + 1)}>
+          {currentStep < lastStep ? (
+            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={() => go(currentStep + 1)}>
               Continue <I.chevRight size={15} />
             </Btn>
           ) : (
@@ -552,10 +699,10 @@ export function NewApplicationWizard({
               <Btn
                 variant="primary"
                 disabled={!canCreate || resumeLoading || !!resumeError}
-                onClick={() => finish("docs")}
+                onClick={() => finish(isTravel ? "create" : "docs")}
                 className="rounded-r-none"
               >
-                <I.send size={15} /> {pending ? "Creating…" : "Create & request documents"}
+                <I.send size={15} /> {pending ? "Creating…" : isTravel ? "Create & open portal" : "Create & request documents"}
               </Btn>
               <button
                 onClick={() => setSplitOpen((o) => !o)}

@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { PDF_UPLOAD_MAX_BYTES, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
+import { PDF_UPLOAD_MAX_BYTES, UPLOAD_MIME_EXTENSIONS, documentUploadPath, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSignedUpload, removeObject, uploadObject } from "@/lib/supabase/storage";
@@ -38,6 +38,29 @@ export async function beginPdfUploadAction(input: {
     const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
     if (!isPdf) return { ok: false, error: "Only PDF files can be uploaded here." };
     return { ok: true, data: await createSignedUpload(pdfUploadPath(input.clientId, randomUUID())) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." };
+  }
+}
+
+/**
+ * Signed URL for a browser-to-Storage requirement upload that may be a PDF or a JPEG/PNG scan
+ * (travel passports and signed forms, H6d). Same 25 MB cap and client-scoped path as PDFs.
+ */
+export async function beginDocumentUploadAction(input: {
+  clientId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+}): Promise<ActionResult<{ path: string; token: string }>> {
+  try {
+    await getActor();
+    if (!input.clientId) return { ok: false, error: "Missing client." };
+    if (input.size <= 0) return { ok: false, error: "Choose a file to upload." };
+    if (input.size > PDF_UPLOAD_MAX_BYTES) return { ok: false, error: "Files must be 25 MB or smaller." };
+    const ext = UPLOAD_MIME_EXTENSIONS[input.mimeType];
+    if (!ext) return { ok: false, error: "Only PDF, JPG or PNG files can be uploaded here." };
+    return { ok: true, data: await createSignedUpload(documentUploadPath(input.clientId, randomUUID(), ext)) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." };
   }

@@ -11,6 +11,20 @@ export const PDF_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 export const pdfUploadPath = (clientId: string, id: string) => `${clientId}/${id}.pdf`;
 
 /**
+ * Requirement uploads (passport scans, signed forms) may be images as well as PDFs (H6d).
+ * The MIME type decides the stored extension; nothing else is accepted.
+ */
+export const UPLOAD_MIME_EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
+const UPLOAD_EXTENSIONS = Object.values(UPLOAD_MIME_EXTENSIONS);
+
+/** Storage key for a client document (PDF or image) uploaded straight from the browser. */
+export const documentUploadPath = (clientId: string, id: string, ext: string) => `${clientId}/${id}.${ext}`;
+
+/**
  * Turn a browser-uploaded PDF into a `documents` row. The browser wrote the object
  * itself, so the path and size are re-checked here rather than trusted.
  */
@@ -24,7 +38,7 @@ export async function registerUploadedPdf(input: {
   travelRequirementId?: string | null;
   policyId?: string | null;
 }): Promise<DocumentRecord> {
-  if (!input.path.startsWith(`${input.clientId}/`) || !input.path.endsWith(".pdf"))
+  if (!input.path.startsWith(`${input.clientId}/`) || !UPLOAD_EXTENSIONS.some((ext) => input.path.endsWith(`.${ext}`)))
     throw new Error("Invalid upload path.");
   const info = await getObjectInfo(input.path);
   if (Number(info.size) > PDF_UPLOAD_MAX_BYTES) {

@@ -146,3 +146,46 @@ export async function updateTravelRequirementAction(travelRequestId: string, req
     return { ok: false, error: error instanceof Error ? error.message : "Failed to update Travel requirement." };
   }
 }
+
+/**
+ * Register a requirement file picked on the wizard's travel screen (H6d) — the signed application
+ * form or a traveler's passport/ID — once the request exists, and mark that row Received.
+ */
+export async function recordTravelRequirementUploadAction(
+  travelRequestId: string,
+  requirementId: string,
+  path: string,
+  fileName: string,
+): Promise<ActionResult<{ documentId: string }>> {
+  const actor = await getActor();
+  try {
+    const travel = await getTravelRepository().findById(travelRequestId);
+    if (!travel) return { ok: false, error: "Travel request not found." };
+    const workflows = getCarrierWorkflowsRepository();
+    const requirement = (await workflows.listTravelRequirements(travelRequestId)).find((item) => item.id === requirementId);
+    if (!requirement) return { ok: false, error: "That requirement does not belong to this travel request." };
+    const doc = await registerUploadedPdf({
+      path,
+      name: `${requirement.documentName}${requirement.appliesTo ? ` — ${requirement.appliesTo}` : ""} (${fileName})`,
+      clientId: travel.clientId,
+      travelRequestId,
+      travelRequirementId: requirement.id,
+      documentType: requirement.documentName,
+      actorId: actor.id,
+    });
+    await workflows.updateTravelRequirement(requirement.id, "Received");
+    await recordActivity({
+      scopeType: "client",
+      scopeId: travel.clientId,
+      activityType: "document.uploaded",
+      summary: `${requirement.documentName} uploaded — ${travel.referenceNo ?? "travel request"}`,
+      actorId: actor.id,
+    });
+    revalidatePath("/travel");
+    revalidatePath(`/clients/${travel.clientId}`);
+    revalidatePath("/documents");
+    return { ok: true, data: { documentId: doc.id } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Couldn’t record the upload." };
+  }
+}
