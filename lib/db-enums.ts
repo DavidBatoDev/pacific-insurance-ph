@@ -54,3 +54,7 @@ export type ClientStatus = (typeof CLIENT_STATUSES)[number];
 /** `commission_rates.business_type` — supabase/migrations/0042_commission_rates.sql (Phase H H9a). */
 export const COMMISSION_BUSINESS_TYPES = ["New", "Renewal"] as const;
 export type CommissionBusinessType = (typeof COMMISSION_BUSINESS_TYPES)[number];
+
+/** `clients.payment_frequency` — supabase/migrations/0044_lead_proposal_fields.sql (Phase H H2a). */
+export const PAYMENT_FREQUENCIES = ["Annual", "Semi-annual"] as const;
+export type PaymentFrequency = (typeof PAYMENT_FREQUENCIES)[number];

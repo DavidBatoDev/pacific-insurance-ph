@@ -669,6 +669,7 @@ export type Database = {
           expected_close_date: string | null
           family_size: number | null
           first_name: string
+          gender: string | null
           id: string
           last_name: string
           lead_source: string | null
@@ -678,6 +679,7 @@ export type Database = {
           mobile_number: string | null
           next_follow_up_date: string | null
           notes: string | null
+          payment_frequency: string | null
           preferred_channel: string | null
           product_interest: string | null
           proposal_decision: string | null
@@ -701,6 +703,7 @@ export type Database = {
           expected_close_date?: string | null
           family_size?: number | null
           first_name: string
+          gender?: string | null
           id?: string
           last_name: string
           lead_source?: string | null
@@ -710,6 +713,7 @@ export type Database = {
           mobile_number?: string | null
           next_follow_up_date?: string | null
           notes?: string | null
+          payment_frequency?: string | null
           preferred_channel?: string | null
           product_interest?: string | null
           proposal_decision?: string | null
@@ -733,6 +737,7 @@ export type Database = {
           expected_close_date?: string | null
           family_size?: number | null
           first_name?: string
+          gender?: string | null
           id?: string
           last_name?: string
           lead_source?: string | null
@@ -742,6 +747,7 @@ export type Database = {
           mobile_number?: string | null
           next_follow_up_date?: string | null
           notes?: string | null
+          payment_frequency?: string | null
           preferred_channel?: string | null
           product_interest?: string | null
           proposal_decision?: string | null
