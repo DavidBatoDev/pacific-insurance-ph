@@ -74,7 +74,9 @@ export function ClaimRequirementsPanel({
     const pick = (latestStatusPick.current[item.id] ?? 0) + 1;
     latestStatusPick.current[item.id] = pick;
     replace({ ...item, status });
-    const result = await updateClaimRequirementStatusAction(claimId, item.id, status);
+    const result = await updateClaimRequirementStatusAction(claimId, item.id, status).catch(
+      (error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : "The save didn’t reach the server." }),
+    );
     if (!result.ok) {
       if (latestStatusPick.current[item.id] === pick) replace(item);
       return overlays.toast("Couldn’t update requirement", result.error);

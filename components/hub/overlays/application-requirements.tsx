@@ -77,7 +77,9 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
     const pick = (latestStatusPick.current[item.id] ?? 0) + 1;
     latestStatusPick.current[item.id] = pick;
     setRowStatus(item.id, status);
-    const result = await updateApplicationRequirementStatusAction(applicationId, item.id, status);
+    const result = await updateApplicationRequirementStatusAction(applicationId, item.id, status).catch(
+      (error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : "The save didn’t reach the server." }),
+    );
     if (!result.ok) {
       if (latestStatusPick.current[item.id] === pick) setRowStatus(item.id, item.status);
       return overlays.toast("Couldn’t update requirement", result.error);

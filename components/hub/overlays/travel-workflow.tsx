@@ -80,7 +80,9 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
     const pick = (latestStatusPick.current[id] ?? 0) + 1;
     latestStatusPick.current[id] = pick;
     setPayload((current) => current ? { ...current, requirements: current.requirements.map((item) => item.id === id ? { ...item, status } : item) } : current);
-    const result = await updateTravelRequirementAction(travelRequestId, id, status);
+    const result = await updateTravelRequirementAction(travelRequestId, id, status).catch(
+      (error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : "The save didn’t reach the server." }),
+    );
     if (!result.ok) {
       if (latestStatusPick.current[id] === pick && previous) {
         setPayload((current) => current ? { ...current, requirements: current.requirements.map((item) => item.id === id ? { ...item, status: previous } : item) } : current);
