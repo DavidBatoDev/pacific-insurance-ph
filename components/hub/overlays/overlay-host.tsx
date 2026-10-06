@@ -92,7 +92,7 @@ export function OverlayHost({
       if (overlay.modal === "new-lead") return <NewLeadDrawer onClose={close} />;
       if (overlay.modal === "issue-policy") return <IssuePolicyDrawer onClose={close} />;
       if (overlay.modal === "file-claim") return <FileClaimDrawer onClose={close} />;
-      if (overlay.modal === "new-travel-quote") return <NewApplicationWizard prefill={{ productInterest: "Travel Insurance" }} onClose={close} />;
+      if (overlay.modal === "new-travel-quote") return <NewApplicationWizard prefill={{ productInterest: "TravelSafe" }} onClose={close} />;
       if (overlay.modal === "request-proposal")
         return (
           <RequestProposalModal
