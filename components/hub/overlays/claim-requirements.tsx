@@ -6,45 +6,19 @@ import { useEffect, useState, useTransition } from "react";
 import {
   generateClaimRequirementsAction,
   getClaimRequirementsAction,
-  resetClaimRequirementsAction,
-  updateClaimRequirementRequiredAction,
-  updateClaimRequirementStatusAction,
   type ClaimRequirementsPayload,
 } from "@/app/(app)/claims/actions";
-import {
-  CLAIM_CHECKLIST_TYPES,
-  CLAIM_REQUIREMENT_STATUSES,
-  type ClaimChecklistType,
-  type ClaimRequirement,
-  type ClaimRequirementStatus,
-} from "@/lib/repositories/claim-requirements/claim-requirement.entity";
-import { cn } from "@/lib/utils";
-import { DocumentUploadForm } from "@/components/documents/document-upload-form";
+import { checklistForClaimType } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
 import { I } from "../icons";
 import { Btn, StatusBadge } from "../primitives";
+import { ClaimRequirementsPanel } from "./claim-requirements-panel";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
-const statusTone: Record<ClaimRequirementStatus, string> = {
-  Pending: "border-border-soft bg-card",
-  Received: "border-blue-border bg-blue-soft/50",
-  Incomplete: "border-red-border bg-red-soft/50",
-  Verified: "border-green-border bg-green-soft/50",
-};
-
 /**
- * Claim requirements overlay (TO-BE-UPDATE-PLAN.md Phase G, item G8).
- *
- * A deliberate clone of ApplicationRequirementsModal, not a generalisation of it.
- * Applications snapshot their checklist at creation time via the wizard, so that
- * modal only ever *displays* an already-populated list. Claims have no wizard --
- * there is no moment to snapshot at -- so this modal also owns an explicit
- * "generate checklist" step with a type choice (In-Patient / Out-Patient) that the
- * application modal has no equivalent of. Folding that into one shared component
- * would mean a payload type wide enough for both domains and a permanent branch
- * for the generate-vs-display lifecycles, for a payoff of a handful of shared
- * lines (a status-tone map, a progress bar). Two small focused files stay cheaper
- * to read than one component carrying two lifecycles.
+ * Claim requirements overlay (TO-BE-UPDATE-PLAN.md G8, H7c). The checklist body lives in
+ * ClaimRequirementsPanel (shared with the File Claim drawer). New claims get their checklist
+ * at filing time; this modal's "Generate checklist" is only a fallback for older claims.
  */
 export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; onClose: () => void }) {
   const router = useRouter();
@@ -66,52 +40,15 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
   }, [claimId]);
 
   const requirements = payload?.requirements ?? [];
-  const required = requirements.filter((item) => item.isRequired);
-  const complete = required.filter((item) => item.status === "Verified").length;
-  const outstanding = required.filter((item) => item.status === "Pending" || item.status === "Incomplete");
-  const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
-  // A mis-clicked checklist type can be undone only before any document work has started.
-  const canChangeType = requirements.every((item) => item.status === "Pending");
+  const checklistType = checklistForClaimType(payload?.claim.claimType ?? null);
 
-  const generate = (checklistType: ClaimChecklistType) =>
+  const generate = () =>
     startTransition(async () => {
-      const result = await generateClaimRequirementsAction(claimId, checklistType);
+      const result = await generateClaimRequirementsAction(claimId);
       if (!result.ok) return overlays.toast("Couldn’t generate checklist", result.error);
       setPayload((current) => current && { ...current, requirements: result.data });
       router.refresh();
       overlays.toast("Checklist generated", `${result.data.length} requirement${result.data.length === 1 ? "" : "s"} added from the ${checklistType} NOC checklist.`);
-    });
-
-  const reset = () =>
-    startTransition(async () => {
-      const result = await resetClaimRequirementsAction(claimId);
-      if (!result.ok) return overlays.toast("Couldn’t change the checklist type", result.error);
-      setPayload((current) => current && { ...current, requirements: [] });
-      router.refresh();
-      overlays.toast("Checklist cleared", "Pick the right checklist type.");
-    });
-
-  const update = (item: ClaimRequirement, status: ClaimRequirementStatus) =>
-    startTransition(async () => {
-      const result = await updateClaimRequirementStatusAction(claimId, item.id, status);
-      if (!result.ok) return overlays.toast("Couldn’t update requirement", result.error);
-      setPayload((current) => current && {
-        ...current,
-        requirements: current.requirements.map((requirement) => requirement.id === item.id ? result.data : requirement),
-      });
-      router.refresh();
-      overlays.toast("Requirement updated", `${item.documentName} is now ${status}.`);
-    });
-
-  const toggleRequired = (item: ClaimRequirement) =>
-    startTransition(async () => {
-      const result = await updateClaimRequirementRequiredAction(claimId, item.id, !item.isRequired);
-      if (!result.ok) return overlays.toast("Couldn’t update requirement", result.error);
-      setPayload((current) => current && {
-        ...current,
-        requirements: current.requirements.map((requirement) => requirement.id === item.id ? result.data : requirement),
-      });
-      router.refresh();
     });
 
   return (
@@ -135,44 +72,42 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
             <StatusBadge status={payload.claim.status} />
           </div>
 
-          {requirements.length === 0 ? (
+          {requirements.length === 0 && (
             <div className="mt-5 rounded-md border border-dashed border-border-strong px-4 py-8 text-center">
               <p className="text-[13px] font-semibold">No checklist generated yet</p>
-              <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Travel claims: nothing to generate — work from the TravelSafe NOC form directly.
-              </p>
-              <div className="mt-4 flex justify-center gap-2">
-                {CLAIM_CHECKLIST_TYPES.map((type) => (
-                  <Btn key={type} variant="primary" disabled={pending} onClick={() => generate(type)}>
-                    <I.clipboard size={14} /> Generate {type} checklist
-                  </Btn>
-                ))}
-              </div>
+              {checklistType ? (
+                <>
+                  <p className="mt-1 text-[12.5px] text-muted-foreground">This {payload.claim.claimType} claim uses the {checklistType} NOC checklist.</p>
+                  <div className="mt-4 flex justify-center">
+                    <Btn variant="primary" disabled={pending} onClick={generate}><I.clipboard size={14} /> Generate checklist</Btn>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-1 text-[12.5px] text-muted-foreground">
+                  {payload.claim.claimType === "Travel"
+                    ? "Travel claims: nothing to generate — work from the TravelSafe NOC form directly."
+                    : "This claim’s type has no checklist template. Pick a claim type below."}
+                </p>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="mt-5 rounded-md border border-border-soft bg-surface-2 px-4 py-3">
-                <div className="flex items-end justify-between gap-3"><div><div className="text-[12px] font-semibold">Verified package</div><div className="mt-0.5 text-[11.5px] text-muted-foreground">{complete} of {required.length} required documents verified</div></div><div className="text-[17px] font-bold tabular-nums text-brand-hover">{progress}%</div></div>
-                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-border-soft"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} /></div>
-              </div>
-
-              <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1">
-                {requirements.map((item) => (
-                  <div key={item.id} className={cn("rounded-md border px-3 py-2.5", statusTone[item.status])}><div className="flex items-center gap-3">
-                    <div className={cn("grid size-7 shrink-0 place-items-center rounded-full", item.status === "Verified" ? "bg-green text-white" : "bg-card text-muted-foreground")}><I.check size={14} /></div>
-                    <div className="min-w-0 flex-1"><div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>{(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}<label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label></div>
-                    <select aria-label={`Status for ${item.documentName}`} disabled={pending} value={item.status} onChange={(event) => update(item, event.target.value as ClaimRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
-                      {CLAIM_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
-                    </select>
-                  </div><div className="mt-2 pl-10"><DocumentUploadForm clientId={payload.claim.clientId} claimId={claimId} requirementId={item.id} /></div></div>
-                ))}
-              </div>
-            </>
           )}
+
+          <div className="mt-4">
+            <ClaimRequirementsPanel
+              claimId={claimId}
+              clientId={payload.claim.clientId}
+              claimType={payload.claim.claimType}
+              requirements={requirements}
+              onChange={(next, nextType) =>
+                setPayload((current) => current && { ...current, requirements: next, claim: nextType ? { ...current.claim, claimType: nextType } : current.claim })
+              }
+            />
+          </div>
         </div>
       )}
-      {!loading && payload && requirements.length > 0 && <div className="mt-5 flex items-center justify-between border-t border-border-soft pt-4"><div className="text-[11.5px] text-muted-foreground">{!canChangeType ? "Checklist type locked — documents already received" : outstanding.length ? `${outstanding.length} required item${outstanding.length === 1 ? "" : "s"} still need attention` : "No required documents are outstanding"}</div><div className="flex gap-2"><Btn variant="ghost" disabled={!canChangeType || pending} onClick={reset}>Change checklist type</Btn><Btn onClick={onClose}>Close</Btn></div></div>}
-      {!loading && payload && requirements.length === 0 && <div className="mt-5 flex items-center justify-end border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn></div>}
+      {!loading && (
+        <div className="mt-5 flex items-center justify-end border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn></div>
+      )}
     </Modal>
   );
 }

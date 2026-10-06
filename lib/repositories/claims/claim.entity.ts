@@ -39,6 +39,7 @@ export interface NewClaim {
 
 export interface ClaimUpdate {
   status?: string;
+  claimType?: string | null;
   amountApproved?: number | null;
   outcome?: string | null;
   notes?: string | null;

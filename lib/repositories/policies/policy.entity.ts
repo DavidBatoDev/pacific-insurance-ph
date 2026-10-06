@@ -14,6 +14,8 @@ export interface Policy {
   groupName: string | null;
   /** Joined convenience: product name via product_versions → products. */
   productName: string | null;
+  /** Joined convenience: product category (e.g. "Travel Insurance"). */
+  productCategory: string | null;
   /** Joined convenience: plan option's plan name. */
   planName: string | null;
   productVersionId: string | null;

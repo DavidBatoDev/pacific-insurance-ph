@@ -17,12 +17,12 @@ type JoinedRow = ClaimRow & {
     last_name: string;
     group_members: { group_accounts: { id: string; name: string } | null }[];
   } | null;
-  policies: { reference_no: string | null } | null;
+  policies: { reference_no: string | null; policy_number: string | null } | null;
 };
 
 const SELECT = `*,
   clients (first_name, last_name, group_members (group_accounts (id, name))),
-  policies (reference_no)`;
+  policies (reference_no, policy_number)`;
 
 function toDomain(row: JoinedRow): Claim {
   return {
@@ -35,7 +35,7 @@ function toDomain(row: JoinedRow): Claim {
     groupId: row.clients?.group_members?.[0]?.group_accounts?.id ?? null,
     groupName: row.clients?.group_members?.[0]?.group_accounts?.name ?? null,
     policyId: row.policy_id,
-    policyRef: row.policies?.reference_no ?? null,
+    policyRef: row.policies?.policy_number ?? row.policies?.reference_no ?? null,
     claimType: row.claim_type,
     incidentDate: row.incident_date,
     status: row.status,
@@ -110,6 +110,7 @@ export class SupabaseClaimsRepository implements ClaimsRepository {
   async update(id: string, input: ClaimUpdate): Promise<Claim> {
     const patch: ClaimPatch = {};
     if (input.status !== undefined) patch.status = input.status;
+    if (input.claimType !== undefined) patch.claim_type = input.claimType;
     if (input.amountApproved !== undefined) patch.amount_approved = input.amountApproved;
     if (input.outcome !== undefined) patch.outcome = input.outcome;
     if (input.notes !== undefined) patch.notes = input.notes;
