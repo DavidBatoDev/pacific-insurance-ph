@@ -22,6 +22,13 @@ export interface Commission {
   /** Rate (% of premium) the estimate used; null = pending/unknown. */
   ratePct: number | null;
   commissionRateId: string | null;
+  /** Joined from the payment: the premium the commission is computed on (H9c breakdown). */
+  premiumAmount: number | null;
+  premiumCurrency: string | null;
+  /** Joined from the rate row the estimate used. */
+  rateProductName: string | null;
+  rateBusinessType: string | null;
+  rateEffectiveDate: string | null;
   amount: number | null;
   followUpDate: string | null;
   receivedDate: string | null;

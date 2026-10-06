@@ -51,7 +51,7 @@ export function CommissionRatesTab({ rates, canEdit }: { rates: CommissionRate[]
       <div className="mb-4">
         <h3 className="text-[15px] font-bold">Commission rates</h3>
         <p className="mt-0.5 max-w-[620px] text-[12.5px] text-muted-foreground">
-          Estimates use these rates on the premium. VAT and withholding tax are not applied yet (H9b).
+          Estimates = premium × 0.88 (less 12% VAT — an assumption pending finance) × rate × 0.90 (less 10% withholding tax).
         </p>
         {!canEdit && (
           <p className="mt-1 text-[12px] text-faint">Only admins can change commission rates.</p>

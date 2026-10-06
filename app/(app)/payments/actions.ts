@@ -11,6 +11,7 @@ import {
   type Commission,
   type Payment,
 } from "@/lib/repositories/payments";
+import { computeCommission } from "@/lib/commissions/compute";
 import { getCommissionRatesRepository } from "@/lib/repositories/commission-rates";
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
 import { getTasksRepository } from "@/lib/repositories/tasks";
@@ -135,8 +136,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
       }
 
       // Auto-create the commission row + a voucher follow-up task.
-      // Rate comes from the effective-dated commission_rates table (H9a).
-      // Gross estimate only — the VAT/WHT formula is H9b; the ×0.88 VAT basis is an unconfirmed assumption (DH16).
+      // Rate comes from the effective-dated commission_rates table (H9a); the estimate is the
+      // NET commission from computeCommission (H9b: less 12% VAT, × rate, less 10% WHT). The
+      // ×0.88 VAT basis is an unconfirmed assumption (DH16) — see lib/commissions/compute.ts.
       const product = await resolvePaymentProduct(payment);
       const rate = product
         ? await getCommissionRatesRepository().findEffective(
@@ -147,7 +149,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
         : null;
       const est =
         rate?.ratePct != null && payment.amount != null
-          ? Math.round((payment.amount * rate.ratePct) / 100)
+          ? computeCommission(payment.amount, rate.ratePct).net
           : null;
       const pendingNote =
         rate?.ratePct == null

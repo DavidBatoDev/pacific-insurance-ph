@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { assignCommissionContactAction, updateCommissionAction } from "@/app/(app)/payments/actions";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { Commission } from "@/lib/repositories/payments";
+import { computeCommission, VAT_BASE_FACTOR, WITHHOLDING_TAX_RATE } from "@/lib/commissions/compute";
 import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
@@ -156,12 +157,13 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
                   peso(commission.amount)
                 ) : commission.estimatedAmount != null ? (
                   <span className="text-muted-foreground">
-                    ~{peso(commission.estimatedAmount)}
+                    ~{money(commission.estimatedAmount, commission.premiumCurrency)}
                     {commission.ratePct != null && (
                       <span className="block text-[11px] font-normal text-subtle">
-                        {commission.ratePct}% of premium
+                        {commission.ratePct}% · net of VAT and WHT
                       </span>
                     )}
+                    <CommissionBreakdownToggle commission={commission} />
                   </span>
                 ) : (
                   "—"
@@ -250,5 +252,60 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
         );
       }}
     />
+  );
+}
+
+const money = (amount: number, currency: string | null) =>
+  !currency || currency === "PHP"
+    ? "₱" + amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : `${currency} ${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/**
+ * H9c — the commission computation, shown step by step. Recomputed with the same
+ * `computeCommission` the payment action stored the estimate with, so the two always agree.
+ */
+function CommissionBreakdownToggle({ commission }: { commission: Commission }) {
+  const [open, setOpen] = useState(false);
+  if (commission.premiumAmount == null || commission.ratePct == null) return null;
+  const b = computeCommission(commission.premiumAmount, commission.ratePct);
+  const cur = commission.premiumCurrency;
+  const vatPct = Math.round((1 - VAT_BASE_FACTOR) * 100);
+  const whtPct = Math.round(WITHHOLDING_TAX_RATE * 100);
+  const lines: [string, string, boolean?][] = [
+    ["Premium", money(b.premium, cur)],
+    [`Less VAT (${vatPct}%)`, `− ${money(b.vat, cur)}`],
+    ["Commission base", money(b.base, cur)],
+    [`× rate (${b.ratePct}%)`, money(b.gross, cur)],
+    [`Less WHT (${whtPct}%)`, `− ${money(b.withholdingTax, cur)}`],
+    ["Net commission", money(b.net, cur), true],
+  ];
+  const source = [
+    commission.rateProductName,
+    commission.rateBusinessType,
+    commission.rateEffectiveDate ? `rate effective ${fmtDate(commission.rateEffectiveDate)}` : null,
+  ].filter(Boolean).join(" · ");
+  return (
+    <span className="block" onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="mt-0.5 font-sans text-[11px] font-semibold text-brand-hover hover:underline"
+      >
+        {open ? "Hide breakdown" : "Show breakdown"}
+      </button>
+      {open && (
+        <span className="mt-1.5 block min-w-[230px] rounded-md border border-border-soft bg-surface-2 px-2.5 py-2 text-left font-sans">
+          {lines.map(([label, value, strong]) => (
+            <span key={label} className={`flex justify-between gap-4 text-[11.5px] ${strong ? "mt-1 border-t border-border-soft pt-1 font-semibold text-foreground" : "font-normal text-muted-foreground"}`}>
+              <span>{label}</span>
+              <span className="whitespace-nowrap font-mono tabular-nums">{value}</span>
+            </span>
+          ))}
+          {source && <span className="mt-1.5 block text-[10.5px] font-normal text-subtle">{source}</span>}
+          <span className="mt-0.5 block text-[10.5px] font-normal text-subtle">VAT basis is an assumption pending finance (DH16).</span>
+        </span>
+      )}
+    </span>
   );
 }

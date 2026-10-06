@@ -156,12 +156,16 @@ type CommissionJoined = CommissionRow & {
   clients: { first_name: string; last_name: string } | null;
   policies: { reference_no: string | null } | null;
   external_contacts: { name: string; email: string | null; status: string } | null;
+  payments: { amount: number | null; currency: string | null } | null;
+  commission_rates: { business_type: string; effective_date: string; products: { name: string } | null } | null;
 };
 
 const COMMISSION_SELECT = `*,
   clients (first_name, last_name),
   policies (reference_no),
-  external_contacts (name, email, status)`;
+  external_contacts (name, email, status),
+  payments (amount, currency),
+  commission_rates (business_type, effective_date, products (name))`;
 
 function commissionToDomain(row: CommissionJoined): Commission {
   return {
@@ -182,6 +186,11 @@ function commissionToDomain(row: CommissionJoined): Commission {
     estimatedAmount: row.estimated_amount,
     ratePct: row.rate_pct == null ? null : Number(row.rate_pct),
     commissionRateId: row.commission_rate_id,
+    premiumAmount: row.payments?.amount == null ? null : Number(row.payments.amount),
+    premiumCurrency: row.payments?.currency ?? null,
+    rateProductName: row.commission_rates?.products?.name ?? null,
+    rateBusinessType: row.commission_rates?.business_type ?? null,
+    rateEffectiveDate: row.commission_rates?.effective_date ?? null,
     amount: row.amount,
     followUpDate: row.follow_up_date,
     receivedDate: row.received_date,
