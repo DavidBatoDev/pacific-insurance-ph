@@ -9,6 +9,7 @@ import {
   getDraftResumeAction,
   type AutoFilledWizardField,
   type WizardMode,
+  listProductRequirementPreviewAction,
 } from "@/app/(app)/applications/wizard-actions";
 import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
 import { listPaymentChannelOptionsAction } from "@/app/(app)/payments/actions";
@@ -40,6 +41,7 @@ import {
   uniquePlanPreferenceMatch,
   WIZ_CHECKLISTS,
   WIZ_STEPS,
+  type ChecklistItem,
   type WizardForm,
 } from "./wizard-data";
 
@@ -208,6 +210,22 @@ export function NewApplicationWizard({
     setF((s) => ({ ...s, ...patch }));
   };
 
+  // H3a: the authoritative requirement list for template-driven (non-health, non-travel) products.
+  const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
+  useEffect(() => {
+    if (!f.productVersionId || f.category === "health" || f.category === "travel" || !f.category) return;
+    let cancelled = false;
+    const key = `${f.productVersionId}:${f.remoteSale}`;
+    listProductRequirementPreviewAction(f.productVersionId, f.remoteSale)
+      .then((items) => {
+        if (!cancelled) setTemplatePreview({ key, items });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [f.productVersionId, f.category, f.remoteSale]);
+
   // Auto-generate the checklist when the category (or pre-existing flag) changes.
   useEffect(() => {
     if (!f.category) return;
@@ -261,8 +279,20 @@ export function NewApplicationWizard({
     } else if (f.category === "travel") {
       items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
     }
+    // Non-health, non-travel products (BC Flexi / group HMO and anything else template-driven):
+    // use the product's full set from the same template the server snapshots on create (H3a),
+    // once it has loaded for this exact product and sale channel.
+    if (
+      f.category !== "health" &&
+      f.category !== "travel" &&
+      templatePreview &&
+      templatePreview.key === `${f.productVersionId}:${f.remoteSale}` &&
+      templatePreview.items.length
+    ) {
+      items = templatePreview.items.map((item) => ({ ...item }));
+    }
     setF((s) => ({ ...s, checklist: items }));
-  }, [f.category, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.beneficiaryName, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
+  }, [f.category, templatePreview, f.productVersionId, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.beneficiaryName, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {
@@ -309,8 +339,11 @@ export function NewApplicationWizard({
   const attachmentMissing = hasEmailTarget && templateNeedsLibraryAttachment(f.emailTemplate) && !f.emailLibraryDocumentId;
   const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew && !travelMissing && !healthMissing && !(f.sendEmail && attachmentMissing);
 
+  // H3a: the product decides every later step (details, requirements), so it is chosen first.
+  // Drafts are exempt — an early inquiry may not know its product yet.
+  const productChosen = !!f.productVersionId;
   const go = (n: number) => {
-    const next = Math.max(1, Math.min(6, n));
+    const next = Math.max(1, Math.min(6, productChosen ? n : 1));
     setStep(next);
     setF((s) => ({ ...s, draftStep: next }));
   };
@@ -353,6 +386,11 @@ export function NewApplicationWizard({
         router.refresh();
         if (res.data.groupId) router.push(`/group/${res.data.groupId}`);
         onClose();
+        // H3a: land on the application's full requirement set instead of making the user find
+        // "Continue Application" on the client.
+        if (mode !== "draft" && res.data.applicationId && !res.data.travelRequestId && !res.data.groupId) {
+          overlays.openApplicationRequirements(res.data.applicationId);
+        }
       } else {
         overlays.toast("Couldn’t create the application", res.error);
       }
@@ -396,6 +434,8 @@ export function NewApplicationWizard({
               <button
                 key={s.n}
                 onClick={() => go(s.n)}
+                disabled={s.n > 1 && !productChosen}
+                title={s.n > 1 && !productChosen ? "Choose a product in Step 1 first" : undefined}
                 className={cn(
                   "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
                   step === s.n ? "bg-brand-soft" : "hover:bg-hover",
@@ -491,13 +531,15 @@ export function NewApplicationWizard({
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {!canDraft && "Add a name and contact method to save a draft"}
+            {step === 1 && !productChosen
+              ? "Choose a product to continue — it decides the requirements"
+              : !canDraft && "Add a name and contact method to save a draft"}
           </span>
           <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
             Save draft
           </Btn>
           {step < 6 ? (
-            <Btn variant="primary" disabled={resumeLoading || !!resumeError} onClick={() => go(step + 1)}>
+            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (step === 1 && !productChosen)} onClick={() => go(step + 1)}>
               Continue <I.chevRight size={15} />
             </Btn>
           ) : (

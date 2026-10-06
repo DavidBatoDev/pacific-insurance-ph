@@ -29,7 +29,7 @@ import { getPaymentsRepository } from "@/lib/repositories/payments";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
-import type { WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
+import type { ChecklistItem, WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
 import { ageFromDob, beneficiaryIdDocumentFor, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, medicalDocumentsFor, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
 
 export type WizardMode = "draft" | "create" | "email" | "docs";
@@ -95,6 +95,79 @@ const clientFamilySize = (value: string): number | null => {
  */
 const BASELINE_TEMPLATE_NAME = "Standard new-business baseline";
 
+type TemplateRequirementItem = {
+  id: string;
+  document_name: string;
+  is_required: boolean;
+  applies_to: string | null;
+  notes: string | null;
+  sort_order: number;
+  sale_channel: string | null;
+  phase: string | null;
+};
+
+/**
+ * The configurable checklist a non-health product's application gets: the product's Active
+ * template, else the named baseline, filtered to the sale channel. Shared by the server snapshot
+ * and the wizard's Step 4 preview (H3a) so the two cannot drift.
+ */
+async function templateRequirementItems(productVersionId: string | null, remoteSale: boolean | undefined): Promise<TemplateRequirementItem[]> {
+  const db = getSupabaseAdmin();
+  let templateQuery = db
+    .from("required_document_templates")
+    .select("id")
+    .eq("status", "Active")
+    .limit(1);
+  if (productVersionId) templateQuery = templateQuery.eq("product_version_id", productVersionId);
+  // Anchored by name rather than "the first Active template with no product". This query has no
+  // ordering, and since G8 there are three rows matching that looser description, two of which are
+  // claim checklists — an unanchored lookup could hand an application the Medical NOC list.
+  else templateQuery = templateQuery.is("product_version_id", null).eq("template_name", BASELINE_TEMPLATE_NAME);
+  let { data: template, error } = await templateQuery.maybeSingle();
+  if (error) throw new Error(error.message);
+
+  if (!template && productVersionId) {
+    const fallback = await db
+      .from("required_document_templates")
+      .select("id")
+      .eq("status", "Active")
+      .is("product_version_id", null)
+      .eq("template_name", BASELINE_TEMPLATE_NAME)
+      .maybeSingle();
+    template = fallback.data;
+    error = fallback.error;
+  }
+  if (error) throw new Error(error.message);
+  if (!template) return [];
+
+  const { data: items, error: itemsError } = await db
+    .from("required_document_items")
+    .select("id, document_name, is_required, applies_to, notes, sort_order, sale_channel, phase")
+    .eq("requirement_template_id", template.id)
+    .order("sort_order");
+  if (itemsError) throw new Error(itemsError.message);
+
+  const channel = remoteSale === undefined ? null : remoteSale ? "Remote" : "Face-to-face";
+  return (items ?? []).filter((item) => !channel || !item.sale_channel || item.sale_channel === channel) as TemplateRequirementItem[];
+}
+
+/**
+ * Step 4 preview for non-health products (H3a): the product's full requirement set, read from the
+ * same template the server snapshots on create. Conditional items carry their condition as `cond`.
+ */
+export async function listProductRequirementPreviewAction(productVersionId: string, remoteSale: boolean): Promise<ChecklistItem[]> {
+  await getActor();
+  const items = await templateRequirementItems(productVersionId || null, remoteSale);
+  return items.map((item) => ({
+    name: item.document_name,
+    cond: item.applies_to ?? (item.is_required ? null : "not required yet"),
+    checked: false,
+    status: "Pending",
+    isRequired: item.is_required,
+    phase: (item.phase as ChecklistItem["phase"]) ?? undefined,
+  }));
+}
+
 /** Copy the current configurable template into an immutable application checklist. */
 async function snapshotApplicationRequirements(applicationId: string, productVersionId: string | null, form?: WizardForm) {
   const requirements = getApplicationRequirementsRepository();
@@ -151,53 +224,15 @@ async function snapshotApplicationRequirements(applicationId: string, productVer
     return;
   }
 
-  const db = getSupabaseAdmin();
-  let templateQuery = db
-    .from("required_document_templates")
-    .select("id")
-    .eq("status", "Active")
-    .limit(1);
-  if (productVersionId) templateQuery = templateQuery.eq("product_version_id", productVersionId);
-  // Anchored by name rather than "the first Active template with no product". This query has no
-  // ordering, and since G8 there are three rows matching that looser description, two of which are
-  // claim checklists — an unanchored lookup could hand an application the Medical NOC list. Not
-  // reachable through the wizard today (the Create gate requires a product), but it would fail
-  // silently if it ever were, so close it rather than depend on that.
-  else templateQuery = templateQuery.is("product_version_id", null).eq("template_name", BASELINE_TEMPLATE_NAME);
-  let { data: template, error } = await templateQuery.maybeSingle();
-  if (error) throw new Error(error.message);
-
-  if (!template && productVersionId) {
-    const fallback = await db
-      .from("required_document_templates")
-      .select("id")
-      .eq("status", "Active")
-      .is("product_version_id", null)
-      .eq("template_name", BASELINE_TEMPLATE_NAME)
-      .maybeSingle();
-    template = fallback.data;
-    error = fallback.error;
-  }
-  if (error) throw new Error(error.message);
-  if (!template) return;
-
-  const { data: items, error: itemsError } = await db
-    .from("required_document_items")
-    .select("id, document_name, is_required, applies_to, notes, sort_order, sale_channel, phase")
-    .eq("requirement_template_id", template.id)
-    .order("sort_order");
-  if (itemsError) throw new Error(itemsError.message);
-
   // Same attestation-or-declaration rule as the health branch above. `form` is
   // optional here, so fall back to the persisted flag; if neither is available,
   // copy every item rather than guessing a channel and dropping a real requirement.
   let remoteSale = form?.remoteSale;
   if (remoteSale === undefined) {
-    const { data: application } = await db.from("applications").select("remote_sale").eq("id", applicationId).maybeSingle();
+    const { data: application } = await getSupabaseAdmin().from("applications").select("remote_sale").eq("id", applicationId).maybeSingle();
     remoteSale = application?.remote_sale ?? undefined;
   }
-  const channel = remoteSale === undefined ? null : remoteSale ? "Remote" : "Face-to-face";
-  const applicable = (items ?? []).filter((item) => !channel || !item.sale_channel || item.sale_channel === channel);
+  const applicable = await templateRequirementItems(productVersionId, remoteSale);
 
   await requirements.createMany(applicable.map((item) => ({
     applicationId,
