@@ -13,18 +13,12 @@ import {
 } from "@/app/(app)/applications/actions";
 import { APPLICATION_REQUIREMENT_STATUSES, type ApplicationRequirement, type ApplicationRequirementStatus, type RequirementPhase } from "@/lib/repositories/application-requirements/application-requirement.entity";
 import { cn } from "@/lib/utils";
+import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requirement-status";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { I } from "../icons";
 import { Btn, StatusBadge } from "../primitives";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
-
-const statusTone: Record<ApplicationRequirementStatus, string> = {
-  Pending: "border-border-soft bg-card",
-  Received: "border-blue-border bg-blue-soft/50",
-  Incomplete: "border-red-border bg-red-soft/50",
-  Verified: "border-green-border bg-green-soft/50",
-};
 
 export function ApplicationRequirementsModal({ applicationId, onClose }: { applicationId: string; onClose: () => void }) {
   const router = useRouter();
@@ -146,8 +140,8 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                   </div>
                 )}
                 {items.map((item) => (
-              <div key={item.id} className={cn("rounded-md border px-3 py-2.5", statusTone[item.status])}><div className="flex items-center gap-3">
-                <div className={cn("grid size-7 shrink-0 place-items-center rounded-full", item.status === "Verified" ? "bg-green text-white" : "bg-card text-muted-foreground")}><I.check size={14} /></div>
+              <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}><div className="flex items-center gap-3">
+                <RequirementStatusDot status={item.status} />
                 <div className="min-w-0 flex-1"><div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>{(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}<label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label></div>
                 <select aria-label={`Status for ${item.documentName}`} disabled={pending} value={item.status} onChange={(event) => update(item, event.target.value as ApplicationRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
                   {APPLICATION_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}

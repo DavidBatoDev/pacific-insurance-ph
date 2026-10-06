@@ -17,17 +17,10 @@ import {
   type ClaimRequirementStatus,
 } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
 import { cn } from "@/lib/utils";
+import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requirement-status";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
-import { I } from "../icons";
 import { Btn, INPUT } from "../primitives";
 import { useOverlays } from "./overlay-provider";
-
-const statusTone: Record<ClaimRequirementStatus, string> = {
-  Pending: "border-border-soft bg-card",
-  Received: "border-blue-border bg-blue-soft/50",
-  Incomplete: "border-red-border bg-red-soft/50",
-  Verified: "border-green-border bg-green-soft/50",
-};
 
 /**
  * The live claim checklist (progress, per-item status / required toggle / upload, and the
@@ -116,9 +109,9 @@ export function ClaimRequirementsPanel({
 
           <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1">
             {requirements.map((item) => (
-              <div key={item.id} className={cn("rounded-md border px-3 py-2.5", statusTone[item.status])}>
+              <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
                 <div className="flex items-center gap-3">
-                  <div className={cn("grid size-7 shrink-0 place-items-center rounded-full", item.status === "Verified" ? "bg-green text-white" : "bg-card text-muted-foreground")}><I.check size={14} /></div>
+                  <RequirementStatusDot status={item.status} />
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>
                     {(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}
