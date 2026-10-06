@@ -73,6 +73,13 @@ they are historical references, not active sources of task status. Current prior
 - Logging a proposal email is not sufficient evidence for `proposal_status = Sent`.
 - Some dashboards and long-tail operational flows still use partial data.
 
+### Open assumptions (to confirm before go-live)
+
+- **Commission VAT base (DH16, logged 2026-10-06).** Commission base computed as premium × 0.88
+  per Eman's examples. Not verified against actual payout statements. Strict VAT method (÷1.12)
+  would yield ₱40,178.57 vs ₱39,600 on a ₱250,000 premium. To be confirmed by finance before
+  go-live. Applies to Phase H H9b.
+
 ### Superseded baseline assumptions
 
 - The June blueprint's separate Prospect record and conversion-created Client record.
@@ -89,9 +96,11 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Migration files exist through `0040_document_library_enrollment_template.sql`; the next source
-  migration is `0041_*`. The remote ledger was last verified through `0037_carrier_rate_catalog.sql`
-  on 2026-08-27; deployment of `0038`–`0040` has not been verified here.
+- Migration files exist through `0043_client_status_archived.sql`. `0041` is reserved for the
+  D1 import schema, so `0042_commission_rates` and `0043_client_status_archived` were written
+  out of order. Both were applied to the remote project on 2026-10-06 and the types were
+  regenerated. The next free number is `0044_*`, unless `0041` is still unused. The remote
+  ledger for `0038`–`0040` was not re-verified here.
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.
 - Regenerate `lib/supabase/types.ts` after applying migrations and review the diff.

@@ -1422,7 +1422,7 @@ here has been decided on anyone's behalf.
   - **⚠️ Decision:** DH5. The notes say ₱1M for both, but the catalog lists Select Plus Private
     at 2M/3M/5M.
 
-- [ ] **H1c. Make the policy number and product/plan editable on the client.** Eman needs to
+- [x] **H1c. Make the policy number and product/plan editable on the client.** ✅ *Done 2026-10-06 (`eda87a4`, `edadc59`): a Policies card on the profile (number, product · plan, term, status, PDF / Attach PDF, Edit). `EditPolicyDrawer` → `updatePolicyAction`, with activity and a before/after audit. `PolicyUpdate` covers product, plan, payment mode and currency. Browser-verified.* Eman needs to
   correct these; staging is already surfacing wrong policy numbers.
   - **Current state:**
     - `PoliciesRepository.update()` supports `policyNumber`, status, dates, premium and notes
@@ -1439,7 +1439,7 @@ here has been decided on anyone's behalf.
     - Product/plan changes need `update()` extended to accept `product_version_id` /
       `plan_option_id`.
 
-- [ ] **H1d. Archived client status.** *(From the draft.)* Clients who have left (e.g. Assad Abla)
+- [x] **H1d. Archived client status.** ✅ *Done 2026-10-06 (`f12470c` migration `0043`, `614ae17`): hidden from the Clients list (with a "Show archived" toggle), the lead board, pickers, the nav count and the dashboard KPI. Still visible in global search (badge) and on the profile (banner). Archive / Restore in the ⋮ menu. The importer mapping stays with D1. Browser-verified.* *(From the draft.)* Clients who have left (e.g. Assad Abla)
   are kept for history, not deleted.
   - **Current state:** `clients.status` is `text default 'Active'` with no CHECK
     (`0002_identity.sql:64`). "Archived" exists only on `documents.status`.
@@ -1548,7 +1548,7 @@ here has been decided on anyone's behalf.
 
 ### H4 — Policies
 
-- [ ] **H4a. Reframe "Issue policy" as filing the carrier's copy, and add the PDF upload.** Eman
+- [x] **H4a. Reframe "Issue policy" as filing the carrier's copy, and add the PDF upload.** ✅ *Done 2026-10-06 (`eda87a4`): "Log policy copy" with an optional PDF filed as a `Policy Copy` document linked to the policy, plus "Attach PDF" later from the Policies card. Browser-verified.* Eman
   and Matt clarified that **Pacific Cross issues policies directly to the policyholder; the agency
   only receives a carbon copy for filing.** Matt confirmed the section's purpose is to store and
   quickly retrieve client policy copies.
@@ -1789,7 +1789,7 @@ clients, applications, travel and renewals.
 
 Payment details are not currently connected to the commission.
 
-- [ ] **H9a. Commission rate table, per product and business type.** *(JC: store the percentages
+- [x] **H9a. Commission rate table, per product and business type.** ✅ *Done 2026-10-06 (`f12470c` migration `0042`, `aef5877`): `commission_rates` seeded with the Oct 2 rates (HMO and FlexiShield pending), a Settings → Commission Rates tab (admin edit, effective-dated history), and `verifyPaymentAction` estimating from the product's effective rate. Still a gross estimate: VAT and WHT come with H9b. Browser-verified: ₱134,000 Select → ₱26,800.* *(JC: store the percentages
   and compute automatically.)*
   - **Current state:** `COMM_RATE = { Application: 0.18, Renewal: 0.1, Travel: 0.15 }` with a
     0.12 fallback (`app/(app)/payments/actions.ts:22`). It is keyed by payment *source*, not
@@ -1811,8 +1811,10 @@ Payment details are not currently connected to the commission.
   - **The client's worked examples (both must reproduce exactly):**
     - Blue Royale renewal: 250,000 − 12% = 220,000 × 20% = 44,000 − 10% = **39,600**.
     - Select: 134,000 − 12% = 117,920 × 20% = 23,584 − 10% = **21,225.60**.
-  - **⚠️ Decision:** DH16. The examples deduct VAT as `× 0.88`, which differs from extracting
-    VAT from a VAT-inclusive amount (`÷ 1.12`).
+  - **⚠️ Assumption DH16 (logged 2026-10-06, not a decision):** build with `× 0.88` per Eman's
+    examples. This has not been checked against real payout statements. Strict VAT (`÷ 1.12`)
+    would give ₱40,178.57 instead of ₱39,600 on ₱250,000. Finance must confirm before go-live.
+    Keep the VAT step a single, clearly named constant or function so it can be switched.
 
 - [ ] **H9c. Show the computation as a collapsible breakdown.** Make the formula visible inside the
   app for each commission row: premium → less VAT → base → × rate → gross → less WHT → net, plus
@@ -1852,7 +1854,7 @@ Payment details are not currently connected to the commission.
 | **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | Ask Eman; use the IP list for ER in the interim |
 | **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | Lock only when exactly one eligible policy; otherwise a picker showing carrier numbers |
 | **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |
-| **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | Follow the client's examples exactly; record it in `development-alignment.md` |
+| **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | ⚠️ **Assumption, not a decision (logged 2026-10-06):** "Commission base computed as premium × 0.88 per Eman's examples. Not verified against actual payout statements. Strict VAT method (÷1.12) would yield ₱40,178.57 vs ₱39,600 on a ₱250,000 premium. To be confirmed by finance before go-live." |
 | **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | Ask Eman; default to receive-and-upload, reusing the upload-back pattern |
 | **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | Vitest (one dev dependency) |
 | **DH19** | Travel commission: tracked as receivable, or already deducted at the portal? | The portal shows Net of Commission | Ask Eman before building H9a for Travel |
