@@ -1835,6 +1835,51 @@ Payment details are not currently connected to the commission.
     pay the *net* amount.
   - **⚠️ Decision:** DH19.
 
+### H10 — Follow-ups from testing step 4 (2026-10-06)
+
+Found while Joshua and Matt tested the step 4 flows on the live app.
+
+- [x] **H10a. Critical: a draft re-save overwrote an existing client.** ✅ *Done 2026-10-06
+  (`efc7996`).*
+  - **What happened:** browser autofill filled the hidden new-client fields. "Existing client"
+    was then picked, and re-saving the draft renamed CLI-2026-00001 "Matthew Nassr" with no
+    client audit row.
+  - **Fix, server side:** `buildDraftClientPatch` (`lib/applications/draft-client-patch.ts`,
+    unit-tested) never writes identity, owner or notes onto a client that existed before the
+    draft. Any change now records a `clients` audit row.
+  - **Fix, wizard side:** picking "Existing client" clears the hidden fields, and the
+    new-client inputs set `autoComplete="off"`.
+  - **Also in this commit:**
+    - A disabled Create now lists "Still needed: …" with links to each field.
+    - Picking a client with open work offers Continue draft / Open travel request / Open
+      requirements.
+    - A travel request that overlaps an open one is flagged.
+- [x] **H10b. Unfinished travel quotes on the Travel page.** ✅ *Done 2026-10-06 (`16c660a`).*
+  - Draft quotes, which live in `applications` until Create, are listed under a new
+    **Unfinished** filter with a "Draft" tag, a saved date and "Dates not set".
+  - New "Unfinished quotes" stat.
+  - Clicking a draft reopens it in the wizard.
+- [x] **H10c. Form polish.** ✅ *Done 2026-10-06 (`4270169`).*
+  - **Disabled buttons:** `Btn` has a real disabled state, so a blocked Create & open portal no
+    longer looks available.
+  - **Section cards:** wizard sections are cards with a completeness dot and label
+    (`sectionStatus`, unit-tested): neutral, green when complete, amber for reversed trip
+    dates. Reversed dates now also block Create.
+  - **Uploads:** a shared `FilePickField` is used everywhere. `DocumentUploadForm` is one line
+    (file, Details, Upload), with name, type and visibility behind Details.
+- [x] **H10d. A status indicator on every requirement row.** ✅ *Done 2026-10-06 (`52d4711`).*
+  The travel, claim and application checklists share
+  `components/hub/requirement-status.tsx`: the row tint and a dot for Pending, Received,
+  Incomplete and Verified.
+- [x] **H10e. Optimistic requirement status changes.** ✅ *Done 2026-10-06 (`04871f0`).*
+  - The row updates at once (measured at 100 ms) and saves in the background.
+  - If the save fails, the row reverts unless a newer pick superseded it.
+  - Status dropdowns no longer disable during a save.
+- [ ] **H10f. Claim checklist revert edge case.** In `claim-requirements-panel.tsx`, a failed
+  status save reverts using the row list captured when the change started. Another row
+  changed in the meantime can briefly snap back until the next reload. The fix is to give the
+  panel a functional update instead of a whole-array `onChange`.
+
 ### Phase H decisions — for Joshua (✅ = decided)
 
 | ID | Decision | Why it's open | Recommendation |
