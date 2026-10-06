@@ -9,6 +9,7 @@ import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
+import { getPoliciesRepository } from "@/lib/repositories/policies";
 import { getTemplatesRepository } from "@/lib/repositories/templates";
 import { getUsersRepository } from "@/lib/repositories/users";
 
@@ -28,7 +29,7 @@ export default async function ContactProfilePage({
   const { id } = await params;
   const { from } = await searchParams;
   // Everything keys off `id` alone, so it all runs in one round; a missing client just discards the rest.
-  const [rawClient, inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications] = await Promise.all([
+  const [rawClient, inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies] = await Promise.all([
     getClientsRepository().findById(id),
     leadInferenceCommunications(id),
     getClientRelatedCounts(id),
@@ -39,6 +40,7 @@ export default async function ContactProfilePage({
     getUsersRepository().findAssigneeOfClient(id),
     getIntegrationSettingsRepository().getProposalPortal(),
     getApplicationsRepository().listByClient(id),
+    getPoliciesRepository().listByClient(id),
   ]);
   if (!rawClient) notFound();
   const client = applyLeadStatusInference(rawClient, inferenceRows);
@@ -49,6 +51,7 @@ export default async function ContactProfilePage({
       counts={counts}
       dependents={dependents}
       documents={documents}
+      policies={policies}
       timeline={timeline}
       templates={templates}
       userNames={owner ? { [owner.id]: owner.fullName } : {}}

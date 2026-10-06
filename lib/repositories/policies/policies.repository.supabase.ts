@@ -38,6 +38,8 @@ function toDomain(row: JoinedRow): Policy {
     groupName: row.clients?.group_members?.[0]?.group_accounts?.name ?? null,
     productName: row.product_versions?.product?.name ?? null,
     planName: row.plan_options?.plan_name ?? null,
+    productVersionId: row.product_version_id,
+    planOptionId: row.plan_option_id,
     policyNumber: row.policy_number,
     status: row.status,
     effectiveDate: row.effective_date,
@@ -120,6 +122,10 @@ export class SupabasePoliciesRepository implements PoliciesRepository {
     const patch: PolicyPatch = {};
     if (input.status !== undefined) patch.status = input.status;
     if (input.policyNumber !== undefined) patch.policy_number = input.policyNumber;
+    if (input.productVersionId !== undefined) patch.product_version_id = input.productVersionId;
+    if (input.planOptionId !== undefined) patch.plan_option_id = input.planOptionId;
+    if (input.paymentMode !== undefined) patch.payment_mode = input.paymentMode;
+    if (input.currency !== undefined) patch.currency = input.currency;
     if (input.effectiveDate !== undefined) patch.effective_date = input.effectiveDate;
     if (input.expiryDate !== undefined) patch.expiry_date = input.expiryDate;
     if (input.renewalDate !== undefined) patch.renewal_date = input.renewalDate;

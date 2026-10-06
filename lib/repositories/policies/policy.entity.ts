@@ -16,6 +16,8 @@ export interface Policy {
   productName: string | null;
   /** Joined convenience: plan option's plan name. */
   planName: string | null;
+  productVersionId: string | null;
+  planOptionId: string | null;
   policyNumber: string | null;
   status: string;
   effectiveDate: string | null;
@@ -48,6 +50,10 @@ export interface NewPolicy {
 export interface PolicyUpdate {
   status?: string;
   policyNumber?: string | null;
+  productVersionId?: string | null;
+  planOptionId?: string | null;
+  paymentMode?: string | null;
+  currency?: string | null;
   effectiveDate?: string | null;
   expiryDate?: string | null;
   renewalDate?: string | null;

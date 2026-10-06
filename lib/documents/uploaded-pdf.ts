@@ -22,6 +22,7 @@ export async function registerUploadedPdf(input: {
   actorId: string;
   travelRequestId?: string | null;
   travelRequirementId?: string | null;
+  policyId?: string | null;
 }): Promise<DocumentRecord> {
   if (!input.path.startsWith(`${input.clientId}/`) || !input.path.endsWith(".pdf"))
     throw new Error("Invalid upload path.");
@@ -35,6 +36,7 @@ export async function registerUploadedPdf(input: {
     name: input.name,
     filePath: input.path,
     clientId: input.clientId,
+    policyId: input.policyId ?? null,
     travelRequestId: input.travelRequestId ?? null,
     travelRequirementId: input.travelRequirementId ?? null,
     documentType: input.documentType,

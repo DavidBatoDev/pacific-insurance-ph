@@ -3,14 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
-import { issuePolicyAction, listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
+import { issuePolicyAction, listProductOptionsAction, type ProductOption, type UploadedPolicyPdf } from "@/app/(app)/policies/actions";
+import { PdfUpload } from "@/components/documents/pdf-upload";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
-/** Issue Policy drawer (modals.md §4) — manually encode/activate a policy. */
+/**
+ * Log policy copy drawer (modals.md §4; TO-BE-UPDATE-PLAN.md H4a). Pacific Cross issues the policy
+ * directly to the policyholder; the agency logs its details and files the copy PDF here.
+ */
 export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -25,6 +29,8 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
   const [paymentMode, setPaymentMode] = useState("Annual");
   const [effective, setEffective] = useState("");
   const [expiry, setExpiry] = useState("");
+  // Uploaded to storage under the picked client; registered against the policy on save.
+  const [pdf, setPdf] = useState<UploadedPolicyPdf | null>(null);
 
   useEffect(() => {
     listProductOptionsAction().then(setProducts).catch(() => setProducts([]));
@@ -46,13 +52,13 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
         effectiveDate: effective || undefined,
         expiryDate: expiry || undefined,
         status: "Active",
-      });
+      }, pdf);
       if (res.ok) {
-        overlays.toast("Policy issued", `${res.data.referenceNo ?? "Policy"} — ${client.name} · ${res.data.productName ?? ""}.`);
+        overlays.toast("Policy copy logged", `${res.data.policyNumber ?? res.data.referenceNo ?? "Policy"} — ${client.name} · ${res.data.productName ?? ""}${pdf ? " · PDF filed" : ""}.`);
         router.refresh();
         onClose();
       } else {
-        overlays.toast("Couldn’t issue policy", res.error);
+        overlays.toast("Couldn’t log the policy copy", res.error);
       }
     });
   };
@@ -60,20 +66,27 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
   return (
     <Drawer
       icon="shield"
-      title="Issue policy"
+      title="Log policy copy"
       onClose={onClose}
       footer={
         <>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn variant="primary" disabled={!canSave} onClick={save}>
-            <I.shield size={15} /> {pending ? "Issuing…" : "Issue policy"}
+            <I.shield size={15} /> {pending ? "Saving…" : "Log policy copy"}
           </Btn>
         </>
       }
     >
       <Field label="Client" required>
-        <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
+        <ClientPicker
+          value={client}
+          onPick={(picked) => { setClient(picked); setPdf(null); }}
+          onClear={() => { setClient(null); setPdf(null); }}
+        />
       </Field>
+      <p className="mt-2 text-[12px] text-muted-foreground">
+        Pacific Cross issues the policy to the client. Log the details of the agency&apos;s copy and file its PDF.
+      </p>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <Field label="Product" required>
@@ -133,6 +146,24 @@ export function IssuePolicyDrawer({ onClose }: { onClose: () => void }) {
           <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
       </div>
+
+      <Field label="Policy copy (PDF)" className="mt-4" hint="Optional — you can attach it later from the client's profile.">
+        {!client ? (
+          <div className="rounded-md border border-dashed border-border-strong px-3.5 py-3 text-[12.5px] text-subtle">Pick a client first.</div>
+        ) : pdf ? (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-green-border bg-green-soft/50 px-3.5 py-2.5 text-[12.5px]">
+            <span className="flex min-w-0 items-center gap-2"><I.check size={14} className="shrink-0 text-green" /><span className="truncate">{pdf.fileName}</span></span>
+            <button type="button" className="text-[12px] font-semibold text-muted-foreground hover:text-foreground" onClick={() => setPdf(null)}>Replace</button>
+          </div>
+        ) : (
+          <PdfUpload
+            clientId={client.id}
+            prompt="Drop the policy PDF here, or click to choose. Remove the carrier password first."
+            disabled={pending}
+            onUploaded={async (path, fileName) => { setPdf({ path, fileName }); return { ok: true, data: null }; }}
+          />
+        )}
+      </Field>
     </Drawer>
   );
 }

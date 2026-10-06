@@ -189,7 +189,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
       title="Policies"
       sub={`${rows.length} policies under management`}
       icon={I.shield}
-      primaryAction="Issue policy"
+      primaryAction="Log policy copy"
       onPrimary={() => overlays.openPageModal("issue-policy")}
       stats={[
         { val: rows.filter((p) => p.status === "Active").length, label: "Active policies" },

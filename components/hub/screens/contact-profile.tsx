@@ -8,6 +8,7 @@ import type { TimelineEntry } from "@/lib/queries/contact-timeline";
 import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import type { Application } from "@/lib/repositories/applications";
+import type { Policy } from "@/lib/repositories/policies";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { I } from "../icons";
 import { canConvertLead } from "../lead-config";
@@ -21,6 +22,7 @@ import { RecordDecisionModal } from "../overlays/record-decision";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { ContactComposer, type ComposerTab } from "./contact-profile/composer";
 import { ContactPropertiesCard, DependentsCard, StateFlagsCard, type Dependent } from "./contact-profile/identity-cards";
+import { PoliciesCard } from "./contact-profile/policies-card";
 import { ProfileHeader } from "./contact-profile/profile-header";
 import { ProposalCard } from "./contact-profile/proposal-card";
 import {
@@ -44,6 +46,7 @@ interface Props {
   counts: ClientRelatedCounts;
   dependents: Dependent[];
   documents: Doc[];
+  policies: Policy[];
   timeline: TimelineEntry[];
   templates: EmailTemplate[];
   userNames: Record<string, string>;
@@ -58,6 +61,7 @@ export function ContactProfile({
   counts,
   dependents,
   documents,
+  policies,
   timeline,
   templates,
   userNames,
@@ -200,6 +204,7 @@ export function ContactProfile({
           <AssociatedRecordsCard counts={counts} />
           {draftApplications.length > 0 && <ApplicationDraftsCard draftApplications={draftApplications} />}
           {applications.length > 0 && <ApplicationRequirementsCard applications={applications} />}
+          {policies.length > 0 && <PoliciesCard policies={policies} documents={documents} />}
           <DocumentsCard client={client} documents={documents} />
         </div>
       </div>
