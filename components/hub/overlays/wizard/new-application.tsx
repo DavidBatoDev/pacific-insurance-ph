@@ -60,6 +60,8 @@ export interface WizardPrefill {
   dob?: string | null;
   familySize?: number | null;
   coverageTier?: string | null;
+  /** H2a: the lead's payment frequency from Generate Proposal (Annual / Semi-annual). */
+  paymentFrequency?: string | null;
   /* Display-only, for Step 2's read-only "Lead details" panel. These deliberately do NOT enter
      `WizardForm`: identity is locked to the lead record on a convert and the convert branch never
      writes them back, so keeping them out of the form means they can't drift or be re-saved. */
@@ -88,6 +90,7 @@ const AUTO_FILLED_LABEL: Record<AutoFilledWizardField, string> = {
   productVersionId: "Product",
   familySize: "Family size",
   coverageTier: "Coverage tier / room preference",
+  payFreq: "Payment frequency",
 };
 
 export function NewApplicationWizard({
@@ -117,6 +120,7 @@ export function NewApplicationWizard({
       dob: prefill?.dob ?? "",
       familySize: prefill?.familySize != null ? String(prefill.familySize) : "",
       coverageTier: prefill?.coverageTier ?? "",
+      payFreq: prefill?.paymentFrequency ?? "",
     }),
   );
   const skipInitialChecklist = useRef(Boolean(prefill?.draftApplicationId));
@@ -128,6 +132,7 @@ export function NewApplicationWizard({
       ...(prefill.dob ? { dob: prefill.dob } : {}),
       ...(prefill.familySize != null ? { familySize: String(prefill.familySize) } : {}),
       ...(prefill.coverageTier ? { coverageTier: prefill.coverageTier } : {}),
+      ...(prefill.paymentFrequency ? { payFreq: prefill.paymentFrequency } : {}),
     };
   });
   const [linkedClientName, setLinkedClientName] = useState<string | null>(null);

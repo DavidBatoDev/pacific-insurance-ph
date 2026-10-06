@@ -137,6 +137,7 @@ export function ContactProfile({
       dob: client.dateOfBirth,
       familySize: client.familySize,
       coverageTier: client.coverageTier,
+      paymentFrequency: client.paymentFrequency,
       mobileNumber: client.mobileNumber,
       referenceNo: client.referenceNo,
       ...(skipAhead ? { confirmedSkip: true } : {}),

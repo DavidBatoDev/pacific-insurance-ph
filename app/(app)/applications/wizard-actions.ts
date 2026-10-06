@@ -57,7 +57,8 @@ export type AutoFilledWizardField =
   | "source"
   | "productVersionId"
   | "familySize"
-  | "coverageTier";
+  | "coverageTier"
+  | "payFreq";
 
 export interface DraftResumePayload {
   form: WizardForm;
@@ -497,6 +498,8 @@ export async function getDraftResumeAction(
       source: resolveDefault("source", client.leadSource ?? ""),
       familySize: resolveDefault("familySize", client.familySize != null ? String(client.familySize) : ""),
       coverageTier: resolveDefault("coverageTier", client.coverageTier ?? ""),
+      // H2a: the frequency captured on Generate Proposal carries into the application.
+      payFreq: resolveDefault("payFreq", client.paymentFrequency ?? ""),
       productVersionId: resolveDefault("productVersionId", uniqueProduct?.id ?? ""),
       productName: hasSavedValue(saved.productName) ? saved.productName! : uniqueProduct?.name ?? "",
       category: hasSavedValue(saved.category)
