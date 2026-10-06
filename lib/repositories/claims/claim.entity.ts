@@ -22,6 +22,10 @@ export interface Claim {
   amountApproved: number | null;
   currency: string | null;
   notes: string | null;
+  /** How the client's claim arrived ('Hard copy' | 'Soft copy'). */
+  submissionMode: string | null;
+  /** Date the client's documents were received (YYYY-MM-DD). */
+  documentsReceivedDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +39,8 @@ export interface NewClaim {
   status?: string;
   amountClaimed?: number | null;
   notes?: string | null;
+  submissionMode?: string | null;
+  documentsReceivedDate?: string | null;
 }
 
 export interface ClaimUpdate {
@@ -43,4 +49,6 @@ export interface ClaimUpdate {
   amountApproved?: number | null;
   outcome?: string | null;
   notes?: string | null;
+  submissionMode?: string | null;
+  documentsReceivedDate?: string | null;
 }

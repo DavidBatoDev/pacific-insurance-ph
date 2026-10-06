@@ -18,6 +18,7 @@ import {
   checklistForClaimType,
   type ClaimType,
 } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
+import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import { getPoliciesRepository } from "@/lib/repositories/policies";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
@@ -91,6 +92,56 @@ export async function fileClaimAction(
     return { ok: true, data: { claim: created, requirements, warning } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to file claim." };
+  }
+}
+
+const fmtShortDate = (iso: string) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+
+/** Edits how/when the client's claim arrived (H7f), from the claim requirements modal. */
+export async function updateClaimIntakeAction(
+  claimId: string,
+  input: { submissionMode?: string | null; documentsReceivedDate?: string | null },
+): Promise<ActionResult<Claim>> {
+  const actor = await getActor();
+  try {
+    if (input.submissionMode && !(CLAIM_SUBMISSION_MODES as readonly string[]).includes(input.submissionMode)) {
+      return { ok: false, error: "Unknown submission mode." };
+    }
+    if (input.documentsReceivedDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.documentsReceivedDate)) {
+      return { ok: false, error: "Documents received must be a valid date." };
+    }
+    const claim = await getClaimsRepository().findById(claimId);
+    if (!claim) return { ok: false, error: "This claim could not be found." };
+
+    const updated = await getClaimsRepository().update(claimId, {
+      submissionMode: input.submissionMode === undefined ? undefined : input.submissionMode || null,
+      documentsReceivedDate: input.documentsReceivedDate === undefined ? undefined : input.documentsReceivedDate || null,
+    });
+    const parts = [
+      updated.submissionMode,
+      updated.documentsReceivedDate ? `received ${fmtShortDate(updated.documentsReceivedDate)}` : null,
+    ].filter(Boolean);
+    await recordActivity({
+      scopeType: "client",
+      scopeId: claim.clientId,
+      actorId: actor.id,
+      activityType: "claim.updated",
+      summary: `Claim intake updated — ${parts.join(", ") || "cleared"}`,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "update",
+      tableName: "claims",
+      recordId: claimId,
+      previousValue: { submission_mode: claim.submissionMode, documents_received_date: claim.documentsReceivedDate } as unknown as Json,
+      newValue: { submission_mode: updated.submissionMode, documents_received_date: updated.documentsReceivedDate } as unknown as Json,
+    });
+    revalidatePath("/claims");
+    revalidatePath(`/clients/${claim.clientId}`);
+    return { ok: true, data: updated };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to update the claim intake." };
   }
 }
 

@@ -6,11 +6,13 @@ import { useEffect, useState, useTransition } from "react";
 import {
   generateClaimRequirementsAction,
   getClaimRequirementsAction,
+  updateClaimIntakeAction,
   type ClaimRequirementsPayload,
 } from "@/app/(app)/claims/actions";
+import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import { checklistForClaimType } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
 import { I } from "../icons";
-import { Btn, StatusBadge } from "../primitives";
+import { Btn, INPUT, StatusBadge } from "../primitives";
 import { ClaimRequirementsPanel } from "./claim-requirements-panel";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
@@ -42,6 +44,28 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
   const requirements = payload?.requirements ?? [];
   const checklistType = checklistForClaimType(payload?.claim.claimType ?? null);
 
+  const saveIntake = (patch: { submissionMode?: string | null; documentsReceivedDate?: string | null }) => {
+    if (!payload) return;
+    const previous = payload.claim;
+    setPayload((current) => current && { ...current, claim: { ...current.claim, ...patch } });
+    void updateClaimIntakeAction(claimId, patch).then((result) => {
+      if (!result.ok) {
+        setPayload((current) =>
+          current && {
+            ...current,
+            claim: {
+              ...current.claim,
+              submissionMode: previous.submissionMode,
+              documentsReceivedDate: previous.documentsReceivedDate,
+            },
+          },
+        );
+        return overlays.toast("Couldn’t update claim intake", result.error);
+      }
+      router.refresh();
+    });
+  };
+
   const generate = () =>
     startTransition(async () => {
       const result = await generateClaimRequirementsAction(claimId);
@@ -72,6 +96,31 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
             <StatusBadge status={payload.claim.status} />
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              How it arrived
+              <select
+                className={`${INPUT} h-8 w-auto py-0 text-[12px]`}
+                value={payload.claim.submissionMode ?? ""}
+                onChange={(e) => saveIntake({ submissionMode: e.target.value || null })}
+              >
+                <option value="">—</option>
+                {CLAIM_SUBMISSION_MODES.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              Documents received
+              <input
+                className={`${INPUT} h-8 w-auto py-0 text-[12px]`}
+                type="date"
+                value={payload.claim.documentsReceivedDate ?? ""}
+                onChange={(e) => saveIntake({ documentsReceivedDate: e.target.value || null })}
+              />
+            </label>
+          </div>
+
           {requirements.length === 0 && (
             <div className="mt-5 rounded-md border border-dashed border-border-strong px-4 py-8 text-center">
               <p className="text-[13px] font-semibold">No checklist generated yet</p>
@@ -99,7 +148,13 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
               claimType={payload.claim.claimType}
               requirements={requirements}
               onChange={(next, nextType) =>
-                setPayload((current) => current && { ...current, requirements: next, claim: nextType ? { ...current.claim, claimType: nextType } : current.claim })
+                setPayload((current) =>
+                  current && {
+                    ...current,
+                    requirements: typeof next === "function" ? next(current.requirements) : next,
+                    claim: nextType ? { ...current.claim, claimType: nextType } : current.claim,
+                  },
+                )
               }
             />
           </div>

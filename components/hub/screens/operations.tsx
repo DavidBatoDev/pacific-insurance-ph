@@ -365,7 +365,16 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
           <Td><span className="font-mono text-[12px] text-muted-foreground">{c.referenceNo ?? "—"}</span></Td>
           <Td>
             <div className="flex items-center gap-2">
-              <ClientCell name={c.clientName ?? "—"} sub={c.claimType ?? undefined} />
+              <ClientCell name={c.clientName ?? "—"} sub={
+                  [
+                    c.claimType,
+                    c.submissionMode,
+                    c.documentsReceivedDate ? `received ${fmtDate(c.documentsReceivedDate)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
+                }
+              />
               {c.groupName && <GroupChip id={c.groupId} name={c.groupName} />}
             </div>
           </Td>

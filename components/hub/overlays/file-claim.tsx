@@ -9,6 +9,7 @@ import {
   previewClaimChecklistAction,
   type ClaimPolicyOption,
 } from "@/app/(app)/claims/actions";
+import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import type { Claim } from "@/lib/repositories/claims";
 import {
   CLAIM_TYPES,
@@ -24,6 +25,12 @@ import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
 
 type Preview = Awaited<ReturnType<typeof previewClaimChecklistAction>>;
+
+/** Today as YYYY-MM-DD in the local timezone. */
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 const policyLabel = (p: ClaimPolicyOption) => p.policyNumber ?? p.referenceNo ?? p.id.slice(0, 8);
 
@@ -51,6 +58,8 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
   const [chosenPolicyId, setChosenPolicyId] = useState("");
   const [claimType, setClaimType] = useState<string>("IP");
   const [incident, setIncident] = useState("");
+  const [submissionMode, setSubmissionMode] = useState("");
+  const [receivedDate, setReceivedDate] = useState(todayLocal);
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [preview, setPreview] = useState<{ type: string; data: Preview } | null>(null);
@@ -98,6 +107,8 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
         incidentDate: incident || undefined,
         amountClaimed: amount ? Number(amount.replace(/[^0-9]/g, "")) : undefined,
         notes: notes.trim() || undefined,
+        submissionMode: submissionMode || undefined,
+        documentsReceivedDate: receivedDate || undefined,
       });
       if (res.ok) {
         const { claim, requirements, warning } = res.data;
@@ -135,11 +146,11 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
           clientId={filed.claim.clientId}
           claimType={filed.claim.claimType}
           requirements={filed.requirements}
-          onChange={(requirements, nextType) =>
+          onChange={(next, nextType) =>
             setFiled((current) =>
               current && {
                 claim: nextType ? { ...current.claim, claimType: nextType } : current.claim,
-                requirements,
+                requirements: typeof next === "function" ? next(current.requirements) : next,
               },
             )
           }
@@ -180,6 +191,20 @@ export function FileClaimDrawer({ onClose }: { onClose: () => void }) {
         </Field>
         <Field label="Incident date">
           <input className={INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <Field label="How it arrived">
+          <select className={INPUT} value={submissionMode} onChange={(e) => setSubmissionMode(e.target.value)}>
+            <option value="">—</option>
+            {CLAIM_SUBMISSION_MODES.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Documents received">
+          <input className={INPUT} type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
         </Field>
       </div>
 

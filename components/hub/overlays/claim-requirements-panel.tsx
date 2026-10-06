@@ -39,7 +39,10 @@ export function ClaimRequirementsPanel({
   clientId: string;
   claimType: string | null;
   requirements: ClaimRequirement[];
-  onChange: (requirements: ClaimRequirement[], claimType?: string) => void;
+  onChange: (
+    requirements: ClaimRequirement[] | ((prev: ClaimRequirement[]) => ClaimRequirement[]),
+    claimType?: string,
+  ) => void;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -61,10 +64,11 @@ export function ClaimRequirementsPanel({
     });
   };
   const replace = (updated: ClaimRequirement) =>
-    onChange(requirements.map((requirement) => (requirement.id === updated.id ? updated : requirement)));
+    onChange((prev) => prev.map((requirement) => (requirement.id === updated.id ? updated : requirement)));
 
   // Optimistic: show the new status at once, save in the background, and restore the previous
-  // status only if the save fails and no newer pick for that row has superseded it.
+  // status only if the save fails and no newer pick for that row has superseded it. All updates
+  // are functional and touch only their own row, so a revert can't clobber another row.
   const latestStatusPick = useRef<Record<string, number>>({});
   const update = async (item: ClaimRequirement, status: ClaimRequirementStatus) => {
     const pick = (latestStatusPick.current[item.id] ?? 0) + 1;
