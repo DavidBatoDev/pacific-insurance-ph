@@ -92,7 +92,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     s.from("claims").select("*", head).eq("status", "Documents Pending"),
     s.from("travel_requests").select("*", head).eq("status", "Awaiting Payment"),
     s.from("applications").select("*", head).eq("status", "Missing Requirements"),
-    s.from("clients").select("*", head).in("lifecycle_stage", ["Client", "Policyholder", "Renewal"]),
+    s.from("clients").select("*", head).in("lifecycle_stage", ["Client", "Policyholder", "Renewal"]).eq("status", "Active"),
     s.from("policies").select("*", head).eq("status", "Active"),
     s.from("applications").select("*", head).not("status", "in", '("Approved","Lead")'),
     s.from("claims").select("*", head).not("status", "in", '("Closed","Rejected","Credited")'),

@@ -106,7 +106,7 @@ export async function globalSearch(query: string, cap = 5): Promise<SearchGroup[
         clientId: c.id,
         title: c.fullName,
         sub: [c.email, c.referenceNo ? `#${c.referenceNo}` : null].filter(Boolean).join(" · ") || c.clientType,
-        badge: c.lifecycleStage,
+        badge: c.status === "Archived" ? "Archived" : c.lifecycleStage,
       })),
     ),
     group(

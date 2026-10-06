@@ -23,7 +23,7 @@ export async function getShellStats(): Promise<ShellStats> {
 
   const [leads, clients, applications, renewals, claims, travel, tasks] = await Promise.all([
     supabase.from("clients").select("*", head).eq("lifecycle_stage", "Lead"),
-    supabase.from("clients").select("*", head),
+    supabase.from("clients").select("*", head).eq("status", "Active"),
     supabase.from("applications").select("*", head).not("status", "in", '("Approved","Lead")'),
     supabase.from("renewals").select("*", head).not("status", "in", '("Renewed","Lapsed")'),
     supabase.from("claims").select("*", head).not("status", "in", '("Closed","Rejected","Credited")'),

@@ -11,7 +11,7 @@ import {
 import { PRODUCT_COLORS } from "@/components/hub/lead-config";
 import { CoverageTierSelect } from "@/components/hub/overlays/coverage-tier-select";
 import type { Client } from "@/lib/repositories/clients";
-import { CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
+import { CLIENT_STATUSES, CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { cn } from "@/lib/utils";
 
 
@@ -179,12 +179,18 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
             </select>
           </Field>
           <Field label="Status">
-            <input
+            <select
               name="status"
               value={v.status}
               onChange={(e) => set("status", e.target.value)}
               className={inputCls}
-            />
+            >
+              {CLIENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </Field>
           <label className="flex items-center gap-2.5 pt-6">
             <input

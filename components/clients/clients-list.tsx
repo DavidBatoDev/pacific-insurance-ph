@@ -20,25 +20,35 @@ function fmtDate(iso: string) {
 export function ClientsList({
   clients,
   total,
+  archivedClients = [],
   groupsByClient = {},
 }: {
+  /** Active clients only. */
   clients: Client[];
   total: number;
+  /** Archived clients, revealed by the "Show archived" toggle. */
+  archivedClients?: Client[];
   /** Group-account membership per client id. */
   groupsByClient?: Record<string, { id: string; name: string }>;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+
+  const visible = useMemo(
+    () => (showArchived ? [...clients, ...archivedClients] : clients),
+    [showArchived, clients, archivedClients],
+  );
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
-    if (!ql) return clients;
-    return clients.filter((c) =>
+    if (!ql) return visible;
+    return visible.filter((c) =>
       [c.fullName, c.email, c.mobileNumber, c.referenceNo, c.leadSource]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(ql)),
     );
-  }, [q, clients]);
+  }, [q, visible]);
 
   const { sorted, sort, toggle } = useSort(filtered, "createdAt", "desc");
 
@@ -80,8 +90,19 @@ export function ClientsList({
               className="w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-subtle"
             />
           </div>
+          {archivedClients.length > 0 && (
+            <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="size-4 accent-[var(--brand)]"
+              />
+              Show archived ({archivedClients.length})
+            </label>
+          )}
           <span className="ml-auto whitespace-nowrap text-[12.5px] font-semibold text-subtle">
-            {sorted.length} of {total}
+            {sorted.length} of {total + (showArchived ? archivedClients.length : 0)}
           </span>
         </div>
 
@@ -106,6 +127,7 @@ export function ClientsList({
                 <Td>
                   <div className="flex items-center gap-2">
                     <ClientCell name={c.fullName} sub={c.email ?? undefined} />
+                    {c.status === "Archived" && <StatusBadge status="Archived" />}
                     {groupsByClient[c.id] && (
                       <button
                         onClick={(e) => {

@@ -22,8 +22,9 @@ export default async function ClientsPage({
     return <GroupAccountsList groups={groups} />;
   }
 
-  const [{ rows, total }, memberships] = await Promise.all([
+  const [{ rows, total }, archived, memberships] = await Promise.all([
     getClientsRepository().list({ limit: 200, orderBy: "created_at", ascending: false }),
+    getClientsRepository().list({ limit: 200, orderBy: "created_at", ascending: false, includeArchived: true }),
     getSupabaseAdmin()
       .from("group_members")
       .select("client_id, group_accounts (id, name)")
@@ -38,7 +39,12 @@ export default async function ClientsPage({
   return (
     <div>
       <ClientsViewToggle view="individuals" />
-      <ClientsList clients={rows} total={total} groupsByClient={groupsByClient} />
+      <ClientsList
+        clients={rows}
+        total={total}
+        archivedClients={archived.rows.filter((c) => c.status === "Archived")}
+        groupsByClient={groupsByClient}
+      />
     </div>
   );
 }

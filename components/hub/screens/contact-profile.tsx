@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 
+import { archiveClientAction, restoreClientAction } from "@/app/(app)/clients/archive-actions";
 import type { LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
 import type { TimelineEntry } from "@/lib/queries/contact-timeline";
 import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
@@ -71,6 +73,24 @@ export function ContactProfile({
   draftApplications,
 }: Props) {
   const overlays = useOverlays();
+  const router = useRouter();
+  const [, startArchive] = useTransition();
+
+  const toggleArchive = () => {
+    const archiving = client.status !== "Archived";
+    const ok = window.confirm(
+      archiving
+        ? `Archive ${client.fullName}? They will be hidden from active lists, pickers and counts, but stay searchable. You can restore them any time.`
+        : `Restore ${client.fullName} to the active client list?`,
+    );
+    if (!ok) return;
+    startArchive(async () => {
+      const res = archiving ? await archiveClientAction(client.id) : await restoreClientAction(client.id);
+      if (!res.ok) return overlays.toast(archiving ? "Couldn’t archive client" : "Couldn’t restore client", res.error);
+      overlays.toast(archiving ? "Client archived" : "Client restored", client.fullName);
+      router.refresh();
+    });
+  };
 
   const isLead = client.lifecycleStage === "Lead";
   const owner = userNames[client.assignedUserId ?? ""] ?? null;
@@ -155,6 +175,7 @@ export function ContactProfile({
         onConvert={() => openConvertWizard()}
         onConvertConfirm={() => setConvertConfirmOpen(true)}
         onMarkLost={() => setMarkLostOpen(true)}
+        onToggleArchive={toggleArchive}
         onGenerateProposal={() => setGenerateProposalOpen(true)}
         onRequestProposal={() => setProposalOpen(true)}
         focusEmail={focusEmail}

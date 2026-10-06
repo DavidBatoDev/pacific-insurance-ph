@@ -15,5 +15,5 @@ export function getClientsRepository(): ClientsRepository {
   return instance;
 }
 
-export type { ClientsRepository } from "./clients.repository";
+export type { ClientsRepository, ListClientsParams } from "./clients.repository";
 export type { Client, NewClient, ClientUpdate } from "./client.entity";

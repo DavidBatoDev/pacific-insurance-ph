@@ -2,9 +2,9 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError, type ListParams, type Paginated } from "../types";
+import { toRepositoryError, type Paginated } from "../types";
 import type { Client, ClientUpdate, NewClient } from "./client.entity";
-import type { ClientsRepository, DuplicateProbe } from "./clients.repository";
+import type { ClientsRepository, DuplicateProbe, ListClientsParams } from "./clients.repository";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 type ClientInsert = Database["public"]["Tables"]["clients"]["Insert"];
@@ -59,17 +59,18 @@ export class SupabaseClientsRepository implements ClientsRepository {
     return data ? toDomain(data) : null;
   }
 
-  async list(params: ListParams = {}): Promise<Paginated<Client>> {
+  async list(params: ListClientsParams = {}): Promise<Paginated<Client>> {
     const {
       limit = 50,
       offset = 0,
       orderBy = "created_at",
       ascending = false,
+      includeArchived = false,
     } = params;
 
-    const { data, error, count } = await getSupabaseAdmin()
-      .from("clients")
-      .select("*", { count: "exact" })
+    let query = getSupabaseAdmin().from("clients").select("*", { count: "exact" });
+    if (!includeArchived) query = query.eq("status", "Active");
+    const { data, error, count } = await query
       .order(orderBy, { ascending })
       .range(offset, offset + limit - 1);
 
@@ -82,6 +83,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
       .from("clients")
       .select("*")
       .eq("lifecycle_stage", "Lead")
+      .eq("status", "Active")
       .order("created_at", { ascending: true });
 
     if (error) throw toRepositoryError("ClientsRepository.listLeads", error);
@@ -176,18 +178,25 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (error) throw toRepositoryError("ClientsRepository.delete", error);
   }
 
-  async search(query: string, limit = 20): Promise<Client[]> {
+  async search(
+    query: string,
+    limit = 20,
+    opts: { includeArchived?: boolean } = {},
+  ): Promise<Client[]> {
+    const { includeArchived = true } = opts;
     // Strip characters that would break the PostgREST `or` filter grammar.
     const term = query.replace(/[,()%*]/g, " ").trim();
     if (!term) return [];
     const like = `%${term}%`;
 
-    const { data, error } = await getSupabaseAdmin()
+    let q = getSupabaseAdmin()
       .from("clients")
       .select("*")
       .or(
         `first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},mobile_number.ilike.${like},reference_no.ilike.${like}`,
-      )
+      );
+    if (!includeArchived) q = q.eq("status", "Active");
+    const { data, error } = await q
       .order("created_at", { ascending: false })
       .limit(limit);
 

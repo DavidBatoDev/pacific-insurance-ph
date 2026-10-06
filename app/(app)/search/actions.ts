@@ -23,7 +23,7 @@ export interface PaletteClientHit {
 export async function searchClientsForPalette(query: string): Promise<PaletteClientHit[]> {
   const term = query.trim();
   if (!term) return [];
-  const clients = await getClientsRepository().search(term, 8);
+  const clients = await getClientsRepository().search(term, 8, { includeArchived: false });
   return clients.map((c) => ({
     id: c.id,
     name: c.fullName,

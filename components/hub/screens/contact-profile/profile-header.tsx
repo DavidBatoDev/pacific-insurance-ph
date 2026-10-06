@@ -25,6 +25,7 @@ export function ProfileHeader({
   onConvert,
   onConvertConfirm,
   onMarkLost,
+  onToggleArchive,
   onGenerateProposal,
   onRequestProposal,
   focusEmail,
@@ -44,6 +45,8 @@ export function ProfileHeader({
   /** The early convert behind the skip confirmation. */
   onConvertConfirm: () => void;
   onMarkLost: () => void;
+  /** Archive (when Active) or restore (when Archived) — the caller owns the confirm. */
+  onToggleArchive: () => void;
   onGenerateProposal: () => void;
   onRequestProposal: () => void;
   focusEmail: (templateName?: string) => void;
@@ -70,6 +73,11 @@ export function ProfileHeader({
 
   return (
       <div className="relative mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        {client.status === "Archived" && (
+          <div className="mb-4 rounded-md border border-border bg-surface-2 px-3 py-2 pr-12 text-[12.5px] font-semibold text-muted-foreground">
+            Archived client — hidden from active lists. Restore from the ⋮ menu.
+          </div>
+        )}
         {/* Record-level actions (edit / delete) live behind the ⋮ so they don't sit next to the
             everyday ones — pr-9 keeps the row clear of the absolutely-placed trigger. */}
         <div className="absolute right-4 top-4 z-30">
@@ -122,6 +130,16 @@ export function ProfileHeader({
                     <I.x size={15} /> Mark Lost
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onToggleArchive();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover"
+                >
+                  <I.folder size={15} className="text-subtle" />
+                  {client.status === "Archived" ? "Restore client" : "Archive client"}
+                </button>
                 <DeleteClientButton
                   id={client.id}
                   className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] text-red transition-colors hover:bg-red-soft disabled:opacity-60"
@@ -144,6 +162,7 @@ export function ProfileHeader({
               {/* Identity only — name, record id, and the two read-only chips. Every button lives
                   in the action cluster below, so this row never mixes controls with the chips and
                   never strands one on its own line when it wraps. */}
+              {client.status === "Archived" && <Pill tone="slate">Archived</Pill>}
               {isLead && (
                 <>
                   <Pill tone={STAGE_TONE[client.leadStage ?? ""] ?? "slate"}>{client.leadStage}</Pill>
