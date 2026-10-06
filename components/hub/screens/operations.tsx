@@ -8,6 +8,7 @@ import type { Application } from "@/lib/repositories/applications";
 import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
 import type { Renewal } from "@/lib/repositories/renewals";
+import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
@@ -392,38 +393,98 @@ export function ClaimsLive({ rows }: { rows: Claim[] }) {
 }
 
 /* ---------------------------------- Travel --------------------------------- */
-export function TravelLive({ rows }: { rows: TravelRequest[] }) {
+type TravelListRow = {
+  kind: "request" | "draft";
+  id: string;
+  referenceNo: string | null;
+  clientName: string | null;
+  destination: string | null;
+  departureDate: string | null;
+  returnDate: string | null;
+  /** Dated rows first under the default ascending sort; undated drafts last. */
+  departureSort: string;
+  status: string;
+  quotedPremium: number | null;
+  savedAt: string | null;
+  _filter: string;
+};
+
+export function TravelLive({ rows, drafts }: { rows: TravelRequest[]; drafts: TravelDraft[] }) {
   const overlays = useOverlays();
   const awaiting = rows.filter((t) => t.status === "Awaiting Payment").length;
+  // Unfinished quotes (saved drafts) sit alongside the requests so Eman sees work in progress.
+  const listRows: TravelListRow[] = [
+    ...rows.map((t) => ({
+      kind: "request" as const,
+      id: t.id,
+      referenceNo: t.referenceNo,
+      clientName: t.clientName,
+      destination: t.destination,
+      departureDate: t.departureDate,
+      returnDate: t.returnDate,
+      departureSort: t.departureDate ?? "9999-12-31",
+      status: t.status,
+      quotedPremium: t.quotedPremium,
+      savedAt: null,
+      _filter: t.status,
+    })),
+    ...drafts.map((d) => ({
+      kind: "draft" as const,
+      id: d.id,
+      referenceNo: d.referenceNo,
+      clientName: d.clientName,
+      destination: d.destination,
+      departureDate: d.departureDate,
+      returnDate: d.returnDate,
+      departureSort: d.departureDate ?? "9999-12-31",
+      status: "Unfinished",
+      quotedPremium: d.quotedPremium,
+      savedAt: d.updatedAt,
+      _filter: "Unfinished",
+    })),
+  ];
 
   return (
     <ListScreen
       title="Travel Insurance"
-      sub={`${rows.length} open travel requests · ${awaiting} awaiting payment`}
+      sub={`${rows.length} open travel requests · ${awaiting} awaiting payment · ${drafts.length} unfinished`}
       icon={I.plane}
       primaryAction="New travel quote"
       onPrimary={() => overlays.openPageModal("new-travel-quote")}
       stats={[
         { val: rows.length, label: "Open requests" },
+        { val: drafts.length, label: "Unfinished quotes", color: "var(--slate)" },
         { val: awaiting, label: "Awaiting payment", color: "var(--amber)" },
         { val: rows.filter((t) => t.status === "Policy Issued").length, label: "Policies issued", color: "var(--brand)" },
         { val: pesoShort(rows.filter((t) => t.status === "Awaiting Payment").reduce((a, t) => a + (t.quotedPremium ?? 0), 0)), label: "Awaiting payment ₱", color: "var(--brand)" },
       ]}
-      filters={["Awaiting Payment", "Under Review", "Policy Issued"]}
-      rows={rows.map((t) => ({ ...t, _filter: t.status }))}
-      defaultSort={{ key: "departureDate", dir: "asc" }}
+      filters={["Unfinished", "Awaiting Payment", "Under Review", "Policy Issued"]}
+      rows={listRows}
+      defaultSort={{ key: "departureSort", dir: "asc" }}
       emptyText="No travel requests yet."
       columns={[
         { k: "referenceNo", label: "Travel no." },
         { k: "clientName", label: "Client" },
         { k: "destination", label: "Destination" },
-        { k: "departureDate", label: "Travel dates" },
+        { k: "departureSort", label: "Travel dates" },
         { k: "status", label: "Status" },
         { k: "quotedPremium", label: "Premium", num: true },
       ]}
       renderRow={(t) => (
-        <Row key={t.id} onClick={() => overlays.openTravelWorkflow(t.id)}>
-          <Td><span className="font-mono text-[12px] text-muted-foreground">{t.referenceNo ?? "—"}</span></Td>
+        <Row
+          key={`${t.kind}-${t.id}`}
+          onClick={() =>
+            t.kind === "draft" ? overlays.openWizard({ draftApplicationId: t.id }) : overlays.openTravelWorkflow(t.id)
+          }
+        >
+          <Td>
+            <span className="font-mono text-[12px] text-muted-foreground">{t.referenceNo ?? "—"}</span>
+            {t.kind === "draft" && (
+              <span className="ml-1.5 rounded border border-border-strong px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-subtle">
+                Draft
+              </span>
+            )}
+          </Td>
           <Td>
             <div className="flex items-center gap-2.5">
               <Avatar name={t.clientName ?? "—"} size={28} />
@@ -432,9 +493,18 @@ export function TravelLive({ rows }: { rows: TravelRequest[] }) {
           </Td>
           <Td className="font-[550]">{t.destination ?? "—"}</Td>
           <Td className="text-muted-foreground">
-            {fmtDate(t.departureDate)} – {fmtDate(t.returnDate)}
+            {t.kind === "draft" && (!t.departureDate || !t.returnDate) ? (
+              <span className="font-semibold text-amber">Dates not set</span>
+            ) : (
+              <>
+                {fmtDate(t.departureDate)} – {fmtDate(t.returnDate)}
+              </>
+            )}
           </Td>
-          <Td><StatusBadge status={t.status} /></Td>
+          <Td>
+            <StatusBadge status={t.status} />
+            {t.savedAt && <div className="mt-0.5 text-[11px] text-subtle">saved {fmtDate(t.savedAt)}</div>}
+          </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
             {t.quotedPremium != null ? peso(t.quotedPremium) : "—"}
           </Td>
