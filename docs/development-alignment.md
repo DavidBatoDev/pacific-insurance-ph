@@ -104,6 +104,8 @@ they are historical references, not active sources of task status. Current prior
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.
 - Regenerate `lib/supabase/types.ts` after applying migrations and review the diff.
+- Unit tests run with `npm test` (Vitest 4, `vitest.config.mts`, `**/*.test.ts`). Added 2026-10-06
+  for the commission formula (`lib/commissions/compute.test.ts`).
 - Carrier-library document preview and new document-type UI must not be considered deploy-ready
   until migrations `0038`–`0040` are confirmed in the target remote ledger.
 

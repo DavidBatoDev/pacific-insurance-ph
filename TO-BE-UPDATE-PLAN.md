@@ -1806,7 +1806,7 @@ Payment details are not currently connected to the commission.
     | Travel | 30% | 30% |
     | HMO | *pending — ask Eman* | *pending* |
 
-- [ ] **H9b. One pure commission function.**
+- [x] **H9b. One pure commission function.** ✅ *Done 2026-10-06 (`004fe44`, `58c04e5`): `lib/commissions/compute.ts` `computeCommission(premium, ratePct)` works in centavos and reproduces both client examples exactly. The VAT step is the single `VAT_BASE_FACTOR = 0.88` constant (DH16 assumption). `verifyPaymentAction` now stores the **net** estimate. Browser-verified: ₱250,000 Blue Royale @ 22.5% → ₱44,550.*
   - **Formula:** paid premium − 12% VAT → × rate → − 10% withholding tax = net commission.
   - **The client's worked examples (both must reproduce exactly):**
     - Blue Royale renewal: 250,000 − 12% = 220,000 × 20% = 44,000 − 10% = **39,600**.
@@ -1816,7 +1816,7 @@ Payment details are not currently connected to the commission.
     would give ₱40,178.57 instead of ₱39,600 on ₱250,000. Finance must confirm before go-live.
     Keep the VAT step a single, clearly named constant or function so it can be switched.
 
-- [ ] **H9c. Show the computation as a collapsible breakdown.** Make the formula visible inside the
+- [x] **H9c. Show the computation as a collapsible breakdown.** ✅ *Done 2026-10-06 (`58c04e5`): a "Show breakdown" toggle on each commission row (premium → VAT → base → rate → gross → WHT → net, plus the rate's source and the DH16 note). It is recomputed with the same function. Browser-verified.* Make the formula visible inside the
   app for each commission row: premium → less VAT → base → × rate → gross → less WHT → net, plus
   the rate's source (product, business type, effective date).
 
@@ -1826,7 +1826,7 @@ Payment details are not currently connected to the commission.
     contact and sets `voucher_status = requested` (`commissions-live.tsx:75-92`).
   - **⚠️ Decision:** DH17.
 
-- [ ] **H9e. Tests for H9b.** The repo has no test runner (no `test` script, no Vitest or Jest).
+- [x] **H9e. Tests for H9b.** ✅ *Done 2026-10-06 (`004fe44`): Vitest 4 with `npm test`; `lib/commissions/compute.test.ts` (7 tests: both client examples step by step, 22.5%, centavo rounding, 0%, the constants, error cases). Installed with `--legacy-peer-deps` because npm 10.9's peer resolver crashed; Vitest 5 needs `@types/node` ≥ 22.* The repo has no test runner (no `test` script, no Vitest or Jest).
   - **⚠️ Decision:** DH18.
 
 - [ ] **H9f. Travel commission may already be netted at payment.**
@@ -1856,7 +1856,7 @@ Payment details are not currently connected to the commission.
 | **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |
 | **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | ⚠️ **Assumption, not a decision (logged 2026-10-06):** "Commission base computed as premium × 0.88 per Eman's examples. Not verified against actual payout statements. Strict VAT method (÷1.12) would yield ₱40,178.57 vs ₱39,600 on a ₱250,000 premium. To be confirmed by finance before go-live." |
 | **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | Ask Eman; default to receive-and-upload, reusing the upload-back pattern |
-| **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | Vitest (one dev dependency) |
+| **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | ✅ **Decided 2026-10-06: Vitest** (v4, `npm test`) |
 | **DH19** | Travel commission: tracked as receivable, or already deducted at the portal? | The portal shows Net of Commission | Ask Eman before building H9a for Travel |
 | **DH20** | JC's draft mentions a "₱150,000 threshold rule" for VAT | Not in the notes; origin unknown | Drop unless JC can source it |
 
