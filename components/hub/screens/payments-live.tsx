@@ -9,12 +9,11 @@ import type { Commission, Payment } from "@/lib/repositories/payments";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { peso, pesoShort } from "@/lib/format";
-import type { Tone } from "../tone";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { Drawer } from "../overlays/drawer";
 import { useOverlays } from "../overlays/overlay-provider";
-import { Btn, Field, INPUT, Pill, StatusBadge } from "../primitives";
+import { Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { CommissionsLive } from "./commissions-live";
 import { ListScreen } from "./list-screen";
@@ -22,14 +21,6 @@ import { ListScreen } from "./list-screen";
 /**
  * Payments — Collections + Commissions tabs (see payments-page.md), wired to the payments and commissions tables.
  */
-
-const SOURCE_TONE: Record<string, Tone> = {
-  Application: "blue",
-  Renewal: "violet",
-  Travel: "amber",
-  Policy: "green",
-  Other: "slate",
-};
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
@@ -105,9 +96,7 @@ export function PaymentsLive({
         <Row key={p.id} onClick={() => p.clientId && openContact(p.clientId)} onMouseEnter={() => p.clientId && prefetchContact(p.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
           <Td><ClientCell name={p.clientName ?? "—"} sub={p.sourceRef ?? undefined} /></Td>
-          <Td>
-            <Pill size="sm" tone={SOURCE_TONE[p.source]}>{p.source}</Pill>
-          </Td>
+          <Td><SourceCell payment={p} /></Td>
           <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? peso(p.amount) : "—"}</Td>
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>
           <Td><StatusBadge status={p.status} /></Td>
@@ -137,6 +126,43 @@ export function PaymentsLive({
       {tab === "collections" ? collections : <CommissionsLive commissions={commissions} commissionContacts={commissionContacts} />}
       {verify && <VerifyPaymentDrawer payment={verify} onClose={() => setVerify(null)} />}
     </div>
+  );
+}
+
+/** Source type + reference, linking to the record the payment belongs to. */
+function SourceCell({ payment: p }: { payment: Payment }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const { openContact } = useRecordNav();
+
+  let go: (() => void) | null = null;
+  if (p.source === "Application" && p.applicationId) {
+    const id = p.applicationId;
+    go = () => overlays.openApplicationRequirements(id);
+  } else if (p.source === "Travel" && p.travelRequestId) {
+    const id = p.travelRequestId;
+    go = () => overlays.openTravelWorkflow(id);
+  } else if (p.source === "Renewal") {
+    go = () => router.push("/renewals");
+  } else if (p.source === "Policy" && p.clientId) {
+    const id = p.clientId;
+    go = () => openContact(id);
+  }
+
+  if (!go) return <span className="text-[12.5px] text-muted-foreground">{p.source}</span>;
+  const run = go;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        run();
+      }}
+      className="rounded-sm text-left text-[12.5px] font-semibold text-brand-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+    >
+      {p.source}
+      {p.sourceRef ? ` · ${p.sourceRef}` : ""}
+    </button>
   );
 }
 
