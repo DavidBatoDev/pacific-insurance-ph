@@ -35,28 +35,26 @@ export function PoliciesCard({ policies, documents }: { policies: Policy[]; docu
           : null;
         return (
           <div key={policy.id} className="border-b border-border-soft px-[18px] py-2.5 last:border-0">
-            <div className="flex items-start gap-2.5">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  {policy.policyNumber ? (
-                    <span className="truncate font-mono text-[12.5px] font-semibold">{policy.policyNumber}</span>
-                  ) : (
-                    <span className="text-[12px] font-semibold text-amber">No policy number</span>
-                  )}
-                  <StatusBadge status={policy.status} />
-                </div>
-                <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
-                  {[policy.productName, policy.planName].filter(Boolean).join(" · ") || "Product not set"}
-                </div>
-                <div className="mt-0.5 text-[11px] text-subtle">
-                  {[
-                    policy.paymentMode,
-                    policy.premiumAmount != null ? (policy.currency && policy.currency !== "PHP" ? `${policy.currency} ${policy.premiumAmount.toLocaleString()}` : peso(policy.premiumAmount)) : null,
-                    term,
-                    policy.referenceNo,
-                  ].filter(Boolean).join(" · ")}
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {policy.policyNumber ? (
+                <span className="font-mono text-[12.5px] font-semibold">{policy.policyNumber}</span>
+              ) : (
+                <span className="whitespace-nowrap text-[12px] font-semibold text-amber">No policy number</span>
+              )}
+              <StatusBadge status={policy.status} />
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+              {[policy.productName, policy.planName].filter(Boolean).join(" · ") || "Product not set"}
+            </div>
+            <div className="mt-0.5 text-[11px] text-subtle">
+              {[
+                policy.paymentMode,
+                policy.premiumAmount != null ? (policy.currency && policy.currency !== "PHP" ? `${policy.currency} ${policy.premiumAmount.toLocaleString()}` : peso(policy.premiumAmount)) : null,
+                term,
+                policy.referenceNo,
+              ].filter(Boolean).join(" · ")}
+            </div>
+            <div className="mt-1.5 flex items-center gap-1 -ml-1.5">
               {pdf ? (
                 <a
                   href={`/api/documents/${pdf.id}/download`}
