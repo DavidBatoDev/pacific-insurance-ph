@@ -68,12 +68,23 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
     });
   };
 
-  const setRequirement = (id: string, status: "Pending" | "Received" | "Incomplete" | "Verified") => startTransition(async () => {
-    const result = await updateTravelRequirementAction(travelRequestId, id, status);
-    if (!result.ok) return overlays.toast("Couldn’t update requirement", result.error);
+  // Optimistic: the row shows the new status at once and the save runs in the background. A failed
+  // save restores the previous status — unless a newer pick for that row has superseded it.
+  const latestStatusPick = useRef<Record<string, number>>({});
+  const setRequirement = async (id: string, status: "Pending" | "Received" | "Incomplete" | "Verified") => {
+    const previous = payload?.requirements.find((item) => item.id === id)?.status;
+    const pick = (latestStatusPick.current[id] ?? 0) + 1;
+    latestStatusPick.current[id] = pick;
     setPayload((current) => current ? { ...current, requirements: current.requirements.map((item) => item.id === id ? { ...item, status } : item) } : current);
+    const result = await updateTravelRequirementAction(travelRequestId, id, status);
+    if (!result.ok) {
+      if (latestStatusPick.current[id] === pick && previous) {
+        setPayload((current) => current ? { ...current, requirements: current.requirements.map((item) => item.id === id ? { ...item, status: previous } : item) } : current);
+      }
+      return overlays.toast("Couldn’t update requirement", result.error);
+    }
     router.refresh();
-  });
+  };
 
   return <Modal onClose={onClose} maxWidth={820}>
     {!payload ? <div className="grid min-h-52 place-items-center text-[13px] text-muted-foreground">{error ?? "Loading Travel workflow…"}</div> : <div>
@@ -120,7 +131,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
         <p className="mt-2 text-[11px] text-muted-foreground">The carrier purchase remains manual. Portal credentials are held outside this app.</p>
       </div>
 
-      <div className="mt-4"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div><div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className={`rounded-md border p-3 transition-colors ${requirementRowTone(item.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"><RequirementStatusDot status={item.status} className="max-sm:hidden" /><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div><div className="text-[11px] text-muted-foreground">{item.appliesTo}</div></div><select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} disabled={pending} onChange={(event) => setRequirement(item.id, event.target.value as typeof item.status)}><option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option></select></div><div className="mt-2 sm:pl-10"><DocumentUploadForm clientId={payload.travel.clientId} travelRequestId={travelRequestId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined} /></div></div>)}</div></div>
+      <div className="mt-4"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div><div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className={`rounded-md border p-3 transition-colors ${requirementRowTone(item.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"><RequirementStatusDot status={item.status} className="max-sm:hidden" /><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div><div className="text-[11px] text-muted-foreground">{item.appliesTo}</div></div><select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}><option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option></select></div><div className="mt-2 sm:pl-10"><DocumentUploadForm clientId={payload.travel.clientId} travelRequestId={travelRequestId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined} /></div></div>)}</div></div>
     </div>}
     <div className="mt-5 flex justify-end gap-2 border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn><Btn variant="primary" disabled={!payload || pending} onClick={save}>Save workflow</Btn></div>
   </Modal>;

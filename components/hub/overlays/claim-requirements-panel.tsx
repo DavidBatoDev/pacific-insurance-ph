@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
   changeClaimTypeAction,
@@ -63,14 +63,20 @@ export function ClaimRequirementsPanel({
   const replace = (updated: ClaimRequirement) =>
     onChange(requirements.map((requirement) => (requirement.id === updated.id ? updated : requirement)));
 
-  const update = (item: ClaimRequirement, status: ClaimRequirementStatus) =>
-    startTransition(async () => {
-      const result = await updateClaimRequirementStatusAction(claimId, item.id, status);
-      if (!result.ok) return overlays.toast("Couldn’t update requirement", result.error);
-      replace(result.data);
-      router.refresh();
-      overlays.toast("Requirement updated", `${item.documentName} is now ${status}.`);
-    });
+  // Optimistic: show the new status at once, save in the background, and restore the previous
+  // status only if the save fails and no newer pick for that row has superseded it.
+  const latestStatusPick = useRef<Record<string, number>>({});
+  const update = async (item: ClaimRequirement, status: ClaimRequirementStatus) => {
+    const pick = (latestStatusPick.current[item.id] ?? 0) + 1;
+    latestStatusPick.current[item.id] = pick;
+    replace({ ...item, status });
+    const result = await updateClaimRequirementStatusAction(claimId, item.id, status);
+    if (!result.ok) {
+      if (latestStatusPick.current[item.id] === pick) replace(item);
+      return overlays.toast("Couldn’t update requirement", result.error);
+    }
+    router.refresh();
+  };
 
   const toggleRequired = (item: ClaimRequirement) =>
     startTransition(async () => {
@@ -117,7 +123,7 @@ export function ClaimRequirementsPanel({
                     {(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}
                     <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label>
                   </div>
-                  <select aria-label={`Status for ${item.documentName}`} disabled={pending} value={item.status} onChange={(event) => update(item, event.target.value as ClaimRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
+                  <select aria-label={`Status for ${item.documentName}`} value={item.status} onChange={(event) => void update(item, event.target.value as ClaimRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
                     {CLAIM_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
                   </select>
                 </div>

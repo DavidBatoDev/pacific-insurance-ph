@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 
 import {
   activateRequirementPhaseAction,
@@ -65,17 +65,25 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
   const outstanding = required.filter((item) => item.status === "Pending" || item.status === "Incomplete");
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
 
-  const update = (item: ApplicationRequirement, status: ApplicationRequirementStatus) =>
-    startTransition(async () => {
-      const result = await updateApplicationRequirementStatusAction(applicationId, item.id, status);
-      if (!result.ok) return overlays.toast("Couldn’t update requirement", result.error);
-      setPayload((current) => current && {
-        ...current,
-        requirements: current.requirements.map((requirement) => requirement.id === item.id ? result.data : requirement),
-      });
-      router.refresh();
-      overlays.toast("Requirement updated", `${item.documentName} is now ${status}.`);
+  // Optimistic: show the new status at once, save in the background, and restore the previous
+  // status only if the save fails and no newer pick for that row has superseded it.
+  const latestStatusPick = useRef<Record<string, number>>({});
+  const setRowStatus = (id: string, status: ApplicationRequirementStatus) =>
+    setPayload((current) => current && {
+      ...current,
+      requirements: current.requirements.map((requirement) => requirement.id === id ? { ...requirement, status } : requirement),
     });
+  const update = async (item: ApplicationRequirement, status: ApplicationRequirementStatus) => {
+    const pick = (latestStatusPick.current[item.id] ?? 0) + 1;
+    latestStatusPick.current[item.id] = pick;
+    setRowStatus(item.id, status);
+    const result = await updateApplicationRequirementStatusAction(applicationId, item.id, status);
+    if (!result.ok) {
+      if (latestStatusPick.current[item.id] === pick) setRowStatus(item.id, item.status);
+      return overlays.toast("Couldn’t update requirement", result.error);
+    }
+    router.refresh();
+  };
 
   const toggleRequired = (item: ApplicationRequirement) =>
     startTransition(async () => {
@@ -143,7 +151,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
               <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}><div className="flex items-center gap-3">
                 <RequirementStatusDot status={item.status} />
                 <div className="min-w-0 flex-1"><div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>{(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}<label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label></div>
-                <select aria-label={`Status for ${item.documentName}`} disabled={pending} value={item.status} onChange={(event) => update(item, event.target.value as ApplicationRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
+                <select aria-label={`Status for ${item.documentName}`} value={item.status} onChange={(event) => void update(item, event.target.value as ApplicationRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
                   {APPLICATION_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
                 </select>
               </div><div className="mt-2 pl-10"><DocumentUploadForm clientId={payload.application.clientId} applicationId={applicationId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.toLowerCase().includes("application form") ? payload.carrierForms.find((form) => form.personName === item.appliesTo)?.documentLibraryId ?? undefined : undefined} /></div></div>
