@@ -1366,8 +1366,23 @@ here has been decided on anyone's behalf.
 
 ### H1 — Clients
 
-- [ ] **H1a. Coverage tier becomes Ward / Semi-Private / Private.** Eman asked to remove
-  "Standard" and "Suite/Executive".
+- [x] **H1a. Coverage tier becomes the product's real tiers.** Eman asked to remove
+  "Standard" and "Suite/Executive". ✅ *Done 2026-10-06.*
+  - **Shipped:**
+    - `lib/coverage-tiers.ts` holds the per-product tiers (DH3). Each one is exactly a catalog
+      `plan_options.coverage_tier` string: Select = Ward, Semi-Private, Private 2M / 3M / 5M;
+      Blue Royale = Plan A / B / C.
+    - The shared `CoverageTierSelect` replaces the old `TIERS` list in Log Call and the client
+      form. It narrows the options to the product interest, and keeps any old value selectable
+      as "(old value)".
+    - Wizard Step 3's free-text tier field is now a dropdown of the chosen product's catalog
+      tiers. Picking a tier auto-selects the plan when exactly one plan matches.
+  - **Known limit, resolved by H1b:** for Select, Ward, Semi-Private and Private 2M exist in both
+    Plus and Standard, so the plan is not auto-picked. Private 3M / 5M and Blue Royale plans
+    are.
+  - **For the D1 import:** write these exact tier strings into `clients.coverage_tier`.
+  - Browser-verified on `/clients/new` and in wizard Step 3 (Select and Blue Royale). No
+    records were created.
   - **Current state:** four vocabularies that disagree.
     - `TIERS` in `components/hub/overlays/log-call.tsx:30` is "Standard / Ward", "Semi-private
       room", "Private room", "Suite / Executive". `components/clients/client-form.tsx:12,256-263`
@@ -1385,8 +1400,11 @@ here has been decided on anyone's behalf.
     - Make plan matching normalise to the catalog's tier names, so a discovery answer selects
       the plan again.
     - No data backfill is needed if H0 runs first.
-  - **⚠️ Decisions:** DH3 (is Private one tier or three?), DH4 (does this also replace the group
-    CHECK?).
+  - **Decisions:**
+    - **DH3 ✅** Tiers are split per product: Select Plus has Ward / Semi-Private / Private
+      2M / 3M / 5M; Select Standard has Ward / Semi-Private / Private 2M; Blue Royale has
+      Plan A / B / C.
+    - **DH4 ✅** The group tiers are left alone for now.
 
 - [ ] **H1b. Select Plus vs Select Standard.** These are one product with the same commission.
   They differ only in how the limit behaves:
@@ -1815,22 +1833,22 @@ Payment details are not currently connected to the commission.
     pay the *net* amount.
   - **⚠️ Decision:** DH19.
 
-### Phase H decisions — open, for Joshua
+### Phase H decisions — for Joshua (✅ = decided)
 
 | ID | Decision | Why it's open | Recommendation |
 | :--- | :--- | :--- | :--- |
 | **DH1** | H0 scope: wipe all 45 clients/leads, including the 14 created through the website, or demo seeds only? | Conflicts with Phase E D1's preserve-website-records rule | ✅ **Decided 2026-10-06: wipe all.** Supersedes D1's preservation rule; record it in `development-alignment.md` |
 | **DH2** | After H0, reset the `reference_no` sequences so real clients start fresh? And what about the seed migrations `0013`/`0014`/`0016`, which re-seed demo data on any fresh `db reset`? | Real references would otherwise start mid-sequence; fresh environments would get demo data back | ✅ **Decided 2026-10-06: reset** every counter except `USR`, so the first real client is `CLI-2026-00001`. Seed migrations: still open (recommend leaving them untouched with a note) |
-| **DH3** | Is "Private" one tier, or three (2M/3M/5M)? | The catalog splits Private by limit; Eman listed one Private | Tier = Ward / Semi-Private / Private; the limit level stays on the plan |
-| **DH4** | Does the new tier list also replace the `group_members` CHECK (Standard/Premium/Executive)? | Group HMO tiers may be a different vocabulary | Leave the group tiers alone; confirm with Eman |
+| **DH3** | Is "Private" one tier, or three (2M/3M/5M)? | The catalog splits Private by limit; Eman listed one Private | ✅ **Decided 2026-10-06: split the tiers, per product, matching the brochures and catalog (`0037`).** Select Plus: Ward, Semi-Private, Private 2M, Private 3M, Private 5M. Select Standard: Ward, Semi-Private, Private 2M. Blue Royale has no room tiers: its tier is the plan (Plan A / B / C, USD 500k / 1M / 2M), and the room is a daily limit (USD 300 / 600 / 850 in the PH; private room overseas), per the 2025 brochure, p. 3 |
+| **DH4** | Does the new tier list also replace the `group_members` CHECK (Standard/Premium/Executive)? | Group HMO tiers may be a different vocabulary | ✅ **Decided 2026-10-06: leave the group tiers alone for now.** The `group_members` CHECK (Standard/Premium/Executive) stays |
 | **DH5** | Select limit: the notes say ₱1M for both variants, but the catalog has Select Plus Private at 2M/3M/5M | Possibly just an example figure | Store the limit *basis* (aggregate vs per-illness); take the amount from the plan |
 | **DH6** | Which Excel gets the updated applications and brochures listed? | The notes don't say | Ask JC and Eman: `../docs/REQUIREMENTS-matrix.xlsx` or the client workbook |
 | **DH7** | Park proposal auto-detection until the agency inbox exists? | Needs inbox, parser and jobs | Park; manual upload-back is V1 |
 | **DH8** | New Application: require the product in Step 1 and open Requirements after create? | Changes the wizard entry flow | Yes |
 | **DH9** | Keep the draft-only items "Blue Royale shows HMO list" and "medical review stage"? | Neither appears in the notes | Verify with JC (and reproduce the first) before scheduling |
 | **DH10** | Renewal email engine while R1 is open: a scheduled job that queues due emails/tasks for staff, or wait for a real email provider? | Nothing would actually send either way | Vercel Cron that creates "due" tasks and drafts for staff to send |
-| **DH11** | Travel flow: Eman's 2 steps or JC's draft of 4? | The notes and the draft conflict | 2 steps, as Eman asked |
-| **DH12** | Travel client entry: autofill with override (draft) or existing-client picker plus manual entry (Eman)? | The notes and the draft conflict | Picker + manual; no silent autofill |
+| **DH11** | Travel flow: Eman's 2 steps or JC's draft of 4? | The notes and the draft conflict | ✅ **Decided 2026-10-06: 2 steps, as Eman asked** |
+| **DH12** | Travel client entry: autofill with override (draft) or existing-client picker plus manual entry (Eman)? | The notes and the draft conflict | ✅ **Decided 2026-10-06: existing-client dropdown plus manual entry, as Eman suggested.** No silent autofill |
 | **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | Ask Eman; use the IP list for ER in the interim |
 | **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | Lock only when exactly one eligible policy; otherwise a picker showing carrier numbers |
 | **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |

@@ -9,6 +9,7 @@ import { I } from "../icons";
 import type { DiscoveryValues } from "../lead-config";
 import { AREA, Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
+import { CoverageTierSelect } from "./coverage-tier-select";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 
@@ -27,7 +28,6 @@ import { useOverlays } from "./overlay-provider";
 
 
 const OUTCOMES = ["Reached", "No answer", "Voicemail", "Wrong number"];
-export const TIERS = ["", "Standard / Ward", "Semi-private room", "Private room", "Suite / Executive"];
 
 /** Who the call was with, plus whatever discovery is already on file to prefill. */
 export interface LogCallTarget extends DiscoveryValues {
@@ -116,13 +116,7 @@ export function LogCallForm({
               <input className={INPUT} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Blue Royale" />
             </Field>
             <Field label="Coverage tier / room">
-              <select className={INPUT} value={tier} onChange={(e) => setTier(e.target.value)}>
-                {TIERS.map((t) => (
-                  <option key={t} value={t}>
-                    {t || "— not captured —"}
-                  </option>
-                ))}
-              </select>
+              <CoverageTierSelect className={INPUT} value={tier} onChange={setTier} productInterest={interest} />
             </Field>
           </div>
         </>

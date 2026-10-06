@@ -9,7 +9,7 @@ import {
   type ClientFormState,
 } from "@/app/(app)/clients/actions";
 import { PRODUCT_COLORS } from "@/components/hub/lead-config";
-import { TIERS } from "@/components/hub/overlays/log-call";
+import { CoverageTierSelect } from "@/components/hub/overlays/coverage-tier-select";
 import type { Client } from "@/lib/repositories/clients";
 import { CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { cn } from "@/lib/utils";
@@ -254,18 +254,13 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
               />
             </Field>
             <Field label="Coverage tier / room">
-              <select
+              <CoverageTierSelect
                 name="coverageTier"
                 value={v.coverageTier}
-                onChange={(e) => set("coverageTier", e.target.value)}
+                onChange={(tier) => set("coverageTier", tier)}
+                productInterest={v.productInterest}
                 className={inputCls}
-              >
-                {TIERS.map((t) => (
-                  <option key={t} value={t}>
-                    {t || "— not captured —"}
-                  </option>
-                ))}
-              </select>
+              />
             </Field>
           </div>
         </div>
