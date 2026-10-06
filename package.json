@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "auth:playwright": "node --env-file=.env.local scripts/playwright-auth.mjs"
+    "auth:playwright": "node --env-file=.env.local scripts/playwright-auth.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -38,6 +39,7 @@
     "eslint-config-next": "16.2.9",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }
