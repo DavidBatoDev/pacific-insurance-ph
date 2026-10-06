@@ -761,10 +761,52 @@ export type Database = {
           },
         ]
       }
+      commission_rates: {
+        Row: {
+          business_type: string
+          created_at: string
+          effective_date: string
+          id: string
+          notes: string | null
+          product_id: string
+          rate_pct: number | null
+          updated_at: string
+        }
+        Insert: {
+          business_type: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          rate_pct?: number | null
+          updated_at?: string
+        }
+        Update: {
+          business_type?: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          rate_pct?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_rates_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           amount: number | null
           client_id: string | null
+          commission_rate_id: string | null
           created_at: string
           currency: string | null
           estimated_amount: number | null
@@ -776,6 +818,7 @@ export type Database = {
           paid_date: string | null
           payment_id: string | null
           policy_id: string | null
+          rate_pct: number | null
           received_date: string | null
           updated_at: string
           voucher_status: string
@@ -783,6 +826,7 @@ export type Database = {
         Insert: {
           amount?: number | null
           client_id?: string | null
+          commission_rate_id?: string | null
           created_at?: string
           currency?: string | null
           estimated_amount?: number | null
@@ -794,6 +838,7 @@ export type Database = {
           paid_date?: string | null
           payment_id?: string | null
           policy_id?: string | null
+          rate_pct?: number | null
           received_date?: string | null
           updated_at?: string
           voucher_status?: string
@@ -801,6 +846,7 @@ export type Database = {
         Update: {
           amount?: number | null
           client_id?: string | null
+          commission_rate_id?: string | null
           created_at?: string
           currency?: string | null
           estimated_amount?: number | null
@@ -812,6 +858,7 @@ export type Database = {
           paid_date?: string | null
           payment_id?: string | null
           policy_id?: string | null
+          rate_pct?: number | null
           received_date?: string | null
           updated_at?: string
           voucher_status?: string
@@ -822,6 +869,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_commission_rate_id_fkey"
+            columns: ["commission_rate_id"]
+            isOneToOne: false
+            referencedRelation: "commission_rates"
             referencedColumns: ["id"]
           },
           {

@@ -46,3 +46,11 @@ export const COMMUNICATION_CHANNELS = [
  * logged emails, calls or notes — so only the messaging channels + Other show.
  */
 export const MESSAGE_LOG_CHANNELS = ["WhatsApp", "Viber", "iMessage", "SMS", "Other"] as const;
+
+/** `clients.status` — supabase/migrations/0043_client_status_archived.sql (Phase H H1d). */
+export const CLIENT_STATUSES = ["Active", "Archived"] as const;
+export type ClientStatus = (typeof CLIENT_STATUSES)[number];
+
+/** `commission_rates.business_type` — supabase/migrations/0042_commission_rates.sql (Phase H H9a). */
+export const COMMISSION_BUSINESS_TYPES = ["New", "Renewal"] as const;
+export type CommissionBusinessType = (typeof COMMISSION_BUSINESS_TYPES)[number];
