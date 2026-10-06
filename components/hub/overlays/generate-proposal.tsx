@@ -55,7 +55,8 @@ export function GenerateProposalModal({
     if (!pickedId) return;
     let live = true;
     void getProposalLeadDefaultsAction(pickedId).then((res) => {
-      if (live && res.ok) setFrequency(res.data.paymentFrequency ?? "");
+      // Only fill an empty field: the lookup can land after the user has already chosen.
+      if (live && res.ok && res.data.paymentFrequency) setFrequency((current) => current || res.data.paymentFrequency!);
     });
     return () => {
       live = false;
