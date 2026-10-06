@@ -1467,7 +1467,7 @@ here has been decided on anyone's behalf.
 
 ### H2 — Proposals
 
-- [ ] **H2a. Capture payment frequency (Annual / Semi-annual) on Generate Proposal.** The portal
+- [x] **H2a. Capture payment frequency (Annual / Semi-annual) on Generate Proposal.** ✅ *Done 2026-10-06, Playwright-verified.* *Migration `0044` adds `clients.payment_frequency` (and `gender`). Generate Proposal requires the frequency (Annual / Semi-annual), saves it on the lead, and it prefills the wizard (`206792c`, `bebb83f`, race fix `4aab447`).* The portal
   asks for it at the Generate step.
   - **Current state:** the modal has only a lead/client picker (`generate-proposal.tsx:89`).
     Frequency exists only in the wizard (`steps-2.tsx:248`) and on `policies.payment_mode`
@@ -1475,7 +1475,7 @@ here has been decided on anyone's behalf.
   - **Change:** add the field and persist it on the lead (migration), using the same two values.
     It carries forward into the wizard and drives H8d installments.
 
-- [ ] **H2b. Make the "details to encode" list mirror the portal's actual inputs.** This is the
+- [x] **H2b. Make the "details to encode" list mirror the portal's actual inputs.** ✅ *Done 2026-10-06, Playwright-verified.* *The encode list is grouped like the portal (Header / Principal / Dependents / Generate step), with required fields starred. Missing ones are flagged "Missing — add to the lead before encoding" with a count. Optional benefit and discount show as "Choose in portal". Lead gender is editable on the client form (`206792c`).* This is the
   meeting's main point: prepare everything before opening the portal so nothing is re-keyed or
   missed.
   - **Current state:** `prospects/actions.ts:475-485` lists full name, DOB, age, product,
@@ -1516,7 +1516,7 @@ here has been decided on anyone's behalf.
 
 ### H3 — Applications
 
-- [ ] **H3a. "New Application" should land on the full requirement set for the product.** Eman
+- [x] **H3a. "New Application" should land on the full requirement set for the product.** ✅ *Done 2026-10-06, Playwright-verified.* *DH8. Continue and the step rail are gated on the product. Template-driven products preview the same template the server snapshots (`listProductRequirementPreviewAction`). After create, the Requirements overlay opens (`ba1dfce`). Testing exposed that the BC Flexi template sat on a deactivated version; migration `0045` re-points it (`514775e`).* Eman
   expected **New Application** to open the selected product's complete application form and
   requirements. Instead it opens the six-step wizard with only basic requirements. In the meeting
   Joshua explained that the full list appears under **Continue Application** on the client; that
@@ -1633,14 +1633,14 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
     is prefilled (`new-application.tsx:141-171`). That rule exists for leads, but the travel-quote
     entry point inherits it.
 
-- [ ] **H6g. Travel quote should not default to "Inquiry Only (Lead)".** Found 2026-10-06 while
+- [x] **H6g. Travel quote should not default to "Inquiry Only (Lead)".** ✅ *Done 2026-10-06, Playwright-verified.* *A travel product defaults to "New Insurance Application" (`b5f0a68`).* Found 2026-10-06 while
   verifying H6a.
   - **Change:** let the travel-quote entry point skip the inquiry default. Either pass an
     explicit `appType` in its prefill, or scope the default to the lead entry points only.
   - Check this against H6b first: the 2-step flow may remove the application-type field
     altogether.
 
-- [ ] **H6b. Collapse the travel path to Eman's two steps.**
+- [x] **H6b. Collapse the travel path to Eman's two steps.** ✅ *Done 2026-10-06, Playwright-verified.* *`WIZ_TRAVEL_STEPS`: (1) Client, trip & requirements, (2) Review & create. Create reserves the TravelSafe portal pop-up, uploads the files, then opens the Travel workflow (`b5f0a68`).*
   1. **Client information + product/trip details + requirements**, on one screen. This is also
      where the requirements from the signed application form (e.g. passport) are uploaded.
   2. **Review & create**, which then opens the Pacific Cross portal.
@@ -1655,14 +1655,14 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
     signed form stays the legal record.
   - **⚠️ Decision:** DH11. JC's draft lists four steps.
 
-- [ ] **H6c. Client entry: pick an existing client or type a new one, with no silent autofill.**
+- [x] **H6c. Client entry: pick an existing client or type a new one, with no silent autofill.** ✅ *Done 2026-10-06, Playwright-verified.* *DH12. Picking an existing client fills traveler 1 visibly (`getTravelClientFillAction`: client record plus their last trip's passport and nationality), marked "Traveler details filled from …", and editable (`b5f0a68`).*
   Some travel clients are repeat travelers (JC asked; Eman confirmed).
   - Joshua suggested autofill from existing records.
   - Eman leaned towards manual entry, or a dropdown if feasible. Either is fine, as long as Eman
     never re-keys client information.
   - **⚠️ Decision:** DH12. JC's draft says "autofill with manual override".
 
-- [ ] **H6d. Requirement uploads inside the travel step.**
+- [x] **H6d. Requirement uploads inside the travel step.** ✅ *Done 2026-10-06, Playwright-verified.* *The signed form plus a passport/ID per traveler (PDF/JPG/PNG) are attached on screen 1 and uploaded after create through signed URLs (`beginDocumentUploadAction`) against the server's requirement rows (`recordTravelRequirementUploadAction`), which are marked Received (`b5f0a68`).*
   - **Current state:** the Step 4 checklist is a checkbox plus a status dropdown, with **no file
     upload**.
   - **Change:** upload the signed application form and the passport/ID per traveler directly
@@ -1696,7 +1696,7 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
 
 Eman's process: claims arrive mostly as soft copies by email, sometimes as hard copies.
 
-- [ ] **H7a. Replace the claim types.**
+- [x] **H7a. Replace the claim types.** ✅ *Done 2026-10-06, Playwright-verified.* *`CLAIM_TYPES` plus `CLAIM_TYPE_CHECKLIST` (DH13 interim: ER→In-Patient, Reimbursement→Out-Patient; Travel has no generated list). Legacy values still map (`6eb86ac`).*
   - **New list:** Reimbursement, IP, OP, ER, Overseas Reimbursement, Overseas IP, Overseas OP,
     Overseas ER, Travel. Travel needs no overseas variant because it covers both local and
     overseas.
@@ -1712,7 +1712,7 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
       TravelSafe NOC (Eman: travel claim requirements are more rigorous).
   - **⚠️ Decision:** DH13.
 
-- [ ] **H7b. Default the policy to the client's policy, read-only.** Eman: one policy per client,
+- [x] **H7b. Default the policy to the client's policy, read-only.** ✅ *Done 2026-10-06, Playwright-verified.* *DH14. Eligible policies are Active/Pending and match the claim type (Travel vs medical). Exactly one → read-only; several → a dropdown by carrier number; none → "No matching policy". The claims list shows the carrier number (`6eb86ac`).* Eman: one policy per client,
   so the dropdown shouldn't be interactive.
   - **Current state:** the dropdown (`file-claim.tsx:82-91`, fed by
     `listClientPoliciesAction`) labels policies `referenceNo · productName`, not the carrier's
@@ -1720,7 +1720,7 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
   - **Change:** show the carrier policy number, preselected and locked.
   - **⚠️ Decision:** DH14. A client can hold a travel policy *and* a health policy.
 
-- [ ] **H7c. Fold the requirements popup into the File Claim sidebar.**
+- [x] **H7c. Fold the requirements popup into the File Claim sidebar.** ✅ *Done 2026-10-06, Playwright-verified.* *Filing generates the type's checklist (non-fatal) and the drawer becomes the live `ClaimRequirementsPanel` with uploads. H7d's control is now "Change claim type" (`changeClaimTypeAction`). Testing found that an upload left the row showing Pending until reopen, fixed in `2f657f3` (`6eb86ac`).*
   - **Current state:** filing a claim and building its checklist are separate overlays
     (`file-claim.tsx` / `claim-requirements.tsx`, opened from `operations.tsx:382`).
   - **Change:** with H7a, the claim type decides the checklist, so the In-Patient / Out-Patient
@@ -1846,13 +1846,13 @@ Payment details are not currently connected to the commission.
 | **DH5** | Select limit: the notes say ₱1M for both variants, but the catalog has Select Plus Private at 2M/3M/5M | Possibly just an example figure | Store the limit *basis* (aggregate vs per-illness); take the amount from the plan |
 | **DH6** | Which Excel gets the updated applications and brochures listed? | The notes don't say | Ask JC and Eman: `../docs/REQUIREMENTS-matrix.xlsx` or the client workbook |
 | **DH7** | Park proposal auto-detection until the agency inbox exists? | Needs inbox, parser and jobs | Park; manual upload-back is V1 |
-| **DH8** | New Application: require the product in Step 1 and open Requirements after create? | Changes the wizard entry flow | Yes |
+| **DH8** | New Application: require the product in Step 1 and open Requirements after create? | Changes the wizard entry flow | ✅ **Decided 2026-10-06: yes** (require the product in Step 1, open Requirements after create) |
 | **DH9** | Keep the draft-only items "Blue Royale shows HMO list" and "medical review stage"? | Neither appears in the notes | Verify with JC (and reproduce the first) before scheduling |
 | **DH10** | Renewal email engine while R1 is open: a scheduled job that queues due emails/tasks for staff, or wait for a real email provider? | Nothing would actually send either way | Vercel Cron that creates "due" tasks and drafts for staff to send |
 | **DH11** | Travel flow: Eman's 2 steps or JC's draft of 4? | The notes and the draft conflict | ✅ **Decided 2026-10-06: 2 steps, as Eman asked** |
 | **DH12** | Travel client entry: autofill with override (draft) or existing-client picker plus manual entry (Eman)? | The notes and the draft conflict | ✅ **Decided 2026-10-06: existing-client dropdown plus manual entry, as Eman suggested.** No silent autofill |
-| **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | Ask Eman; use the IP list for ER in the interim |
-| **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | Lock only when exactly one eligible policy; otherwise a picker showing carrier numbers |
+| **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | ✅ **Decided 2026-10-06 (interim): ER / Overseas ER → In-Patient, Reimbursement / Overseas Reimbursement → Out-Patient**, pending Eman's lists |
+| **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | ✅ **Decided 2026-10-06: lock when exactly one eligible policy fits the claim type**, otherwise a carrier-number dropdown |
 | **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |
 | **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | ⚠️ **Assumption, not a decision (logged 2026-10-06):** "Commission base computed as premium × 0.88 per Eman's examples. Not verified against actual payout statements. Strict VAT method (÷1.12) would yield ₱40,178.57 vs ₱39,600 on a ₱250,000 premium. To be confirmed by finance before go-live." |
 | **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | Ask Eman; default to receive-and-upload, reusing the upload-back pattern |
