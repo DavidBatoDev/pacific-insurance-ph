@@ -26,6 +26,8 @@ export interface TravelRequest {
   paymentInstructionLoggedAt: string | null;
   paymentAcknowledgementLoggedAt: string | null;
   portalPaymentStatus: string;
+  /** How Eman paid the portal: Card, GCash or Over the counter. */
+  portalPaymentMethod: string | null;
   portalPaymentReference: string | null;
   portalPaymentAmount: number | null;
   portalProcessingStatus: string;
@@ -54,6 +56,7 @@ export interface NewTravelRequest {
   notes?: string | null;
   paymentChannelId?: string | null;
   portalPaymentStatus?: string;
+  portalPaymentMethod?: string | null;
   portalPaymentReference?: string | null;
   portalPaymentAmount?: number | null;
   portalProcessingStatus?: string;
@@ -79,6 +82,7 @@ export interface TravelRequestUpdate {
   paymentInstructionLoggedAt?: string | null;
   paymentAcknowledgementLoggedAt?: string | null;
   portalPaymentStatus?: string;
+  portalPaymentMethod?: string | null;
   portalPaymentReference?: string | null;
   portalPaymentAmount?: number | null;
   portalProcessingStatus?: string;

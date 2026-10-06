@@ -42,6 +42,7 @@ function toDomain(row: JoinedRow): TravelRequest {
     paymentInstructionLoggedAt: row.payment_instruction_logged_at,
     paymentAcknowledgementLoggedAt: row.payment_acknowledgement_logged_at,
     portalPaymentStatus: row.portal_payment_status,
+    portalPaymentMethod: row.portal_payment_method,
     portalPaymentReference: row.portal_payment_reference,
     portalPaymentAmount: row.portal_payment_amount,
     portalProcessingStatus: row.portal_processing_status,
@@ -109,6 +110,7 @@ export class SupabaseTravelRepository implements TravelRepository {
       notes: input.notes ?? null,
       payment_channel_id: input.paymentChannelId ?? null,
       portal_payment_status: input.portalPaymentStatus ?? "Not Yet",
+      portal_payment_method: input.portalPaymentMethod ?? null,
       portal_payment_reference: input.portalPaymentReference ?? null,
       portal_payment_amount: input.portalPaymentAmount ?? null,
       portal_processing_status: input.portalProcessingStatus ?? "Not Started",
@@ -146,6 +148,7 @@ export class SupabaseTravelRepository implements TravelRepository {
     if (input.paymentInstructionLoggedAt !== undefined) patch.payment_instruction_logged_at = input.paymentInstructionLoggedAt;
     if (input.paymentAcknowledgementLoggedAt !== undefined) patch.payment_acknowledgement_logged_at = input.paymentAcknowledgementLoggedAt;
     if (input.portalPaymentStatus !== undefined) patch.portal_payment_status = input.portalPaymentStatus;
+    if (input.portalPaymentMethod !== undefined) patch.portal_payment_method = input.portalPaymentMethod;
     if (input.portalPaymentReference !== undefined) patch.portal_payment_reference = input.portalPaymentReference;
     if (input.portalPaymentAmount !== undefined) patch.portal_payment_amount = input.portalPaymentAmount;
     if (input.portalProcessingStatus !== undefined) patch.portal_processing_status = input.portalProcessingStatus;

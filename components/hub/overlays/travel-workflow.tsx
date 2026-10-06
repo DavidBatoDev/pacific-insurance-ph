@@ -9,6 +9,7 @@ import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requi
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { openPortalWindow } from "./portal-window";
 import { Modal } from "./modal";
+import { TRAVEL_PAYMENT_METHODS } from "@/lib/db-enums";
 import { Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { I } from "../icons";
 import { useOverlays } from "./overlay-provider";
@@ -21,6 +22,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
   const [pending, startTransition] = useTransition();
   const [portalStatus, setPortalStatus] = useState("Not Started");
   const [paymentStatus, setPaymentStatus] = useState("Not Yet");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [portalRef, setPortalRef] = useState("");
   const [portalAmount, setPortalAmount] = useState("");
   const [policyNumber, setPolicyNumber] = useState("");
@@ -37,6 +39,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       setPayload(result.data);
       setPortalStatus(result.data.travel.portalProcessingStatus);
       setPaymentStatus(result.data.travel.portalPaymentStatus);
+      setPaymentMethod(result.data.travel.portalPaymentMethod ?? "");
       setPortalRef(result.data.travel.portalPaymentReference ?? "");
       setPortalAmount(result.data.travel.portalPaymentAmount?.toString() ?? "");
       setPolicyNumber(result.data.travel.policyNumber ?? "");
@@ -56,6 +59,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       const result = await updateTravelWorkflowAction(travelRequestId, {
         portalProcessingStatus: portalStatus,
         portalPaymentStatus: paymentStatus,
+        portalPaymentMethod: paymentMethod || null,
         portalPaymentReference: portalRef || null,
         portalPaymentAmount: portalAmount ? Number(portalAmount) : null,
         policyNumber: policyNumber.trim() || null,
@@ -96,8 +100,9 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
 
       <div className="mt-4 rounded-md border border-border-soft p-3">
         <div className="mb-3 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal processing</div>{payload.portalUrl ? <button type="button" onClick={() => openPortalWindow(payload.portalUrl ?? undefined, "pacific-cross-travel-portal")} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</button> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <Field label="Payment status"><select aria-label="Payment status" className={INPUT} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select></Field>
+          <Field label="Payment method"><select aria-label="Payment method" className={INPUT} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">—</option>{TRAVEL_PAYMENT_METHODS.map((method) => <option key={method}>{method}</option>)}</select></Field>
           <Field label="Portal reference"><input aria-label="Portal reference" className={INPUT} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /></Field>
           <Field label="Portal amount"><input aria-label="Portal amount" className={INPUT} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /></Field>
           <Field label="Portal status"><select aria-label="Portal status" className={INPUT} value={portalStatus} onChange={(event) => { const value = event.target.value; setPortalStatus(value); if (value !== "Issued") setPolicyNumberError(null); }}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></Field>

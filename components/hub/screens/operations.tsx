@@ -414,6 +414,8 @@ type TravelListRow = {
   departureSort: string;
   status: string;
   quotedPremium: number | null;
+  /** How the portal was paid (requests only; drafts have none). */
+  paymentMethod?: string | null;
   savedAt: string | null;
   _filter: string;
 };
@@ -434,6 +436,7 @@ export function TravelLive({ rows, drafts }: { rows: TravelRequest[]; drafts: Tr
       departureSort: t.departureDate ?? "9999-12-31",
       status: t.status,
       quotedPremium: t.quotedPremium,
+      paymentMethod: t.portalPaymentMethod,
       savedAt: null,
       _filter: t.status,
     })),
@@ -516,6 +519,7 @@ export function TravelLive({ rows, drafts }: { rows: TravelRequest[]; drafts: Tr
           </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
             {t.quotedPremium != null ? peso(t.quotedPremium) : "—"}
+            {t.paymentMethod && <div className="mt-0.5 font-sans text-[11px] font-normal text-subtle">{t.paymentMethod}</div>}
           </Td>
         </Row>
       )}
