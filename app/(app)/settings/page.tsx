@@ -2,6 +2,7 @@ import { SettingsLive } from "@/components/hub/screens/settings-live";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getPaymentChannelsRepository } from "@/lib/repositories/payment-channels";
+import { getCommissionRatesRepository } from "@/lib/repositories/commission-rates";
 import { getUsersRepository } from "@/lib/repositories/users";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { toAppRole } from "@/lib/auth/permissions";
@@ -19,13 +20,14 @@ export default async function Page() {
       : [[], []];
     return { canManageLibrary, libraryDocuments, productVersions };
   });
-  const [{ rows }, channels, proposalPortal, travelPortal, contacts, { canManageLibrary, libraryDocuments, productVersions }] = await Promise.all([
+  const [{ rows }, channels, proposalPortal, travelPortal, contacts, commissionRates, { canManageLibrary, libraryDocuments, productVersions }] = await Promise.all([
     getUsersRepository().list({ limit: 50 }),
     getPaymentChannelsRepository().list(),
     getIntegrationSettingsRepository().getProposalPortal(),
     getIntegrationSettingsRepository().getTravelPortal(),
     getExternalContactsRepository().list(),
+    getCommissionRatesRepository().listAll(),
     libraryPromise,
   ]);
-  return <SettingsLive users={rows} channels={channels} proposalPortal={proposalPortal} travelPortal={travelPortal} contacts={contacts} libraryDocuments={libraryDocuments} productVersions={productVersions} canManageLibrary={canManageLibrary} />;
+  return <SettingsLive users={rows} channels={channels} proposalPortal={proposalPortal} travelPortal={travelPortal} contacts={contacts} commissionRates={commissionRates} libraryDocuments={libraryDocuments} productVersions={productVersions} canManageLibrary={canManageLibrary} />;
 }

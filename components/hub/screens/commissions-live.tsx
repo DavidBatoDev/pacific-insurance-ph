@@ -157,6 +157,11 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
                 ) : commission.estimatedAmount != null ? (
                   <span className="text-muted-foreground">
                     ~{peso(commission.estimatedAmount)}
+                    {commission.ratePct != null && (
+                      <span className="block text-[11px] font-normal text-subtle">
+                        {commission.ratePct}% of premium
+                      </span>
+                    )}
                   </span>
                 ) : (
                   "—"

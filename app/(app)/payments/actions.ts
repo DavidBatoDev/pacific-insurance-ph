@@ -11,6 +11,7 @@ import {
   type Commission,
   type Payment,
 } from "@/lib/repositories/payments";
+import { getCommissionRatesRepository } from "@/lib/repositories/commission-rates";
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getTravelRepository } from "@/lib/repositories/travel";
@@ -18,8 +19,41 @@ import { getExternalContactsRepository } from "@/lib/repositories/external-conta
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { logOutboundEmails } from "@/lib/communications/log-outbound-email";
 
-/** First-year vs renewal vs travel commission estimate. */
-const COMM_RATE: Record<string, number> = { Application: 0.18, Renewal: 0.1, Travel: 0.15 };
+/**
+ * Resolve the product a payment is for, via the source record's product
+ * version: application / policy / renewal (through its policy) / travel request.
+ * Returns null when the payment has no linked product (e.g. "Other").
+ */
+async function resolvePaymentProduct(
+  payment: Payment,
+): Promise<{ productId: string; productName: string } | null> {
+  const db = getSupabaseAdmin();
+  let versionId: string | null = null;
+  if (payment.applicationId) {
+    const { data } = await db.from("applications").select("product_version_id").eq("id", payment.applicationId).maybeSingle();
+    versionId = data?.product_version_id ?? null;
+  } else if (payment.travelRequestId) {
+    const { data } = await db.from("travel_requests").select("product_version_id").eq("id", payment.travelRequestId).maybeSingle();
+    versionId = data?.product_version_id ?? null;
+  } else {
+    let policyId = payment.policyId;
+    if (!policyId && payment.renewalId) {
+      const { data } = await db.from("renewals").select("policy_id").eq("id", payment.renewalId).maybeSingle();
+      policyId = data?.policy_id ?? null;
+    }
+    if (policyId) {
+      const { data } = await db.from("policies").select("product_version_id").eq("id", policyId).maybeSingle();
+      versionId = data?.product_version_id ?? null;
+    }
+  }
+  if (!versionId) return null;
+  const { data: pv } = await db
+    .from("product_versions")
+    .select("product_id, products (name)")
+    .eq("id", versionId)
+    .maybeSingle<{ product_id: string; products: { name: string } | null }>();
+  return pv ? { productId: pv.product_id, productName: pv.products?.name ?? "this product" } : null;
+}
 
 const peso = (n: number) => "₱" + n.toLocaleString("en-PH");
 
@@ -101,7 +135,24 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
       }
 
       // Auto-create the commission row + a voucher follow-up task.
-      const est = payment.amount != null ? Math.round(payment.amount * (COMM_RATE[payment.source] ?? 0.12)) : null;
+      // Rate comes from the effective-dated commission_rates table (H9a).
+      // Gross estimate only — the VAT/WHT formula is H9b; the ×0.88 VAT basis is an unconfirmed assumption (DH16).
+      const product = await resolvePaymentProduct(payment);
+      const rate = product
+        ? await getCommissionRatesRepository().findEffective(
+            product.productId,
+            payment.source === "Renewal" ? "Renewal" : "New",
+            payment.paymentDate ?? today,
+          )
+        : null;
+      const est =
+        rate?.ratePct != null && payment.amount != null
+          ? Math.round((payment.amount * rate.ratePct) / 100)
+          : null;
+      const pendingNote =
+        rate?.ratePct == null
+          ? `Commission rate pending for ${product?.productName ?? "unknown product"} — set it in Settings → Commission Rates.`
+          : null;
       await getCommissionsRepository().create({
         clientId: payment.clientId,
         policyId,
@@ -109,10 +160,13 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
         orNumber: or,
         status: "Voucher Pending",
         estimatedAmount: est,
+        ratePct: rate?.ratePct ?? null,
+        commissionRateId: rate?.id ?? null,
         followUpDate: today,
       });
       await getTasksRepository().create({
         title: `Request commission voucher — ${payment.clientName ?? "client"} (OR ${or})`,
+        ...(pendingNote ? { notes: pendingNote } : {}),
         tag: "Commission",
         clientId: payment.clientId,
         assignedUserId: actor.id,

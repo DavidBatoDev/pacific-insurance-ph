@@ -19,6 +19,9 @@ export interface Commission {
    *  Issue · Follow-Up Required / Received / Paid. */
   status: string;
   estimatedAmount: number | null;
+  /** Rate (% of premium) the estimate used; null = pending/unknown. */
+  ratePct: number | null;
+  commissionRateId: string | null;
   amount: number | null;
   followUpDate: string | null;
   receivedDate: string | null;
@@ -36,6 +39,8 @@ export interface NewCommission {
   orNumber?: string | null;
   status?: string;
   estimatedAmount?: number | null;
+  ratePct?: number | null;
+  commissionRateId?: string | null;
   followUpDate?: string | null;
   notes?: string | null;
 }

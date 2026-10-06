@@ -18,6 +18,8 @@ import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-c
 import type { User } from "@/lib/repositories/users/user.entity";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
 import type { CatalogProductVersion } from "@/lib/repositories/products/product.entity";
+import { CommissionRatesTab } from "@/components/settings/commission-rates-tab";
+import type { CommissionRate } from "@/lib/repositories/commission-rates/commission-rate.entity";
 import { CarrierLibraryTab } from "@/components/settings/carrier-library-tab";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
@@ -37,6 +39,7 @@ const TABS = [
   { id: "Notifications", adminOnly: false },
   { id: "Payment Channels", adminOnly: false },
   { id: "Pacific Cross Contacts", adminOnly: false },
+  { id: "Commission Rates", adminOnly: false },
   { id: "Carrier Library", adminOnly: true },
   { id: "Billing", adminOnly: true },
   { id: "Integrations", adminOnly: false },
@@ -48,6 +51,7 @@ export function SettingsLive({
   proposalPortal,
   travelPortal,
   contacts,
+  commissionRates,
   libraryDocuments,
   productVersions,
   canManageLibrary,
@@ -57,6 +61,7 @@ export function SettingsLive({
   proposalPortal: PacificCrossIntegrationSettings | null;
   travelPortal: PacificCrossIntegrationSettings | null;
   contacts: ExternalContact[];
+  commissionRates: CommissionRate[];
   libraryDocuments: LibraryDocument[];
   productVersions: CatalogProductVersion[];
   canManageLibrary: boolean;
@@ -108,6 +113,7 @@ export function SettingsLive({
         {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
+        {active === "Commission Rates" && <CommissionRatesTab rates={commissionRates} canEdit={isAdmin} />}
         {active === "Carrier Library" && <CarrierLibraryTab documents={libraryDocuments} productVersions={productVersions} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
         {active === "Integrations" && <IntegrationsTab proposalPortal={proposalPortal} travelPortal={travelPortal} canEdit={isAdmin} />}

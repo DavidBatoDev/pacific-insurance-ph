@@ -180,6 +180,8 @@ function commissionToDomain(row: CommissionJoined): Commission {
     orNumber: row.or_number,
     status: row.voucher_status,
     estimatedAmount: row.estimated_amount,
+    ratePct: row.rate_pct == null ? null : Number(row.rate_pct),
+    commissionRateId: row.commission_rate_id,
     amount: row.amount,
     followUpDate: row.follow_up_date,
     receivedDate: row.received_date,
@@ -225,6 +227,8 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
         or_number: input.orNumber ?? null,
         ...(input.status !== undefined ? { voucher_status: input.status } : {}),
         estimated_amount: input.estimatedAmount ?? null,
+        rate_pct: input.ratePct ?? null,
+        commission_rate_id: input.commissionRateId ?? null,
         follow_up_date: input.followUpDate ?? null,
         notes: input.notes ?? null,
       })

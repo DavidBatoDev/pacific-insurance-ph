@@ -18,6 +18,11 @@ import {
   type NewPaymentChannel,
   type PaymentChannel,
 } from "@/lib/repositories/payment-channels";
+import {
+  getCommissionRatesRepository,
+  type CommissionRate,
+} from "@/lib/repositories/commission-rates";
+import { COMMISSION_BUSINESS_TYPES, type CommissionBusinessType } from "@/lib/db-enums";
 import { getUsersRepository, type User } from "@/lib/repositories/users";
 import {
   getDocumentLibraryRepository,
@@ -321,6 +326,75 @@ export async function savePaymentChannelAction(
     return { ok: true, data: saved };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save channel." };
+  }
+}
+
+/* ----------------------------- Commission rates ----------------------------- */
+
+export interface SaveCommissionRateInput {
+  productId: string;
+  businessType: CommissionBusinessType;
+  /** 0-100, or null = pending. */
+  ratePct: number | null;
+  /** YYYY-MM-DD. */
+  effectiveDate: string;
+  notes?: string | null;
+}
+
+/**
+ * Save a commission rate (Settings -> Commission rates; Admin-only). `id` is the
+ * row being edited: the same effective date updates it in place, a new date
+ * creates a new row so history is kept. An existing row for the same
+ * product + type + date is updated rather than duplicated.
+ */
+export async function saveCommissionRateAction(
+  id: string | null,
+  input: SaveCommissionRateInput,
+): Promise<ActionResult<CommissionRate>> {
+  try {
+    const actor = await requireAdmin();
+    if (!input.productId) return { ok: false, error: "Choose a product." };
+    if (!COMMISSION_BUSINESS_TYPES.includes(input.businessType))
+      return { ok: false, error: "Invalid business type." };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate))
+      return { ok: false, error: "Enter a valid effective date." };
+    if (input.ratePct != null && (!Number.isFinite(input.ratePct) || input.ratePct < 0 || input.ratePct > 100))
+      return { ok: false, error: "Rate must be between 0 and 100, or blank for pending." };
+    const notes = input.notes?.trim() || null;
+
+    const repo = getCommissionRatesRepository();
+    const all = await repo.listAll();
+    const editing = id ? all.find((r) => r.id === id) : undefined;
+    const sameDate = all.find(
+      (r) =>
+        r.productId === input.productId &&
+        r.businessType === input.businessType &&
+        r.effectiveDate === input.effectiveDate,
+    );
+    const target = editing && editing.effectiveDate === input.effectiveDate ? editing : sameDate;
+
+    const saved = target
+      ? await repo.update(target.id, { ratePct: input.ratePct, notes })
+      : await repo.create({
+          productId: input.productId,
+          businessType: input.businessType,
+          ratePct: input.ratePct,
+          effectiveDate: input.effectiveDate,
+          notes,
+        });
+    await recordAudit({
+      actorId: actor.id,
+      action: target ? "update" : "create",
+      tableName: "commission_rates",
+      recordId: saved.id,
+      previousValue: target ? (target as unknown as Json) : undefined,
+      newValue: saved as unknown as Json,
+    });
+    revalidatePath("/settings");
+    revalidatePath("/commissions");
+    return { ok: true, data: saved };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save commission rate." };
   }
 }
 
