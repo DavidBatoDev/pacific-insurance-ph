@@ -40,6 +40,13 @@ remote deployment still needs verification). Proposal and Travel portal results 
 back into the corresponding records. The dated audit and Phase G checklists below remain useful
 history; confirm current status against the build roadmap before acting on unchecked items.
 
+**Oct 2 module review (2026-10-02):** the team walked Eman and Matt through every module. The
+resulting work is **Phase H** below.
+- Sources: `../docs/meeting_Notes_Oct_2.md` (authoritative, includes the Tagalog portion) and JC's
+  `../docs/Oct2_Task_Assignments_Draft.md`.
+- Phase H opens with **H0**: clear all client and lead data before client staging begins.
+- It ends with twenty open decisions (DH1–DH20) for Joshua.
+
 ## Implementation audit (2026-08-03)
 
 Audited against current source, Git history, and the connected Supabase migration ledger.
@@ -1245,6 +1252,619 @@ largest and least urgent since neither Claims nor group enrollment is in active 
 
 ---
 
+## Phase H — Oct 2 module review (2026-10-02)
+
+On **2026-10-02** the team walked Eman and Matt through every module: Clients, Proposals,
+Applications, Policies, Renewals, Travel, Claims, Payments and Commissions. Client-data readiness
+was also covered.
+
+**Sources, and which one wins:**
+- `../docs/meeting_Notes_Oct_2.md` is Joshua's notes. They include the Tagalog portion,
+  transcribed and translated, and they are **authoritative**.
+- `../docs/Oct2_Task_Assignments_Draft.md` is JC's task draft. It was built from the English
+  transcript only, so it misses everything said in Tagalog.
+- Where the two differ, the notes win. Each conflict is called out inline and listed in the
+  decisions table below.
+
+**Every `DH#` decision is open, for Joshua to decide.** Each one carries a recommendation; nothing
+here has been decided on anyone's behalf.
+
+**Ground rules for this phase:**
+- **Migrations start at `0042_`.** The highest file is `0040`, and `0041` is already claimed by
+  the D1 import-schema task in Proyekto ("Migration 0041: schema for premium history, riders,
+  second billing and import lineage"). Apply each migration via Supabase MCP, then regenerate
+  `lib/supabase/types.ts` (R3).
+- **R1 still applies.** Every "automatic email" below can only *log* a `communications` row, or
+  queue it for staff, until a real provider exists.
+- **H0 gates everything that touches client data.** It runs first.
+
+| Task | Module | Core site | Schema work | Gated by |
+| :--- | :--- | :--- | :--- | :--- |
+| **H0** Clear client and lead data | Data | `clients` + FK graph | none (data script) | DH1, DH2 |
+| **H1a** Coverage tier → Ward / Semi-Private / Private | Clients | `log-call.tsx:30`, `wizard-data.ts:470-498` | none (maybe group CHECK) | DH3, DH4 |
+| **H1b** Select Plus vs Select Standard | Clients | `0037:121-131` | migration (limit basis) | DH5 |
+| **H1c** Edit policy number and product on the client | Clients | `policies.repository.supabase.ts:119-138` | none | H0 |
+| **H1d** Archived client status | Clients | `0002_identity.sql:64` | migration (CHECK) | — |
+| **H1e** Policy Schedule 2 extraction pipeline | Data | new script | none | NDA, Eman's PDFs |
+| **H2a** Payment frequency on Generate Proposal | Proposals | `generate-proposal.tsx` | migration | — |
+| **H2b** Portal-mirroring "details to encode" | Proposals | `prospects/actions.ts:475-485` | none | — |
+| **H2c** Load the updated applications and brochures | Library | `scripts/load-carrier-library.mjs` | none | Matt's files, DH6 |
+| **H2d** Auto-detect received proposals | Proposals | — | — | **PARKED** (DH7) |
+| **H3a** "New Application" opens the full requirement set | Applications | `new-application.tsx:212-264` | none | DH8 |
+| **H3b** Verify the draft-only application items | Applications | `wizard-data.ts` | — | DH9 |
+| **H4a** "Issue policy" → "Log policy copy" + PDF upload | Policies | `issue-policy.tsx` | none | — |
+| **H4b** Auto-log policies from the agency email | Policies | — | — | **PARKED** |
+| **H5a** Generate renewal rows from policies | Renewals | `renewals.repository` (no callers) | none | H0, import |
+| **H5b** Notice-received date | Renewals | `0005_operations.sql:65-82` | migration | — |
+| **H5c–e** Configurable renewal email schedule + engine | Renewals | `settings-live.tsx:108` | migration | timeframes, DH10, R1 |
+| **H6a** Travel quote doesn't preselect TravelSafe | Travel | `overlay-host.tsx:95` | none | — |
+| **H6b–e** Two-step travel flow, client picker, uploads | Travel | `wizard/*`, `steps-2.tsx:481-613` | maybe | DH11, DH12 |
+| **H7a–f** Claim types, policy lock, merged checklist, back bug, email | Claims | `file-claim.tsx`, `claim-requirements.tsx` | maybe | DH13, DH14 |
+| **H8a–d** Awaiting payments, source link, USD, installments | Payments | `payments-live.tsx`, `wizard-actions.ts:959` | migration (installments) | DH15 |
+| **H9a–f** Commission rate table, formula, breakdown, voucher | Commissions | `payments/actions.ts:22` | migration | DH16–DH20 |
+
+---
+
+- [x] **H0. Clear all client and lead data before client staging begins.** ✅ *Done 2026-10-06.* *(Gate. Run before any
+  other H task that touches client data, and before the D1 import.)* We are moving onto real
+  client staging, so the demo and test records go. That covers both the seeds and everything
+  created through the website during testing.
+  - **Current state (read-only check, 2026-10-05):** `clients` holds **45 rows**: 22 Lead,
+    4 Applicant, 18 Client, 1 Lost. 31 of them are demo seeds (`@lead.demo`, `@client.demo`,
+    `@group.demo`); the other 14 were created through the app. Leads are not a separate table:
+    they are `clients` rows with `lifecycle_stage = 'Lead'` (`0013_lead_lifecycle.sql:2,6`).
+    Child rows:
+
+    | policies | applications | claims | payments | commissions | renewals | travel requests | group accounts | documents | communications |
+    | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+    | 7 | 13 | 6 | 8 | 2 | 5 | 6 | 3 | 3 | 51 |
+
+  - **Delete order.** These FKs are `ON DELETE RESTRICT`, so the order matters:
+    1. Delete application children first. `application_dependents.dependent_id` and
+       `application_carrier_forms.dependent_id` both RESTRICT on `dependents`
+       (`0025:14,29`). Then delete `applications`.
+    2. Delete `policies`, `renewals`, `claims` and `travel_requests`. All of them RESTRICT on
+       `clients` (`0005_operations.sql:6,37,69,97,133`).
+    3. Delete `clients`. This cascades to `dependents`, `workflow_instances`, `documents`,
+       `external_coverage`, `tasks`, `communications` and `relationship_activities`.
+  - **Rows the FKs won't clean up:**
+    - `payments` and `commissions` are SET NULL, so they would survive as orphans. Delete the
+      rows that belong to the targeted records.
+    - Delete `referrals` rows that point at deleted clients.
+    - Delete the `group_accounts` / `group_members` rows (the `@group.demo` corporates). Their
+      client links are SET NULL, so they would otherwise survive.
+    - Delete `activity` and `audit` rows keyed by `scope_id` / `record_id`. No FK covers them.
+    - Remove the Storage objects behind the deleted `documents` rows, in the private `documents`
+      bucket. Leave `library/` untouched.
+  - **Keep:** users and staff, the product catalog (`0009`, `0037`, `0039`, `0040`), templates
+    (`0011`), `document_library`, `external_contacts`, integration settings, `payment_channels`,
+    and the requirement templates (`0024`, `0028`, `0032`, `0035`).
+  - **Method:**
+    - Export every targeted row to a dated JSON backup, outside the repo or gitignored, since it
+      contains PII.
+    - Run the delete from a script, `scripts/clear-client-data.mjs`
+      (dry run by default; `--backup`; `--apply --confirm=CLEAR-CLIENT-DATA`). `load-carrier-library.mjs` is the
+      nearest script pattern.
+    - Afterwards, assert that every targeted table has zero client-linked rows and that the
+      catalog and library counts are unchanged.
+  - **This supersedes Phase E D1's rule.** D1 says to *"preserve every website-created record
+    that is not explicitly allowlisted as demo/test data"*. Record the change in
+    `docs/development-alignment.md`.
+  - **Decisions:** DH1 ✅ wipe all; DH2 ✅ reset counters (seed-migration note still open).
+  - **Script written 2026-10-06:** `scripts/clear-client-data.mjs`. PostgREST can't wrap the
+    deletes in one transaction, so they run in FK-safe order as whole-table deletes and the
+    script is re-runnable. Dry run on 2026-10-06: 45 clients, 13 applications, 7 policies,
+    6 claims, 6 travel, 5 renewals, 8 payments, 2 commissions, 3 groups/13 members,
+    51 communications, 195 timeline + 154 audit rows, 4 storage files, 11 counters.
+  - **Applied 2026-10-06** by Joshua (`--apply`). Verified afterwards: 0 clients, policies,
+    applications, communications, groups, payments and timeline rows, and no client files. Kept:
+    7 users, 54 library entries and their 74 `library/` files, and the 337 non-client audit
+    rows. Only the `USR` counter remains. Backup:
+    `~/pacific-insurance-backups/clear-client-data-2026-10-06T06-00-45-607Z/` (1.5 MB, holds PII).
+  - **Proyekto:** widens the existing *"Back up and remove demo and test seed data through a
+    reversible transaction"* task.
+
+### H1 — Clients
+
+- [ ] **H1a. Coverage tier becomes Ward / Semi-Private / Private.** Eman asked to remove
+  "Standard" and "Suite/Executive".
+  - **Current state:** four vocabularies that disagree.
+    - `TIERS` in `components/hub/overlays/log-call.tsx:30` is "Standard / Ward", "Semi-private
+      room", "Private room", "Suite / Executive". `components/clients/client-form.tsx:12,256-263`
+      reuses it.
+    - The carrier catalog uses `Ward`, `Semi-Private`, `Private 2M/3M/5M`
+      (`0037_carrier_rate_catalog.sql:121-131`).
+    - `group_members` has a CHECK of `Standard/Premium/Executive` (`0016_group_accounts.sql:38-39`).
+      `group-live.tsx:34,81,402` hardcodes the same values.
+    - `clients.coverage_tier` is free text (`0019:9`). Discovery labels therefore never match a
+      catalog plan in `normalisePlanPreference` / `uniquePlanPreferenceMatch`
+      (`wizard-data.ts:470-498`), so the wizard never auto-selects a plan.
+  - **Change:**
+    - Replace `TIERS` with one shared constant (`Ward`, `Semi-Private`, `Private`) and use it in
+      discovery, the client form and the wizard.
+    - Make plan matching normalise to the catalog's tier names, so a discovery answer selects
+      the plan again.
+    - No data backfill is needed if H0 runs first.
+  - **⚠️ Decisions:** DH3 (is Private one tier or three?), DH4 (does this also replace the group
+    CHECK?).
+
+- [ ] **H1b. Select Plus vs Select Standard.** These are one product with the same commission.
+  They differ only in how the limit behaves:
+  - **Select Plus:** ₱1,000,000 *aggregate* limit that replenishes every year.
+  - **Select Standard:** ₱1,000,000 *per illness*, depleted as the client uses it.
+  - **Current state:** both already exist as plan families in the catalog (`0037:121-131`), with
+    the amount in `maximum_coverage`. **No field anywhere records the limit basis**; a grep for
+    "aggregate" returns nothing.
+  - **Change:**
+    - Make the variant an explicit choice wherever Select is picked: discovery, application and
+      the policy record.
+    - Store the limit basis (`Aggregate, annual reset` vs `Per illness, depleting`) on the plan
+      family, and show it on the client and policy views.
+    - Commission keys on the product (H9a), so both variants share a rate.
+  - **⚠️ Decision:** DH5. The notes say ₱1M for both, but the catalog lists Select Plus Private
+    at 2M/3M/5M.
+
+- [ ] **H1c. Make the policy number and product/plan editable on the client.** Eman needs to
+  correct these; staging is already surfacing wrong policy numbers.
+  - **Current state:**
+    - `PoliciesRepository.update()` supports `policyNumber`, status, dates, premium and notes
+      (`lib/repositories/policies/policies.repository.supabase.ts:119-138`), but **nothing calls
+      it**.
+    - The policy number is written once, at issue (`issue-policy.tsx:115`).
+    - The contact profile shows only the Discovery card's "Product interest"
+      (`identity-cards.tsx:56`) and a policy *count* that links away (`records-cards.tsx:27`).
+  - **Change:**
+    - Add a Policies card on the contact profile listing each policy: carrier policy number,
+      product, plan, payment mode, dates and status.
+    - Add an Edit action backed by a new `updatePolicyAction` that calls the existing
+      `update()`, with `recordActivity` + `recordAudit` + `revalidatePath`.
+    - Product/plan changes need `update()` extended to accept `product_version_id` /
+      `plan_option_id`.
+
+- [ ] **H1d. Archived client status.** *(From the draft.)* Clients who have left (e.g. Assad Abla)
+  are kept for history, not deleted.
+  - **Current state:** `clients.status` is `text default 'Active'` with no CHECK
+    (`0002_identity.sql:64`). "Archived" exists only on `documents.status`.
+  - **Change:**
+    - Add a migration with a CHECK on the allowed statuses, including `Archived`.
+    - Exclude archived clients from active lists, pickers and dashboard counts, while keeping
+      them searchable and visible on their profile.
+    - The D1 importer maps the spreadsheet's "archived" flag to this status.
+
+- [ ] **H1e. Policy Schedule 2 extraction pipeline.** *(Joshua + JC, agreed in the meeting.)*
+  Eman confirmed that every client's details are on their policy PDFs, which use one format
+  across all products. Instead of hand-keying, we extract them into staging.
+  - **Fields:**
+    - **Schedule 1 (the policy):** issue date, policy number, policy holder, address, benefit
+      plan (plan, business type), period of insurance (from / to / renewal date), and premium
+      (net annual, taxes, total annual, policy fee).
+    - **Schedule 2 (list of insured):** policy holder, policy number, effective date, debit note
+      number. Then per insured person: name, member number, sex, age, birthday, civil status,
+      member effective date, plan and gross premium.
+  - **Output:** `Policies_Staging` and `Insured_Persons_Staging` rows with source lineage (file
+    and page). This feeds D1. It also covers the demographics Eman listed as the next staging
+    gap (age, gender, birth date) after the policy-number corrections.
+  - **Gated on:** the **NDA being signed**, then Eman sharing the Schedule 2 pages with the
+    passwords removed. Never commit extracted data or source PDFs to either repo (R4).
+
+### H2 — Proposals
+
+- [ ] **H2a. Capture payment frequency (Annual / Semi-annual) on Generate Proposal.** The portal
+  asks for it at the Generate step.
+  - **Current state:** the modal has only a lead/client picker (`generate-proposal.tsx:89`).
+    Frequency exists only in the wizard (`steps-2.tsx:248`) and on `policies.payment_mode`
+    (`'Annual','Semi-Annual'`, `0005:18`).
+  - **Change:** add the field and persist it on the lead (migration), using the same two values.
+    It carries forward into the wizard and drives H8d installments.
+
+- [ ] **H2b. Make the "details to encode" list mirror the portal's actual inputs.** This is the
+  meeting's main point: prepare everything before opening the portal so nothing is re-keyed or
+  missed.
+  - **Current state:** `prospects/actions.ts:475-485` lists full name, DOB, age, product,
+    coverage tier, family size and dependents.
+  - **Portal inputs (Eman's walkthrough):**
+    - **Quotation header:** quotation number, policy holder name\*, product\*, total
+      principals\*.
+    - **Per principal:** first name\*, last name\*, gender\*, date of birth\*, age, plan,
+      optional benefit, discount, plus Add/Remove Dependent.
+    - **Generate step:** Annual or Semi-annual. The output shows the quotation number, agent
+      code and agent name.
+  - **Change:**
+    - Add the missing fields to the encode list: gender, optional benefit, discount, total
+      principals and payment frequency.
+    - Warn when a required portal field is empty on the lead.
+    - The generated PDF downloads to Eman's device immediately; the existing upload-back
+      (`88274c8`) remains how it gets into the app.
+
+- [ ] **H2c. Load Pacific Cross's updated applications and brochures.** Matt is sharing new
+  versions.
+  - **Change:**
+    - Run them through `scripts/load-carrier-library.mjs` as new versions, matched by product,
+      variant and age band, and archive the superseded rows. Update
+      `scripts/carrier-library-manifest.json`.
+    - Update "the Excel" to list them.
+  - **Already done, per the notes:** all brochures and templates shared before Oct 2 are loaded
+    (D3).
+  - **⚠️ Decision:** DH6 (which Excel).
+
+- [ ] **H2d. Auto-detect received proposals and advance the lead. PARKED.** Joshua raised this as
+  "need to confirm if possible".
+  - **Why parked:** it needs an inbox to watch (the new agency address isn't live), a parser,
+    and a background-job runner. None exist: `lib/queries/lead-status-inference.ts:9` states
+    there is no job system.
+  - **V1 path:** the manual upload-back with Preview/Replace (`88274c8`) already sets the
+    proposal to Received.
+  - **⚠️ Decision:** DH7.
+
+### H3 — Applications
+
+- [ ] **H3a. "New Application" should land on the full requirement set for the product.** Eman
+  expected **New Application** to open the selected product's complete application form and
+  requirements. Instead it opens the six-step wizard with only basic requirements. In the meeting
+  Joshua explained that the full list appears under **Continue Application** on the client; that
+  explanation is the UX problem.
+  - **Current state:**
+    - The header and Applications-screen buttons call `openWizard()` with no prefill
+      (`shell.tsx:536`, `operations.tsx:104-105`).
+    - The Step 4 preview is built client-side from the Step 1 product plus Step 3 inputs
+      (`new-application.tsx:212-264`). With no product chosen it shows *"Select a product in
+      Step 1…"* (`steps-2.tsx:602`).
+    - The authoritative per-product list is snapshotted server-side only on create
+      (`snapshotApplicationRequirements`, `wizard-actions.ts:~141`), then managed in the
+      Requirements overlay.
+  - **Change:**
+    - Require the product before leaving Step 1, and show the product's full checklist preview,
+      including conditional items marked *"applies if…"*.
+    - After create, open that application's Requirements overlay directly, so the user never has
+      to discover "Continue Application".
+  - **⚠️ Decision:** DH8.
+
+- [ ] **H3b. Verify the draft-only application items before scheduling any work.** Two of JC's
+  draft tasks don't appear in the meeting notes:
+  - *"Blue Royale currently shows the HMO list."* `categoryForProduct()` routes Blue Royale to
+    `health`. Reproduce it before fixing anything.
+  - *"Add a medical review stage when the health declaration has a 'yes' answer."* G3 already
+    generates conditional medical documents (`medicalDocumentsFor()` in `wizard-data.ts`). A
+    separate review *stage* would be new workflow.
+  - **⚠️ Decision:** DH9.
+
+### H4 — Policies
+
+- [ ] **H4a. Reframe "Issue policy" as filing the carrier's copy, and add the PDF upload.** Eman
+  and Matt clarified that **Pacific Cross issues policies directly to the policyholder; the agency
+  only receives a carbon copy for filing.** Matt confirmed the section's purpose is to store and
+  quickly retrieve client policy copies.
+  - **Current state:** `IssuePolicyDrawer` (`issue-policy.tsx`, titled "Issue policy" at `:63`)
+    is manual data entry with **no document upload**. The only policy-PDF upload in the app is
+    Travel's.
+  - **Change:**
+    - Rename the button, drawer and copy to "Log policy copy" or similar.
+    - Add a required-or-optional policy PDF upload. Eman removes the carrier password manually
+      before uploading, as agreed in the meeting. Reuse the `PdfUpload` +
+      `recordTravelPolicyAction` pattern.
+    - Link the PDF from the H1c Policies card so it can be retrieved in one click.
+
+- [ ] **H4b. Auto-log policies received at the new agency email. PARKED.** Every Pacific Cross
+  policy is password-protected for data privacy, so the team agreed to do this manually (H4a).
+  Revisit only once the new address is live and R1 is resolved.
+
+### H5 — Renewals
+
+Timeframes are **not final**. Eman and Matt will settle them offline, and JC is following up. The
+numbers below are the meeting's proposals.
+
+- [ ] **H5a. Generate renewal rows from policies.** *(Prerequisite, found during this review.)*
+  - **Current state:** nothing in the app creates renewal rows. `RenewalsRepository.create` has
+    no callers; only the `0014` seed inserts them. After H0 and the import, the Renewals page
+    would be empty.
+  - **Change:** create or refresh a renewal row for each active policy from its expiry/renewal
+    date, both on policy create/update (H1c, H4a) and as a backfill after the import.
+
+- [ ] **H5b. Record the date the renewal notice was received, per renewal.** Matt noted notices
+  arrive inconsistently: sometimes about 80 days early (a notice on Oct 2 for a Dec 18 renewal),
+  sometimes only on request.
+  - **Current state:** `renewal_notice_date` exists (`0005:65-82`) and is used for the *sent*
+    notice. Status `'Notice Received'` exists, but no received date does.
+  - **Change:** migration adding `notice_received_date`, plus a "Mark notice received" action.
+
+- [ ] **H5c. Configurable email schedule.** *(Joshua's proposal.)*
+  - **Change:**
+    - Add a settings table: email type → offset days (relative to the renewal date or to notice
+      receipt) → recipient (client or a Pacific Cross contact) → template → active flag.
+    - Make it editable in **Settings → Notifications**, replacing the placeholder at
+      `settings-live.tsx:108`.
+
+- [ ] **H5d. The four renewal emails.**
+  1. **Client, on notice receipt** (Eman). Triggered by H5b.
+  2. **Client reminder before the renewal date** (Eman; proposed 30 days).
+  3. **Pacific Cross, requesting the notice when none has arrived** (Matt; proposed 30–60 days
+     before renewal).
+  4. **Pacific Cross (Thea), requesting the premium breakdown for every renewal**, whether or not
+     the premium increased (Matt; Eman agreed it should be automatic per client).
+
+  - Add Thea to the C3 external-contacts directory. JC is getting her contact details and
+    preferred wording.
+  - Write templates for 3 and 4. Today there is only "Renewal reminder" (`0011:26`).
+
+- [ ] **H5e. Execution engine.**
+  - **Current state:** there is no cron, `vercel.json` schedule or job runner.
+  - **⚠️ Decision:** DH10.
+  - **Note:** "installment notices" were mentioned as part of the demoed Renewals section, but no
+    installment code exists anywhere. That work lives in **H8d**.
+
+### H6 — Travel
+
+The meeting's synthesis applies here most: **the app must not make Eman type client details twice**
+(once in the app, once in the TravelSafe portal).
+
+- [x] **H6a. Bug: "New travel quote" doesn't preselect TravelSafe.** *(Quick win.)* ✅ *Done 2026-10-06: prefill now passes `TravelSafe`; browser-verified.* Eman asked
+  that the product default to Travel Safe.
+  - **Current state:** the modal opens the wizard with `productInterest: "Travel Insurance"`
+    (`overlay-host.tsx:95`). Migration `0037` deactivated that legacy product (`0037:58,60`); the
+    live product is **"TravelSafe"** (`0037:71`). The wizard matches by exact name
+    (`new-application.tsx:144`), so **nothing is selected** and Step 1 shows an unmatched-product
+    notice (`:171`).
+  - **Change (as shipped 2026-10-06):** the prefill now passes the live name `"TravelSafe"`, a
+    one-line fix. It is still matched by display name, so renaming the product would break it
+    again.
+  - **Not done, optional follow-ups:**
+    - Prefill by the product's stable `source_key`.
+    - Remove the unreferenced `NewTravelQuoteDrawer` (`new-travel-quote.tsx:14`).
+  - **Found while verifying → H6g.** A travel quote opens with Application Type **Inquiry Only
+    (Lead)**. The wizard defaults `appType` to `INQUIRY_APP_TYPE` whenever any `productInterest`
+    is prefilled (`new-application.tsx:141-171`). That rule exists for leads, but the travel-quote
+    entry point inherits it.
+
+- [ ] **H6g. Travel quote should not default to "Inquiry Only (Lead)".** Found 2026-10-06 while
+  verifying H6a.
+  - **Change:** let the travel-quote entry point skip the inquiry default. Either pass an
+    explicit `appType` in its prefill, or scope the default to the lead entry points only.
+  - Check this against H6b first: the 2-step flow may remove the application-type field
+    altogether.
+
+- [ ] **H6b. Collapse the travel path to Eman's two steps.**
+  1. **Client information + product/trip details + requirements**, on one screen. This is also
+     where the requirements from the signed application form (e.g. passport) are uploaded.
+  2. **Review & create**, which then opens the Pacific Cross portal.
+
+  - **Current state:** six steps.
+    - Step 3 (`Step3Travel`, `steps-2.tsx:481`) already repeats client fields and copies the
+      applicant into the traveler list (`:484`).
+    - Step 4's travel checklist is built entirely from the Step 3 traveler list
+      (`new-application.tsx:261-262`).
+  - **Fields:** base them on the Pacific Cross travel application form. We already hold it; it
+    was received 2026-08-01. Persist only what we need to operate and search (C7's rule); the
+    signed form stays the legal record.
+  - **⚠️ Decision:** DH11. JC's draft lists four steps.
+
+- [ ] **H6c. Client entry: pick an existing client or type a new one, with no silent autofill.**
+  Some travel clients are repeat travelers (JC asked; Eman confirmed).
+  - Joshua suggested autofill from existing records.
+  - Eman leaned towards manual entry, or a dropdown if feasible. Either is fine, as long as Eman
+    never re-keys client information.
+  - **⚠️ Decision:** DH12. JC's draft says "autofill with manual override".
+
+- [ ] **H6d. Requirement uploads inside the travel step.**
+  - **Current state:** the Step 4 checklist is a checkbox plus a status dropdown, with **no file
+    upload**.
+  - **Change:** upload the signed application form and the passport/ID per traveler directly
+    against the checklist rows.
+  - **Eman's intake:** they send the client the PDF application form by email; the client
+    returns it signed with a passport copy. Some signed forms are hard to read, which is why
+    reading them automatically is out of scope.
+
+- [ ] **H6e. File the full post-issuance pack, not just the policy.** After payment, Pacific Cross
+  emails the policy within about 5 minutes. The email contains:
+  1. the insurance policy;
+  2. the completed application form;
+  3. three reference documents ("Travel Insurance Complete Numbers", "Covid-19 Coverage…", "NOC
+     TravelSafe Insurance").
+
+  - Eman sends it to their own address rather than straight to the client, because the
+    attachments are password-protected and some clients can't open them.
+  - **Current state:** the upload-back (`12acb17`) takes the issued policy only.
+  - **Change:** also allow attaching the application-form copy. The three reference documents
+    are generic, so link them from the library instead of storing them per client.
+
+- [ ] **H6f. Travel payment tracking: mostly already done.**
+  - **Current state:** the portal modal records portal reference, amount and status
+    (`travel-workflow.tsx:89-91`).
+  - **Portal payment flow (Eman's walkthrough):** card, GCash or OTC. Eman usually pays on the
+    client's behalf and screenshots the proof of payment.
+  - **Remaining work, if any:** a payment-method field. JC's draft task can be closed or reduced
+    to that.
+
+### H7 — Claims
+
+Eman's process: claims arrive mostly as soft copies by email, sometimes as hard copies.
+
+- [ ] **H7a. Replace the claim types.**
+  - **New list:** Reimbursement, IP, OP, ER, Overseas Reimbursement, Overseas IP, Overseas OP,
+    Overseas ER, Travel. Travel needs no overseas variant because it covers both local and
+    overseas.
+  - **Why the overseas variants exist:** Blue Royale lets clients seek treatment abroad through
+    reimbursement, and Eman needs to see where it happened. JC's draft wording *"Travel
+    (intentional treatment abroad)"* is wrong.
+  - **Current state:** the types are hardcoded at `file-claim.tsx:97` (`Hospitalization`,
+    `Outpatient`, `Reimbursement`, `Emergency`, `Other`; default `Hospitalization` at `:22`).
+    `claims.claim_type` is free text (`0005:99`).
+  - **Change:**
+    - Use one shared constant.
+    - Map each type to the requirement template it uses: IP/OP → `0032` templates; Travel →
+      TravelSafe NOC (Eman: travel claim requirements are more rigorous).
+  - **⚠️ Decision:** DH13.
+
+- [ ] **H7b. Default the policy to the client's policy, read-only.** Eman: one policy per client,
+  so the dropdown shouldn't be interactive.
+  - **Current state:** the dropdown (`file-claim.tsx:82-91`, fed by
+    `listClientPoliciesAction`) labels policies `referenceNo · productName`, not the carrier's
+    policy number.
+  - **Change:** show the carrier policy number, preselected and locked.
+  - **⚠️ Decision:** DH14. A client can hold a travel policy *and* a health policy.
+
+- [ ] **H7c. Fold the requirements popup into the File Claim sidebar.**
+  - **Current state:** filing a claim and building its checklist are separate overlays
+    (`file-claim.tsx` / `claim-requirements.tsx`, opened from `operations.tsx:382`).
+  - **Change:** with H7a, the claim type decides the checklist, so the In-Patient / Out-Patient
+    choice disappears. Show the checklist in the sidebar.
+
+- [ ] **H7d. Bug: the checklist type can't be changed once picked.** *(Critical UX bug, Eman.
+  Fix even if H7c slips.)*
+  - **Current state:** after "Generate In-Patient / Out-Patient checklist" (`:132-137`), the
+    modal shows only the list and a Close button (`:140-162`). `generateClaimRequirementsAction`
+    is idempotent and returns the existing rows, so a mis-click locks the claim to the wrong
+    list.
+  - **Change:** add Back / Change type, which regenerates the checklist while no item is past
+    `Pending`. Once items are received, block the change and explain why.
+
+- [ ] **H7e. When the checklist is complete, open an email with the documents.** Eman asked that
+  completing the requirements opens a generated email with the documents attached.
+  - **Change:** open the Engage composer, pre-filled with a claims template, the Pacific Cross
+    claims contact (C3), and the claim's documents listed.
+  - **Limit:** real binary attachments are blocked by R1/C6b. Until then the composer must say
+    the email is logged, not delivered.
+
+- [ ] **H7f. Record how and when the claim arrived.** *(From the draft; the notes support it.)*
+  Add submission mode (hard / soft copy) and received date to the claim.
+
+### H8 — Payments
+
+Eman was satisfied with the Payments page. They understand that its rows come from leads,
+clients, applications, travel and renewals.
+
+- [ ] **H8a. Actually create Awaiting payments from those sources.**
+  - **Current state:** the only code that creates a payment is travel collections
+    (`wizard-actions.ts:959`). Applications and renewals never do, so the "Awaiting payment" KPI
+    (`payments-live.tsx:82`) is fed by travel and seed rows only.
+  - **Change:** create an Awaiting payment when an application is submitted, when a policy copy
+    is logged (H4a), and when a renewal is generated (H5a).
+
+- [ ] **H8b. Link each pending payment to its source.** *(Joshua.)* The source is already derived
+  from the FKs (`payments.repository.supabase.ts:29-36`). Turn it into a link to the application,
+  renewal, travel request or policy.
+
+- [ ] **H8c. Support USD premiums.** Some plans (e.g. Blue Royale) are priced in USD.
+  - **Current state:** everything is PHP. `commissions.currency` exists but is never mapped. The
+    UI formats with `peso()` only (`commissions-live.tsx:156-159`, `payments/actions.ts:24`).
+  - **⚠️ Decision:** DH15.
+
+- [ ] **H8d. Installments from payment frequency.** A semi-annual policy produces two Awaiting
+  rows and two installment notices; an annual policy produces one. This needs H2a's frequency and
+  a migration for the installment sequence.
+
+### H9 — Commissions
+
+**How commission works today (Eman's process):**
+1. The client pays the premium.
+2. Two days to a week later, the commission arrives, without the voucher.
+3. The voucher comes later in a password-protected Pacific Cross email.
+
+Payment details are not currently connected to the commission.
+
+- [ ] **H9a. Commission rate table, per product and business type.** *(JC: store the percentages
+  and compute automatically.)*
+  - **Current state:** `COMM_RATE = { Application: 0.18, Renewal: 0.1, Travel: 0.15 }` with a
+    0.12 fallback (`app/(app)/payments/actions.ts:22`). It is keyed by payment *source*, not
+    product, and applied to the gross amount (`:104`). None of these rates match what the client
+    gave.
+  - **Change:** migration adding a rate table (product × business type `New` / `Renewal` ×
+    effective date), admin-editable in Settings.
+  - **Seed values:**
+
+    | Product | New business | Renewal |
+    | :--- | ---: | ---: |
+    | Select Plus / Select Standard | 20% | 20% |
+    | Blue Royale | 22.5% | 20% |
+    | Travel | 30% | 30% |
+    | HMO | *pending — ask Eman* | *pending* |
+
+- [ ] **H9b. One pure commission function.**
+  - **Formula:** paid premium − 12% VAT → × rate → − 10% withholding tax = net commission.
+  - **The client's worked examples (both must reproduce exactly):**
+    - Blue Royale renewal: 250,000 − 12% = 220,000 × 20% = 44,000 − 10% = **39,600**.
+    - Select: 134,000 − 12% = 117,920 × 20% = 23,584 − 10% = **21,225.60**.
+  - **⚠️ Decision:** DH16. The examples deduct VAT as `× 0.88`, which differs from extracting
+    VAT from a VAT-inclusive amount (`÷ 1.12`).
+
+- [ ] **H9c. Show the computation as a collapsible breakdown.** Make the formula visible inside the
+  app for each commission row: premium → less VAT → base → × rate → gross → less WHT → net, plus
+  the rate's source (product, business type, effective date).
+
+- [ ] **H9d. Commission voucher.** The meeting discussed voucher generation with these fields:
+  assigned agent, product, plan, premium amount and computed commission.
+  - **Current state:** "Request Voucher" only opens an email to the Pacific Cross commission
+    contact and sets `voucher_status = requested` (`commissions-live.tsx:75-92`).
+  - **⚠️ Decision:** DH17.
+
+- [ ] **H9e. Tests for H9b.** The repo has no test runner (no `test` script, no Vitest or Jest).
+  - **⚠️ Decision:** DH18.
+
+- [ ] **H9f. Travel commission may already be netted at payment.**
+  - **Context:** the TravelSafe portal's breakdown shows Gross Commission (30%), Tax (10%), Net
+    of Commission and Net Payable. Since Eman pays on the client's behalf, the agency may already
+    pay the *net* amount.
+  - **⚠️ Decision:** DH19.
+
+### Phase H decisions — open, for Joshua
+
+| ID | Decision | Why it's open | Recommendation |
+| :--- | :--- | :--- | :--- |
+| **DH1** | H0 scope: wipe all 45 clients/leads, including the 14 created through the website, or demo seeds only? | Conflicts with Phase E D1's preserve-website-records rule | ✅ **Decided 2026-10-06: wipe all.** Supersedes D1's preservation rule; record it in `development-alignment.md` |
+| **DH2** | After H0, reset the `reference_no` sequences so real clients start fresh? And what about the seed migrations `0013`/`0014`/`0016`, which re-seed demo data on any fresh `db reset`? | Real references would otherwise start mid-sequence; fresh environments would get demo data back | ✅ **Decided 2026-10-06: reset** every counter except `USR`, so the first real client is `CLI-2026-00001`. Seed migrations: still open (recommend leaving them untouched with a note) |
+| **DH3** | Is "Private" one tier, or three (2M/3M/5M)? | The catalog splits Private by limit; Eman listed one Private | Tier = Ward / Semi-Private / Private; the limit level stays on the plan |
+| **DH4** | Does the new tier list also replace the `group_members` CHECK (Standard/Premium/Executive)? | Group HMO tiers may be a different vocabulary | Leave the group tiers alone; confirm with Eman |
+| **DH5** | Select limit: the notes say ₱1M for both variants, but the catalog has Select Plus Private at 2M/3M/5M | Possibly just an example figure | Store the limit *basis* (aggregate vs per-illness); take the amount from the plan |
+| **DH6** | Which Excel gets the updated applications and brochures listed? | The notes don't say | Ask JC and Eman: `../docs/REQUIREMENTS-matrix.xlsx` or the client workbook |
+| **DH7** | Park proposal auto-detection until the agency inbox exists? | Needs inbox, parser and jobs | Park; manual upload-back is V1 |
+| **DH8** | New Application: require the product in Step 1 and open Requirements after create? | Changes the wizard entry flow | Yes |
+| **DH9** | Keep the draft-only items "Blue Royale shows HMO list" and "medical review stage"? | Neither appears in the notes | Verify with JC (and reproduce the first) before scheduling |
+| **DH10** | Renewal email engine while R1 is open: a scheduled job that queues due emails/tasks for staff, or wait for a real email provider? | Nothing would actually send either way | Vercel Cron that creates "due" tasks and drafts for staff to send |
+| **DH11** | Travel flow: Eman's 2 steps or JC's draft of 4? | The notes and the draft conflict | 2 steps, as Eman asked |
+| **DH12** | Travel client entry: autofill with override (draft) or existing-client picker plus manual entry (Eman)? | The notes and the draft conflict | Picker + manual; no silent autofill |
+| **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | Ask Eman; use the IP list for ER in the interim |
+| **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | Lock only when exactly one eligible policy; otherwise a picker showing carrier numbers |
+| **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |
+| **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | Follow the client's examples exactly; record it in `development-alignment.md` |
+| **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | Ask Eman; default to receive-and-upload, reusing the upload-back pattern |
+| **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | Vitest (one dev dependency) |
+| **DH19** | Travel commission: tracked as receivable, or already deducted at the portal? | The portal shows Net of Commission | Ask Eman before building H9a for Travel |
+| **DH20** | JC's draft mentions a "₱150,000 threshold rule" for VAT | Not in the notes; origin unknown | Drop unless JC can source it |
+
+### Waiting on client / team (Phase H)
+
+- **Eman:**
+  - corrected policy numbers in the Conflicts tab;
+  - archived-client flags and the updated sheet (includes new client Faye Kang);
+  - Schedule 2 pages after the NDA, with passwords removed;
+  - HMO commission %;
+  - answers to DH13, DH17 and DH19.
+- **Matt:** the new applications and brochures.
+- **Eman & Matt:** the final renewal timeframes.
+- **JC:**
+  - Thea's contact and preferred wording;
+  - NDA signing;
+  - send the Oct 2 notes to all participants;
+  - reconcile Client_Staging (159) against the Master List (105).
+- **Joshua:** send the team the request list of what migration needs (JC's recommendation in the
+  meeting).
+
+### Reconciliation with JC's draft
+
+- **Missing from the draft (said in Tagalog), now here:** H1a, H1b, H1c, H2b, H3a, H5a, H6a–e,
+  H7a (corrected), H7b–e, H8a–b, H9c.
+- **In the draft but contradicted by the notes:** the 4-step travel flow (DH11), autofill (DH12),
+  and the claim-category wording (H7a).
+- **In the draft but not in the notes:** DH9 and DH20.
+- **Redundant draft items:**
+  - *"Get the PC travel application form"*: received 2026-08-01.
+  - *"Obtain sample generated proposals"*: an illustrative proposal is already held (R4 redaction
+    applies). Ask only if a Select sample is specifically needed.
+  - *"Migrate actual client records"* and *"Onboard Faye Kang"*: both duplicate the D1 import
+    tasks, since Faye Kang arrives via the updated sheet.
+  - *"Track travel payment status"*: mostly built (H6f).
+
+---
+
 ## Dependency-gated domain completion (not blocking C1–C7)
 
 - **Claims source pack received.** The medical NOC supplies in-patient/out-patient requirements and
@@ -1332,6 +1952,19 @@ row to Inactive in seconds and the library reads as empty to every consumer.
 - **D2:** deploy a preview on Vercel and confirm login succeeds end-to-end.
 
 ## Remaining execution order (updated 2026-08-20)
+
+**Phase H order (added 2026-10-05).** Decide the DH items each step depends on before starting
+it.
+1. **H0**: clear client and lead data. This gates the rest.
+2. **Quick wins:** H6a (TravelSafe preselect), H7d (claims checklist back bug), H1a (tier
+   vocabulary).
+3. **Data correctness before the import:** H1c (policy edit), H1d (Archived status), H4a (log
+   policy copy + PDF), H9a–c (commission rates, formula, breakdown).
+4. **Flow simplification:** H6b–d (travel), H7a–c (claims), H3a (New Application), H2a–b
+   (proposal encode list).
+5. **After the D1 import:** H5a (renewal rows), then H5b–e once the timeframes are final, then
+   H8a–d.
+6. **Parked:** H2d and H4b. **Gated on the NDA:** H1e.
 
 C2a, C7, D2, and the entire Phase D/F Lead Lifecycle remediation are all complete.
 

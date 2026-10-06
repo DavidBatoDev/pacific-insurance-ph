@@ -80,6 +80,12 @@ they are historical references, not active sources of task status. Current prior
 - A committed Resend/Evolution delivery schedule. Provider selection and delivery automation are
   not implemented.
 - Client Hub portal delivery as part of the current staff application.
+- Phase E D1's rule to *preserve every website-created record not allowlisted as demo/test data*.
+  Superseded 2026-10-06 by Phase H0 (decision DH1): every `clients` row and its dependent data
+  was cleared with `scripts/clear-client-data.mjs` before real client staging, and every
+  reference counter except `USR` was reset (DH2), so real records start at `<PREFIX>-2026-00001`.
+  The seed migrations `0013`/`0014`/`0016` are unchanged and will re-seed demo data on a fresh
+  `db reset`.
 
 ## Migration and deployment state
 
