@@ -96,10 +96,10 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Migration files exist through `0045_bc_flexi_template_active_version.sql`. `0041` is reserved
-  for the D1 import schema, so `0042`–`0045` were written out of order. All four were applied to
+- Migration files exist through `0046_claim_intake_travel_payment_method.sql`. `0041` is reserved
+  for the D1 import schema, so `0042`–`0046` were written out of order. All five were applied to
   the remote project on 2026-10-06 and the types were regenerated. The next free number is
-  `0046_*`, unless `0041` is still unused. The remote ledger for `0038`–`0040` was not
+  `0047_*`, unless `0041` is still unused. The remote ledger for `0038`–`0040` was not
   re-verified here.
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.

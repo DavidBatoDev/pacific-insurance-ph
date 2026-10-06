@@ -1684,7 +1684,7 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
   - **Change:** also allow attaching the application-form copy. The three reference documents
     are generic, so link them from the library instead of storing them per client.
 
-- [ ] **H6f. Travel payment tracking: mostly already done.**
+- [x] **H6f. Travel payment tracking: mostly already done.** ✅ *Done 2026-10-06 (`ff1e088`): a Payment method select (Card / GCash / Over the counter, column `travel_requests.portal_payment_method`, migration `0046`) in the workflow's Portal processing, also shown under the premium on the Travel list. Playwright-verified.*
   - **Current state:** the portal modal records portal reference, amount and status
     (`travel-workflow.tsx:89-91`).
   - **Portal payment flow (Eman's walkthrough):** card, GCash or OTC. Eman usually pays on the
@@ -1752,7 +1752,7 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
   - **Limit:** real binary attachments are blocked by R1/C6b. Until then the composer must say
     the email is logged, not delivered.
 
-- [ ] **H7f. Record how and when the claim arrived.** *(From the draft; the notes support it.)*
+- [x] **H7f. Record how and when the claim arrived.** ✅ *Done 2026-10-06 (`91d5e21`): `claims.submission_mode` (Hard / Soft copy) and `documents_received_date` (migration `0046`), captured in File Claim ("How it arrived", "Documents received") and editable in the requirements modal (`updateClaimIntakeAction`). The claims list sub-line reads "IP · Soft copy · received Oct 6, 2026". Playwright-verified.* *(From the draft; the notes support it.)*
   Add submission mode (hard / soft copy) and received date to the claim.
 
 ### H8 — Payments
@@ -1767,7 +1767,7 @@ clients, applications, travel and renewals.
   - **Change:** create an Awaiting payment when an application is submitted, when a policy copy
     is logged (H4a), and when a renewal is generated (H5a).
 
-- [ ] **H8b. Link each pending payment to its source.** *(Joshua.)* The source is already derived
+- [x] **H8b. Link each pending payment to its source.** ✅ *Done 2026-10-06 (`528cdd0`): the Source column links to the source record (Application → requirements, Travel → workflow, Renewal → /renewals, Policy → client). Playwright-verified.* *(Joshua.)* The source is already derived
   from the FKs (`payments.repository.supabase.ts:29-36`). Turn it into a link to the application,
   renewal, travel request or policy.
 
@@ -1875,7 +1875,7 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
   - The row updates at once (measured at 100 ms) and saves in the background.
   - If the save fails, the row reverts unless a newer pick superseded it.
   - Status dropdowns no longer disable during a save.
-- [ ] **H10f. Claim checklist revert edge case.** In `claim-requirements-panel.tsx`, a failed
+- [x] **H10f. Claim checklist revert edge case.** ✅ *Done 2026-10-06 (`91d5e21`, `10e155f`): the panel's onChange takes a functional updater, so a failed save reverts only its own row. A thrown request now reverts too, in all three checklists. Playwright-verified by aborting one save mid-edit.* In `claim-requirements-panel.tsx`, a failed
   status save reverts using the row list captured when the change started. Another row
   changed in the meantime can briefly snap back until the next reload. The fix is to give the
   panel a functional update instead of a whole-array `onChange`.
