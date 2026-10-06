@@ -22,7 +22,12 @@ function SubmitButton() {
   );
 }
 
-export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, sourceLibraryDocumentId }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; sourceLibraryDocumentId?: string }) {
+/**
+ * `onUploaded` lets a parent that holds its own copy of the requirement rows (a claim or travel
+ * checklist) reload them — the upload marks the row Received server-side, and a revalidate alone
+ * doesn't reach client state.
+ */
+export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, sourceLibraryDocumentId, onUploaded }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; sourceLibraryDocumentId?: string; onUploaded?: () => void }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
@@ -31,6 +36,7 @@ export function DocumentUploadForm({ clientId, applicationId, travelRequestId, c
       action={async (fd) => {
         await uploadDocumentAction(fd);
         formRef.current?.reset();
+        onUploaded?.();
       }}
       className="flex flex-wrap items-center gap-2.5"
     >

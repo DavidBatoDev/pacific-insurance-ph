@@ -7,6 +7,7 @@ import {
   changeClaimTypeAction,
   updateClaimRequirementRequiredAction,
   updateClaimRequirementStatusAction,
+  getClaimRequirementsAction,
 } from "@/app/(app)/claims/actions";
 import {
   CLAIM_TYPES,
@@ -60,6 +61,12 @@ export function ClaimRequirementsPanel({
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
   // A mis-chosen claim type can be undone only before any document work has started.
   const canChangeType = requirements.every((item) => item.status === "Pending");
+  // An upload marks its row Received on the server; reload so the row (and the type lock) reflect it.
+  const reloadAfterUpload = () => {
+    void getClaimRequirementsAction(claimId).then((result) => {
+      if (result.ok) onChange(result.data.requirements);
+    });
+  };
   const replace = (updated: ClaimRequirement) =>
     onChange(requirements.map((requirement) => (requirement.id === updated.id ? updated : requirement)));
 
@@ -121,7 +128,7 @@ export function ClaimRequirementsPanel({
                     {CLAIM_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
                   </select>
                 </div>
-                <div className="mt-2 pl-10"><DocumentUploadForm clientId={clientId} claimId={claimId} requirementId={item.id} /></div>
+                <div className="mt-2 pl-10"><DocumentUploadForm clientId={clientId} claimId={claimId} requirementId={item.id} onUploaded={reloadAfterUpload} /></div>
               </div>
             ))}
           </div>
