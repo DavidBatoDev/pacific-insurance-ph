@@ -568,6 +568,7 @@ export type Database = {
           compliance_required: boolean
           created_at: string
           currency: string | null
+          documents_received_date: string | null
           first_layer_exhausted: boolean | null
           flexishield_payable_amount: number | null
           hmo_mbl_amount: number | null
@@ -580,6 +581,7 @@ export type Database = {
           reference_no: string | null
           remaining_eligible_expenses: number | null
           status: string
+          submission_mode: string | null
           updated_at: string
         }
         Insert: {
@@ -592,6 +594,7 @@ export type Database = {
           compliance_required?: boolean
           created_at?: string
           currency?: string | null
+          documents_received_date?: string | null
           first_layer_exhausted?: boolean | null
           flexishield_payable_amount?: number | null
           hmo_mbl_amount?: number | null
@@ -604,6 +607,7 @@ export type Database = {
           reference_no?: string | null
           remaining_eligible_expenses?: number | null
           status?: string
+          submission_mode?: string | null
           updated_at?: string
         }
         Update: {
@@ -616,6 +620,7 @@ export type Database = {
           compliance_required?: boolean
           created_at?: string
           currency?: string | null
+          documents_received_date?: string | null
           first_layer_exhausted?: boolean | null
           flexishield_payable_amount?: number | null
           hmo_mbl_amount?: number | null
@@ -628,6 +633,7 @@ export type Database = {
           reference_no?: string | null
           remaining_eligible_expenses?: number | null
           status?: string
+          submission_mode?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3015,6 +3021,7 @@ export type Database = {
           plan_option_id: string | null
           policy_number: string | null
           portal_payment_amount: number | null
+          portal_payment_method: string | null
           portal_payment_reference: string | null
           portal_payment_status: string
           portal_processing_status: string
@@ -3048,6 +3055,7 @@ export type Database = {
           plan_option_id?: string | null
           policy_number?: string | null
           portal_payment_amount?: number | null
+          portal_payment_method?: string | null
           portal_payment_reference?: string | null
           portal_payment_status?: string
           portal_processing_status?: string
@@ -3081,6 +3089,7 @@ export type Database = {
           plan_option_id?: string | null
           policy_number?: string | null
           portal_payment_amount?: number | null
+          portal_payment_method?: string | null
           portal_payment_reference?: string | null
           portal_payment_status?: string
           portal_processing_status?: string

@@ -58,3 +58,11 @@ export type CommissionBusinessType = (typeof COMMISSION_BUSINESS_TYPES)[number];
 /** `clients.payment_frequency` — supabase/migrations/0044_lead_proposal_fields.sql (Phase H H2a). */
 export const PAYMENT_FREQUENCIES = ["Annual", "Semi-annual"] as const;
 export type PaymentFrequency = (typeof PAYMENT_FREQUENCIES)[number];
+
+/** `claims.submission_mode` — supabase/migrations/0046_claim_intake_travel_payment_method.sql (H7f). */
+export const CLAIM_SUBMISSION_MODES = ["Hard copy", "Soft copy"] as const;
+export type ClaimSubmissionMode = (typeof CLAIM_SUBMISSION_MODES)[number];
+
+/** `travel_requests.portal_payment_method` — 0046 (H6f). */
+export const TRAVEL_PAYMENT_METHODS = ["Card", "GCash", "Over the counter"] as const;
+export type TravelPaymentMethod = (typeof TRAVEL_PAYMENT_METHODS)[number];
