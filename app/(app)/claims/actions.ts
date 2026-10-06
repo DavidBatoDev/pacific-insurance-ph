@@ -156,6 +156,59 @@ export async function generateClaimRequirementsAction(
   }
 }
 
+/**
+ * Clears a claim's checklist so its type can be chosen again (TO-BE-UPDATE-PLAN.md H7d).
+ * The generate action is idempotent, so without this a mis-clicked type was permanent. It is
+ * only allowed while every item is still Pending: an upload flips its item to Received, so
+ * Pending-only means no document work is thrown away.
+ */
+export async function resetClaimRequirementsAction(claimId: string): Promise<ActionResult<ClaimRequirement[]>> {
+  const actor = await getActor();
+  try {
+    const claim = await getClaimsRepository().findById(claimId);
+    if (!claim) return { ok: false, error: "This claim could not be found." };
+
+    const repo = getClaimRequirementsRepository();
+    const existing = await repo.listByClaim(claimId);
+    const started = existing.filter((item) => item.status !== "Pending");
+    if (started.length > 0) {
+      return {
+        ok: false,
+        error: `${started.length} item${started.length === 1 ? " is" : "s are"} already past Pending — the checklist type can’t be changed now.`,
+      };
+    }
+
+    const deleted = await repo.deletePendingByClaim(claimId);
+    const remaining = await repo.listByClaim(claimId);
+    if (remaining.length > 0) {
+      return {
+        ok: false,
+        error: `${remaining.map((item) => item.documentName).join(", ")} changed while clearing, so the checklist was kept.`,
+      };
+    }
+
+    await recordActivity({
+      scopeType: "client",
+      scopeId: claim.clientId,
+      activityType: "claim.requirements_reset",
+      summary: `Checklist cleared for ${claim.referenceNo ?? "claim"} so its type can be re-chosen (${deleted} item${deleted === 1 ? "" : "s"})`,
+      actorId: actor.id,
+    });
+    await recordAudit({
+      actorId: actor.id,
+      action: "delete",
+      tableName: "claim_requirements",
+      recordId: claimId,
+      previousValue: { count: deleted, documents: existing.map((item) => item.documentName) } as unknown as Json,
+    });
+    revalidatePath("/claims");
+    revalidatePath(`/clients/${claim.clientId}`);
+    return { ok: true, data: [] };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to clear the checklist." };
+  }
+}
+
 export async function updateClaimRequirementStatusAction(
   claimId: string,
   requirementId: string,

@@ -70,4 +70,14 @@ export class SupabaseClaimRequirementsRepository implements ClaimRequirementsRep
     if (error) throw toRepositoryError("ClaimRequirementsRepository.updateRequired", error);
     return toDomain(data);
   }
+
+  async deletePendingByClaim(claimId: string): Promise<number> {
+    // The status filter lives in the DELETE itself, so an item that turns Received between the
+    // caller's check and this call (a concurrent upload) is kept rather than wiped.
+    const { data, error } = await getSupabaseAdmin()
+      .from("claim_requirements").delete()
+      .eq("claim_id", claimId).eq("status", "Pending").select("id");
+    if (error) throw toRepositoryError("ClaimRequirementsRepository.deletePendingByClaim", error);
+    return data?.length ?? 0;
+  }
 }

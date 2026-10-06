@@ -1708,8 +1708,18 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
   - **Change:** with H7a, the claim type decides the checklist, so the In-Patient / Out-Patient
     choice disappears. Show the checklist in the sidebar.
 
-- [ ] **H7d. Bug: the checklist type can't be changed once picked.** *(Critical UX bug, Eman.
-  Fix even if H7c slips.)*
+- [x] **H7d. Bug: the checklist type can't be changed once picked.** *(Critical UX bug, Eman.
+  Fix even if H7c slips.)* ✅ *Done 2026-10-06.*
+  - **Shipped:**
+    - The modal footer now has **Change checklist type**. It clears the checklist through
+      `resetClaimRequirementsAction` and returns to the In-Patient / Out-Patient choice.
+    - It is allowed only while every item is `Pending`, checked in three places: the button is
+      disabled, the action refuses, and the repository's `deletePendingByClaim` deletes only
+      `Pending` rows. An upload flips its item to `Received`, so no document work is lost.
+    - The action logs activity and audit entries.
+    - Browser-verified: generate In-Patient (14 items) → change → generate Out-Patient
+      (10 items). Marking one item Received locks the button and shows the locked message, and
+      the server refuses the change with the UI lock removed.
   - **Current state:** after "Generate In-Patient / Out-Patient checklist" (`:132-137`), the
     modal shows only the list and a Close button (`:140-162`). `generateClaimRequirementsAction`
     is idempotent and returns the existing rows, so a mis-click locks the claim to the wrong

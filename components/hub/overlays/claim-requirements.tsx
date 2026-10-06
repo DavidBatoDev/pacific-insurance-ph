@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import {
   generateClaimRequirementsAction,
   getClaimRequirementsAction,
+  resetClaimRequirementsAction,
   updateClaimRequirementRequiredAction,
   updateClaimRequirementStatusAction,
   type ClaimRequirementsPayload,
@@ -69,6 +70,8 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
   const complete = required.filter((item) => item.status === "Verified").length;
   const outstanding = required.filter((item) => item.status === "Pending" || item.status === "Incomplete");
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
+  // A mis-clicked checklist type can be undone only before any document work has started.
+  const canChangeType = requirements.every((item) => item.status === "Pending");
 
   const generate = (checklistType: ClaimChecklistType) =>
     startTransition(async () => {
@@ -77,6 +80,15 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
       setPayload((current) => current && { ...current, requirements: result.data });
       router.refresh();
       overlays.toast("Checklist generated", `${result.data.length} requirement${result.data.length === 1 ? "" : "s"} added from the ${checklistType} NOC checklist.`);
+    });
+
+  const reset = () =>
+    startTransition(async () => {
+      const result = await resetClaimRequirementsAction(claimId);
+      if (!result.ok) return overlays.toast("Couldn’t change the checklist type", result.error);
+      setPayload((current) => current && { ...current, requirements: [] });
+      router.refresh();
+      overlays.toast("Checklist cleared", "Pick the right checklist type.");
     });
 
   const update = (item: ClaimRequirement, status: ClaimRequirementStatus) =>
@@ -159,7 +171,7 @@ export function ClaimRequirementsModal({ claimId, onClose }: { claimId: string; 
           )}
         </div>
       )}
-      {!loading && payload && requirements.length > 0 && <div className="mt-5 flex items-center justify-between border-t border-border-soft pt-4"><div className="text-[11.5px] text-muted-foreground">{outstanding.length ? `${outstanding.length} required item${outstanding.length === 1 ? "" : "s"} still need attention` : "No required documents are outstanding"}</div><Btn onClick={onClose}>Close</Btn></div>}
+      {!loading && payload && requirements.length > 0 && <div className="mt-5 flex items-center justify-between border-t border-border-soft pt-4"><div className="text-[11.5px] text-muted-foreground">{!canChangeType ? "Checklist type locked — documents already received" : outstanding.length ? `${outstanding.length} required item${outstanding.length === 1 ? "" : "s"} still need attention` : "No required documents are outstanding"}</div><div className="flex gap-2"><Btn variant="ghost" disabled={!canChangeType || pending} onClick={reset}>Change checklist type</Btn><Btn onClick={onClose}>Close</Btn></div></div>}
       {!loading && payload && requirements.length === 0 && <div className="mt-5 flex items-center justify-end border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn></div>}
     </Modal>
   );
