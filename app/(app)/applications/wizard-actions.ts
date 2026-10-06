@@ -18,6 +18,7 @@ import { getApplicationRequirementsRepository, type NewApplicationRequirement, t
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
+import { buildDraftClientPatch, clientPreExistedDraft } from "@/lib/applications/draft-client-patch";
 import {
   getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
   type LibraryDocument,
@@ -175,6 +176,64 @@ export async function listProductRequirementPreviewAction(productVersionId: stri
     isRequired: item.is_required,
     phase: (item.phase as ChecklistItem["phase"]) ?? undefined,
   }));
+}
+
+/** Work already in flight for a client, offered as "continue" instead of starting a duplicate. */
+export interface ClientOpenWork {
+  drafts: { id: string; referenceNo: string | null; productName: string | null; destination: string | null; savedAt: string }[];
+  travelRequests: { id: string; referenceNo: string | null; destination: string | null; departureDate: string | null; returnDate: string | null; status: string }[];
+  applications: { id: string; referenceNo: string | null; productName: string | null; status: string }[];
+}
+
+const CLOSED_TRAVEL_STATUSES = new Set(["Policy Issued", "Cancelled", "Closed", "Completed"]);
+const CLOSED_APPLICATION_STATUSES = new Set(["Approved", "Rejected", "Declined", "Cancelled", "Withdrawn"]);
+
+/**
+ * A picked client's open drafts, travel requests and applications (2026-10-06): the wizard shows
+ * them so staff continue the existing work rather than create a second, competing record.
+ * `excludeDraftId` leaves out the draft the wizard is currently editing.
+ */
+export async function getClientOpenWorkAction(clientId: string, excludeDraftId?: string | null): Promise<ActionResult<ClientOpenWork>> {
+  await getActor();
+  try {
+    const [applications, travel] = await Promise.all([
+      getApplicationsRepository().listByClient(clientId),
+      getTravelRepository().listByClient(clientId),
+    ]);
+    const isDraft = (application: (typeof applications)[number]) => application.status === "Lead" && isWizardState(application.wizardState);
+    return {
+      ok: true,
+      data: {
+        drafts: applications
+          .filter((application) => isDraft(application) && application.id !== excludeDraftId)
+          .map((application) => {
+            const state = application.wizardState as Partial<WizardForm>;
+            return {
+              id: application.id,
+              referenceNo: application.referenceNo,
+              productName: application.productName ?? state.productName ?? null,
+              destination: state.category === "travel" ? state.destination || null : null,
+              savedAt: application.updatedAt,
+            };
+          }),
+        travelRequests: travel
+          .filter((request) => !CLOSED_TRAVEL_STATUSES.has(request.status))
+          .map((request) => ({
+            id: request.id,
+            referenceNo: request.referenceNo,
+            destination: request.destination,
+            departureDate: request.departureDate,
+            returnDate: request.returnDate,
+            status: request.status,
+          })),
+        applications: applications
+          .filter((application) => !isDraft(application) && application.status !== "Lead" && !CLOSED_APPLICATION_STATUSES.has(application.status))
+          .map((application) => ({ id: application.id, referenceNo: application.referenceNo, productName: application.productName, status: application.status })),
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t check the client’s open work." };
+  }
 }
 
 /** What the travel screen fills — visibly — when a repeat traveler is picked (H6c / DH12). */
@@ -651,31 +710,44 @@ async function resolveWizardContact(
       const existingClient = await clientsRepo.findById(draft.clientId);
       if (!existingClient) return { ok: false, error: "The contact for this application draft no longer exists." };
 
-      const clientPatch: ClientUpdate = {
-        email: form.email || null,
-        mobileNumber: form.mobile || null,
-        dateOfBirth: form.dob || null,
-        address: form.address || null,
-        preferredChannel: clientChannel(form.channels[0]),
-        leadSource: form.source || null,
-        assignedUserId: form.assignedUserId || actor.id,
-        notes: form.notes || null,
-        productInterest: form.productName || null,
-        estPremium: parseAmount(form.premium),
-        familySize: clientFamilySize(form.familySize),
-        coverageTier: form.coverageTier.trim() || null,
-      };
-      if (form.category === "hmo") {
-        const [firstName, ...lastName] = (form.companyContact || form.companyName).trim().split(" ");
-        clientPatch.firstName = firstName || existingClient.firstName;
-        clientPatch.lastName = lastName.join(" ") || existingClient.lastName;
-      } else {
-        clientPatch.firstName = form.firstName || form.displayName.split(" ")[0] || existingClient.firstName;
-        clientPatch.lastName = form.lastName || form.displayName.split(" ").slice(1).join(" ") || existingClient.lastName;
+      // Never let a re-save rewrite a client the draft didn't create — see draft-client-patch.ts
+      // (2026-10-06: hidden, browser-autofilled new-client fields renamed an existing client).
+      const clientPreExisted = clientPreExistedDraft(existingClient.createdAt, draft.createdAt);
+      const [hmoFirst, ...hmoRest] = (form.companyContact || form.companyName).trim().split(" ");
+      const clientPatch = buildDraftClientPatch(
+        existingClient,
+        {
+          firstName: form.category === "hmo" ? hmoFirst : form.firstName || form.displayName.split(" ")[0] || "",
+          lastName: form.category === "hmo" ? hmoRest.join(" ") : form.lastName || form.displayName.split(" ").slice(1).join(" "),
+          email: form.email,
+          mobileNumber: form.mobile,
+          dateOfBirth: form.dob,
+          address: form.address,
+          preferredChannel: clientChannel(form.channels[0]),
+          leadSource: form.source,
+          assignedUserId: form.assignedUserId,
+          notes: form.notes,
+          productInterest: form.productName,
+          estPremium: parseAmount(form.premium),
+          familySize: clientFamilySize(form.familySize),
+          coverageTier: form.coverageTier,
+        },
+        { clientPreExisted },
+      );
+      let savedClient = existingClient;
+      if (Object.keys(clientPatch).length > 0) {
+        savedClient = await clientsRepo.update(draft.clientId, clientPatch);
+        await recordAudit({
+          actorId: actor.id,
+          action: "update",
+          tableName: "clients",
+          recordId: draft.clientId,
+          previousValue: existingClient as unknown as Json,
+          newValue: savedClient as unknown as Json,
+        });
       }
-      await clientsRepo.update(draft.clientId, clientPatch);
       clientId = draft.clientId;
-      clientName = [clientPatch.firstName, clientPatch.lastName].filter(Boolean).join(" ") || existingClient.fullName;
+      clientName = savedClient.fullName;
       resumingDraft = true;
       // The draft that opened this wizard never converted the contact, so finishing it is what
       // does. Re-saving it as a draft still leaves the record on the lead board.
@@ -1009,6 +1081,16 @@ async function createGroupHmoRecord(ctx: WizardCreateContext) {
 /* ---------- 2. create the operational record (Travel branch) ---------- */
 async function createTravelRecord(ctx: WizardCreateContext) {
   const { form, actor, resolvedClientId, clientName, resumingDraft, result } = ctx;
+  // Backstop for the wizard's "open work" prompt: warn (not block — a repeat trip is legitimate)
+  // when this client already has an open request to the same destination over overlapping dates.
+  const overlapping = (await getTravelRepository().listByClient(resolvedClientId)).filter(
+    (request) =>
+      !CLOSED_TRAVEL_STATUSES.has(request.status) &&
+      !!form.destination &&
+      request.destination?.trim().toLowerCase() === form.destination.trim().toLowerCase() &&
+      (!request.departureDate || !form.returnDate || request.departureDate <= form.returnDate) &&
+      (!request.returnDate || !form.departure || request.returnDate >= form.departure),
+  );
   const travel = await getTravelRepository().create({
         clientId: resolvedClientId,
         productVersionId: form.productVersionId || null,
@@ -1070,6 +1152,9 @@ async function createTravelRecord(ctx: WizardCreateContext) {
       });
       result.travelRequestId = travel.id;
       result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " Approved Travel application form unavailable; record creation continued." : ""}`;
+      if (overlapping.length) {
+        result.summary += ` Note: ${overlapping.map((request) => request.referenceNo ?? "another request").join(", ")} to ${form.destination} is still open for overlapping dates.`;
+      }
 }
 
 /* ---------- 3. follow-up task ---------- */

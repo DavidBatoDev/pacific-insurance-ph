@@ -7,7 +7,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   createFromWizardAction,
   getDraftResumeAction,
+  getClientOpenWorkAction,
   getTravelClientFillAction,
+  type ClientOpenWork,
   type AutoFilledWizardField,
   type WizardMode,
   listProductRequirementPreviewAction,
@@ -30,6 +32,7 @@ import { useOverlays } from "../overlay-provider";
 import { openPortalWindow } from "../portal-window";
 import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
+import { OpenWorkDialog } from "./open-work-dialog";
 import { namedTravelerIndexes, TravelRequirementUploads, type TravelUploadFiles } from "./travel-details-step";
 import {
   emptyWizardForm,
@@ -256,6 +259,28 @@ export function NewApplicationWizard({
     };
   }, [isTravel, f.existingClientId, travelFilledFrom?.clientId]);
 
+  // Open work on a picked client (2026-10-06): offer to continue a draft / travel request /
+  // application rather than start a duplicate. Checked once per client per wizard session, and not
+  // when this wizard is itself a resumed draft.
+  const [openWork, setOpenWork] = useState<{ clientId: string; clientName: string; work: ClientOpenWork } | null>(null);
+  const openWorkChecked = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const clientId = f.existingClientId;
+    if (!clientId || prefill?.draftApplicationId || f.draftApplicationId || openWorkChecked.current.has(clientId)) return;
+    openWorkChecked.current.add(clientId);
+    let cancelled = false;
+    getClientOpenWorkAction(clientId).then((res) => {
+      if (cancelled || !res.ok) return;
+      const { drafts, travelRequests, applications } = res.data;
+      if (drafts.length + travelRequests.length + applications.length > 0) {
+        setOpenWork({ clientId, clientName: f.existingClientName || "This client", work: res.data });
+      }
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [f.existingClientId, f.existingClientName, f.draftApplicationId, prefill?.draftApplicationId]);
+
   // H3a: the authoritative requirement list for template-driven (non-health, non-travel) products.
   const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
   useEffect(() => {
@@ -376,14 +401,31 @@ export function NewApplicationWizard({
   // A draft captures an early inquiry, before a product/workflow is necessarily known.
   const canDraft = hasName && hasContact && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
-  const travelMissing = f.category === "travel" && (!f.destination || !f.departure || !f.returnDate || !f.travelers.some((traveler) => traveler.name.trim()));
-  const healthMissing = f.category === "health" && (!f.planOptionId || !f.coverage);
   // Step 5's carrier-attachment gate, mirrored client-side so Create greys out instead of bouncing
   // off `createFromWizardAction`'s pre-flight check. That check remains the enforcement; this only
   // blocks when an email is genuinely going to be logged, matching the server's own condition.
   const hasEmailTarget = !!(f.emailRecipient || f.email);
   const attachmentMissing = hasEmailTarget && templateNeedsLibraryAttachment(f.emailTemplate) && !f.emailLibraryDocumentId;
-  const canCreate = canDraft && !!f.productVersionId && !!f.appType && !!f.source && !groupTooFew && !travelMissing && !healthMissing && !(f.sendEmail && attachmentMissing);
+  // Why Create is disabled, as jump-to links (2026-10-06: a draft with no trip dates silently
+  // greyed out "Create & open portal" and nothing said why). `canCreate` is derived from this
+  // list so the two can't disagree. Steps are the travel screen numbers on the travel path.
+  const blockerStep = (standard: number) => (f.category === "travel" ? (standard === 5 || standard === 6 ? 2 : 1) : standard);
+  const createBlockers: { label: string; step: number }[] = [
+    ...(!hasName ? [{ label: "Client name", step: blockerStep(2) }] : []),
+    ...(!hasContact ? [{ label: "Email or mobile", step: blockerStep(2) }] : []),
+    ...(!f.productVersionId ? [{ label: "Product", step: 1 }] : []),
+    ...(!f.appType ? [{ label: "Application type", step: 1 }] : []),
+    ...(!f.source ? [{ label: "Source", step: 1 }] : []),
+    ...(groupTooFew ? [{ label: "At least 3 group members", step: 3 }] : []),
+    ...(f.category === "travel" && !f.destination ? [{ label: "Destination", step: blockerStep(3) }] : []),
+    ...(f.category === "travel" && !f.departure ? [{ label: "Departure date", step: blockerStep(3) }] : []),
+    ...(f.category === "travel" && !f.returnDate ? [{ label: "Return date", step: blockerStep(3) }] : []),
+    ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3) }] : []),
+    ...(f.category === "health" && !f.planOptionId ? [{ label: "Plan option", step: 3 }] : []),
+    ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3 }] : []),
+    ...(f.sendEmail && attachmentMissing ? [{ label: "Carrier attachment for the email", step: blockerStep(5) }] : []),
+  ];
+  const canCreate = !pending && createBlockers.length === 0;
 
   // H3a: the product decides every later step (details, requirements), so it is chosen first.
   // Drafts are exempt — an early inquiry may not know its product yet.
@@ -531,6 +573,27 @@ export function NewApplicationWizard({
         >
           <I.plus size={20} className="rotate-45" />
         </button>
+
+        {openWork && openWork.clientId === f.existingClientId && (
+          <OpenWorkDialog
+            clientName={openWork.clientName}
+            work={openWork.work}
+            productName={f.productName}
+            onContinueDraft={(draftApplicationId) => {
+              onClose();
+              overlays.openWizard({ draftApplicationId });
+            }}
+            onOpenTravel={(travelRequestId) => {
+              onClose();
+              overlays.openTravelWorkflow(travelRequestId);
+            }}
+            onOpenApplication={(applicationId) => {
+              onClose();
+              overlays.openApplicationRequirements(applicationId);
+            }}
+            onStartNew={() => setOpenWork(null)}
+          />
+        )}
 
         {/* Left rail */}
         <div className="row-span-2 flex flex-col border-r border-border-soft bg-surface-2 p-5 max-[800px]:hidden">
@@ -683,9 +746,23 @@ export function NewApplicationWizard({
             <Btn onClick={requestClose}>Cancel</Btn>
           )}
           <span className="flex-1 text-[11.5px] text-faint">
-            {currentStep === 1 && !productChosen
-              ? "Choose a product to continue — it decides the requirements"
-              : !canDraft && "Add a name and contact method to save a draft"}
+            {currentStep === 1 && !productChosen ? (
+              "Choose a product to continue — it decides the requirements"
+            ) : currentStep === lastStep && createBlockers.length > 0 ? (
+              <span className="text-amber">
+                Still needed:{" "}
+                {createBlockers.map((blocker, index) => (
+                  <span key={blocker.label}>
+                    {index > 0 && ", "}
+                    <button type="button" className="font-semibold underline-offset-2 hover:underline" onClick={() => go(blocker.step)}>
+                      {blocker.label}
+                    </button>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              !canDraft && "Add a name and contact method to save a draft"
+            )}
           </span>
           <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
             Save draft
@@ -699,6 +776,7 @@ export function NewApplicationWizard({
               <Btn
                 variant="primary"
                 disabled={!canCreate || resumeLoading || !!resumeError}
+                title={createBlockers.length ? `Still needed: ${createBlockers.map((blocker) => blocker.label).join(", ")}` : undefined}
                 onClick={() => finish(isTravel ? "create" : "docs")}
                 className="rounded-r-none"
               >

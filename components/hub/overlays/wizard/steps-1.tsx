@@ -133,7 +133,12 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
                     onClick={() =>
                       set({
                         clientMode: modeVal,
-                        ...(modeVal === "new" ? { existingClientId: null, existingClientName: "" } : {}),
+                        ...(modeVal === "new"
+                          ? { existingClientId: null, existingClientName: "" }
+                          : // Picking "Existing client" discards anything typed — or browser-autofilled —
+                            // into the hidden new-client fields, so it can't ride along onto the
+                            // existing record (2026-10-06 overwrite; also enforced server-side).
+                            { firstName: "", lastName: "", displayName: f.existingClientName || "", email: "", emailRecipient: "", mobile: "", dob: "", address: "", companyName: "", companyContact: "" }),
                       })
                     }
                     className={cn(
@@ -264,24 +269,24 @@ export function Step2({
       <div>
         <Section title="Company / group" last>
           <Field label="Company / group name" required>
-            <input className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
+            <input autoComplete="off" className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
           </Field>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <Field label="Company contact person" required>
-              <input className={INPUT} value={f.companyContact} onChange={(e) => set({ companyContact: e.target.value })} placeholder="Full name" />
+              <input autoComplete="off" className={INPUT} value={f.companyContact} onChange={(e) => set({ companyContact: e.target.value })} placeholder="Full name" />
             </Field>
             <Field label="Contact number" required>
-              <input className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+              <input autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
             <Field label="Contact email" required>
-              <input className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="hr@company.com" />
+              <input autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="hr@company.com" />
             </Field>
             <Field label="Number of members" required hint="Minimum 3 members required.">
-              <input className={INPUT} type="number" min={3} value={f.memberCount} onChange={(e) => set({ memberCount: e.target.value })} placeholder="3" />
+              <input autoComplete="off" className={INPUT} type="number" min={3} value={f.memberCount} onChange={(e) => set({ memberCount: e.target.value })} placeholder="3" />
             </Field>
           </div>
           <Field label="Company address" className="mt-4">
-            <textarea className={AREA} value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="Building, street, city, province" />
+            <textarea autoComplete="off" className={AREA} value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="Building, street, city, province" />
           </Field>
         </Section>
       </div>
@@ -319,14 +324,14 @@ export function Step2({
         <Section title="Name">
           <div className="grid grid-cols-2 gap-4">
             <Field label="First name" required>
-              <input
+              <input autoComplete="off"
                 className={INPUT}
                 value={f.firstName}
                 onChange={(e) => set({ firstName: e.target.value, displayName: (e.target.value + " " + f.lastName).trim() })}
               />
             </Field>
             <Field label="Last name" required>
-              <input
+              <input autoComplete="off"
                 className={INPUT}
                 value={f.lastName}
                 onChange={(e) => set({ lastName: e.target.value, displayName: (f.firstName + " " + e.target.value).trim() })}
@@ -340,10 +345,10 @@ export function Step2({
         {!lockIdentity && (
           <div className="grid grid-cols-2 gap-4">
             <Field label="Email address">
-              <input className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
+              <input autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
             </Field>
             <Field label="Mobile number" required>
-              <input className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+              <input autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
           </div>
         )}
@@ -377,10 +382,10 @@ export function Step2({
           {!lockIdentity && (
             <>
               <Field label="Date of birth">
-                <input className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
+                <input autoComplete="off" className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
               </Field>
               <Field label="Age">
-                <input className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
+                <input autoComplete="off" className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
               </Field>
             </>
           )}
@@ -403,14 +408,14 @@ export function Step2({
             </select>
           </Field>
           <Field label="Occupation">
-            <input className={INPUT} value={f.occupation} onChange={(e) => set({ occupation: e.target.value })} />
+            <input autoComplete="off" className={INPUT} value={f.occupation} onChange={(e) => set({ occupation: e.target.value })} />
           </Field>
         </div>
         <Field label="Address" className="mt-4">
-          <textarea className={AREA} value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="Unit, street, barangay, city, province" />
+          <textarea autoComplete="off" className={AREA} value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="Unit, street, barangay, city, province" />
         </Field>
         <Field label="Notes" className="mt-4">
-          <textarea className={AREA} value={f.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Discovery notes and client context" />
+          <textarea autoComplete="off" className={AREA} value={f.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Discovery notes and client context" />
         </Field>
       </Section>
     </div>
