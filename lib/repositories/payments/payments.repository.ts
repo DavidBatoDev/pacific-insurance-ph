@@ -8,6 +8,7 @@ export interface PaymentsRepository {
   findByIds(ids: string[]): Promise<Payment[]>;
   list(opts?: ListOptions): Promise<Payment[]>;
   listByTravelRequest(travelRequestId: string): Promise<Payment[]>;
+  listByApplication(applicationId: string): Promise<Payment[]>;
   create(input: NewPayment): Promise<Payment>;
   update(id: string, input: PaymentUpdate): Promise<Payment>;
 }

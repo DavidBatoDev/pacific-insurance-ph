@@ -52,6 +52,8 @@ function toDomain(row: JoinedRow): Application {
     assignedUserId: row.assigned_user_id,
     dateStarted: row.date_started,
     dateSubmitted: row.date_submitted,
+    policyId: row.policy_id,
+    policyIssuedDate: row.policy_issued_date,
     coverageType: row.coverage_type,
     desiredStartDate: row.desired_start_date,
     preferredPaymentMode: row.preferred_payment_mode,
@@ -153,6 +155,8 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
     const patch: ApplicationPatch = {};
     if (input.status !== undefined) patch.status = input.status;
     if (input.dateSubmitted !== undefined) patch.date_submitted = input.dateSubmitted;
+    if (input.policyId !== undefined) patch.policy_id = input.policyId;
+    if (input.policyIssuedDate !== undefined) patch.policy_issued_date = input.policyIssuedDate;
     if (input.notes !== undefined) patch.notes = input.notes;
     if (input.assignedUserId !== undefined) patch.assigned_user_id = input.assignedUserId;
     if (input.productVersionId !== undefined) patch.product_version_id = input.productVersionId;

@@ -35,6 +35,8 @@ export interface Payment {
 
 export interface PaymentUpdate {
   status?: string;
+  amount?: number | null;
+  policyId?: string | null;
   paymentMethod?: string | null;
   paymentDate?: string | null;
   orNumber?: string | null;

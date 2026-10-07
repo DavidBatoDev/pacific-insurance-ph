@@ -30,6 +30,9 @@ export interface Application {
   assignedUserId: string | null;
   dateStarted: string | null;
   dateSubmitted: string | null;
+  /** The policy issued from this application, once logged. */
+  policyId: string | null;
+  policyIssuedDate: string | null;
   coverageType: string | null;
   desiredStartDate: string | null;
   preferredPaymentMode: string | null;
@@ -83,6 +86,8 @@ export interface NewApplication {
 export interface ApplicationUpdate {
   status?: string;
   dateSubmitted?: string | null;
+  policyId?: string | null;
+  policyIssuedDate?: string | null;
   notes?: string | null;
   assignedUserId?: string | null;
   productVersionId?: string | null;

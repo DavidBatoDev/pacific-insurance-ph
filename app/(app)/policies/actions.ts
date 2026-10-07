@@ -6,6 +6,9 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
+import { getApplicationsRepository } from "@/lib/repositories/applications";
+import { getClientsRepository } from "@/lib/repositories/clients";
+import { getPaymentsRepository } from "@/lib/repositories/payments";
 import { getPoliciesRepository, type NewPolicy, type Policy, type PolicyUpdate } from "@/lib/repositories/policies";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
@@ -55,11 +58,18 @@ const POLICY_COPY_DOCUMENT_TYPE = "Policy Copy";
 export async function issuePolicyAction(
   input: NewPolicy,
   pdf?: UploadedPolicyPdf | null,
+  options?: { applicationId?: string | null },
 ): Promise<ActionResult<Policy>> {
   const actor = await getActor();
   if (!input.clientId) return { ok: false, error: "A client is required." };
 
   try {
+    // Logged from the application workflow: the policy closes out that application.
+    const application = options?.applicationId ? await getApplicationsRepository().findById(options.applicationId) : null;
+    if (options?.applicationId) {
+      if (!application || application.clientId !== input.clientId) return { ok: false, error: "That application doesn’t belong to this client." };
+      if (application.policyId) return { ok: false, error: "A policy is already logged for this application." };
+    }
     const created = await getPoliciesRepository().create({
       ...input,
       status: input.status ?? "Active",
@@ -90,12 +100,45 @@ export async function issuePolicyAction(
       });
       revalidatePath("/documents");
     }
+    if (application) await convertApplicationToPolicy(application.id, created, actor.id);
     revalidatePath("/policies");
+    revalidatePath("/applications");
     revalidatePath(`/clients/${input.clientId}`);
     return { ok: true, data: created };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to log the policy copy." };
   }
+}
+
+/**
+ * The application's last hand-off: link the new policy to the application, carry the verified
+ * payment's OR onto it, and convert the client to a Policyholder (decided 2026-10-07 — on Log
+ * policy copy, not on payment).
+ */
+async function convertApplicationToPolicy(applicationId: string, policy: Policy, actorId: string) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const applications = getApplicationsRepository();
+  await applications.update(applicationId, { policyId: policy.id, policyIssuedDate: today });
+
+  const payment = (await getPaymentsRepository().listByApplication(applicationId)).filter((row) => row.status === "Verified").at(-1);
+  if (payment) {
+    await getPaymentsRepository().update(payment.id, { policyId: policy.id });
+    if (payment.orNumber) await getSupabaseAdmin().from("policies").update({ or_number: payment.orNumber }).eq("id", policy.id);
+  }
+
+  const client = await getClientsRepository().findById(policy.clientId);
+  if (client && client.lifecycleStage !== "Policyholder") {
+    await getClientsRepository().update(client.id, { lifecycleStage: "Policyholder" });
+    await recordAudit({
+      actorId, action: "convert_to_policyholder", tableName: "clients", recordId: client.id,
+      previousValue: { lifecycle_stage: client.lifecycleStage }, newValue: { lifecycle_stage: "Policyholder", policy_id: policy.id, application_id: applicationId },
+    });
+  }
+  await recordActivity({
+    scopeType: "client", scopeId: policy.clientId, actorId,
+    activityType: "client.converted",
+    summary: `Policy issued — ${client?.fullName ?? "client"} is now a policyholder (${policy.policyNumber ?? policy.referenceNo ?? "policy"})`,
+  });
 }
 
 const POLICY_FIELD_LABELS: Partial<Record<keyof PolicyUpdate, string>> = {

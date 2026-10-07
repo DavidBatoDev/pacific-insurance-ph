@@ -110,6 +110,13 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
     return (data ?? []).map(paymentToDomain);
   }
 
+  async listByApplication(applicationId: string): Promise<Payment[]> {
+    const { data, error } = await getSupabaseAdmin().from("payments").select(PAYMENT_SELECT)
+      .eq("application_id", applicationId).order("created_at").returns<PaymentJoined[]>();
+    if (error) throw toRepositoryError("PaymentsRepository.listByApplication", error);
+    return (data ?? []).map(paymentToDomain);
+  }
+
   async create(input: NewPayment): Promise<Payment> {
     const { data, error } = await getSupabaseAdmin()
       .from("payments")
@@ -133,6 +140,8 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
   async update(id: string, input: PaymentUpdate): Promise<Payment> {
     const patch: Database["public"]["Tables"]["payments"]["Update"] = {};
     if (input.status !== undefined) patch.status = input.status;
+    if (input.amount !== undefined) patch.amount = input.amount;
+    if (input.policyId !== undefined) patch.policy_id = input.policyId;
     if (input.paymentMethod !== undefined) patch.payment_method = input.paymentMethod;
     if (input.paymentDate !== undefined) patch.payment_date = input.paymentDate;
     if (input.orNumber !== undefined) patch.or_number = input.orNumber;
