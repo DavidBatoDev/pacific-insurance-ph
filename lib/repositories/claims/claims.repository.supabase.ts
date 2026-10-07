@@ -45,6 +45,7 @@ function toDomain(row: JoinedRow): Claim {
     notes: row.notes,
     submissionMode: row.submission_mode,
     documentsReceivedDate: row.documents_received_date,
+    claimSubmittedDate: row.claim_submitted_date,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -120,6 +121,7 @@ export class SupabaseClaimsRepository implements ClaimsRepository {
     if (input.notes !== undefined) patch.notes = input.notes;
     if (input.submissionMode !== undefined) patch.submission_mode = input.submissionMode;
     if (input.documentsReceivedDate !== undefined) patch.documents_received_date = input.documentsReceivedDate;
+    if (input.claimSubmittedDate !== undefined) patch.claim_submitted_date = input.claimSubmittedDate;
 
     const { data, error } = await getSupabaseAdmin()
       .from("claims")

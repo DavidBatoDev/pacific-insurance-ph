@@ -26,6 +26,8 @@ export interface Claim {
   submissionMode: string | null;
   /** Date the client's documents were received (YYYY-MM-DD). */
   documentsReceivedDate: string | null;
+  /** Date the claim went to Pacific Cross (YYYY-MM-DD). */
+  claimSubmittedDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -51,4 +53,5 @@ export interface ClaimUpdate {
   notes?: string | null;
   submissionMode?: string | null;
   documentsReceivedDate?: string | null;
+  claimSubmittedDate?: string | null;
 }

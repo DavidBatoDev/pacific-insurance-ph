@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 export interface OutboundEmailLog {
   clientId: string;
   applicationId?: string | null;
+  claimId?: string | null;
   subject: string;
   summary: string;
   notes?: string | null;
@@ -19,7 +20,7 @@ export async function logOutboundEmail(input: OutboundEmailLog): Promise<string>
   const db = getSupabaseAdmin();
   const { data: communication, error } = await db.from("communications").insert({
     client_id: input.clientId, direction: "Outbound", channel: "Gmail",
-    application_id: input.applicationId ?? null,
+    application_id: input.applicationId ?? null, claim_id: input.claimId ?? null,
     subject: input.subject, summary: input.summary, notes: input.notes ?? null,
     related_user_id: input.actorId, external_contact_id: input.externalContactId ?? null,
     delivery_status: "logged",

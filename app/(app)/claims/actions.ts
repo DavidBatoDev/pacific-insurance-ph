@@ -20,6 +20,8 @@ import {
 } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
 import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import { getPoliciesRepository } from "@/lib/repositories/policies";
+import { getClientsRepository } from "@/lib/repositories/clients";
+import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
@@ -403,5 +405,55 @@ export async function updateClaimRequirementRequiredAction(
     return { ok: true, data: updated };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to update the requirement." };
+  }
+}
+
+/**
+ * Logs an email to the claimant listing the required claim documents that are still Pending or
+ * Incomplete (R1 — logged, not delivered). The claim counterpart of requestMissingDocumentsAction.
+ */
+export async function requestMissingClaimDocumentsAction(claimId: string): Promise<ActionResult<{ outstanding: number }>> {
+  const actor = await getActor();
+  try {
+    const claim = await getClaimsRepository().findById(claimId);
+    if (!claim) return { ok: false, error: "This claim could not be found." };
+    const client = await getClientsRepository().findById(claim.clientId);
+    if (!client?.email) return { ok: false, error: "Add the client’s email address before logging a document follow-up." };
+    const requirements = await getClaimRequirementsRepository().listByClaim(claimId);
+    const missing = requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
+    if (!missing.length) return { ok: false, error: "There are no outstanding required documents to request." };
+
+    const list = missing.map((item) => `- ${item.documentName}${item.status === "Incomplete" ? " (incomplete — please resend)" : ""}`).join("\n");
+    const label = [claim.claimType, "claim", claim.referenceNo ? `(${claim.referenceNo})` : null].filter(Boolean).join(" ");
+    const body = [
+      `Hi ${client.firstName},`,
+      "",
+      `To file your ${label} with Pacific Cross, we still need the following:`,
+      list,
+      "",
+      "You can send clear photos or scans by email. Thank you!",
+      "",
+      actor.fullName,
+    ].join("\n");
+    const communicationId = await logOutboundEmail({
+      clientId: client.id, claimId: claim.id, actorId: actor.id,
+      subject: `Documents needed for your ${label}`,
+      summary: `Request for ${missing.length} outstanding claim document${missing.length === 1 ? "" : "s"}`,
+      notes: body,
+    });
+    await recordActivity({
+      scopeType: "client", scopeId: client.id, actorId: actor.id,
+      activityType: "claim.documents_requested",
+      summary: `Requested ${missing.length} missing document${missing.length === 1 ? "" : "s"} for ${claim.referenceNo ?? "claim"} (logged, not delivered)`,
+    });
+    await recordAudit({
+      actorId: actor.id, action: "request_missing_documents", tableName: "communications", recordId: communicationId,
+      newValue: { claim_id: claim.id, requirement_ids: missing.map((item) => item.id) },
+    });
+    revalidatePath("/claims");
+    revalidatePath(`/clients/${client.id}`);
+    return { ok: true, data: { outstanding: missing.length } };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to log the document follow-up." };
   }
 }
