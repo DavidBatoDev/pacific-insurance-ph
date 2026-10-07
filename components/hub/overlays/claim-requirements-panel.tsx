@@ -53,7 +53,6 @@ export function ClaimRequirementsPanel({
 
   const required = requirements.filter((item) => item.isRequired);
   const complete = required.filter((item) => item.status === "Verified").length;
-  const outstanding = required.filter((item) => item.status === "Pending" || item.status === "Incomplete");
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
   // A mis-chosen claim type can be undone only before any document work has started.
   const canChangeType = requirements.every((item) => item.status === "Pending");
@@ -119,7 +118,7 @@ export function ClaimRequirementsPanel({
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-border-soft"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} /></div>
           </div>
 
-          <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1">
+          <div className="mt-4 space-y-2">
             {requirements.map((item) => (
               <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
                 <div className="flex items-center gap-3">
@@ -142,13 +141,8 @@ export function ClaimRequirementsPanel({
 
       <div className={cn("flex flex-wrap items-center justify-between gap-3", requirements.length > 0 && "mt-5 border-t border-border-soft pt-4")}>
         <div className="text-[11.5px] text-muted-foreground">
-          {!canChangeType
-            ? "Claim type locked — documents already received"
-            : requirements.length === 0
-              ? "No checklist for this claim"
-              : outstanding.length
-                ? `${outstanding.length} required item${outstanding.length === 1 ? "" : "s"} still need attention`
-                : "No required documents are outstanding"}
+          {/* Outstanding counts live in the workflow footer; this row is only about the claim type. */}
+          {!canChangeType ? "Claim type locked — documents already received" : "Wrong checklist? Change the claim type"}
         </div>
         {canChangeType && (
           <div className="flex items-center gap-2">
