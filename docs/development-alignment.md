@@ -155,6 +155,30 @@ they are historical references, not active sources of task status. Current prior
   and `Policy Issued` coexist, making the match case-insensitive would start gating a retired
   template. Do not "fix" it without first resolving the duplicate rows.
 
+## Submit to Pacific Cross (2026-10-07)
+
+- **Spec:** completing a checklist opens an email to Pacific Cross with the documents attached (H7e).
+- **Implemented:** the "Submit to Pacific Cross" step composes the email and downloads the
+  checklist files as one ZIP. Eman sends it herself from her own mailbox, and **Mark as
+  submitted** then logs a `communications` row (`delivery_status = logged`) and moves the
+  application or claim to its submitted status. Nothing is delivered from the CRM until R1 is
+  resolved.
+- **Application → policyholder (decided 2026-10-07):**
+  - **Payment:** the Payment step records the premium Pacific Cross billed as an Awaiting payment.
+    Before this, no code created application payments.
+  - **Conversion:** the client becomes `Policyholder` when the policy copy is logged from the
+    application, not when payment is verified. Verifying payment still only marks the
+    application Approved.
+  - **Unchanged path:** the standalone Log policy copy drawer, opened without an application,
+    does not convert anyone.
+- **Pacific Cross reply (2026-10-07, assumptions pending Eman's confirmation):**
+  - **Logging replies:** Pacific Cross's replies after submission are logged by hand as inbound
+    `communications` with summaries starting `Pacific Cross reply`. Conformes and extra
+    underwriting requirements become required checklist rows marked "Requested by Pacific Cross".
+  - **Proposal:** the illustrative proposal is assumed to be the lead-stage proposal document
+    (`documents.document_type = 'Illustrative Proposal'`).
+  - **OR number:** the stored OR is assumed to be the service-invoice number.
+
 ## Reconciliation checklist
 
 When behavior changes, update all three layers deliberately:

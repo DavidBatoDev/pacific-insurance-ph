@@ -1747,6 +1747,52 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
 
 - [ ] **H7e. When the checklist is complete, open an email with the documents.** Eman asked that
   completing the requirements opens a generated email with the documents attached.
+  - 🟡 *Partly done 2026-10-07 (uncommitted): a **Submit to Pacific Cross** step after the
+    checklist, for claims **and** applications. The footer's primary action opens a composer
+    pre-filled to the Pacific Cross inbox (claims@ / newbiz@, from `external_contacts` by
+    department), with an editable subject and body that lists the checklist documents.
+    **Download all (ZIP)** bundles every file uploaded against the checklist
+    (`/api/submissions/[kind]/[id]/zip`, `fflate`); **Copy email text** copies the message.
+    **Mark as submitted** logs the email, sets the status (application → "Submitted to Pacific
+    Cross" + `date_submitted`; claim → `Submitted` + `claim_submitted_date`) and adds activity
+    and an audit entry. "Request missing documents" moved to a secondary header action, and
+    claims now have one too. Still open: real delivery with attachments (R1).*
+  - 🟡 *Follow-up 2026-10-07 (uncommitted): **application workflow modal.** The Application
+    Requirements modal is now a 5-step workflow laid out like the New Application wizard:
+    **Requirements → Email Pacific Cross → Pacific Cross reply → Payment → Log policy copy**.
+    Progress comes from the records, so the modal opens on the step where the work actually is.
+    - **Email Pacific Cross:** once sent, the step is read-only and shows the logged email
+      (date, sender, recipient, subject, body). It can be resubmitted.
+    - **Pacific Cross reply:** Eman logs what came back (there is no inbox integration).
+      - A **CAC/TAL conforme** or **more requirements** become required, Pending checklist rows,
+        and the application goes back to Pending Requirements until they are in. Signed items go
+        back to Pacific Cross through Resubmit.
+      - The **illustrative proposal** (final billing) is filed against the application, or the
+        lead-stage proposal is reused. It unlocks Payment, as does an already-recorded billed
+        amount.
+    - **Payment checkpoints:** billed amount → billing sent to client (`logBillingSentAction`) →
+      proof received (screenshot, bank slip or provisional receipt) → proof sent to Pacific Cross →
+      service invoice recorded.
+    - **Payment:** records Pacific Cross's billed premium (`createApplicationPaymentAction`),
+      which creates an Awaiting payment and moves the application to Awaiting Payment. Proof and OR
+      are recorded inline with the Payments page's form, shared through `useVerifyPaymentForm` (no
+      copy, and no drawer stacked over the modal); that marks the application Approved.
+    - **Log policy copy:** renders the Log policy copy form inline (`usePolicyCopyForm`, shared with
+      the standalone drawer), prefilled from the application. Saving links
+      `applications.policy_id`, carries the OR over to the policy and payment, and converts the
+      client to **Policyholder**.
+    - **Claims use the same frame:** File claim and the claims list's Requirements button both open
+      a **claim workflow modal** (`claim-workflow.tsx`, shared `workflow-shell.tsx`) with three
+      steps: **Claim details → Requirements → Email Pacific Cross**. The File claim sidebar is gone.
+      The form is grouped into status cards, filing moves straight to the checklist, and a sent claim
+      email shows read-only.*
+  - **⚠️ Assumptions (logged 2026-10-07, not decisions; Eman to confirm):**
+    - The illustrative proposal Pacific Cross sends after evaluating the application is the same
+      document as the lead pipeline's Proposal stage (the "final billing"). The workflow therefore
+      reuses a lead-stage proposal when one is on file.
+    - The number stored as the OR (`payments.or_number`) comes from Pacific Cross's **service
+      invoice**, issued after the proof of payment is forwarded. A **provisional receipt** (cashier
+      payments) is only a form of proof of payment.
   - **Change:** open the Engage composer, pre-filled with a claims template, the Pacific Cross
     claims contact (C3), and the claim's documents listed.
   - **Limit:** real binary attachments are blocked by R1/C6b. Until then the composer must say
