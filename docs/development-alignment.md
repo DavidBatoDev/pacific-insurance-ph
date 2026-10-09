@@ -30,6 +30,9 @@ they are historical references, not active sources of task status. Current prior
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
+| Blue Royale requirements (H3b) | Active catalog version is Primary Medical; the wizard and persisted checklist use health requirements | Authenticated fresh, product-switch and owned draft/resume/create scenarios verified 2026-10-09–10. The alleged HMO package was not reproduced. Remote/face-to-face alternatives, beneficiary ID and conditional medical documents were exercised. TAL/CAC are combined in preview and separate optional persisted rows. No separate medical-review stage was added. |
+| Policy-driven renewals (H5a) | Migration `0047` locks each policy and synchronizes its renewal in the policy transaction; Admin `Sync policies` invokes the same routine for every Active policy | Renewal date takes precedence over expiry; Travel needs an explicit renewal date. One open cycle per policy; only source dates refresh. Paid/Renewed/Lapsed cycles retain history. No automatic page-load backfill or inactive-policy cancellation. SQL rollback, concurrent RPC, actual policy create/edit, repeated backfill and direct Staff rejection verified 2026-10-09–10. |
+| Carrier renewal notice receipt (H5b) | Separate nullable `renewals.notice_received_date`, receipt action/modal and sortable list column | Receipt advances only Upcoming → Notice Received, preserves every later status and audits/timelines actual changes. Repeated saves are no-ops. Legacy sent-notice data is not reinterpreted/backfilled. Receipt never sends/logs an email; existing Send notice remains logged-only and retains receipt. UI and action boundaries verified 2026-10-10. |
 | Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07 and extended through 2026-09-25: 40 source files represented by 49 library rows, including CCAF, Geographical Loading, and the CET. The 5 `TEST —` placeholders are archived. Distribution clearance was treated as not-a-gate by client decision — see Carrier-document rules. |
 | Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
 | Proposal `Sent` | `Mark Sent` button (Contact Profile proposal panel + Leads board proposal-tracking panel; `setProposalStatusAction`, `app/(app)/prospects/actions.ts`) lets staff manually confirm delivery | Aligned as of 2026-08-13 for the manual half (`Mark externally sent`, reworded to `Mark Sent` — see note below). The automatic half (advancing on real provider-confirmed delivery) remains a gap: no email provider is wired up yet. |
@@ -96,18 +99,20 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Migration files exist through `0046_claim_intake_travel_payment_method.sql`. `0041` is reserved
-  for the D1 import schema, so `0042`–`0046` were written out of order. All five were applied to
-  the remote project on 2026-10-06 and the types were regenerated. The next free number is
-  `0047_*`, unless `0041` is still unused. The remote ledger for `0038`–`0040` was not
-  re-verified here.
+- Migration files exist through `0047_policy_renewals_notice_receipt.sql`. `0041` remains reserved
+  for the D1 import schema. The authorized Supabase ledger was checked through `0046`, including
+  `0038`–`0040`; `0047` was then applied successfully during 2026-10-09–10 and
+  `lib/supabase/types.ts` was regenerated with the Supabase type-generation tool. Next free
+  number: `0048_*`; do not reuse reserved `0041`.
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.
 - Regenerate `lib/supabase/types.ts` after applying migrations and review the diff.
 - Unit tests run with `npm test` (Vitest 4, `vitest.config.mts`, `**/*.test.ts`). Added 2026-10-06
   for the commission formula (`lib/commissions/compute.test.ts`).
-- Carrier-library document preview and new document-type UI must not be considered deploy-ready
-  until migrations `0038`–`0040` are confirmed in the target remote ledger.
+- H5 renewal verification: rollback SQL assertions plus eight concurrent synchronization calls;
+  authenticated policy/backfill/receipt UI smoke and Staff server-action denial. Final checks:
+  `npm test` passed 7 files / 56 tests; `npx tsc --noEmit` passed. No lint rerun or email-provider
+  deployment is claimed.
 
 ## Carrier-document rules
 

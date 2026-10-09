@@ -42,6 +42,7 @@ interface ListScreenProps<T extends FilterableRow> {
   primaryAction?: string;
   /** Fired by the primary action button (wired screens open a drawer here). */
   onPrimary?: () => void;
+  secondaryActions?: ReactNode;
   emptyText?: string;
 }
 
@@ -83,6 +84,7 @@ export function ListScreen<T extends FilterableRow>({
   renderRow,
   primaryAction,
   onPrimary,
+  secondaryActions,
   emptyText,
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
@@ -139,6 +141,7 @@ export function ListScreen<T extends FilterableRow>({
             <Btn onClick={exportCsv}>
               <I.download size={15} /> Export
             </Btn>
+            {secondaryActions}
             {primaryAction && (
               <Btn variant="primary" onClick={onPrimary}>
                 <I.plus size={15} /> {primaryAction}

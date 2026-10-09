@@ -9,7 +9,7 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0040` exist in source. The remote ledger was last verified through `0037` on 2026-08-27; verify `0038`–`0040` before release. |
+| Data | Supabase repositories and server actions; migrations through `0047`. Ledger checked through `0046`, then `0047` applied and genuine types regenerated during 2026-10-09–10. `0041` remains reserved for import. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
 | Communications | Composers create communication records only; no email provider delivers them yet |
@@ -37,6 +37,12 @@ historical. They no longer describe this repository.
 - Proposal and Travel portal handoffs with upload-back flows for the resulting proposal or policy PDF.
 - Six live Reports families with role scoping, drill-down, separate-currency metrics, and audited
   XLSX/ODS/CSV export.
+- Renewal readiness (H5a/H5b, verified 2026-10-09–10): atomic policy-driven creation/date refresh,
+  one open cycle per policy, preserved closed-cycle history, explicit Admin-only policy backfill,
+  and separate carrier-notice receipt date/action/modal/list column. Receipt logging preserves
+  later statuses and is idempotent. No renewal email scheduler or payment automation was added.
+  Blue Royale fresh/switch/draft/persisted health requirements were also verified (H3b);
+  the alleged HMO package was not reproduced.
 - Tasks, documents, renewals, claims, travel, relationship management, email templates, and
   settings screens at varying levels of live-data completeness.
 
@@ -58,7 +64,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. Treat the next migration number as **`0041`** unless a newer migration has landed.
+5. The next free migration number is **`0048`**; **`0041`** remains reserved for the import schema.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 

@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
-import type { Renewal, NewRenewal, RenewalUpdate } from "./renewal.entity";
+import type { Renewal, NewRenewal, RenewalUpdate, RenewalSyncResult } from "./renewal.entity";
 import type { RenewalsRepository } from "./renewals.repository";
 
 type RenewalRow = Database["public"]["Tables"]["renewals"]["Row"];
@@ -37,6 +37,7 @@ function toDomain(row: JoinedRow): Renewal {
     policyNumber: row.policies?.policy_number ?? null,
     premiumAmount: row.policies?.premium_amount ?? null,
     renewalNoticeDate: row.renewal_notice_date,
+    noticeReceivedDate: row.notice_received_date,
     policyExpiryDate: row.policy_expiry_date,
     renewalDueDate: row.renewal_due_date,
     status: row.status,
@@ -49,6 +50,16 @@ function toDomain(row: JoinedRow): Renewal {
 
 /** supabase-js (service role) implementation of {@link RenewalsRepository}. */
 export class SupabaseRenewalsRepository implements RenewalsRepository {
+  async synchronizeFromPolicies(): Promise<RenewalSyncResult[]> {
+    const { data, error } = await getSupabaseAdmin().rpc("sync_policy_renewals");
+    if (error) throw toRepositoryError("RenewalsRepository.synchronizeFromPolicies", error);
+    return (data ?? []).map((row) => ({
+      policyId: row.policy_id,
+      renewalId: row.renewal_id ?? null,
+      outcome: row.outcome as RenewalSyncResult["outcome"],
+    }));
+  }
+
   async findById(id: string): Promise<Renewal | null> {
     const { data, error } = await getSupabaseAdmin()
       .from("renewals")
@@ -90,6 +101,7 @@ export class SupabaseRenewalsRepository implements RenewalsRepository {
       policy_id: input.policyId,
       client_id: input.clientId,
       renewal_notice_date: input.renewalNoticeDate ?? null,
+      notice_received_date: input.noticeReceivedDate ?? null,
       policy_expiry_date: input.policyExpiryDate ?? null,
       renewal_due_date: input.renewalDueDate ?? null,
       notes: input.notes ?? null,
@@ -109,6 +121,7 @@ export class SupabaseRenewalsRepository implements RenewalsRepository {
   async update(id: string, input: RenewalUpdate): Promise<Renewal> {
     const patch: RenewalPatch = {};
     if (input.status !== undefined) patch.status = input.status;
+    if (input.noticeReceivedDate !== undefined) patch.notice_received_date = input.noticeReceivedDate;
     if (input.renewalPaymentDate !== undefined) patch.renewal_payment_date = input.renewalPaymentDate;
     if (input.renewalCompletedDate !== undefined)
       patch.renewal_completed_date = input.renewalCompletedDate;

@@ -17,6 +17,8 @@ export interface Renewal {
   /** Joined convenience: linked policy's premium amount. */
   premiumAmount: number | null;
   renewalNoticeDate: string | null;
+  /** Date the agency received the carrier's notice; independent of outbound reminders. */
+  noticeReceivedDate: string | null;
   policyExpiryDate: string | null;
   renewalDueDate: string | null;
   status: string;
@@ -30,6 +32,7 @@ export interface NewRenewal {
   policyId: string;
   clientId: string;
   renewalNoticeDate?: string | null;
+  noticeReceivedDate?: string | null;
   policyExpiryDate?: string | null;
   renewalDueDate?: string | null;
   /** Defaults to 'Upcoming' in the database. */
@@ -39,7 +42,14 @@ export interface NewRenewal {
 
 export interface RenewalUpdate {
   status?: string;
+  noticeReceivedDate?: string | null;
   renewalPaymentDate?: string | null;
   renewalCompletedDate?: string | null;
   notes?: string | null;
+}
+
+export interface RenewalSyncResult {
+  policyId: string;
+  renewalId: string | null;
+  outcome: "created" | "refreshed" | "unchanged" | "skipped";
 }

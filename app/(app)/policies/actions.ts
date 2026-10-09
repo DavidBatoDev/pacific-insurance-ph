@@ -102,6 +102,8 @@ export async function issuePolicyAction(
     }
     if (application) await convertApplicationToPolicy(application.id, created, actor.id);
     revalidatePath("/policies");
+    revalidatePath("/renewals");
+    revalidatePath("/dashboard");
     revalidatePath("/applications");
     revalidatePath(`/clients/${input.clientId}`);
     return { ok: true, data: created };
@@ -184,6 +186,8 @@ export async function updatePolicyAction(id: string, input: PolicyUpdate): Promi
       newValue: updated as unknown as Json,
     });
     revalidatePath("/policies");
+    revalidatePath("/renewals");
+    revalidatePath("/dashboard");
     revalidatePath(`/clients/${before.clientId}`);
     return { ok: true, data: updated };
   } catch (e) {

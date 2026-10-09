@@ -1537,10 +1537,14 @@ here has been decided on anyone's behalf.
       to discover "Continue Application".
   - **⚠️ Decision:** DH8.
 
-- [ ] **H3b. Verify the draft-only application items before scheduling any work.** Two of JC's
-  draft tasks don't appear in the meeting notes:
-  - *"Blue Royale currently shows the HMO list."* `categoryForProduct()` routes Blue Royale to
-    `health`. Reproduce it before fixing anything.
+- [x] **H3b. Verify the draft-only application items before scheduling any work.** Verified
+  2026-10-09–10 in the authenticated app with owned temporary QA records.
+  - *"Blue Royale currently shows the HMO list."* Not reproduced for a fresh application,
+    Select comparison, BC Flexi → Blue Royale switching, or Blue Royale draft save/resume/create.
+    The active catalog version is Primary Medical. Face-to-face/remote alternatives, beneficiary
+    ID, conditional medical documents and persisted health requirements were verified; no corporate
+    PIS/CET package leaked into Blue Royale. The preview combines TAL/CAC; persistence separates
+    them into two optional rows.
   - *"Add a medical review stage when the health declaration has a 'yes' answer."* G3 already
     generates conditional medical documents (`medicalDocumentsFor()` in `wizard-data.ts`). A
     separate review *stage* would be new workflow.
@@ -1571,19 +1575,23 @@ here has been decided on anyone's behalf.
 Timeframes are **not final**. Eman and Matt will settle them offline, and JC is following up. The
 numbers below are the meeting's proposals.
 
-- [ ] **H5a. Generate renewal rows from policies.** *(Prerequisite, found during this review.)*
-  - **Current state:** nothing in the app creates renewal rows. `RenewalsRepository.create` has
-    no callers; only the `0014` seed inserts them. After H0 and the import, the Renewals page
-    would be empty.
-  - **Change:** create or refresh a renewal row for each active policy from its expiry/renewal
-    date, both on policy create/update (H1c, H4a) and as a backfill after the import.
+- [x] **H5a. Generate renewal rows from policies.** Delivered and verified 2026-10-09–10.
+  - Migration `0047_policy_renewals_notice_receipt.sql` synchronizes Active policies atomically
+    through a policy trigger and service-role-only RPC, using renewal date before expiry.
+    Travel requires an explicit renewal date. One open cycle per policy is enforced; corrections
+    retain its ID and staff fields, while Paid/Renewed/Lapsed cycles remain historical.
+  - Admin-only `Sync policies` explicitly backfills all Active policies and audits the counts/IDs.
+    It does not run on page load or in the migration. Policy create/edit, rollback SQL assertions,
+    eight concurrent sync calls, repeated UI backfill and direct Staff denial were verified.
 
-- [ ] **H5b. Record the date the renewal notice was received, per renewal.** Matt noted notices
-  arrive inconsistently: sometimes about 80 days early (a notice on Oct 2 for a Dec 18 renewal),
-  sometimes only on request.
-  - **Current state:** `renewal_notice_date` exists (`0005:65-82`) and is used for the *sent*
-    notice. Status `'Notice Received'` exists, but no received date does.
-  - **Change:** migration adding `notice_received_date`, plus a "Mark notice received" action.
+- [x] **H5b. Record the date the renewal notice was received, per renewal.** Delivered and
+  verified 2026-10-09–10. Notices can arrive inconsistently; no lead-time window is imposed.
+  - `notice_received_date` is independent of the legacy outbound `renewal_notice_date`.
+    `Mark notice received` / `Edit receipt date` and the sortable `Notice received` column are live.
+  - Receipt advances only Upcoming → Notice Received. Later statuses are preserved; identical
+    saves create no mutation/activity/audit. Calendar validation, persistence after reload,
+    Awaiting Payment/Paid edits, cancellation, failed-save form retention and Send notice receipt
+    preservation were exercised. No email delivery, scheduler or payment creation was added.
 
 - [ ] **H5c. Configurable email schedule.** *(Joshua's proposal.)*
   - **Change:**

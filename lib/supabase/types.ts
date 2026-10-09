@@ -2670,6 +2670,7 @@ export type Database = {
           grace_period_end_date: string | null
           id: string
           notes: string | null
+          notice_received_date: string | null
           policy_expiry_date: string | null
           policy_id: string
           reference_no: string | null
@@ -2687,6 +2688,7 @@ export type Database = {
           grace_period_end_date?: string | null
           id?: string
           notes?: string | null
+          notice_received_date?: string | null
           policy_expiry_date?: string | null
           policy_id: string
           reference_no?: string | null
@@ -2704,6 +2706,7 @@ export type Database = {
           grace_period_end_date?: string | null
           id?: string
           notes?: string | null
+          notice_received_date?: string | null
           policy_expiry_date?: string | null
           policy_id?: string
           reference_no?: string | null
@@ -3500,6 +3503,21 @@ export type Database = {
         }
       }
       next_reference: { Args: { prefix: string }; Returns: string }
+      sync_policy_renewal: {
+        Args: { p_policy_id: string }
+        Returns: {
+          outcome: string
+          renewal_id: string
+        }[]
+      }
+      sync_policy_renewals: {
+        Args: never
+        Returns: {
+          outcome: string
+          policy_id: string
+          renewal_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

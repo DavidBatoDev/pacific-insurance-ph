@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
-import { markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
+import { backfillPolicyRenewalsAction, markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
 import type { Application } from "@/lib/repositories/applications";
 import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
@@ -14,6 +14,7 @@ import { peso, pesoShort } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
+import { RenewalNoticeReceivedModal } from "../overlays/renewal-notice-received";
 import { Avatar, Btn, DueCell, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { ListScreen } from "./list-screen";
@@ -240,11 +241,21 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
 }
 
 /* --------------------------------- Renewals -------------------------------- */
-export function RenewalsLive({ rows }: { rows: Renewal[] }) {
+export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSyncPolicies: boolean }) {
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact, prefetchContact } = useRecordNav();
   const [, startTransition] = useTransition();
+  const [syncPending, startSyncTransition] = useTransition();
+  const [receiptRenewal, setReceiptRenewal] = useState<Renewal | null>(null);
+
+  const syncPolicies = () => startSyncTransition(async () => {
+    const result = await backfillPolicyRenewalsAction();
+    if (!result.ok) return overlays.toast("Couldn't sync policy renewals", result.error);
+    const { created, refreshed, unchanged, skipped } = result.data;
+    overlays.toast("Policy renewals synced", `${created} created · ${refreshed} refreshed · ${unchanged} unchanged · ${skipped} skipped`);
+    router.refresh();
+  });
 
   const due30 = rows.filter((r) => {
     const d = daysUntil(r.renewalDueDate);
@@ -272,12 +283,18 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
     );
 
   return (
+    <>
     <ListScreen
       title="Renewals"
       sub={`${rows.length} renewals tracked · ${due30} due within 30 days`}
       icon={I.refresh}
       primaryAction="Send notices"
       onPrimary={() => overlays.openEngage("Send Renewal Notice")}
+      secondaryActions={canSyncPolicies ? (
+        <Btn disabled={syncPending} onClick={syncPolicies}>
+          <I.refresh size={15} /> {syncPending ? "Syncing…" : "Sync policies"}
+        </Btn>
+      ) : undefined}
       stats={[
         { val: rows.length, label: "Tracked renewals" },
         { val: due30, label: "Due in 30 days", color: "var(--amber)" },
@@ -292,6 +309,7 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
         { k: "clientName", label: "Client" },
         { k: "policyRef", label: "Policy" },
         { k: "renewalDueDate", label: "Renewal date" },
+        { k: "noticeReceivedDate", label: "Notice received" },
         { k: "status", label: "Status" },
         { k: "premiumAmount", label: "Premium", num: true },
         { k: "id", label: "" },
@@ -307,12 +325,16 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
               "—"
             )}
           </Td>
+          <Td>{fmtDate(r.noticeReceivedDate)}</Td>
           <Td><StatusBadge status={r.status} /></Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
             {r.premiumAmount != null ? peso(r.premiumAmount) : "—"}
           </Td>
           <Td>
-            <span onClick={(e) => e.stopPropagation()}>
+            <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Btn size="sm" onClick={() => setReceiptRenewal(r)}>
+                {r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received"}
+              </Btn>
               <Btn size="sm" onClick={() => sendNotice(r)}>
                 <I.send size={13} /> Send notice
               </Btn>
@@ -321,6 +343,8 @@ export function RenewalsLive({ rows }: { rows: Renewal[] }) {
         </Row>
       )}
     />
+    {receiptRenewal && <RenewalNoticeReceivedModal renewal={receiptRenewal} onClose={() => setReceiptRenewal(null)} />}
+    </>
   );
 }
 

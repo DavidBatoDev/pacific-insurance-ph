@@ -12,4 +12,4 @@ export function getRenewalsRepository(): RenewalsRepository {
 }
 
 export type { RenewalsRepository } from "./renewals.repository";
-export type { Renewal, NewRenewal, RenewalUpdate } from "./renewal.entity";
+export type { Renewal, NewRenewal, RenewalUpdate, RenewalSyncResult } from "./renewal.entity";

@@ -1,5 +1,5 @@
 import type { ListOptions } from "../types";
-import type { Renewal, NewRenewal, RenewalUpdate } from "./renewal.entity";
+import type { Renewal, NewRenewal, RenewalUpdate, RenewalSyncResult } from "./renewal.entity";
 
 /** The Renewals repository port (same shape as ClientsRepository). */
 export interface RenewalsRepository {
@@ -10,4 +10,6 @@ export interface RenewalsRepository {
   listByClient(clientId: string): Promise<Renewal[]>;
   create(input: NewRenewal): Promise<Renewal>;
   update(id: string, input: RenewalUpdate): Promise<Renewal>;
+  /** Explicit, idempotent backfill of every active policy through the database routine. */
+  synchronizeFromPolicies(): Promise<RenewalSyncResult[]>;
 }
