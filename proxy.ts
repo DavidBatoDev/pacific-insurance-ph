@@ -10,6 +10,9 @@ import { env } from "@/lib/env";
  * This is an optimistic check only — pages/actions still resolve the real user.
  */
 export async function proxy(request: NextRequest) {
+  // This exact endpoint authenticates Vercel Cron with its own server-only secret.
+  if (request.nextUrl.pathname === "/api/cron/renewals") return NextResponse.next();
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {

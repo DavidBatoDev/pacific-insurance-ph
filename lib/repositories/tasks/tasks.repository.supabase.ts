@@ -18,6 +18,7 @@ type JoinedRow = TaskRow & {
   renewals: { reference_no: string | null } | null;
   claims: { reference_no: string | null } | null;
   travel_requests: { reference_no: string | null } | null;
+  renewal_email_drafts: { id: string; status: Task["renewalDraftStatus"] } | null;
 };
 
 const SELECT = `*,
@@ -27,7 +28,8 @@ const SELECT = `*,
   policies (reference_no),
   renewals (reference_no),
   claims (reference_no),
-  travel_requests (reference_no)`;
+  travel_requests (reference_no),
+  renewal_email_drafts (id, status)`;
 
 function toDomain(row: JoinedRow): Task {
   const linkedRecordRef =
@@ -49,6 +51,8 @@ function toDomain(row: JoinedRow): Task {
     applicationId: row.application_id,
     policyId: row.policy_id,
     renewalId: row.renewal_id,
+    renewalDraftId: row.renewal_email_drafts?.id ?? null,
+    renewalDraftStatus: row.renewal_email_drafts?.status ?? null,
     claimId: row.claim_id,
     travelRequestId: row.travel_request_id,
     linkedRecordRef,

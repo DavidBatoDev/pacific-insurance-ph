@@ -1,6 +1,6 @@
 # Build Roadmap — Current Implementation State
 
-> Engineering companion, last reconciled **2026-10-02**. The canonical product specification is
+> Engineering companion, baseline reconciled **2026-10-02**, renewal automation updated **2026-10-10**. The canonical product specification is
 > in [`../../docs/`](../../docs/INDEX.md). See
 > [Development Alignment](development-alignment.md) for mappings and known differences.
 
@@ -9,7 +9,7 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0047`. Ledger checked through `0046`, then `0047` applied and genuine types regenerated during 2026-10-09–10. `0041` remains reserved for import. |
+| Data | Supabase repositories and server actions; migrations through `0048`. Ledger checked through `0046`, then `0047` and `0048` applied successfully and genuine types regenerated during 2026-10-09–10. `0041` remains reserved for import. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
 | Communications | Composers create communication records only; no email provider delivers them yet |
@@ -43,6 +43,13 @@ historical. They no longer describe this repository.
   later statuses and is idempotent. No renewal email scheduler or payment automation was added.
   Blue Royale fresh/switch/draft/persisted health requirements were also verified (H3b);
   the alleged HMO package was not reproduced.
+- Renewal email automation (H5c–e, verified 2026-10-10): four configurable Admin rules and editable
+  templates; receipt immediate, client reminder -30 days, missing-notice request -60 days and
+  premium-breakdown request -60 days. SQL atomically queues one task/draft per rule/cycle.
+  Staff review/save/log/dismiss from Tasks or dashboard; logging is transactional with completion,
+  never email delivery or renewal-status advancement. Staff settings are read-only; Agent has
+  no rule/draft access. Paid/inactive/do-not-contact work is suppressed, early payers skip reminders,
+  and receipt cancels stale missing-notice work. Cron is configured for 08:00 Manila daily.
 - Tasks, documents, renewals, claims, travel, relationship management, email templates, and
   settings screens at varying levels of live-data completeness.
 
@@ -57,6 +64,10 @@ historical. They no longer describe this repository.
   file-specific exclusions are documented in [Development Alignment](development-alignment.md).
 - Several screens retain prototype data or partial workflows. A rendered screen is not evidence
   that the underlying process is production complete.
+- **Production renewal cron is not activated here.** Set server-only `CRON_SECRET` in Vercel's
+  Production environment, then deploy the committed `vercel.json` schedule/endpoint. Missing
+  configuration returns 503; missing/wrong authorization returns 401. Local authorized/repeat runs
+  passed. No push or production web deployment is claimed.
 
 ## Data and architecture rails
 
@@ -64,7 +75,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. The next free migration number is **`0048`**; **`0041`** remains reserved for the import schema.
+5. The next free migration number is **`0049`**; **`0041`** remains reserved for the import schema.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 

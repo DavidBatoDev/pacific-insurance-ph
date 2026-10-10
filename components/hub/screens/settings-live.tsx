@@ -21,6 +21,9 @@ import type { CatalogProductVersion } from "@/lib/repositories/products/product.
 import { CommissionRatesTab } from "@/components/settings/commission-rates-tab";
 import type { CommissionRate } from "@/lib/repositories/commission-rates/commission-rate.entity";
 import { CarrierLibraryTab } from "@/components/settings/carrier-library-tab";
+import { RenewalEmailRulesTab } from "@/components/settings/renewal-email-rules-tab";
+import type { RenewalEmailRule } from "@/lib/repositories/renewal-automation/renewal-automation.entity";
+import type { EmailTemplate } from "@/lib/repositories/templates";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Modal } from "../overlays/modal";
@@ -28,10 +31,7 @@ import { useOverlays } from "../overlays/overlay-provider";
 import { usePersona } from "../persona";
 import { Avatar, Card, DraftBadge, INPUT as INPUT_BASE, PageHead, Pill } from "../primitives";
 
-/**
- * Settings — 6-tab workspace configuration (see settings-page.md). Team is wired to the real users table (Admin-only);
- * the config-store tabs stay draft until their backing tables land.
- */
+/** Settings — role-scoped workspace configuration. */
 
 const TABS = [
   { id: "General", adminOnly: false },
@@ -55,6 +55,9 @@ export function SettingsLive({
   libraryDocuments,
   productVersions,
   canManageLibrary,
+  renewalRules,
+  renewalTemplates,
+  canViewRenewalRules,
 }: {
   users: User[];
   channels: PaymentChannel[];
@@ -65,10 +68,16 @@ export function SettingsLive({
   libraryDocuments: LibraryDocument[];
   productVersions: CatalogProductVersion[];
   canManageLibrary: boolean;
+  renewalRules: RenewalEmailRule[];
+  renewalTemplates: EmailTemplate[];
+  canViewRenewalRules: boolean;
 }) {
   const persona = usePersona();
   const isAdmin = persona.role === "admin" && canManageLibrary;
-  const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
+  const tabs = TABS.filter((t) =>
+    (isAdmin || !t.adminOnly) &&
+    (t.id !== "Notifications" || (canViewRenewalRules && persona.role !== "agent")),
+  );
   const [tab, setTab] = useState<string>(tabs[0].id);
   const active = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
 
@@ -110,7 +119,7 @@ export function SettingsLive({
       <Card className="p-6">
         {active === "General" && <GeneralTab canEdit={isAdmin} />}
         {active === "Team" && <TeamTab users={users} />}
-        {active === "Notifications" && <StaticTab title="Notification & automation rules" body="Renewal, payment and missing-document reminders queue drafted messages for review (WhatsApp preferred; Viber is manual-log only). Rule configuration is stored once the automation engine lands." />}
+        {active === "Notifications" && canViewRenewalRules && persona.role !== "agent" && <RenewalEmailRulesTab rules={renewalRules} templates={renewalTemplates} contacts={contacts} canEdit={isAdmin} />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
         {active === "Commission Rates" && <CommissionRatesTab rates={commissionRates} canEdit={isAdmin} />}

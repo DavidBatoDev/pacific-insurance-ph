@@ -2662,6 +2662,159 @@ export type Database = {
         }
         Relationships: []
       }
+      renewal_email_drafts: {
+        Row: {
+          body: string
+          communication_id: string | null
+          created_at: string
+          dismissal_reason: string | null
+          due_date: string
+          edited_body: string | null
+          edited_subject: string | null
+          external_contact_id: string | null
+          id: string
+          merge_context: Json
+          recipient_email: string | null
+          renewal_id: string
+          rule_id: string
+          status: string
+          subject: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          communication_id?: string | null
+          created_at?: string
+          dismissal_reason?: string | null
+          due_date: string
+          edited_body?: string | null
+          edited_subject?: string | null
+          external_contact_id?: string | null
+          id?: string
+          merge_context: Json
+          recipient_email?: string | null
+          renewal_id: string
+          rule_id: string
+          status?: string
+          subject: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          communication_id?: string | null
+          created_at?: string
+          dismissal_reason?: string | null
+          due_date?: string
+          edited_body?: string | null
+          edited_subject?: string | null
+          external_contact_id?: string | null
+          id?: string
+          merge_context?: Json
+          recipient_email?: string | null
+          renewal_id?: string
+          rule_id?: string
+          status?: string
+          subject?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_email_drafts_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: true
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_drafts_external_contact_id_fkey"
+            columns: ["external_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_drafts_renewal_id_fkey"
+            columns: ["renewal_id"]
+            isOneToOne: false
+            referencedRelation: "renewals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_drafts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "renewal_email_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_drafts_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      renewal_email_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          date_basis: string
+          external_contact_id: string | null
+          id: string
+          name: string
+          offset_days: number
+          recipient: string
+          rule_key: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          date_basis: string
+          external_contact_id?: string | null
+          id?: string
+          name: string
+          offset_days: number
+          recipient: string
+          rule_key: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          date_basis?: string
+          external_contact_id?: string | null
+          id?: string
+          name?: string
+          offset_days?: number
+          recipient?: string
+          rule_key?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_email_rules_external_contact_id_fkey"
+            columns: ["external_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_rules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       renewals: {
         Row: {
           client_id: string
@@ -3503,6 +3656,20 @@ export type Database = {
         }
       }
       next_reference: { Args: { prefix: string }; Returns: string }
+      queue_due_renewal_emails: {
+        Args: { p_renewal_id?: string }
+        Returns: {
+          draft_id: string
+          outcome: string
+          renewal_id: string
+          rule_key: string
+          task_id: string
+        }[]
+      }
+      renewal_email_due_date: {
+        Args: { p_renewal_id: string; p_rule_id: string }
+        Returns: string
+      }
       sync_policy_renewal: {
         Args: { p_policy_id: string }
         Returns: {
@@ -3517,6 +3684,42 @@ export type Database = {
           policy_id: string
           renewal_id: string
         }[]
+      }
+      update_renewal_email_draft: {
+        Args: {
+          p_actor_id: string
+          p_body?: string
+          p_draft_id: string
+          p_expected_updated_at: string
+          p_operation: string
+          p_recipient_email?: string
+          p_subject?: string
+        }
+        Returns: {
+          body: string
+          communication_id: string | null
+          created_at: string
+          dismissal_reason: string | null
+          due_date: string
+          edited_body: string | null
+          edited_subject: string | null
+          external_contact_id: string | null
+          id: string
+          merge_context: Json
+          recipient_email: string | null
+          renewal_id: string
+          rule_id: string
+          status: string
+          subject: string
+          task_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "renewal_email_drafts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

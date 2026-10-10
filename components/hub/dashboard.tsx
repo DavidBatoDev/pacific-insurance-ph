@@ -2,7 +2,7 @@
 
 import { Popover } from "@base-ui/react/popover";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useOptimistic, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
 import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
@@ -17,6 +17,7 @@ import { fmtDate, peso } from "@/lib/format";
 import type { Tone } from "./tone";
 import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
+import { RenewalEmailDraftModal } from "./overlays/renewal-email-draft";
 import { usePersona } from "./persona";
 import {
   Btn, Card, CardHead, CardLink, DueCell, PageHead, Sparkline, StatusBadge,
@@ -344,6 +345,8 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
   const overlays = useOverlays();
   const setScreen = useScreenNav();
   const [, startTransition] = useTransition();
+  const persona = usePersona();
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   /**
    * Ticking a box is a local, reversible edit, so it paints immediately and the
@@ -413,8 +416,8 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
                 <span className="text-faint">· {items.filter((t) => !t.done).length}</span>
               </div>
               {items.map((t) => (
+                <div key={t.id}>
                 <button
-                  key={t.id}
                   onClick={() => toggle(t)}
                   className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
                 >
@@ -436,11 +439,22 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
                     </span>
                   </span>
                 </button>
+                {persona.role !== "agent" && t.renewalDraftId && (
+                  <div className="px-[18px] pb-2 pl-[47px]">
+                    <Btn size="sm" variant="primary" onClick={() => setDraftId(t.renewalDraftId)}>
+                      {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
+                    </Btn>
+                  </div>
+                )}
+                </div>
               ))}
             </div>
           );
         })}
       </div>
+      {persona.role !== "agent" && draftId && (
+        <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
+      )}
     </Card>
   );
 }

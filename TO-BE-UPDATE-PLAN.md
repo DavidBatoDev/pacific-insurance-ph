@@ -626,7 +626,7 @@ is the backlog. Severity: 🔴 blocker · 🟠 major · 🟡 minor.
   Same popup, different fields of the two-axis model.
 - [x] 🟠 **`Unresponsive` is unreachable-by-design but nothing builds it — found during QD5,
   2026-08-12. BUILT 2026-08-14 (`ab0d758`).** `lib/queries/lead-status-inference.ts` computes it
-  live on every read (no cron/scheduled infra in this app): N=3 outbound `communications` rows with
+  live on every read (no Lead-inference cron; renewal scheduling was later added by H5e): N=3 outbound `communications` rows with
   no inbound reply or Reached call breaking the streak, applied only to `Attempted`/`Nurturing` (the
   two spec-listed source statuses). Deliberately never persisted to `clients.lead_status`, so
   existing win-back checks keep matching the real stored value once a reply lands. `"Unresponsive"`
@@ -1296,7 +1296,7 @@ here has been decided on anyone's behalf.
 | **H4b** Auto-log policies from the agency email | Policies | — | — | **PARKED** |
 | **H5a** Generate renewal rows from policies | Renewals | `renewals.repository` (no callers) | none | H0, import |
 | **H5b** Notice-received date | Renewals | `0005_operations.sql:65-82` | migration | — |
-| **H5c–e** Configurable renewal email schedule + engine | Renewals | `settings-live.tsx:108` | migration | timeframes, DH10, R1 |
+| **H5c–e** Configurable renewal email schedule + engine | Renewals | `renewal-automation/*`, Settings Notifications, task draft modal, `/api/cron/renewals` | `0048` applied | Done, logging-only interim; Production cron needs `CRON_SECRET` + deployment |
 | **H6a** Travel quote doesn't preselect TravelSafe | Travel | `overlay-host.tsx:95` | none | — |
 | **H6b–e** Two-step travel flow, client picker, uploads | Travel | `wizard/*`, `steps-2.tsx:481-613` | maybe | DH11, DH12 |
 | **H7a–f** Claim types, policy lock, merged checklist, back bug, email | Claims | `file-claim.tsx`, `claim-requirements.tsx` | maybe | DH13, DH14 |
@@ -1593,30 +1593,47 @@ numbers below are the meeting's proposals.
     Awaiting Payment/Paid edits, cancellation, failed-save form retention and Send notice receipt
     preservation were exercised. No email delivery, scheduler or payment creation was added.
 
-- [ ] **H5c. Configurable email schedule.** *(Joshua's proposal.)*
-  - **Change:**
-    - Add a settings table: email type → offset days (relative to the renewal date or to notice
-      receipt) → recipient (client or a Pacific Cross contact) → template → active flag.
-    - Make it editable in **Settings → Notifications**, replacing the placeholder at
-      `settings-live.tsx:108`.
+- [x] **H5c. Configurable email schedule.** Delivered and verified 2026-10-10.
+  - `renewal_email_rules` stores four fixed email types with date basis, signed day offset,
+    client/carrier recipient, selected directory contact, Email template and active flag.
+  - **Settings → Notifications:** Admin saves/runs the queue; Staff views; Agent receives no
+    rules/template payload and has no Notifications tab. Direct Server Action denials verified.
+  - Notice receipt remains immediate (receipt date, offset 0); missing-notice requests use the
+    renewal date. Reminder/breakdown timing is configurable; negative offsets are before the date.
 
-- [ ] **H5d. The four renewal emails.**
-  1. **Client, on notice receipt** (Eman). Triggered by H5b.
-  2. **Client reminder before the renewal date** (Eman; proposed 30 days).
-  3. **Pacific Cross, requesting the notice when none has arrived** (Matt; proposed 30–60 days
-     before renewal).
-  4. **Pacific Cross (Thea), requesting the premium breakdown for every renewal**, whether or not
-     the premium increased (Matt; Eman agreed it should be automatic per client).
+- [x] **H5d. The four renewal emails.** User-confirmed defaults, delivered 2026-10-10:
+  1. **Client notice receipt:** immediately when H5b records receipt.
+  2. **Client renewal reminder:** 30 days before renewal.
+  3. **Carrier notice request:** 60 days before renewal, only while no notice is recorded.
+  4. **Carrier premium breakdown:** 60 days before every renewal, regardless of premium increase.
+  - Four new editable Email templates are seeded without overwriting the existing manual
+    `Renewal reminder`. Renewal/client/carrier merge fields use the shared renderer; renewal
+    premium is not invented from the previous policy premium.
+  - Both carrier rules initially select the existing Active **Thea Opura** directory record.
+    Admin can change the officer/template; Staff must review the individual draft before logging.
 
-  - Add Thea to the C3 external-contacts directory. JC is getting her contact details and
-    preferred wording.
-  - Write templates for 3 and 4. Today there is only "Renewal reminder" (`0011:26`).
-
-- [ ] **H5e. Execution engine.**
-  - **Current state:** there is no cron, `vercel.json` schedule or job runner.
-  - **⚠️ Decision:** DH10.
-  - **Note:** "installment notices" were mentioned as part of the demoed Renewals section, but no
-    installment code exists anywhere. That work lives in **H8d**.
+- [x] **H5e. Execution engine.** DH10 interim approach approved and implemented 2026-10-10.
+  - Service-role-only SQL queue atomically creates one linked task/draft per rule and renewal,
+    protected by renewal-row locks and a unique cycle/rule constraint. Receipt/date/status updates
+    invoke the same queue in the renewal transaction; migration/page loads never backfill.
+  - Due dates use **Asia/Manila**. Closed renewals, inactive policies, Lost/archived/do-not-contact
+    clients, disabled rules/templates and inactive carrier contacts are suppressed; early-payer
+    clients skip reminders. Pending work that becomes ineligible is dismissed/cancelled.
+  - Existing draft facts/timing refresh; template/recipient snapshots and staff-edited copy are
+    retained. Logged/dismissed drafts remain historical and are never re-created for that cycle.
+  - Tasks board and dashboard expose **Open draft / View draft**. Staff can save, log or dismiss.
+    Revision checks reject stale edits. Log atomically records `delivery_status = logged` and
+    completes the task; it never delivers email or advances the renewal. Checkbox completion
+    alone never logs an email.
+  - `/api/cron/renewals` is secret-protected; `vercel.json` schedules **00:00 UTC / 08:00 Manila**
+    daily and preserves `sin1`. Set server-only `CRON_SECRET` in Vercel Production before deploying.
+    Source/local cron proof does **not** claim Production activation; no push was performed.
+  - Verified rollback SQL boundaries (61/60/30 days), receipt/cancellation, source-edit preservation,
+    paid/early-payer suppression, next cycle, stale/log retry and grants; eight concurrent calls
+    yielded 3 new pairs + 21 unchanged outcomes. Actual Admin/Staff/Agent UI/actions, network/stale
+    errors, pending-close guard and cron 503/401/200/repeat responses passed. Final checks:
+    **8 files / 58 tests** and `npx next typegen && npx tsc --noEmit` passed.
+  - Installment automation remains **H8d**, not part of this four-email interim.
 
 ### H6 — Travel
 
@@ -1947,7 +1964,7 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
 | **DH7** | Park proposal auto-detection until the agency inbox exists? | Needs inbox, parser and jobs | Park; manual upload-back is V1 |
 | **DH8** | New Application: require the product in Step 1 and open Requirements after create? | Changes the wizard entry flow | ✅ **Decided 2026-10-06: yes** (require the product in Step 1, open Requirements after create) |
 | **DH9** | Keep the draft-only items "Blue Royale shows HMO list" and "medical review stage"? | Neither appears in the notes | Verify with JC (and reproduce the first) before scheduling |
-| **DH10** | Renewal email engine while R1 is open: a scheduled job that queues due emails/tasks for staff, or wait for a real email provider? | Nothing would actually send either way | Vercel Cron that creates "due" tasks and drafts for staff to send |
+| **DH10** | Renewal email engine while R1 is open: a scheduled job that queues due emails/tasks for staff, or wait for a real email provider? | Nothing would actually send either way | **Decided 2026-10-10:** Vercel Cron queues staff tasks/drafts only; receipt immediate, client reminder -30 days, missing notice -60 days, premium breakdown -60 days. Production activation needs `CRON_SECRET` + deployment. |
 | **DH11** | Travel flow: Eman's 2 steps or JC's draft of 4? | The notes and the draft conflict | ✅ **Decided 2026-10-06: 2 steps, as Eman asked** |
 | **DH12** | Travel client entry: autofill with override (draft) or existing-client picker plus manual entry (Eman)? | The notes and the draft conflict | ✅ **Decided 2026-10-06: existing-client dropdown plus manual entry, as Eman suggested.** No silent autofill |
 | **DH13** | Which requirement template do ER and Reimbursement (local and overseas) claims use? | `0032` only has IP/OP | ✅ **Decided 2026-10-06 (interim): ER / Overseas ER → In-Patient, Reimbursement / Overseas Reimbursement → Out-Patient**, pending Eman's lists |

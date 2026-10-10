@@ -104,6 +104,7 @@ export async function markRenewalNoticeReceivedAction(
     });
     revalidatePath("/renewals");
     revalidatePath("/dashboard");
+    revalidatePath("/tasks");
     revalidatePath(`/clients/${renewal.clientId}`);
     return { ok: true, data: updated };
   } catch (e) {

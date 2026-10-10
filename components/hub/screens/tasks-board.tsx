@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
 import type { Task } from "@/lib/repositories/tasks/task.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { useOverlays } from "../overlays/overlay-provider";
+import { RenewalEmailDraftModal } from "../overlays/renewal-email-draft";
+import { usePersona } from "../persona";
 import { Btn, Card, CountPill, PageHead } from "../primitives";
 import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "../task-buckets";
 
@@ -19,6 +21,8 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
   const router = useRouter();
   const overlays = useOverlays();
   const [, startTransition] = useTransition();
+  const persona = usePersona();
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   const toggle = (t: Task) =>
     startTransition(async () => {
@@ -65,8 +69,8 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
                 {items.map((t) => {
                   const { meta } = taskBucket(t.dueDate);
                   return (
+                    <div key={t.id}>
                     <button
-                      key={t.id}
                       onClick={() => toggle(t)}
                       className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
                     >
@@ -111,6 +115,14 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
                         </span>
                       </span>
                     </button>
+                    {persona.role !== "agent" && t.renewalDraftId && (
+                      <div className="px-[18px] pb-2 pl-[47px]">
+                        <Btn size="sm" variant="primary" onClick={() => setDraftId(t.renewalDraftId)}>
+                          {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
+                        </Btn>
+                      </div>
+                    )}
+                    </div>
                   );
                 })}
               </div>
@@ -118,6 +130,9 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
           );
         })}
       </div>
+      {persona.role !== "agent" && draftId && (
+        <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
+      )}
     </div>
   );
 }
