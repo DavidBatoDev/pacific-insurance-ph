@@ -83,6 +83,18 @@ export class SupabaseDocumentsRepository implements DocumentsRepository {
     if (error) throw toRepositoryError("DocumentsRepository.listByClient", error);
     return (data ?? []).map(toDomain);
   }
+  async listByTravelRequest(travelRequestId: string): Promise<DocumentRecord[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("documents")
+      .select("*")
+      .eq("travel_request_id", travelRequestId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true });
+
+    if (error) throw toRepositoryError("DocumentsRepository.listByTravelRequest", error);
+    return (data ?? []).map(toDomain);
+  }
+
 
   async findById(id: string): Promise<DocumentRecord | null> {
     const { data, error } = await getSupabaseAdmin()

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { getTravelWorkflowAction, recordTravelPolicyAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
+import { getTravelWorkflowAction, recordTravelApplicationCopyAction, recordTravelPolicyAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requirement-status";
 import { PdfUpload } from "@/components/documents/pdf-upload";
@@ -13,6 +13,22 @@ import { TRAVEL_PAYMENT_METHODS } from "@/lib/db-enums";
 import { Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { I } from "../icons";
 import { useOverlays } from "./overlay-provider";
+import type { DocumentRecord } from "@/lib/repositories/documents";
+
+function postIssuanceDocuments(documents: DocumentRecord[], documentType: string) {
+  return documents
+    .filter((document) => document.documentType === documentType && document.status !== "Archived" && document.filePath)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+}
+
+function PersonalPackDocuments({ documents }: { documents: DocumentRecord[] }) {
+  if (!documents.length) return <p className="text-[11px] text-muted-foreground">Not attached</p>;
+  return <div className="space-y-1">{documents.map((document) => (
+    <a key={document.id} href={`/api/documents/${document.id}/download`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-sm px-1 py-1 text-[11.5px] font-semibold text-brand-hover hover:bg-hover hover:underline">
+      <span className="min-w-0 truncate">{document.name}</span><span className="shrink-0">Download</span>
+    </a>
+  ))}</div>;
+}
 
 export function TravelWorkflowModal({ travelRequestId, onClose }: { travelRequestId: string; onClose: () => void }) {
   const router = useRouter();
@@ -26,7 +42,6 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
   const [portalRef, setPortalRef] = useState("");
   const [portalAmount, setPortalAmount] = useState("");
   const [policyNumber, setPolicyNumber] = useState("");
-  const [policyUploaded, setPolicyUploaded] = useState(false);
   const [policyNumberError, setPolicyNumberError] = useState<string | null>(null);
   const policyNumberRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +106,9 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
     }
     router.refresh();
   };
+  const policyDocuments = payload ? postIssuanceDocuments(payload.documents, "Travel Policy") : [];
+  const applicationCopyDocuments = payload ? postIssuanceDocuments(payload.documents, "Travel Application Copy") : [];
+
 
   return <Modal onClose={onClose} maxWidth={820}>
     {!payload ? <div className="grid min-h-52 place-items-center text-[13px] text-muted-foreground">{error ?? "Loading Travel workflow…"}</div> : <div>
@@ -109,7 +127,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
           <Field label="Portal amount"><input aria-label="Portal amount" className={INPUT} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /></Field>
           <Field label="Portal status"><select aria-label="Portal status" className={INPUT} value={portalStatus} onChange={(event) => { const value = event.target.value; setPortalStatus(value); if (value !== "Issued") setPolicyNumberError(null); }}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></Field>
         </div>
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 max-[680px]:grid-cols-1">
+        <div className="mt-2 max-w-md">
           <Field label="Policy number">
             <input
               ref={policyNumberRef}
@@ -123,20 +141,71 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
             />
             {policyNumberError && <p id="travel-policy-number-error" role="alert" className="mt-1 text-[11.5px] text-red">{policyNumberError}</p>}
           </Field>
-          <PdfUpload clientId={payload.travel.clientId} prompt={policyUploaded ? "Policy PDF attached — upload another…" : "Upload the issued policy PDF…"} onUploaded={async (path, fileName) => {
-            const result = await recordTravelPolicyAction(travelRequestId, path, fileName);
-            if (result.ok) {
-              setPolicyUploaded(true);
-              overlays.toast("Travel policy attached");
-              const requirementId = result.data.requirementId;
-              if (requirementId) setPayload((current) => current ? { ...current, requirements: current.requirements.map((item) => item.id === requirementId ? { ...item, status: "Received" } : item) } : current);
-              router.refresh();
-            }
-            return result;
-          }} />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">The carrier purchase remains manual. Portal credentials are held outside this app.</p>
       </div>
+      <div className="mt-4 rounded-md border border-border-soft p-3">
+        <div className="text-[11px] font-bold uppercase text-subtle">Post-issuance pack</div>
+        <div className="mt-3 space-y-4">
+          <div>
+            <div className="text-[12.5px] font-semibold">Issued policy</div>
+            <div className="mt-2">
+              <PdfUpload clientId={payload.travel.clientId} prompt={policyDocuments.length ? "Policy PDF attached — upload another…" : "Upload the issued policy PDF…"} onUploaded={async (path, fileName) => {
+                const result = await recordTravelPolicyAction(travelRequestId, path, fileName);
+                if (result.ok) {
+                  setPayload((current) => current ? {
+                    ...current,
+                    documents: [result.data.document, ...current.documents.filter((document) => document.id !== result.data.document.id)],
+                    requirements: result.data.requirementId
+                      ? current.requirements.map((item) => item.id === result.data.requirementId ? { ...item, status: "Received" } : item)
+                      : current.requirements,
+                  } : current);
+                  overlays.toast("Travel policy attached");
+                  router.refresh();
+                }
+                return result;
+              }} />
+            </div>
+            <div className="mt-2"><PersonalPackDocuments documents={policyDocuments} /></div>
+          </div>
+
+          <div className="border-t border-border-soft pt-3">
+            <div className="text-[12.5px] font-semibold">Carrier application copy</div>
+            <p className="mt-1 text-[11px] text-muted-foreground">Returned after purchase; this is separate from the signed intake form.</p>
+            <div className="mt-2">
+              <PdfUpload clientId={payload.travel.clientId} prompt={applicationCopyDocuments.length ? "Carrier application copy attached — upload another…" : "Upload the carrier's completed application PDF…"} onUploaded={async (path, fileName) => {
+                const result = await recordTravelApplicationCopyAction(travelRequestId, path, fileName);
+                if (result.ok) {
+                  setPayload((current) => current ? {
+                    ...current,
+                    documents: [result.data, ...current.documents.filter((document) => document.id !== result.data.id)],
+                  } : current);
+                  overlays.toast("Travel application copy attached");
+                  router.refresh();
+                }
+                return result;
+              }} />
+            </div>
+            <div className="mt-2"><PersonalPackDocuments documents={applicationCopyDocuments} /></div>
+          </div>
+
+          <div className="border-t border-border-soft pt-3">
+            <div className="text-[12.5px] font-semibold">Shared TravelSafe references</div>
+            <div className="mt-2 space-y-2">
+              {payload.referenceDocuments.map((reference) => <div key={reference.key} className="rounded-sm border border-border-soft px-2.5 py-2">
+                <div className="text-[11.5px] font-semibold">{reference.label}</div>
+                {reference.documents.length ? <div className="mt-1 space-y-1">{reference.documents.map((document) => (
+                  <a key={document.id} href={`/api/travel/${travelRequestId}/pack/${reference.key}/download?documentId=${document.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-sm px-1 py-1 text-[11px] font-semibold text-brand-hover hover:bg-hover hover:underline">
+                    <span className="min-w-0 truncate">{document.documentName}</span><span className="shrink-0 text-muted-foreground">{document.versionLabel}</span><span className="shrink-0">Download</span>
+                  </a>
+                ))}</div> : <p className="mt-1 text-[11px] text-muted-foreground">Not available in the carrier library</p>}
+              </div>)}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">Shared documents are linked from the library and are not copied per client.</p>
+          </div>
+        </div>
+      </div>
+
 
       <div className="mt-4"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div><div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className={`rounded-md border p-3 transition-colors ${requirementRowTone(item.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"><RequirementStatusDot status={item.status} className="max-sm:hidden" /><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div><div className="text-[11px] text-muted-foreground">{item.appliesTo}</div></div><select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}><option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option></select></div><div className="mt-2 sm:pl-10"><DocumentUploadForm clientId={payload.travel.clientId} travelRequestId={travelRequestId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined} /></div></div>)}</div></div>
     </div>}

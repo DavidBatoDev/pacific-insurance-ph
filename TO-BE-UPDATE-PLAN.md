@@ -1705,9 +1705,9 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
 
   - Eman sends it to their own address rather than straight to the client, because the
     attachments are password-protected and some clients can't open them.
-  - **Current state:** the upload-back (`12acb17`) takes the issued policy only.
-  - **Change:** also allow attaching the application-form copy. The three reference documents
-    are generic, so link them from the library instead of storing them per client.
+  - **Implemented in this worktree:** the Travel workflow files issued-policy and carrier-completed-application uploads as independent trip documents, reloads them from the trip, and renders the three fixed shared-reference slots through an authenticated pack-only download route. The signed intake application and its requirement status remain independent.
+  - **Carrier catalog state:** the active approved `TravelSafe Notification of Claim` is linked when eligible. Emergency-numbers and COVID-19 coverage remain explicit unavailable states until Admin uploads and approves the two actual carrier PDFs as TravelSafe / All Ages / `Reference Document` with variants `Travel pack: emergency-numbers` and `Travel pack: covid-coverage`; no substitute assets or dates were fabricated.
+  - **Verification:** resolver boundary tests, full unit suite and TypeScript check pass. Authenticated browser, upload/download, client-isolation and permission smoke checks remain unrun because local Playwright test credentials are not configured.
 
 - [x] **H6f. Travel payment tracking: mostly already done.** ✅ *Done 2026-10-06 (`ff1e088`): a Payment method select (Card / GCash / Over the counter, column `travel_requests.portal_payment_method`, migration `0046`) in the workflow's Portal processing, also shown under the premium on the Travel list. Playwright-verified.*
   - **Current state:** the portal modal records portal reference, amount and status

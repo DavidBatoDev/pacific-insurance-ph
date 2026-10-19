@@ -13,8 +13,11 @@ import {
   type TravelRequestUpdate,
 } from "@/lib/repositories/travel";
 import { getCarrierWorkflowsRepository, type TravelerRecord, type TravelRequirementRecord } from "@/lib/repositories/carrier-workflows";
+import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
+import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
 import { getPaymentsRepository, type Payment } from "@/lib/repositories/payments";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
+import { resolveTravelPackReferences, type ResolvedTravelPackReference } from "@/lib/travel/post-issuance-pack";
 import type { Json } from "@/lib/supabase/types";
 
 /** New Travel Quote (modals.md §7) — creates a per-trip travel request. */
@@ -57,6 +60,8 @@ export interface TravelWorkflowPayload {
   travelers: TravelerRecord[];
   requirements: TravelRequirementRecord[];
   payments: Payment[];
+  documents: DocumentRecord[];
+  referenceDocuments: ResolvedTravelPackReference[];
   portalUrl: string | null;
 }
 
@@ -66,11 +71,32 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
     const travel = await getTravelRepository().findById(id);
     if (!travel) return { ok: false, error: "Travel request not found." };
     const workflows = getCarrierWorkflowsRepository();
-    const [travelers, requirements, payments, portal] = await Promise.all([
-      workflows.listTravelers(id), workflows.listTravelRequirements(id), getPaymentsRepository().listByTravelRequest(id),
+    const today = new Date().toISOString().slice(0, 10);
+    const [travelers, requirements, payments, documents, libraryDocuments, portal] = await Promise.all([
+      workflows.listTravelers(id),
+      workflows.listTravelRequirements(id),
+      getPaymentsRepository().listByTravelRequest(id),
+      getDocumentsRepository().listByTravelRequest(id),
+      getDocumentLibraryRepository().listEligible({
+        productName: "TravelSafe",
+        documentTypes: ["Reference Document", "Claim Form"],
+        ageBand: "All Ages",
+        onDate: today,
+      }),
       getIntegrationSettingsRepository().getTravelPortal(),
     ]);
-    return { ok: true, data: { travel, travelers, requirements, payments, portalUrl: portal?.portalUrl ?? null } };
+    return {
+      ok: true,
+      data: {
+        travel,
+        travelers,
+        requirements,
+        payments,
+        documents,
+        referenceDocuments: resolveTravelPackReferences(libraryDocuments, today),
+        portalUrl: portal?.portalUrl ?? null,
+      },
+    };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to load Travel workflow." };
   }
@@ -99,7 +125,7 @@ export async function recordTravelPolicyAction(
   travelRequestId: string,
   path: string,
   fileName: string,
-): Promise<ActionResult<{ documentId: string; requirementId: string | null }>> {
+): Promise<ActionResult<{ documentId: string; document: DocumentRecord; requirementId: string | null }>> {
   const actor = await getActor();
   try {
     const travel = await getTravelRepository().findById(travelRequestId);
@@ -127,9 +153,43 @@ export async function recordTravelPolicyAction(
     revalidatePath("/travel");
     revalidatePath(`/clients/${travel.clientId}`);
     revalidatePath("/documents");
-    return { ok: true, data: { documentId: doc.id, requirementId: requirement?.id ?? null } };
+    return { ok: true, data: { documentId: doc.id, document: doc, requirementId: requirement?.id ?? null } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Couldn’t record the travel policy." };
+  }
+}
+
+/** Attach the carrier's completed application copy after TravelSafe issues the policy. */
+export async function recordTravelApplicationCopyAction(
+  travelRequestId: string,
+  path: string,
+  fileName: string,
+): Promise<ActionResult<DocumentRecord>> {
+  const actor = await getActor();
+  try {
+    const travel = await getTravelRepository().findById(travelRequestId);
+    if (!travel) return { ok: false, error: "Travel request not found." };
+    const doc = await registerUploadedPdf({
+      path,
+      name: `Travel application copy — ${travel.referenceNo ?? travelRequestId.slice(0, 8)} (${fileName})`,
+      clientId: travel.clientId,
+      travelRequestId,
+      documentType: "Travel Application Copy",
+      actorId: actor.id,
+    });
+    await recordActivity({
+      scopeType: "client",
+      scopeId: travel.clientId,
+      activityType: "document.uploaded",
+      summary: `Travel application copy uploaded — ${travel.referenceNo ?? "travel request"}`,
+      actorId: actor.id,
+    });
+    revalidatePath("/travel");
+    revalidatePath(`/clients/${travel.clientId}`);
+    revalidatePath("/documents");
+    return { ok: true, data: doc };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Couldn’t record the travel application copy." };
   }
 }
 
