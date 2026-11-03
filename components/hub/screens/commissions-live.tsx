@@ -7,7 +7,7 @@ import { assignCommissionContactAction, updateCommissionAction } from "@/app/(ap
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { Commission } from "@/lib/repositories/payments";
 import { computeCommission, VAT_BASE_FACTOR, WITHHOLDING_TAX_RATE } from "@/lib/commissions/compute";
-import { peso, pesoShort } from "@/lib/format";
+import { money, moneyTotals } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
@@ -46,13 +46,11 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
   const label = (commission: Commission) => COMM_LABEL[commission.status] ?? commission.status;
   const count = (displayLabel: string) =>
     commissions.filter((commission) => label(commission) === displayLabel).length;
-  const paidSum = commissions
-    .filter((commission) => label(commission) === "Paid")
-    .reduce(
-      (total, commission) =>
-        total + (commission.amount ?? commission.estimatedAmount ?? 0),
-      0,
-    );
+  const paidTotals = new Map<string, number>();
+  for (const commission of commissions.filter((entry) => label(entry) === "Paid")) {
+    const currency = commission.currency ?? commission.premiumCurrency ?? "PHP";
+    paidTotals.set(currency, (paidTotals.get(currency) ?? 0) + (commission.amount ?? commission.estimatedAmount ?? 0));
+  }
   const canSeeAmounts = persona.role !== "agent";
 
   const updateStep = (commission: Commission, step: "follow-up" | "received" | "paid") =>
@@ -109,7 +107,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
         { val: count("Follow-up"), label: "Follow-up pending", color: "var(--amber)" },
         { val: count("Received"), label: "Received", color: "var(--blue)" },
         {
-          val: `${pesoShort(paidSum)} · ${count("Paid")}`,
+          val: `${moneyTotals(paidTotals)} · ${count("Paid")}`,
           label: "Paid · Commission YTD",
           color: "var(--brand)",
         },
@@ -154,7 +152,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
             <Td className="text-right font-mono font-semibold tabular-nums">
               {canSeeAmounts ? (
                 commission.amount != null ? (
-                  peso(commission.amount)
+                  money(commission.amount, commission.currency ?? commission.premiumCurrency)
                 ) : commission.estimatedAmount != null ? (
                   <span className="text-muted-foreground">
                     ~{money(commission.estimatedAmount, commission.premiumCurrency)}
@@ -255,10 +253,6 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
   );
 }
 
-const money = (amount: number, currency: string | null) =>
-  !currency || currency === "PHP"
-    ? "₱" + amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : `${currency} ${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * H9c — the commission computation, shown step by step. Recomputed with the same

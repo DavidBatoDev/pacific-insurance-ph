@@ -56,11 +56,13 @@ async function resolvePaymentProduct(
   return pv ? { productId: pv.product_id, productName: pv.products?.name ?? "this product" } : null;
 }
 
-const peso = (n: number) => "₱" + n.toLocaleString("en-PH");
+const money = (n: number, currency: string | null) =>
+  `${!currency || currency === "PHP" ? "₱" : currency === "USD" ? "US$" : `${currency} `}${n.toLocaleString("en-PH")}`;
 
 export interface VerifyPaymentInput {
   paymentId: string;
   paymentMethod: string;
+  amount?: number | null;
   /** Received (proof on file) or Verified (OR captured). */
   status: "Received" | "Verified";
   orNumber?: string | null;
@@ -84,6 +86,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     const repo = getPaymentsRepository();
     const payment = await repo.findById(input.paymentId);
     if (!payment) return { ok: false, error: "Payment not found." };
+    const amount = input.amount ?? payment.amount;
+    if (amount == null || !Number.isFinite(amount) || amount <= 0)
+      return { ok: false, error: "Enter the premium amount before recording payment." };
     // Proof of payment is required before a payment can be Received/Verified
     // (payments-page.md) — either just attached or already on file.
     if (!input.proofDocumentId && !payment.proofDocumentId)
@@ -92,6 +97,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     const today = new Date().toISOString().slice(0, 10);
     const updated = await repo.update(input.paymentId, {
       status: input.status,
+      amount,
       paymentMethod: input.paymentMethod,
       paymentDate: payment.paymentDate ?? today,
       orNumber: input.orNumber?.trim() || undefined,
@@ -107,12 +113,12 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
         : Promise.resolve();
 
     if (input.status === "Received") {
-      await log("payment.received", `Proof of payment received — ${payment.referenceNo ?? ""} ${payment.amount != null ? peso(payment.amount) : ""}`.trim());
+      await log("payment.received", `Proof of payment received — ${payment.referenceNo ?? ""} ${updated.amount != null ? money(updated.amount, updated.currency) : ""}`.trim());
     }
 
     if (input.status === "Verified" && input.orNumber) {
       const or = input.orNumber.trim();
-      await log("payment.verified", `Payment verified — ${payment.sourceRef ?? payment.referenceNo ?? ""} · ${payment.amount != null ? peso(payment.amount) : ""} · ${input.paymentMethod}`.trim());
+      await log("payment.verified", `Payment verified — ${payment.sourceRef ?? payment.referenceNo ?? ""} · ${updated.amount != null ? money(updated.amount, updated.currency) : ""} · ${input.paymentMethod}`.trim());
       await log("payment.or_recorded", `OR recorded — ${or} · commission tracking started`);
 
       // Advance the source record (design result table).
@@ -148,8 +154,8 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
           )
         : null;
       const est =
-        rate?.ratePct != null && payment.amount != null
-          ? computeCommission(payment.amount, rate.ratePct).net
+        rate?.ratePct != null && updated.amount != null
+          ? computeCommission(updated.amount, rate.ratePct).net
           : null;
       const pendingNote =
         rate?.ratePct == null
@@ -164,6 +170,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
         estimatedAmount: est,
         ratePct: rate?.ratePct ?? null,
         commissionRateId: rate?.id ?? null,
+        currency: updated.currency,
         followUpDate: today,
       });
       await getTasksRepository().create({
@@ -217,7 +224,7 @@ export async function sendPaymentLinksAction(input: {
       payments.map((p) => ({
         clientId: p.clientId,
         subject: input.subjectBySource[p.source] ?? `Payment instruction — ${p.sourceRef ?? ""}`.trim(),
-        summary: `${peso(p.amount ?? 0)} · ${input.payChannel} · via ${input.via.join(", ")}`,
+        summary: `${money(p.amount ?? 0, p.currency)} · ${input.payChannel} · via ${input.via.join(", ")}`,
         notes: input.bodyBySource[p.source] ?? null,
         actorId: actor.id,
       })),
@@ -227,7 +234,7 @@ export async function sendPaymentLinksAction(input: {
         scopeType: "client" as const,
         scopeId: p.clientId,
         activityType: "payment.instruction_logged",
-        summary: `Payment instruction logged — ${p.sourceRef ?? p.referenceNo ?? ""} · ${peso(p.amount ?? 0)}`,
+        summary: `Payment instruction logged — ${p.sourceRef ?? p.referenceNo ?? ""} · ${money(p.amount ?? 0, p.currency)}`,
         actorId: actor.id,
       })),
     );
@@ -289,7 +296,7 @@ export async function updateCommissionAction(
         requested: `Commission voucher requested — OR ${commission.orNumber ?? "—"}`,
         "follow-up": `Commission follow-up logged — OR ${commission.orNumber ?? "—"}`,
         received: `Commission received — OR ${commission.orNumber ?? "—"} · voucher on file`,
-        paid: `Commission paid — OR ${commission.orNumber ?? "—"} · ${updated.amount != null ? peso(updated.amount) : ""}`.trim(),
+        paid: `Commission paid — OR ${commission.orNumber ?? "—"} · ${updated.amount != null ? money(updated.amount, updated.currency) : ""}`.trim(),
       };
       await recordActivity({
         scopeType: "client",

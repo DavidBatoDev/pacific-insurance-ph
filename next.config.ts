@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   // those from surfacing as critical-dependency warnings; it is only ever
   // imported from the dashboard export route, never from client code.
   serverExternalPackages: ["xlsx"],
+  // OAuth callbacks contain short-lived authorization codes; never print their query in dev.
+  logging: {
+    incomingRequests: { ignore: [/^\/api\/integrations\/gmail\/callback(?:\?|$)/] },
+  },
 };
 
 export default nextConfig;

@@ -25,7 +25,7 @@ import {
 } from "@/lib/repositories/clients";
 import { PAYMENT_FREQUENCIES } from "@/lib/db-enums";
 import { ageFromDob } from "@/components/hub/overlays/wizard/wizard-data";
-import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
+import { registerUploadedPdf, registerUploadedProposalReceipt } from "@/lib/documents/uploaded-pdf";
 import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
@@ -564,25 +564,14 @@ export async function recordProposalReceivedAction(
     const repo = getClientsRepository();
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
-    if (lead.lifecycleStage !== "Lead")
-      return { ok: false, error: `${lead.fullName} is no longer a Lead.` };
-    if (lead.proposalStatus && lead.proposalStatus !== "Requested")
-      return { ok: false, error: `This proposal is already ${lead.proposalStatus.toLowerCase()}.` };
+    // The shared receipt transaction rechecks lifecycle/proposal guards while holding the client lock.
 
     const product = lead.productInterest ?? "carrier";
-    const doc = await registerUploadedPdf({
-      path,
+    const doc = await registerUploadedProposalReceipt({
+      storagePath: path,
       name: proposalDocumentName(product, fileName),
       clientId,
-      documentType: "Illustrative Proposal",
-      actorId: actor.id,
-    });
-    await repo.update(clientId, { proposalStatus: "Received", proposalDecision: null });
-    await recordActivity({
-      scopeType: "client",
-      scopeId: clientId,
-      activityType: "lead.proposal",
-      summary: `Proposal received — ${product} illustrative proposal uploaded`,
+      targetKind: "client", targetId: clientId,
       actorId: actor.id,
     });
 

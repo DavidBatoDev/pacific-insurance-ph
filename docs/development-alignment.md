@@ -38,6 +38,7 @@ they are historical references, not active sources of task status. Current prior
 | Renewal cron activation | `vercel.json` keeps `sin1` and adds `0 0 * * *` (08:00 Manila); only the exact endpoint bypasses session proxy and enforces `CRON_SECRET` itself | Local missing configuration (503), missing/wrong token (401), authorized/repeated calls (200), and sibling-route login protection verified. Set `CRON_SECRET` in Vercel Production and deploy before claiming live scheduling. No push or Production web activation performed here. |
 | Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07 and extended through 2026-09-25: 40 source files represented by 49 library rows, including CCAF, Geographical Loading, and the CET. The 5 `TEST —` placeholders are archived. Distribution clearance was treated as not-a-gate by client decision — see Carrier-document rules. |
 | Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
+| Gmail connection and incoming correspondence | Admin OAuth and Settings controls, private inbox repository, `/inbox`, authenticated Pub/Sub, daily reconciliation and attachment filing; migrations `0051`–`0056` | Production reading and automatic push synchronization are verified. Two real emails were imported manually; after fixing numeric push history IDs, four real notifications were accepted and background sync completed without duplicates or errors. Admin reviews unassigned mail; Staff sees released mail; Agent sees assigned-client mail. Matching/filing remain human-confirmed. Provider-original attachment retrieval is still unverified. No outgoing delivery or automatic approval/verification. |
 | Proposal `Sent` | `Mark Sent` button (Contact Profile proposal panel + Leads board proposal-tracking panel; `setProposalStatusAction`, `app/(app)/prospects/actions.ts`) lets staff manually confirm delivery | Aligned as of 2026-08-13 for the manual half (`Mark externally sent`, reworded to `Mark Sent` — see note below). The automatic half (advancing on real provider-confirmed delivery) remains a gap: no email provider is wired up yet. |
 | Lead status `New → Attempted` on send | `sendEmailAction` (`app/(app)/clients/engage-actions.ts`) sets `lead_status = Attempted` on any successful email/brochure log, regardless of delivery | **Doc conflict, resolved 2026-08-13 in favor of code as written.** `../../docs/web/lead-workflow.md:65` and this file's own "Proposal `Sent`" row above say logging alone must not advance status without provider confirmation or an explicit `Mark externally sent` action. But the parent workspace's `CLAUDE.md` explicitly directs *"Lead-lifecycle behavior must follow `docs/lead-stage-status.md` (+ `-example.md`)"*, and that file states plainly: *"New → Attempted \| Send Email / Send Brochure (first touch) \| Eman's send sets this; no Lead reply required yet."* Kept matching `lead-stage-status.md` per that explicit instruction. `docs/INDEX.md` ranks `web/lead-workflow.md` as canonical and `lead-stage-status.md` as a secondary "plain-language explainer" — the two root docs disagree and this has not been reconciled between them. Note the asymmetry this leaves: `lead_status` now auto-advances on mere logging, while `proposal_status = Sent` (row above) still requires the explicit `Mark Sent` click — whoever owns doc reconciliation should resolve which rule (auto-advance-on-log, or require-explicit-confirmation) should actually govern both, since they currently behave differently for what the docs describe as the same underlying rule. |
 | `Mark externally sent` wording | Implemented as **`Mark Sent`**, not the docs' literal phrase | The docs (`lead-workflow.md`, `contact-profile.md`, `data-model.md`, `build-roadmap.md`) only ever use `Mark externally sent` as a mechanism name in backticks, never as prescribed UI copy. Renamed for the shipped button because "externally" collides with this app's distinct "External Contacts" concept (the Pacific Cross officer directory) and reads as ambiguous to Eman. `Mark Sent` mirrors the existing sibling button `Mark Received` in the same panel. |
@@ -102,11 +103,21 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Migration files exist through `0048_renewal_email_automation.sql`. `0041` remains reserved
-  for the D1 import schema. The authorized Supabase ledger was checked through `0046`, including
-  `0038`–`0040`; `0047` and `0048` were then applied successfully during 2026-10-09–10 and
-  `lib/supabase/types.ts` was regenerated with the Supabase type-generation tool. Next free
-  number: `0049_*`; do not reuse reserved `0041`.
+- Local migrations extend through `0056_gmail_inbox_provider_id_length.sql`; `0041` remains reserved
+  for the D1 import schema. Hosted Gmail migrations: `0051` = `20261031084527`,
+  `0052_gmail_incoming_mail` = `20261101074444`,
+  `0053_gmail_inbox_checkpoint_attachment_alias` = `20261101074550`,
+  `0054_shared_proposal_receipt` = `20261101080045`,
+  `0055_gmail_inbox_metadata_limits` = `20261101082156`, and
+  `0056_gmail_inbox_provider_id_length` = `20261101082300`.
+- `0053` fixes the PL/pgSQL variable/SELECT-alias ambiguity reproduced by the first hosted
+  ingestion smoke. `0054` makes existing portal upload-back and inbox proposal filing use
+  the same locked registration/receipt/replacement operation.
+- `0055`/`0056` align retained MIME metadata with parser bounds rather than applying the 25 MB
+  binary download/filing limit during ingestion. Oversize attachment metadata, 250 MIME files,
+  longer reference/recipient headers and missing sender metadata remain reviewable without
+  poisoning the cursor. Provider ID length is checked separately from PostgreSQL regex repetition.
+- `lib/supabase/types.ts` was genuinely regenerated from the final hosted schema.
 - Presence in source does not prove remote deployment. Check the target Supabase migration list
   before release.
 - Regenerate `lib/supabase/types.ts` after applying migrations and review the diff.
@@ -120,6 +131,186 @@ they are historical references, not active sources of task status. Current prior
   protection and fail-closed/authorized/repeated cron checks. Final `npm test`:
   **8 files / 58 tests**; `npx next typegen` and `npx tsc --noEmit` passed. Owned QA fixtures removed.
   No lint rerun or email-provider/Production web deployment is claimed.
+
+### Gmail connection configuration and verification
+
+- Server-only: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
+  `GMAIL_SENDER_EMAIL`, and a dedicated base64-encoded 32-byte `GMAIL_TOKEN_ENCRYPTION_KEY`.
+  The encryption key is generated once per environment and must be retained securely; changing
+  it without re-encryption makes existing credentials unreadable. No secrets belong in browser
+  props, audit JSON, provider-error logs or committed files.
+  The local key is stored only in gitignored `.env.local`. Environments sharing this database
+  and OAuth client must use the key that already encrypted its credential, not independently
+  generated keys. Use a separate database or an explicit re-encryption migration for a new key.
+- Callback: `/api/integrations/gmail/callback`. Local setup uses `http://localhost:3000`;
+  production requires its exact registered HTTPS callback and separately configured secrets.
+  The proxy exempts this exact callback from its optimistic login redirect; the callback
+  itself requires the active CRM Admin and clears OAuth parameters before redirecting. The
+  exact notification and Gmail cron paths have separate OIDC/secret authentication.
+  Next development request logging ignores this exact callback to avoid printing its query;
+  the synthetic callback logging smoke confirmed suppression. Production ingress/access logs
+  must likewise redact OAuth query values before rollout.
+- Isolated and subsequently hosted rollback SQL smoke exercised successful/stale writes,
+  single-use/actor/browser-bound and expired attempts, redacted transactional audits, actual
+  anon/authenticated table/RPC denials, Staff denial and inactive Admin denial.
+  Rollback smoke creates no lasting synthetic connection, attempt or user rows. Both credential
+  tables have RLS with no browser policies; access stays server-only through service_role.
+  Multi-session concurrency races remain unverified.
+- Actual Next callback smoke returned clean unauthenticated `303 /login?redirectTo=%2Fsettings`
+  with private/no-store, no-referrer and cookie clearing; no OAuth code/state was forwarded.
+  Direct unauthenticated Connect/Check Server Actions rejected access. Synthetic card states
+  were viewed at desktop and narrow width; these are not proof of a connected mailbox.
+  Keyboard focus reached Reconnect Gmail and the 390px surface had no horizontal overflow.
+  The temporary synthetic route was removed after the smoke.
+  `npx next typegen` and `npx tsc --noEmit` passed with the dev server stopped;
+  the full Vitest suite passed: **14 files / 163 tests**.
+- Initial mailbox-owner consent was send-only. The earlier secret-safe hosted check observed
+  `admin@pacificinsuranceph.com`, status `connected`, an encrypted refresh credential present,
+  and last check `2026-10-31T11:05:26.913899Z`. Credential values were not displayed.
+  The preactivation checks showed `read_granted = false` and `inbox_enabled = false`;
+  the production activation evidence below supersedes that state.
+
+### Incoming Gmail activation and verification (2026-11-01)
+
+- Read permission is `https://www.googleapis.com/auth/gmail.readonly`, added alongside the
+  existing identity/send grants. Reconnect requests it; cancelling or lacking read permission
+  preserves a valid send-only connection. Only **Enable incoming email from now** initializes
+  the receipt boundary. Older messages are not imported, including during expired-history recovery.
+- The worker holds a 90-second lease, uses a 45-second request budget, and checkpoints candidate
+  IDs and progress before advancing the final decimal history cursor. Duplicate messages and
+  notifications do not overwrite evidence or links. Recovery captures its profile cursor before
+  listing mail. Watch renewal never replaces the ingestion cursor. Manual/daily renewal and
+  reconciliation share one credential refresh and deadline; a watch failure does not block reads.
+- `/inbox` has 100-message pages, metadata-only lists, selected plain text, matching suggestions,
+  explicit Admin association, original downloads and staff-confirmed PDF filing. An established
+  thread or matching reference is a suggestion, never permission to release or approve mail.
+  Linking writes one Received communication at the original receipt time; the client timeline
+  links back to it. Filing atomically creates the document, association, receipt and audit.
+  Repeated filing returns its existing document; different purposes/requirements are rejected.
+  Verified requirements and later lead proposal states are preserved. Unsupported/encrypted
+  originals are not converted or presented as parsed carrier decisions.
+- Incoming originals are private. The source client page, document download and submission ZIP
+  now enforce active-account/assigned-client boundaries so linked evidence cannot bypass inbox
+  scoping through existing routes. Browser table/RPC access remains denied.
+- Additional server-only configuration:
+
+  ```dotenv
+  GMAIL_PUBSUB_TOPIC=projects/pacific-insurane-ph/topics/pacific-gmail-inbox
+  GMAIL_PUBSUB_SUBSCRIPTION=projects/pacific-insurane-ph/subscriptions/pacific-gmail-inbox-push
+  GMAIL_PUSH_SERVICE_ACCOUNT=pacific-gmail-push@pacific-insurane-ph.iam.gserviceaccount.com
+  GMAIL_PUSH_AUDIENCE=https://pacific-insurance-ph-ten.vercel.app/api/integrations/gmail/notifications
+  ```
+
+  Preserve the project's actual spelling, `pacific-insurane-ph`. These values are configured
+  locally and in Vercel Production. The existing encryption key was authenticated against the
+  active credential before provisioning; it was not rotated. Existing production Supabase
+  configuration was retained. Production `CRON_SECRET` is configured. No service-account key
+  was downloaded and no secret values were printed.
+- Production rollout:
+  1. Deployment access was restored and the updated CRM is deployed; see live evidence below.
+  2. Configure server-only values and the existing credential encryption key in Vercel;
+     use/register `https://pacific-insurance-ph-ten.vercel.app/api/integrations/gmail/callback`
+     as `GOOGLE_REDIRECT_URI` (configured). Ensure Google permits that callback for future production reconnects.
+  3. The owner created subscription `pacific-gmail-inbox-push`; notifications currently fail OIDC
+     audience verification. Edit its Push authentication Audience to match the full webhook URL.
+     Keep authentication enabled with the dedicated push-delivery service account above. Use a 60-second
+     acknowledgement deadline and retry backoff, e.g. 10–600 seconds. Gmail's existing
+     `gmail-api-push@system.gserviceaccount.com` Publisher binding stays topic-scoped.
+     The Pub/Sub service agent needs permission to mint the push identity; if delivery reports
+     that permission missing, grant Service Account Token Creator on this service account only,
+     not broad project privileges or an organization-wide sharing exemption.
+  4. The owner completed Gmail reconnect/read consent and enabled incoming synchronization.
+  5. Send a benign QA email after enablement; prove authenticated push, one imported message,
+     manual sync deduplication, watch renewal and an authorized attachment download before
+     claiming the live mailbox is receiving inside the CRM.
+- `/api/integrations/gmail/notifications` verifies Google's signed OIDC token and exact
+  audience/service-account identity before validating mailbox/subscription metadata. It durably
+  enqueues notifications, never trusts their cursor as a checkpoint, and returns non-success for
+  busy/partial work so Pub/Sub retries. Only POST is supported; browser GET is not a delivery test.
+- `/api/cron/gmail` authenticates `CRON_SECRET` and runs daily at `15 0 * * *` (08:15 Manila
+  nominally). Push is the normal near-real-time path; daily/manual reconciliation is the fallback.
+  The daily cadence supports [Vercel Hobby limits](https://vercel.com/docs/cron-jobs/usage-and-pricing);
+  Hobby scheduling can occur later in that hour. Neither a cron nor a notification enables reading.
+- Verification: hosted rollback assertions passed for grants/RLS, active Admin/Staff/Agent scope,
+  notification/message deduplication, cursor/lease/recovery protection, complete target lookup,
+  message pagination, same/different-target linking, checklist ownership, filing retries,
+  Received-not-Verified transitions, preserved verification, and guarded proposal receipt.
+  The first failure was fixed by `0053`; the smoke passed again after the `0054` shared cutover.
+  Multi-session races are not claimed.
+- Actual Next UI: Admin linked synthetic evidence; Staff and Agent could not see unassigned mail
+  or fetch its originals (404). Agent could read its released message but had no filing control.
+  The saved Filed state, inert script text, keyboard focus and 390px no-overflow layout were
+  observed. The shared shell's intrinsic-width overflow was corrected while preserving desktop.
+  Settings showed Connected with read reconsent required and enablement disabled.
+- Two throwaway integration checks injected benign PDF bytes only at the provider boundary,
+  then exercised real private Storage, exact-byte download, idempotent document/checklist filing,
+  and the shared upload-back proposal receipt/replacement service, including own-Agent permission.
+  Actual HTTP verified an authorized document redirect and timeline evidence link; after synthetic
+  client reassignment, document/ZIP downloads returned 404 and client/inbox pages showed not-found
+  with no protected evidence. Next's streamed not-found pages returned HTTP 200; API denials were 404.
+- Actual cron returned 503 with missing configuration, 401 with a wrong secret, and authenticated
+  200 with `enabled:false`; no implicit activation or Gmail request occurred. Unsigned push returned
+  401 and a sibling URL retained normal login protection. QA rows, accounts, objects, credential
+  files and temporary source scripts were removed. Final hosted checks found zero QA users/messages.
+  Activation continued below. Real incoming message ingestion, accepted signed push and provider
+  attachment download remain unexercised; all outgoing workflows remain log-only.
+- A missing-label parser regression was reproduced and fixed; absence means no applied labels,
+  not invalid mail. A hosted rollback reproduced and then verified the metadata boundary fix
+  with an unknown sender, 101 references/recipients, long headers and 250 attachment records,
+  including a 30 MB original's metadata. Binary downloads/filing still enforce 25 MB.
+- Source checks passed: `npm test` (**18 files / 224 tests**), optimized `npm run build`,
+  and `npx tsc --noEmit`. Production deployment/live checks are recorded separately below.
+- Setup references: [Gmail push/watch requirements](https://developers.google.com/workspace/gmail/api/guides/push)
+  and [authenticated Pub/Sub push](https://docs.cloud.google.com/pubsub/docs/authenticate-push-subscriptions).
+
+### Production activation evidence (2026-11-01 UTC)
+
+- Canonical production URL: `https://pacific-insurance-ph-ten.vercel.app`.
+  Deployment `dpl_2j6E4R9mTBzVXm8d6ub8jNSPcr4K` compiled and passed TypeScript on Vercel
+  and was promoted to production. The prior live build was from October 7 and redirected the
+  notification endpoint to login; the new webhook now performs its own JWT authentication.
+- A disposable authenticated QA actor proved the old production app used the same Supabase
+  database without exporting its sensitive environment values. The actor was deleted.
+  Gmail/cron production settings were provisioned using secret stdin, retaining the active
+  credential encryption key. Existing Supabase environment values were not replaced.
+- Reading is granted and the connection is `connected`. Incoming synchronization was explicitly
+  enabled at `2026-11-01T16:44:11.643Z`. Real production reconciliation returned HTTP 200 with
+  `enabled:true`, `watchRenewed:true`, `processed:0`, `complete:true`, `busy:false`.
+  The watch expires `2026-11-08T17:08:58.411Z`; last completed sync was
+  `2026-11-01T17:08:59.769743Z`, with no sync error or pending lease/work.
+- Unsigned webhook POST and unauthenticated cron returned 401; the inbox still redirects
+  unauthenticated users to login. No weakening of authentication was performed.
+- The initial OIDC audience mismatch returned 401. This external configuration issue was
+  resolved by November 3; subsequent real deliveries passed authentication. Fixed-reason
+  diagnostics were removed, and JWT audience/identity verification remains mandatory.
+- Temporary provisioning/diagnostic source was removed; zero deployment-QA accounts remain.
+  No outgoing emails were sent and no client/application status was changed.
+
+### Automatic push correction (2026-11-03 UTC)
+
+- The owner confirmed received mail appeared after manual Sync. Before the fix, the database
+  contained two messages but zero accepted push notifications. Authenticated pushes
+  returned 400: Gmail supplied a numeric `historyId`, while the parser required a string.
+- `lib/gmail/notifications.ts` now normalizes safe integer IDs to decimal strings. Existing
+  decimal strings remain exact; fractional, nonpositive and unsafe numeric IDs are rejected.
+  Mailbox, subscription, OIDC identity/audience and envelope validation are unchanged.
+- Before/after regression proof: the two numeric-ID cases failed before the fix; all 229 tests
+  across 18 files passed afterward. Production deployment
+  `dpl_67PR8TXcEe6Jtmaf83Ke3kq65Ynm` built, passed TypeScript and replaced the temporary
+  shape-only diagnostic. No payload logging remains.
+- At `2026-11-03T07:30:59Z`, four distinct real Pub/Sub notifications were persisted; the
+  production webhook returned 204 for all four observed deliveries. Background sync completed
+  at `2026-11-03T07:28:50.674302Z`, with no error, pending work, active lease or partial checkpoint.
+  The original two messages remained unique and unassigned. No manual sync was invoked to
+  produce this post-fix evidence; no additional test email, attachment or business-status change
+  was made. Import of a newly arriving email after the fix and provider attachment retrieval
+  have not yet been observed.
+- Production push updates the shared database, including records viewed from localhost.
+  An already-open `/inbox` does not live-refresh; reload/navigation reads the saved messages.
+  Manual **Sync** remains recovery, not the normal import trigger.
+
+
+
 
 ## Carrier-document rules
 

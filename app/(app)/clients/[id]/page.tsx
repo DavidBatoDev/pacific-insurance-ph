@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
 
 import { ContactProfile } from "@/components/hub/screens/contact-profile";
 import { getClientRelatedCounts } from "@/lib/queries/client-summary";
@@ -28,9 +30,10 @@ export default async function ContactProfilePage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  // Everything keys off `id` alone, so it all runs in one round; a missing client just discards the rest.
-  const [rawClient, inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies] = await Promise.all([
-    getClientsRepository().findById(id),
+  // Linked incoming correspondence inherits the client's real server-side ownership boundary.
+  const [actor, rawClient] = await Promise.all([getCurrentUser(), getClientsRepository().findById(id)]);
+  if (!actor || actor.status !== "Active" || !rawClient || (toAppRole(actor.role) === "agent" && rawClient.assignedUserId !== actor.id)) notFound();
+  const [inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies] = await Promise.all([
     leadInferenceCommunications(id),
     getClientRelatedCounts(id),
     getDependentsRepository().listByClient(id),
@@ -42,7 +45,6 @@ export default async function ContactProfilePage({
     getApplicationsRepository().listByClient(id),
     getPoliciesRepository().listByClient(id),
   ]);
-  if (!rawClient) notFound();
   const client = applyLeadStatusInference(rawClient, inferenceRows);
 
   return (

@@ -22,6 +22,8 @@ import { CommissionRatesTab } from "@/components/settings/commission-rates-tab";
 import type { CommissionRate } from "@/lib/repositories/commission-rates/commission-rate.entity";
 import { CarrierLibraryTab } from "@/components/settings/carrier-library-tab";
 import { RenewalEmailRulesTab } from "@/components/settings/renewal-email-rules-tab";
+import { GmailConnectionCard } from "@/components/settings/gmail-connection-card";
+import type { GmailConnectionStatus } from "@/lib/gmail/types";
 import type { RenewalEmailRule } from "@/lib/repositories/renewal-automation/renewal-automation.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,10 @@ export function SettingsLive({
   renewalRules,
   renewalTemplates,
   canViewRenewalRules,
+  gmailConnection,
+  canManageGmail,
+  initialTab,
+  gmailResult,
 }: {
   users: User[];
   channels: PaymentChannel[];
@@ -71,6 +77,10 @@ export function SettingsLive({
   renewalRules: RenewalEmailRule[];
   renewalTemplates: EmailTemplate[];
   canViewRenewalRules: boolean;
+  gmailConnection: GmailConnectionStatus | null;
+  canManageGmail: boolean;
+  initialTab: string | null;
+  gmailResult: string | null;
 }) {
   const persona = usePersona();
   const isAdmin = persona.role === "admin" && canManageLibrary;
@@ -78,7 +88,7 @@ export function SettingsLive({
     (isAdmin || !t.adminOnly) &&
     (t.id !== "Notifications" || (canViewRenewalRules && persona.role !== "agent")),
   );
-  const [tab, setTab] = useState<string>(tabs[0].id);
+  const [tab, setTab] = useState<string>(TABS.some((item) => item.id === initialTab) ? initialTab! : tabs[0].id);
   const active = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
 
   return (
@@ -125,7 +135,10 @@ export function SettingsLive({
         {active === "Commission Rates" && <CommissionRatesTab rates={commissionRates} canEdit={isAdmin} />}
         {active === "Carrier Library" && <CarrierLibraryTab documents={libraryDocuments} productVersions={productVersions} />}
         {active === "Billing" && <StaticTab title="Billing" body="The CRM's own subscription (distinct from client premium collection). Post-MVP." />}
-        {active === "Integrations" && <IntegrationsTab proposalPortal={proposalPortal} travelPortal={travelPortal} canEdit={isAdmin} />}
+        {active === "Integrations" && <>
+          {gmailConnection && persona.role !== "agent" && <div className="mb-6 max-w-[640px]"><GmailConnectionCard connection={gmailConnection} canManage={canManageGmail && persona.role === "admin"} callbackResult={gmailResult} /></div>}
+          <IntegrationsTab proposalPortal={proposalPortal} travelPortal={travelPortal} canEdit={isAdmin} />
+        </>}
       </Card>
     </div>
   );

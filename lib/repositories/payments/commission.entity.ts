@@ -30,6 +30,8 @@ export interface Commission {
   rateBusinessType: string | null;
   rateEffectiveDate: string | null;
   amount: number | null;
+  /** Currency of the recorded commission amount; copied from its payment at creation. */
+  currency: string | null;
   followUpDate: string | null;
   receivedDate: string | null;
   paidDate: string | null;
@@ -48,6 +50,7 @@ export interface NewCommission {
   estimatedAmount?: number | null;
   ratePct?: number | null;
   commissionRateId?: string | null;
+  currency?: string | null;
   followUpDate?: string | null;
   notes?: string | null;
 }
@@ -57,6 +60,7 @@ export interface CommissionUpdate {
   status?: string;
   estimatedAmount?: number | null;
   amount?: number | null;
+  currency?: string | null;
   followUpDate?: string | null;
   receivedDate?: string | null;
   paidDate?: string | null;

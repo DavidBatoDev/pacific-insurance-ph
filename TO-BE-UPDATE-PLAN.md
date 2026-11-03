@@ -1507,11 +1507,14 @@ here has been decided on anyone's behalf.
 
 - [ ] **H2d. Auto-detect received proposals and advance the lead. PARKED.** Joshua raised this as
   "need to confirm if possible".
-  - **Why parked:** it needs an inbox to watch (the new agency address isn't live), a parser,
-    and a background-job runner. None exist: `lib/queries/lead-status-inference.ts:9` states
-    there is no job system.
-  - **V1 path:** the manual upload-back with Preview/Replace (`88274c8`) already sets the
-    proposal to Received.
+  - **Updated dependency state (2026-11-03):** forward-only incoming Gmail, safe MIME decoding,
+    authenticated push, daily/manual synchronization and staff review/filing are now implemented.
+    Production reading and automatic synchronization are verified: after the numeric history-ID
+    parser fix, four real pushes were accepted and background sync completed without duplicates
+    or errors. A new post-fix email arrival and provider attachment retrieval remain unobserved.
+    This does not implement H2d's automatic decision/advancement.
+  - Manual portal upload-back and explicit inbox proposal filing now share the same guarded
+    registration/Received transaction (`0054`). Later proposal decisions are never reset by receipt.
   - **⚠️ Decision:** DH7.
 
 ### H3 — Applications
@@ -1770,25 +1773,16 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
   - **Change:** add Back / Change type, which regenerates the checklist while no item is past
     `Pending`. Once items are received, block the change and explain why.
 
-- [ ] **H7e. When the checklist is complete, open an email with the documents.** Eman asked that
-  completing the requirements opens a generated email with the documents attached.
-  - 🟡 *Partly done 2026-10-07 (uncommitted): a **Submit to Pacific Cross** step after the
-    checklist, for claims **and** applications. The footer's primary action opens a composer
-    pre-filled to the Pacific Cross inbox (claims@ / newbiz@, from `external_contacts` by
-    department), with an editable subject and body that lists the checklist documents.
-    **Download all (ZIP)** bundles every file uploaded against the checklist
-    (`/api/submissions/[kind]/[id]/zip`, `fflate`); **Copy email text** copies the message.
-    **Mark as submitted** logs the email, sets the status (application → "Submitted to Pacific
-    Cross" + `date_submitted`; claim → `Submitted` + `claim_submitted_date`) and adds activity
-    and an audit entry. "Request missing documents" moved to a secondary header action, and
-    claims now have one too. Still open: real delivery with attachments (R1).*
-  - 🟡 *Follow-up 2026-10-07 (uncommitted): **application workflow modal.** The Application
+- [x] **H7e. When the checklist is complete, open an email with the documents.** ✅ *Reconciled 2026-10-19: the current source already supplies a shared **Email Pacific Cross** step for applications and claims. It pre-fills an editable Pacific Cross recipient, subject and checklist summary; **Download all (ZIP)** bundles uploaded checklist files; **Copy email text** prepares the manual message; and **Mark as sent** logs the communication, status/date, activity and audit without CRM delivery.*
+  - The submission step excludes outstanding required items, identifies received items without an uploaded file as “to follow”, and keeps every actual send human-in-the-loop. Real binary attachment delivery remains out of scope under R1.
+  - The same step is used by the five-step application workflow and the three-step claim workflow. Existing submission-email unit coverage passes: recipient defaulting, checklist inclusion/missing-file wording, claim wording and ZIP entry naming.
+  - **Supporting workflow (delivered 2026-10-07):** the Application
     Requirements modal is now a 5-step workflow laid out like the New Application wizard:
     **Requirements → Email Pacific Cross → Pacific Cross reply → Payment → Log policy copy**.
     Progress comes from the records, so the modal opens on the step where the work actually is.
     - **Email Pacific Cross:** once sent, the step is read-only and shows the logged email
       (date, sender, recipient, subject, body). It can be resubmitted.
-    - **Pacific Cross reply:** Eman logs what came back (there is no inbox integration).
+    - **Pacific Cross reply:** Eman still explicitly classifies the response. The new inbox can retain/link the actual incoming evidence after activation; it does not infer conforme, extra requirements or approval.
       - A **CAC/TAL conforme** or **more requirements** become required, Pending checklist rows,
         and the application goes back to Pending Requirements until they are in. Signed items go
         back to Pacific Cross through Resubmit.
@@ -1818,8 +1812,6 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
     - The number stored as the OR (`payments.or_number`) comes from Pacific Cross's **service
       invoice**, issued after the proof of payment is forwarded. A **provisional receipt** (cashier
       payments) is only a form of proof of payment.
-  - **Change:** open the Engage composer, pre-filled with a claims template, the Pacific Cross
-    claims contact (C3), and the claim's documents listed.
   - **Limit:** real binary attachments are blocked by R1/C6b. Until then the composer must say
     the email is logged, not delivered.
 
@@ -1831,25 +1823,21 @@ Eman's process: claims arrive mostly as soft copies by email, sometimes as hard 
 Eman was satisfied with the Payments page. They understand that its rows come from leads,
 clients, applications, travel and renewals.
 
-- [ ] **H8a. Actually create Awaiting payments from those sources.**
-  - **Current state:** the only code that creates a payment is travel collections
-    (`wizard-actions.ts:959`). Applications and renewals never do, so the "Awaiting payment" KPI
-    (`payments-live.tsx:82`) is fed by travel and seed rows only.
-  - **Change:** create an Awaiting payment when an application is submitted, when a policy copy
-    is logged (H4a), and when a renewal is generated (H5a).
+- [x] **H8a. Actually create Awaiting payments from those sources.** ✅ *Done 2026-10-19: the application billing step creates or corrects its single billed-premium payment; standalone policy-copy logging now creates a Policy payment; and migration `0049_renewal_awaiting_payments.sql` creates one Renewal payment when a cycle is generated. Application-linked policies retain their application payment, avoiding a duplicate collection.*
+  - Policy and renewal rows snapshot the known premium or deliberately start without an amount. Staff must enter a positive premium in **Verify Payment** before recording proof or an invoice; no amount is invented. The Payments source filter now includes Policy.
+  - The renewal trigger was deployed and smoke-tested in a rolled-back synthetic transaction: a new renewal created exactly one Awaiting payment with the policy premium. No historical backfill ran.
 
 - [x] **H8b. Link each pending payment to its source.** ✅ *Done 2026-10-06 (`528cdd0`): the Source column links to the source record (Application → requirements, Travel → workflow, Renewal → /renewals, Policy → client). Playwright-verified.* *(Joshua.)* The source is already derived
   from the FKs (`payments.repository.supabase.ts:29-36`). Turn it into a link to the application,
   renewal, travel request or policy.
 
-- [ ] **H8c. Support USD premiums.** Some plans (e.g. Blue Royale) are priced in USD.
-  - **Current state:** everything is PHP. `commissions.currency` exists but is never mapped. The
-    UI formats with `peso()` only (`commissions-live.tsx:156-159`, `payments/actions.ts:24`).
-  - **⚠️ Decision:** DH15.
+- [x] **H8c. Support USD premiums.** ✅ *Done 2026-10-19: native PHP/USD amounts now remain distinct through payment collection, payment-link activity, commission creation/tracking, and dashboard totals. Commission currency is copied from the verified payment and persisted to `commissions.currency`.*
+  - **Decision (DH15):** preserve the recorded currency; never apply an FX conversion or sum PHP and USD. Payments and commission stat totals render each currency independently. Reports already followed this rule.
+  - **Verification:** `lib/format.test.ts` covers native labels and separate PHP/USD totals; TypeScript and the full Vitest suite pass.
 
-- [ ] **H8d. Installments from payment frequency.** A semi-annual policy produces two Awaiting
-  rows and two installment notices; an annual policy produces one. This needs H2a's frequency and
-  a migration for the installment sequence.
+- [x] **H8d. Installments from payment frequency.** ✅ *Done 2026-10-19: migration `0050_renewal_payment_installments.sql` adds a sequenced installment contract and replaces the renewal-payment trigger. A semi-annual policy creates two Awaiting renewal payments at half the premium; annual creates one at the full premium.*
+  - The policy payment mode takes precedence; the lead's H2a payment frequency is the fallback. Each payment retains the policy currency, persists its `installment_number`/`installment_count`, and appears as `installment 1/2` or `2/2` in Collections. The unique partial index prevents duplicate sequence positions for a renewal.
+  - The migration was deployed and SQL-smoke-tested in a rolled-back transaction for PHP annual and USD semi-annual policies; `npx tsc --noEmit` and the full Vitest suite pass.
 
 ### H9 — Commissions
 

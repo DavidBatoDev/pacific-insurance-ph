@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { Commission, Payment } from "@/lib/repositories/payments";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
-import { peso, pesoShort } from "@/lib/format";
+import { money, moneyTotals } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
@@ -59,7 +59,14 @@ export function PaymentsLive({
   );
 
   /* ------------------------------ collections ------------------------------ */
-  const sum = (st: string) => payments.filter((p) => p.status === st).reduce((a, p) => a + (p.amount ?? 0), 0);
+  const totals = (status: string) => {
+    const byCurrency = new Map<string, number>();
+    for (const payment of payments.filter((payment) => payment.status === status)) {
+      const currency = payment.currency ?? "PHP";
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + (payment.amount ?? 0));
+    }
+    return moneyTotals(byCurrency);
+  };
   const cnt = (st: string) => payments.filter((p) => p.status === st).length;
 
   const collections = (
@@ -68,13 +75,13 @@ export function PaymentsLive({
       sub="Premium collection across Applications, Renewals & Travel · verify payments and capture the OR number"
       icon={I.peso}
       stats={[
-        { val: pesoShort(sum("Awaiting")), label: `Awaiting payment · ${cnt("Awaiting")}`, color: "var(--amber)" },
+        { val: totals("Awaiting"), label: `Awaiting payment · ${cnt("Awaiting")}`, color: "var(--amber)" },
         { val: cnt("Received"), label: "Received · unverified", color: "var(--blue)" },
         { val: cnt("Verified"), label: "Verified · OR in", color: "var(--brand)" },
-        { val: pesoShort(sum("Overdue")), label: `Overdue · ${cnt("Overdue")}`, color: "var(--red)" },
+        { val: totals("Overdue"), label: `Overdue · ${cnt("Overdue")}`, color: "var(--red)" },
       ]}
       filters={["Awaiting", "Received", "Verified", "Overdue"]}
-      filters2={["Application", "Renewal", "Travel"]}
+      filters2={["Application", "Renewal", "Travel", "Policy"]}
       filters2Label="Source"
       rows={payments.map((p) => ({ ...p, _filter: p.status, _filter2: p.source }))}
       defaultSort={{ key: "createdAt", dir: "desc" }}
@@ -93,9 +100,9 @@ export function PaymentsLive({
       renderRow={(p) => (
         <Row key={p.id} onClick={() => p.clientId && openContact(p.clientId)} onMouseEnter={() => p.clientId && prefetchContact(p.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
-          <Td><ClientCell name={p.clientName ?? "—"} sub={p.sourceRef ?? undefined} /></Td>
+          <Td><ClientCell name={p.clientName ?? "—"} sub={`${p.sourceRef ?? ""}${p.installmentNumber && p.installmentCount ? ` · installment ${p.installmentNumber}/${p.installmentCount}` : ""}` || undefined} /></Td>
           <Td><SourceCell payment={p} /></Td>
-          <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? peso(p.amount) : "—"}</Td>
+          <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? money(p.amount, p.currency) : "—"}</Td>
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>
           <Td><StatusBadge status={p.status} /></Td>
           <Td>{p.orNumber ? <span className="font-mono text-[12px]">{p.orNumber}</span> : <span className="text-subtle">—</span>}</Td>

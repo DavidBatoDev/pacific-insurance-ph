@@ -13,7 +13,7 @@ import { getCarrierWorkflowsRepository, type CarrierFormAssignmentRecord } from 
 import { getTemplatesRepository } from "@/lib/repositories/templates";
 import { getPaymentsRepository, type Payment } from "@/lib/repositories/payments";
 import { getPoliciesRepository, type Policy } from "@/lib/repositories/policies";
-import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
+import { registerUploadedProposalReceipt } from "@/lib/documents/uploaded-pdf";
 import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
 import { getPaymentChannelsRepository } from "@/lib/repositories/payment-channels";
 import type { SubmissionRecord } from "@/lib/submissions/submission-email";
@@ -365,27 +365,12 @@ export async function recordApplicationProposalAction(
   try {
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
-    const docs = getDocumentsRepository();
-    const previous = (await docs.listByClient(application.clientId)).filter((doc) => doc.documentType === PROPOSAL_TYPE && doc.status !== "Replaced");
-    const doc = await registerUploadedPdf({
-      path: pdf.path,
+    const doc = await registerUploadedProposalReceipt({
+      storagePath: pdf.path,
       name: `Illustrative proposal — ${application.productName ?? "Pacific Cross"} (${pdf.fileName})`,
       clientId: application.clientId,
-      applicationId,
-      documentType: PROPOSAL_TYPE,
+      targetKind: "application", targetId: applicationId,
       actorId: actor.id,
-    });
-    for (const old of previous) {
-      await docs.update(old.id, { status: "Replaced" });
-      await recordAudit({
-        actorId: actor.id, action: "update", tableName: "documents", recordId: old.id,
-        previousValue: { status: old.status }, newValue: { status: "Replaced", replacedBy: doc.id },
-      });
-    }
-    await recordActivity({
-      scopeType: "client", scopeId: application.clientId, actorId: actor.id,
-      activityType: "application.proposal_received",
-      summary: `Illustrative proposal (final billing) received for ${application.referenceNo ?? "application"}`,
     });
     refresh(application.clientId);
     revalidatePath("/documents");

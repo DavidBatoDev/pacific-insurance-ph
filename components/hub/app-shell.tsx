@@ -48,8 +48,8 @@ export function AppShell({
       <OverlayProvider host={OverlayHost}>
         <div
           className={cn(
-            "grid h-screen grid-rows-[60px_1fr] overflow-hidden bg-background max-[900px]:grid-cols-[0_1fr]",
-            navCollapsed ? "grid-cols-[64px_1fr]" : "grid-cols-[244px_1fr]",
+            "grid h-screen grid-rows-[60px_1fr] overflow-hidden bg-background max-[900px]:grid-cols-[0_minmax(0,1fr)]",
+            navCollapsed ? "grid-cols-[64px_minmax(0,1fr)]" : "grid-cols-[244px_minmax(0,1fr)]",
           )}
         >
           {/* The wordmark doesn't fit the rail, but the glyph anchors the column — keep it. */}

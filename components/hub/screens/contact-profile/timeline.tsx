@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import type { TimelineEntry, TimelineKind } from "@/lib/queries/contact-timeline";
 import { cn } from "@/lib/utils";
@@ -96,6 +97,7 @@ export function ContactTimeline({ timeline }: { timeline: TimelineEntry[] }) {
                       <div className="mt-0.5 text-[11.5px] text-subtle">
                         {[e.actorName, e.atLabel].filter(Boolean).join(" · ")}
                       </div>
+                      {e.inboxHref && <Link href={e.inboxHref} className="mt-1 inline-block text-[12px] font-semibold text-primary underline underline-offset-2">View received email</Link>}
                     </div>
                   </div>
                 );

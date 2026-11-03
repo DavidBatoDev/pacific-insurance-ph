@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1652,6 +1652,377 @@ export type Database = {
           },
         ]
       }
+      gmail_connections: {
+        Row: {
+          connected_at: string
+          connected_by: string
+          google_subject: string
+          granted_scopes: string[]
+          id: string
+          last_auth_error_code: string | null
+          last_checked_at: string
+          mailbox_email: string
+          oauth_client_id: string
+          refresh_token_ciphertext: string
+          refresh_token_expires_at: string | null
+          revision: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          connected_at: string
+          connected_by: string
+          google_subject: string
+          granted_scopes: string[]
+          id?: string
+          last_auth_error_code?: string | null
+          last_checked_at: string
+          mailbox_email: string
+          oauth_client_id: string
+          refresh_token_ciphertext: string
+          refresh_token_expires_at?: string | null
+          revision: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string
+          connected_by?: string
+          google_subject?: string
+          granted_scopes?: string[]
+          id?: string
+          last_auth_error_code?: string | null
+          last_checked_at?: string
+          mailbox_email?: string
+          oauth_client_id?: string
+          refresh_token_ciphertext?: string
+          refresh_token_expires_at?: string | null
+          revision?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_inbox_filings: {
+        Row: {
+          document_id: string
+          filed_at: string
+          filed_by: string
+          message_id: string
+          part_id: string
+          purpose: string
+          requirement_id: string | null
+          storage_path: string
+        }
+        Insert: {
+          document_id: string
+          filed_at?: string
+          filed_by: string
+          message_id: string
+          part_id: string
+          purpose: string
+          requirement_id?: string | null
+          storage_path: string
+        }
+        Update: {
+          document_id?: string
+          filed_at?: string
+          filed_by?: string
+          message_id?: string
+          part_id?: string
+          purpose?: string
+          requirement_id?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_inbox_filings_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_inbox_filings_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_inbox_filings_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_inbox_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_inbox_messages: {
+        Row: {
+          attachments: Json
+          authentication_results: string | null
+          body_text: string
+          body_truncated: boolean
+          cc_addresses: string[]
+          client_id: string | null
+          communication_id: string | null
+          created_at: string
+          filed_parts: Json
+          from_address: string
+          from_name: string
+          gmail_message_id: string
+          gmail_thread_id: string
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          is_auto_reply: boolean
+          linked_at: string | null
+          linked_by: string | null
+          message_references: string[]
+          received_at: string
+          rfc_message_id: string | null
+          subject: string
+          target_id: string | null
+          target_kind: string | null
+          to_addresses: string[]
+        }
+        Insert: {
+          attachments: Json
+          authentication_results?: string | null
+          body_text: string
+          body_truncated: boolean
+          cc_addresses?: string[]
+          client_id?: string | null
+          communication_id?: string | null
+          created_at?: string
+          filed_parts?: Json
+          from_address: string
+          from_name: string
+          gmail_message_id: string
+          gmail_thread_id: string
+          google_subject: string
+          id?: string
+          in_reply_to?: string | null
+          is_auto_reply: boolean
+          linked_at?: string | null
+          linked_by?: string | null
+          message_references?: string[]
+          received_at: string
+          rfc_message_id?: string | null
+          subject: string
+          target_id?: string | null
+          target_kind?: string | null
+          to_addresses?: string[]
+        }
+        Update: {
+          attachments?: Json
+          authentication_results?: string | null
+          body_text?: string
+          body_truncated?: boolean
+          cc_addresses?: string[]
+          client_id?: string | null
+          communication_id?: string | null
+          created_at?: string
+          filed_parts?: Json
+          from_address?: string
+          from_name?: string
+          gmail_message_id?: string
+          gmail_thread_id?: string
+          google_subject?: string
+          id?: string
+          in_reply_to?: string | null
+          is_auto_reply?: boolean
+          linked_at?: string | null
+          linked_by?: string | null
+          message_references?: string[]
+          received_at?: string
+          rfc_message_id?: string | null
+          subject?: string
+          target_id?: string | null
+          target_kind?: string | null
+          to_addresses?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_inbox_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_inbox_messages_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: true
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_inbox_messages_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_inbox_notifications: {
+        Row: {
+          email_address: string
+          history_id: string
+          message_id: string
+          received_at: string
+          subscription: string
+        }
+        Insert: {
+          email_address: string
+          history_id: string
+          message_id: string
+          received_at?: string
+          subscription: string
+        }
+        Update: {
+          email_address?: string
+          history_id?: string
+          message_id?: string
+          received_at?: string
+          subscription?: string
+        }
+        Relationships: []
+      }
+      gmail_inbox_sync: {
+        Row: {
+          enabled_at: string
+          enabled_by: string
+          google_subject: string
+          history_id: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          lease_history_id: string | null
+          lease_notification_version: number | null
+          lease_page_token: string | null
+          lease_recovery_history_id: string | null
+          lease_token: string | null
+          lease_until: string | null
+          notification_version: number
+          oauth_client_id: string
+          page_token: string | null
+          pending: boolean
+          recovery_history_id: string | null
+          watch_expires_at: string | null
+        }
+        Insert: {
+          enabled_at: string
+          enabled_by: string
+          google_subject: string
+          history_id: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          lease_history_id?: string | null
+          lease_notification_version?: number | null
+          lease_page_token?: string | null
+          lease_recovery_history_id?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          notification_version?: number
+          oauth_client_id: string
+          page_token?: string | null
+          pending?: boolean
+          recovery_history_id?: string | null
+          watch_expires_at?: string | null
+        }
+        Update: {
+          enabled_at?: string
+          enabled_by?: string
+          google_subject?: string
+          history_id?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          lease_history_id?: string | null
+          lease_notification_version?: number | null
+          lease_page_token?: string | null
+          lease_recovery_history_id?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          notification_version?: number
+          oauth_client_id?: string
+          page_token?: string | null
+          pending?: boolean
+          recovery_history_id?: string | null
+          watch_expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_inbox_sync_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_oauth_attempts: {
+        Row: {
+          baseline_revision: number
+          browser_binding_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          initiating_actor_id: string
+          nonce_hash: string
+          oauth_client_id: string
+          redirect_uri: string
+          state_hash: string
+          verifier_ciphertext: string
+        }
+        Insert: {
+          baseline_revision: number
+          browser_binding_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          initiating_actor_id: string
+          nonce_hash: string
+          oauth_client_id: string
+          redirect_uri: string
+          state_hash: string
+          verifier_ciphertext: string
+        }
+        Update: {
+          baseline_revision?: number
+          browser_binding_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          initiating_actor_id?: string
+          nonce_hash?: string
+          oauth_client_id?: string
+          redirect_uri?: string
+          state_hash?: string
+          verifier_ciphertext?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_oauth_attempts_initiating_actor_id_fkey"
+            columns: ["initiating_actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_accounts: {
         Row: {
           address: string | null
@@ -1974,6 +2345,8 @@ export type Database = {
           created_at: string
           currency: string | null
           id: string
+          installment_count: number | null
+          installment_number: number | null
           notes: string | null
           or_number: string | null
           or_received_date: string | null
@@ -1996,6 +2369,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           id?: string
+          installment_count?: number | null
+          installment_number?: number | null
           notes?: string | null
           or_number?: string | null
           or_received_date?: string | null
@@ -2018,6 +2393,8 @@ export type Database = {
           created_at?: string
           currency?: string | null
           id?: string
+          installment_count?: number | null
+          installment_number?: number | null
           notes?: string | null
           or_number?: string | null
           or_received_date?: string | null
@@ -3655,6 +4032,182 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_gmail_inbox_sync: {
+        Args: { p_lease_token: string }
+        Returns: {
+          enabled_at: string
+          enabled_by: string
+          google_subject: string
+          history_id: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          lease_history_id: string | null
+          lease_notification_version: number | null
+          lease_page_token: string | null
+          lease_recovery_history_id: string | null
+          lease_token: string | null
+          lease_until: string | null
+          notification_version: number
+          oauth_client_id: string
+          page_token: string | null
+          pending: boolean
+          recovery_history_id: string | null
+          watch_expires_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_inbox_sync"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      commit_gmail_inbox_sync: { Args: { p_input: Json }; Returns: undefined }
+      consume_gmail_oauth_attempt: {
+        Args: {
+          p_actor_id: string
+          p_browser_binding_hash: string
+          p_state_hash: string
+        }
+        Returns: {
+          baseline_revision: number
+          browser_binding_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          initiating_actor_id: string
+          nonce_hash: string
+          oauth_client_id: string
+          redirect_uri: string
+          state_hash: string
+          verifier_ciphertext: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_oauth_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      enable_gmail_inbox: {
+        Args: { p_actor_id: string; p_input: Json }
+        Returns: {
+          enabled_at: string
+          enabled_by: string
+          google_subject: string
+          history_id: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          lease_history_id: string | null
+          lease_notification_version: number | null
+          lease_page_token: string | null
+          lease_recovery_history_id: string | null
+          lease_token: string | null
+          lease_until: string | null
+          notification_version: number
+          oauth_client_id: string
+          page_token: string | null
+          pending: boolean
+          recovery_history_id: string | null
+          watch_expires_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_inbox_sync"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      enqueue_gmail_inbox_notification: {
+        Args: { p_input: Json }
+        Returns: undefined
+      }
+      file_gmail_inbox_attachment: { Args: { p_input: Json }; Returns: string }
+      get_gmail_inbox_thread_target: {
+        Args: { p_gmail_thread_id: string; p_google_subject: string }
+        Returns: {
+          client_id: string
+          id: string
+          kind: string
+          label: string
+          participants: string[]
+        }[]
+      }
+      gmail_inbox_actor_can_read: {
+        Args: { p_actor_id: string; p_client_id: string }
+        Returns: boolean
+      }
+      gmail_inbox_record_targets: {
+        Args: never
+        Returns: {
+          client_id: string
+          id: string
+          kind: string
+          label: string
+          participants: string[]
+        }[]
+      }
+      link_gmail_inbox_message: {
+        Args: {
+          p_actor_id: string
+          p_kind: string
+          p_message_id: string
+          p_target_id: string
+        }
+        Returns: string
+      }
+      list_gmail_inbox_messages: {
+        Args: { p_actor_id: string; p_message_id?: string; p_offset?: number }
+        Returns: {
+          attachments: Json
+          authentication_results: string | null
+          body_text: string
+          body_truncated: boolean
+          cc_addresses: string[]
+          client_id: string | null
+          communication_id: string | null
+          created_at: string
+          filed_parts: Json
+          from_address: string
+          from_name: string
+          gmail_message_id: string
+          gmail_thread_id: string
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          is_auto_reply: boolean
+          linked_at: string | null
+          linked_by: string | null
+          message_references: string[]
+          received_at: string
+          rfc_message_id: string | null
+          subject: string
+          target_id: string | null
+          target_kind: string | null
+          to_addresses: string[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_inbox_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_gmail_inbox_targets: {
+        Args: { p_actor_id: string }
+        Returns: {
+          client_id: string
+          id: string
+          kind: string
+          label: string
+          participants: string[]
+        }[]
+      }
+      lock_gmail_inbox_target: {
+        Args: { p_client_id: string; p_kind: string; p_target_id: string }
+        Returns: boolean
+      }
       next_reference: { Args: { prefix: string }; Returns: string }
       queue_due_renewal_emails: {
         Args: { p_renewal_id?: string }
@@ -3666,9 +4219,31 @@ export type Database = {
           task_id: string
         }[]
       }
+      record_gmail_connection_check: {
+        Args: {
+          p_actor_id: string
+          p_error_code?: string
+          p_expected_revision: number
+          p_status: string
+        }
+        Returns: boolean
+      }
+      register_proposal_receipt: { Args: { p_input: Json }; Returns: string }
+      release_gmail_inbox_sync: {
+        Args: { p_error_code?: string; p_lease_token: string }
+        Returns: undefined
+      }
       renewal_email_due_date: {
         Args: { p_renewal_id: string; p_rule_id: string }
         Returns: string
+      }
+      save_gmail_connection: {
+        Args: {
+          p_actor_id: string
+          p_connection: Json
+          p_expected_revision: number
+        }
+        Returns: boolean
       }
       sync_policy_renewal: {
         Args: { p_policy_id: string }
@@ -3684,6 +4259,10 @@ export type Database = {
           policy_id: string
           renewal_id: string
         }[]
+      }
+      update_gmail_inbox_watch: {
+        Args: { p_expires_at: string; p_google_subject: string }
+        Returns: undefined
       }
       update_renewal_email_draft: {
         Args: {

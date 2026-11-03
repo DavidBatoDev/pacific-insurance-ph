@@ -32,9 +32,13 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
   const [submitted, setSubmitted] = useState(payment.sentToPacificCross);
   const [proof, setProof] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
+  const [amount, setAmount] = useState(payment.amount?.toString() ?? "");
+
 
   const hasProof = !!proof || !!payment.proofDocumentId;
-  const canSave = !pending && hasProof && (status !== "Verified" || or.trim());
+  const amountValue = Number(amount.replace(/[^0-9.]/g, ""));
+  const hasAmount = Number.isFinite(amountValue) && amountValue > 0;
+  const canSave = !pending && hasProof && hasAmount && (status !== "Verified" || or.trim());
 
   const save = () =>
     startTransition(async () => {
@@ -57,6 +61,7 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
       const res = await verifyPaymentAction({
         paymentId: payment.id,
         paymentMethod: method,
+        amount: amountValue,
         status,
         orNumber: or.trim() || null,
         submittedToPacificCross: submitted,
@@ -100,13 +105,19 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
   // Same grouped cards + completeness dots as the New Application wizard, so it is clear what is
   // still missing before saving.
   const needsOr = status === "Verified" && !or.trim();
-  const missing = [...(hasProof ? [] : ["proof of payment"]), ...(needsOr ? ["service invoice no."] : [])];
+  const missing = [
+    ...(hasAmount ? [] : ["premium amount"]),
+    ...(hasProof ? [] : ["proof of payment"]),
+    ...(needsOr ? ["service invoice no."] : []),
+  ];
   const proofState: SectionState = hasProof
     ? { status: "done", label: proof ? "Attached" : "On file" }
     : { status: "todo", label: "1 needed" };
-  const receiptState: SectionState = needsOr
-    ? { status: "todo", label: "Invoice no. needed" }
-    : { status: "done", label: status === "Verified" ? "Ready to verify" : "Marking Received" };
+  const receiptState: SectionState = !hasAmount
+    ? { status: "todo", label: "Premium needed" }
+    : needsOr
+      ? { status: "todo", label: "Invoice no. needed" }
+      : { status: "done", label: status === "Verified" ? "Ready to verify" : "Marking Received" };
 
   const fields = (
     <>
@@ -156,6 +167,16 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
             </select>
           </Field>
         </div>
+        <Field label="Premium amount (₱)" required className="mt-4">
+          <input
+            aria-label="Premium amount"
+            className={INPUT}
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="0"
+          />
+        </Field>
         <Field
           label="Service invoice no. (OR)"
           required={status === "Verified"}

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { recordAudit } from "@/lib/audit/log";
-import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
+import { getDocumentsRepository, type DocumentRecord, type ProposalReceiptInput } from "@/lib/repositories/documents";
 import { getObjectInfo, removeObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
@@ -39,13 +39,7 @@ export async function registerUploadedPdf(input: {
   policyId?: string | null;
   applicationId?: string | null;
 }): Promise<DocumentRecord> {
-  if (!input.path.startsWith(`${input.clientId}/`) || !UPLOAD_EXTENSIONS.some((ext) => input.path.endsWith(`.${ext}`)))
-    throw new Error("Invalid upload path.");
-  const info = await getObjectInfo(input.path);
-  if (Number(info.size) > PDF_UPLOAD_MAX_BYTES) {
-    await removeObject(input.path).catch(() => undefined);
-    throw new Error("Uploaded file exceeds 25 MB.");
-  }
+  await verifyUploadedDocument(input.path, input.clientId);
 
   const doc = await getDocumentsRepository().create({
     name: input.name,
@@ -67,4 +61,21 @@ export async function registerUploadedPdf(input: {
     newValue: { name: input.name, path: input.path, documentType: input.documentType } as unknown as Json,
   });
   return doc;
+}
+
+async function verifyUploadedDocument(path: string, clientId: string): Promise<void> {
+  if (!path.startsWith(`${clientId}/`) || !UPLOAD_EXTENSIONS.some((ext) => path.endsWith(`.${ext}`)))
+    throw new Error("Invalid upload path.");
+  const info = await getObjectInfo(path);
+  if (Number(info.size) > PDF_UPLOAD_MAX_BYTES) {
+    await removeObject(path).catch(() => undefined);
+    throw new Error("Uploaded file exceeds 25 MB.");
+  }
+}
+
+/** Portal upload-back and Gmail filing use the same locked proposal receipt transaction. */
+export async function registerUploadedProposalReceipt(input: ProposalReceiptInput & { clientId: string }): Promise<DocumentRecord> {
+  await verifyUploadedDocument(input.storagePath, input.clientId);
+  const { clientId: _clientId, ...receipt } = input;
+  return getDocumentsRepository().registerProposalReceipt(receipt);
 }

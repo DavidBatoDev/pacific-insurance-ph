@@ -89,6 +89,32 @@ export async function issuePolicyAction(
       recordId: created.id,
       newValue: created as unknown as Json,
     });
+    // Application policies retain their billed application payment. A standalone policy has no
+    // other collection source, so open one now even when the premium still needs to be recorded.
+    if (!application) {
+      const payment = await getPaymentsRepository().create({
+        clientId: created.clientId,
+        policyId: created.id,
+        amount: created.premiumAmount,
+        status: "Awaiting",
+        notes: "Premium due for logged policy copy",
+      });
+      await recordActivity({
+        scopeType: "client",
+        scopeId: input.clientId,
+        activityType: "payment.awaiting",
+        summary: `Awaiting payment created — ${created.referenceNo ?? created.policyNumber ?? "policy"}${payment.amount != null ? ` · ₱${payment.amount.toLocaleString("en-PH")}` : ""}`,
+        actorId: actor.id,
+      });
+      await recordAudit({
+        actorId: actor.id,
+        action: "create",
+        tableName: "payments",
+        recordId: payment.id,
+        newValue: { policy_id: created.id, amount: payment.amount, status: payment.status } as unknown as Json,
+      });
+    }
+
     if (pdf) {
       await registerUploadedPdf({
         path: pdf.path,
@@ -106,6 +132,7 @@ export async function issuePolicyAction(
     revalidatePath("/dashboard");
     revalidatePath("/applications");
     revalidatePath(`/clients/${input.clientId}`);
+    revalidatePath("/payments");
     return { ok: true, data: created };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to log the policy copy." };

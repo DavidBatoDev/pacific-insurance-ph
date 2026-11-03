@@ -9,6 +9,28 @@ export const pesoShort = (n: number) => {
   return "₱" + n;
 };
 
+const currencyPrefix = (currency: string | null | undefined) =>
+  !currency || currency === "PHP" ? "₱" : currency === "USD" ? "US$" : `${currency} `;
+
+/** Formats an amount in its recorded currency; never converts between currencies. */
+export const money = (n: number, currency?: string | null) =>
+  currencyPrefix(currency) + n.toLocaleString("en-PH", { maximumFractionDigits: 2 });
+
+/** Separately renders currency totals instead of merging non-convertible amounts. */
+export const moneyTotals = (amounts: Map<string, number>) =>
+  [...amounts.entries()]
+    .filter(([, amount]) => amount !== 0)
+    .map(([currency, amount]) => moneyShort(amount, currency))
+    .join(" · ") || "—";
+
+/** Abbreviated native-currency amount for stat strips. */
+export const moneyShort = (n: number, currency?: string | null) => {
+  const prefix = currencyPrefix(currency);
+  if (n >= 1_000_000) return prefix + (n / 1_000_000).toFixed(2).replace(/\.00$/, "") + "M";
+  if (n >= 1_000) return prefix + (n / 1_000).toFixed(0) + "K";
+  return prefix + n;
+};
+
 /** Initials from a full name (max 2). */
 export const initials = (name: string) =>
   name

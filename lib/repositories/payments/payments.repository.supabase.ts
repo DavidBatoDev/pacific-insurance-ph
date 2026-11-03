@@ -55,6 +55,8 @@ function paymentToDomain(row: PaymentJoined): Payment {
       null,
     amount: row.amount,
     currency: row.currency,
+    installmentNumber: row.installment_number,
+    installmentCount: row.installment_count,
     paymentMethod: row.payment_method,
     paymentDate: row.payment_date,
     status: row.status,
@@ -201,6 +203,7 @@ function commissionToDomain(row: CommissionJoined): Commission {
     rateBusinessType: row.commission_rates?.business_type ?? null,
     rateEffectiveDate: row.commission_rates?.effective_date ?? null,
     amount: row.amount,
+    currency: row.currency,
     followUpDate: row.follow_up_date,
     receivedDate: row.received_date,
     paidDate: row.paid_date,
@@ -247,6 +250,7 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
         estimated_amount: input.estimatedAmount ?? null,
         rate_pct: input.ratePct ?? null,
         commission_rate_id: input.commissionRateId ?? null,
+        currency: input.currency ?? "PHP",
         follow_up_date: input.followUpDate ?? null,
         notes: input.notes ?? null,
       })
@@ -262,6 +266,7 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
     if (input.status !== undefined) patch.voucher_status = input.status;
     if (input.estimatedAmount !== undefined) patch.estimated_amount = input.estimatedAmount;
     if (input.amount !== undefined) patch.amount = input.amount;
+    if (input.currency !== undefined) patch.currency = input.currency;
     if (input.followUpDate !== undefined) patch.follow_up_date = input.followUpDate;
     if (input.receivedDate !== undefined) patch.received_date = input.receivedDate;
     if (input.paidDate !== undefined) patch.paid_date = input.paidDate;

@@ -10,8 +10,10 @@ import { env } from "@/lib/env";
  * This is an optimistic check only — pages/actions still resolve the real user.
  */
 export async function proxy(request: NextRequest) {
-  // This exact endpoint authenticates Vercel Cron with its own server-only secret.
-  if (request.nextUrl.pathname === "/api/cron/renewals") return NextResponse.next();
+  // These exact endpoints authenticate with server-only cron/OIDC credentials.
+  if (["/api/cron/renewals", "/api/cron/gmail", "/api/integrations/gmail/notifications"].includes(request.nextUrl.pathname)) return NextResponse.next();
+  // The callback checks the real CRM session itself and never forwards OAuth codes to login.
+  if (request.nextUrl.pathname === "/api/integrations/gmail/callback") return NextResponse.next();
 
   let response = NextResponse.next({ request });
 

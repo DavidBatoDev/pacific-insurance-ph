@@ -16,4 +16,5 @@ export type {
   DocumentRecord,
   NewDocumentRecord,
   DocumentRecordUpdate,
+  ProposalReceiptInput,
 } from "./document.entity";

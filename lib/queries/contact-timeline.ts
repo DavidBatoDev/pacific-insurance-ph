@@ -21,6 +21,7 @@ export interface TimelineEntry {
   actorName: string | null;
   at: string;
   atLabel: string;
+  inboxHref?: string;
 }
 
 const label = (iso: string) =>
@@ -54,7 +55,7 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
   const [comms, activity] = await Promise.all([
     supabase
       .from("communications")
-      .select("id, direction, channel, subject, summary, notes, delivery_status, occurred_at, related_user:users (full_name), communication_library_documents (document_name_snapshot, version_label_snapshot)")
+      .select("id, direction, channel, subject, summary, notes, delivery_status, occurred_at, related_user:users (full_name), communication_library_documents (document_name_snapshot, version_label_snapshot), gmail_inbox_messages (id)")
       .eq("client_id", clientId)
       .order("occurred_at", { ascending: false })
       .limit(limit),
@@ -85,6 +86,7 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
       actorName: (c.related_user as { full_name: string } | null)?.full_name ?? null,
       at: c.occurred_at,
       atLabel: label(c.occurred_at),
+      inboxHref: c.gmail_inbox_messages ? `/inbox?message=${c.gmail_inbox_messages.id}` : undefined,
     });
   }
 

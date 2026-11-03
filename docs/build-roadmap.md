@@ -9,10 +9,10 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0048`. Ledger checked through `0046`, then `0047` and `0048` applied successfully and genuine types regenerated during 2026-10-09–10. `0041` remains reserved for import. |
+| Data | Supabase repositories and server actions; migrations through `0056` applied to the hosted project and genuine hosted types regenerated. `0041` remains reserved for import. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
-| Communications | Composers create communication records only; no email provider delivers them yet |
+| Communications | Gmail reading and authenticated production push synchronization are verified. Numeric push history IDs are normalized safely; background sync completed without errors or duplicate messages. Two real emails were previously imported manually; a new post-fix arrival and provider attachment retrieval remain unobserved. Outgoing composers still log rather than deliver email. |
 | Testing | Unit/component checks plus pre-authenticated Playwright MCP for staff flows |
 
 The old state-based SPA, clients-only repository, no-schema, and no-auth descriptions are
@@ -50,13 +50,25 @@ historical. They no longer describe this repository.
   never email delivery or renewal-status advancement. Staff settings are read-only; Agent has
   no rule/draft access. Paid/inactive/do-not-contact work is suppressed, early payers skip reminders,
   and receipt cancels stale missing-notice work. Cron is configured for 08:00 Manila daily.
+- Incoming Gmail: private forward-only ingestion, authenticated Pub/Sub, daily/manual recovery,
+  role-scoped `/inbox`, staff-confirmed matching/filing and linked Received timeline evidence.
+  Shared proposal receipt guards cover inbox and portal upload-back. Hosted `0052`–`0056` and
+  generated types are applied; local UI, role boundaries and synthetic real-Storage filing passed.
+  Production deployment, read consent, enablement and real watch/reconciliation are complete.
+  The push parser correction is deployed: four real notifications returned 204 and background sync completed.
 - Tasks, documents, renewals, claims, travel, relationship management, email templates, and
   settings screens at varying levels of live-data completeness.
 
 ## Important limits
 
-- **No outbound provider exists.** A composer action logs an intended communication with
-  `delivery_status = logged`; it does not prove that an email or attachment was delivered.
+- **No outbound delivery is enabled.** Gmail connection management is implemented separately;
+  a composer still records `delivery_status = logged`, not actual email/attachment delivery.
+- **Incoming mail is synchronized automatically; an open inbox view does not live-refresh.**
+  Production accepted four real Pub/Sub notifications and completed background sync without
+  errors or duplicates after the numeric history-ID correction. Reload/navigation displays
+  saved mail; manual Sync remains recovery. A newly arriving post-fix email and original
+  provider attachment retrieval have not yet been observed. See
+  [Development Alignment](development-alignment.md#automatic-push-correction-2026-11-03-utc).
 - A logged email is not evidence of delivery. Proposal status `Sent` still requires the explicit
   staff action; lead lifecycle status follows the current engagement rules documented in
   [Development Alignment](development-alignment.md).
@@ -75,7 +87,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. The next free migration number is **`0049`**; **`0041`** remains reserved for the import schema.
+5. The next local migration number is **`0057`**; verify the hosted ledger before use. **`0041`** remains reserved for the import schema.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 

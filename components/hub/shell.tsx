@@ -17,7 +17,7 @@ import { Avatar } from "./primitives";
 export type ScreenId =
   | "dashboard" | "prospects" | "clients" | "applications" | "policies"
   | "renewals" | "claims" | "travel" | "payments" | "commissions" | "documents" | "tasks"
-  | "relationship" | "reports" | "products" | "templates" | "settings";
+  | "relationship" | "reports" | "products" | "templates" | "settings" | "inbox";
 
 /** Single source of truth mapping a screen id to its App Router path. */
 export const SCREEN_PATH: Record<ScreenId, string> = {
@@ -38,6 +38,7 @@ export const SCREEN_PATH: Record<ScreenId, string> = {
   products: "/products",
   templates: "/templates",
   settings: "/settings",
+  inbox: "/inbox",
 };
 
 const BTN_PRIMARY =
@@ -57,6 +58,7 @@ const NAV_MAIN: NavEntry[] = [
 ];
 const NAV_WORK: NavEntry[] = [
   { id: "tasks", label: "Tasks", icon: "checkSquare" },
+  { id: "inbox", label: "Incoming email", icon: "mail" },
   { id: "payments", label: "Payments", icon: "peso" },
   { id: "commissions", label: "Commissions", icon: "coins" },
   { id: "documents", label: "Documents", icon: "folder" },
@@ -466,7 +468,7 @@ export function Topbar({
   return (
     <header
       ref={wrapRef}
-      className="relative z-30 col-start-2 row-start-1 flex items-center gap-3.5 border-b border-border bg-surface px-5"
+      className="relative z-30 col-start-2 row-start-1 flex min-w-0 items-center gap-3.5 border-b border-border bg-surface px-5 max-[640px]:gap-2 max-[640px]:px-3"
     >
       {/* Two controls for the same nav, one per layout: the burger is the *only* way in
           below 900px, where the sidebar column has no width to occupy. */}
@@ -486,7 +488,7 @@ export function Topbar({
         <I.panelLeft size={18} />
       </button>
 
-      <div className="relative max-w-[460px] flex-1">
+      <div className="relative min-w-0 max-w-[460px] flex-1">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -512,13 +514,13 @@ export function Topbar({
               if (dropOpen && dropKeysRef.current?.(e)) e.preventDefault();
             }}
             placeholder="Search clients, policies, applications, claims…"
-            className="flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-subtle"
           />
           <button
             type="button"
             onClick={() => overlays.openCommandPalette()}
             title="Command palette (⌘K)"
-            className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle transition-colors hover:text-foreground"
+            className="rounded-[5px] border border-border bg-surface px-1.5 py-px text-[11px] font-semibold text-subtle transition-colors hover:text-foreground max-[640px]:hidden"
           >
             ⌘K
           </button>
@@ -531,10 +533,10 @@ export function Topbar({
           />
         )}
       </div>
-      <div className="flex-1" />
+      <div className="flex-1 max-[640px]:hidden" />
 
-      <button onClick={() => overlays.openWizard()} className={cn(BTN_PRIMARY, "h-9 px-[13px] text-[13px]")}>
-        <I.plus size={16} /> New application
+      <button aria-label="New application" onClick={() => overlays.openWizard()} className={cn(BTN_PRIMARY, "h-9 shrink-0 px-[13px] text-[13px] max-[640px]:size-9 max-[640px]:px-0")}>
+        <I.plus size={16} /><span className="max-[640px]:hidden">New application</span>
       </button>
 
       <button

@@ -56,3 +56,11 @@ export interface DocumentRecordUpdate {
   status?: string;
   notes?: string | null;
 }
+
+export interface ProposalReceiptInput {
+  targetKind: "client" | "application";
+  targetId: string;
+  actorId: string;
+  name: string;
+  storagePath: string;
+}

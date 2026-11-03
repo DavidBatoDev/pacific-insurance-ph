@@ -21,6 +21,8 @@ export interface Payment {
   sourceRef: string | null;
   amount: number | null;
   currency: string | null;
+  installmentNumber: number | null;
+  installmentCount: number | null;
   paymentMethod: string | null;
   paymentDate: string | null;
   status: string;

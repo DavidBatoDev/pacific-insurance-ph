@@ -2,11 +2,12 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { toRepositoryError, type ListParams, type Paginated } from "../types";
+import { RepositoryError, toRepositoryError, type ListParams, type Paginated } from "../types";
 import type {
   DocumentRecord,
   DocumentRecordUpdate,
   NewDocumentRecord,
+  ProposalReceiptInput,
 } from "./document.entity";
 import type { DocumentsRepository } from "./documents.repository";
 
@@ -105,6 +106,15 @@ export class SupabaseDocumentsRepository implements DocumentsRepository {
 
     if (error) throw toRepositoryError("DocumentsRepository.findById", error);
     return data ? toDomain(data) : null;
+  }
+
+  async registerProposalReceipt(input: ProposalReceiptInput): Promise<DocumentRecord> {
+    const { data, error } = await getSupabaseAdmin().rpc("register_proposal_receipt", { p_input: { ...input } });
+    // Database error detail may include uploaded names/paths; never retain it.
+    if (error || !data) throw new RepositoryError("The proposal could not be received. Check the source record's current proposal state.", { code: "proposal_receipt_failed" });
+    const document = await this.findById(data);
+    if (!document) throw new RepositoryError("The proposal receipt was saved but its document could not be loaded. Refresh the record.", { code: "proposal_receipt_unavailable" });
+    return document;
   }
 
   async create(input: NewDocumentRecord): Promise<DocumentRecord> {
