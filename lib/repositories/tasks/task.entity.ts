@@ -29,7 +29,7 @@ export interface Task {
   policyId: string | null;
   renewalId: string | null;
   renewalDraftId: string | null;
-  renewalDraftStatus: "Draft" | "Logged" | "Dismissed" | null;
+  renewalDraftStatus: "Draft" | "Logged" | "Sent" | "Dismissed" | null;
   claimId: string | null;
   travelRequestId: string | null;
   /** Joined convenience: reference number of the linked record, if any. */

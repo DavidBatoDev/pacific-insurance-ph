@@ -10,19 +10,7 @@ export const PDF_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 /** Storage key for a client PDF uploaded straight from the browser via a signed URL. */
 export const pdfUploadPath = (clientId: string, id: string) => `${clientId}/${id}.pdf`;
 
-/**
- * Requirement uploads (passport scans, signed forms) may be images as well as PDFs (H6d).
- * The MIME type decides the stored extension; nothing else is accepted.
- */
-export const UPLOAD_MIME_EXTENSIONS: Record<string, string> = {
-  "application/pdf": "pdf",
-  "image/jpeg": "jpg",
-  "image/png": "png",
-};
-const UPLOAD_EXTENSIONS = Object.values(UPLOAD_MIME_EXTENSIONS);
-
-/** Storage key for a client document (PDF or image) uploaded straight from the browser. */
-export const documentUploadPath = (clientId: string, id: string, ext: string) => `${clientId}/${id}.${ext}`;
+const UPLOAD_EXTENSIONS = ["pdf", "jpg", "png"];
 
 /**
  * Turn a browser-uploaded PDF into a `documents` row. The browser wrote the object

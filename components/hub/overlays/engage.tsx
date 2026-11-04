@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
+import type { EmailDraftSeed, EmailSendView } from "@/lib/communications/outbound-email.types";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { I, type IconName } from "../icons";
 import { Avatar, Field } from "../primitives";
@@ -14,8 +15,8 @@ import { EmailForm, type EmailTarget } from "./send-email";
 /**
  * Engage drawer — the shared human-in-the-loop **email** composer opened from anywhere
  * WITHOUT an open Contact Profile (on the profile the same
- * fields render inline as the Email tab, via the same `EmailForm`). Until a provider is
- * connected, email actions create a communications row + timeline entry only.
+ * fields render inline as the Email tab, via the same `EmailForm`). Emails are sent from the
+ * agency Gmail mailbox only after staff review the final message and click Send.
  *
  * Calls are deliberately not here — see `./log-call.tsx`. This drawer is now a thin wrapper
  * around `EmailForm` (`./send-email.tsx`), the same shape `LogCallModal` uses around
@@ -33,20 +34,24 @@ export const ENGAGE_ACTIONS: Record<string, ActionCfg> = {
   "Send Email": { tpl: "New inquiry response", icon: "mail" },
   "Send Payment Instruction": { tpl: "Payment instruction", icon: "peso" },
   "Send Renewal Notice": { tpl: "Renewal reminder", icon: "refresh" },
-  "Send Proposal": { tpl: "Proposal / Quote Delivery", icon: "send", sub: "Log the intended proposal email; no delivery occurs." },
+  "Send Proposal": { tpl: "Proposal / Quote Delivery", icon: "send", sub: "Review the proposal email, then send it from the agency Gmail mailbox." },
   "Request Commission Voucher": { tpl: "Commission Voucher Request", icon: "mail" },
   "Log Commission Follow-Up": { tpl: "Commission Follow-Up", icon: "mail" },
+  "Request Proposal Email": { icon: "send", sub: "Review the proposal request, then send it to Pacific Cross." },
 };
 
 export function EngageDrawer({
   action,
   contact: initialContact,
+  initialDraft,
   onSent,
   onClose,
 }: {
   action: string;
   contact?: EngageContact;
-  onSent?: () => void;
+  initialDraft?: EmailDraftSeed;
+  /** Fires only once Gmail accepted the email and its workflow update completed. */
+  onSent?: (view: EmailSendView) => void;
   onClose: () => void;
 }) {
   const cfg = ENGAGE_ACTIONS[action] ?? ENGAGE_ACTIONS["Send Email"];
@@ -71,14 +76,15 @@ export function EngageDrawer({
         product: contact.product,
         premium: contact.premium,
         externalContactId: contact.externalContactId,
+        record: contact.record,
       }
     : null;
 
   return (
-    <Drawer icon={cfg.icon} title={action.replace(/^Send /, "Log ")} sub={cfg.sub} onClose={onClose}>
+    <Drawer icon={cfg.icon} title={action.replace(/^Log /, "Send ")} sub={cfg.sub} onClose={onClose}>
       <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed text-foreground">
         <I.command size={15} className="mt-0.5 shrink-0 text-brand" />
-        <div>Emails and attachments are recorded only and are not delivered.</div>
+        <div>Nothing is sent until you review the final email and click Send. Sent means Gmail accepted it; delivery and reading are not confirmed.</div>
       </div>
 
       {!contact && (
@@ -106,11 +112,13 @@ export function EngageDrawer({
           target={target}
           templates={templates}
           initialTemplate={cfg.tpl}
-          onSent={(advance, sent) => {
-            overlays.toast("Email logged", `“${sent.template || "Email"}” recorded for ${target.name}; nothing was delivered.`);
-            onSent?.();
-            if (advance) overlays.openAdvanceLead(advance);
+          initialDraft={initialDraft}
+          onSent={(view) => {
+            overlays.toast("Email sent", `Accepted by Gmail for ${view.recipient}. Delivery and reading are not confirmed.`);
+            // Close first: the provider holds one overlay, so a caller opening the next workflow must win.
+            if (view.advance) overlays.openAdvanceLead(view.advance);
             else onClose();
+            onSent?.(view);
           }}
         />
       )}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { PDF_UPLOAD_MAX_BYTES } from "@/lib/documents/uploaded-pdf";
+import { attachRequirementDocument } from "@/lib/documents/requirement-attachments";
 import { getInboxRepository } from "@/lib/repositories/inbox";
 import type { FilingPurpose } from "@/lib/repositories/inbox/inbox.entity";
 import { downloadObject, getObjectInfo, uploadObject } from "@/lib/supabase/storage";
@@ -52,6 +53,16 @@ export async function fileInboxAttachment(
       throw new InboxReviewError("Choose a checklist item belonging to this linked record.");
   } else if (requirementId !== null) {
     throw new InboxReviewError("This document purpose does not accept a checklist item.");
+  }
+  if (option.requiresRequirement) {
+    if (message.targetKind !== "application" && message.targetKind !== "claim" && message.targetKind !== "travel")
+      throw new InboxReviewError("Choose a checklist item belonging to this linked record.");
+    const receipt = await attachRequirementDocument(
+      { kind: message.targetKind, recordId: message.targetId, requirementId: requirementId! },
+      { type: "email", messageId, partId, confirmOtherRecord: false },
+      actor.id,
+    );
+    return receipt.document.id;
   }
   const storagePath = `${message.clientId}/gmail/${message.id}/${digest(partId)}.pdf`;
   // Repeated calls still reach the locked RPC, which rejects a different purpose or requirement.

@@ -160,6 +160,14 @@ export class SupabaseInboxRepository implements InboxRepository {
     if (error) throw persistenceError("enqueueNotification", error.code);
   }
 
+  async getVisibleRevision(actorId: string): Promise<string> {
+    const { data, error } = await getSupabaseAdmin().rpc("get_gmail_inbox_revision", { p_actor_id: actorId });
+    if (error) throw persistenceError("getVisibleRevision", error.code);
+    if (typeof data !== "string" || !/^[0-9a-f]{32}$/.test(data))
+      throw persistenceError("getVisibleRevision", "inbox_invalid_data");
+    return data;
+  }
+
   async listVisible(actorId: string, offset = 0): Promise<InboxMessage[]> {
     const safeOffset = Number.isSafeInteger(offset) ? Math.min(2_147_483_647, Math.max(0, offset)) : 0;
     const { data, error } = await getSupabaseAdmin().rpc("list_gmail_inbox_messages", { p_actor_id: actorId, p_offset: safeOffset });

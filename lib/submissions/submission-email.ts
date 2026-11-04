@@ -6,20 +6,45 @@
 
 export type SubmissionKind = "application" | "claim";
 
-/** Every logged submission's `communications.summary` starts with this, so it can be found again. */
+/** Every submission's `communications.summary` starts with this, so it can be found again. */
 export const SUBMISSION_SUMMARY_PREFIX = "Submitted to Pacific Cross";
 
-/** A submission email already logged against an application or claim. */
+/** An outbound email (or logged inbound reply) recorded against an application or claim. */
 export interface SubmissionRecord {
   id: string;
   occurredAt: string;
   subject: string | null;
   body: string | null;
   summary: string | null;
+  /** `communications.delivery_status`: sent (Gmail accepted), prepared, sending, failed, unknown, historical logged, received, or null. */
+  deliveryStatus: string | null;
+  /** Recipient snapshot from the Gmail send ledger; null for historical log-only rows. */
+  recipient: string | null;
   contactId: string | null;
   contactName: string | null;
+  /** The external contact's CURRENT email — not evidence of where a historical row went. */
   contactEmail: string | null;
   senderName: string | null;
+}
+
+/**
+ * Whether a record proves the step happened: Gmail accepted it, or it is a historical log-only
+ * record from before the CRM sent email. Prepared, sending, failed and unknown never count.
+ */
+export const countsAsCompleted = (record: SubmissionRecord) => record.deliveryStatus === "sent" || record.deliveryStatus === "logged";
+
+/** Staff-facing outcome of a recorded outbound email. */
+export function deliveryOutcomeLabel(status: string | null): string {
+  switch (status) {
+    case "sent": return "Sent — accepted by Gmail";
+    case "prepared": return "Prepared — not sent";
+    case "sending": return "Sending";
+    case "failed": return "Not sent";
+    case "unknown": return "Outcome unknown — do not resend; check status";
+    case "logged": return "Logged (historical, not sent by the CRM)";
+    case "received": return "Received";
+    default: return "Recorded (historical, not sent by the CRM)";
+  }
 }
 
 export interface SubmissionDocument {

@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type SetStateAction } from "react";
 
 import {
   createFromWizardAction,
@@ -11,13 +11,13 @@ import {
   getTravelClientFillAction,
   type ClientOpenWork,
   type AutoFilledWizardField,
+  type DraftResumePayload,
   type WizardMode,
   listProductRequirementPreviewAction,
 } from "@/app/(app)/applications/wizard-actions";
-import { beginDocumentUploadAction } from "@/app/(app)/documents/actions";
+import { attachRequirementSelection } from "@/components/documents/requirement-attachment-client";
+import type { RequirementAttachmentSelection, RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 import { listProductOptionsAction, type ProductOption } from "@/app/(app)/policies/actions";
-import { recordTravelRequirementUploadAction } from "@/app/(app)/travel/actions";
-import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import { listPaymentChannelOptionsAction } from "@/app/(app)/payments/actions";
 import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/tasks/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
@@ -27,28 +27,22 @@ import { I } from "../../icons";
 import { usePersona } from "../../persona";
 import { BrandGlyph } from "../../shell";
 import { Btn } from "../../primitives";
-import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { useOverlays } from "../overlay-provider";
 import { openPortalWindow } from "../portal-window";
 import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
 import { OpenWorkDialog } from "./open-work-dialog";
-import { namedTravelerIndexes, TravelRequirementUploads, type TravelUploadFiles } from "./travel-details-step";
+import { TravelRequirementUploads } from "./travel-details-step";
+import { healthWizardRequirements, travelWizardRequirements, requirementSelectionScope, withRequirementPersonKeys, wizardRequirementPreview } from "./wizard-requirements";
 import {
   emptyWizardForm,
   initialiseFamilySizeSuggestion,
-  ageFromDob,
   categoryForProduct,
   INQUIRY_APP_TYPE,
-  beneficiaryIdDocumentFor,
-  BC_FLEXI_CHECKLIST,
-  isBcFlexiProduct,
-  isFlexiShieldProduct,
   isInquiryAppType,
-  medicalDocumentsFor,
   normaliseAppType,
+  parseAmount,
   uniquePlanPreferenceMatch,
-  WIZ_CHECKLISTS,
   WIZ_STEPS,
   WIZ_TRAVEL_STEPS,
   type ChecklistItem,
@@ -59,7 +53,8 @@ import {
  * New Client Application — the 6-step wizard overlay (see
  * web/new-application-wizard.md). Adapts to the product
  * category (Health / Group HMO / Travel); the split Create button fans into
- * create / create & email / create & request documents / save draft.
+ * create / create & request documents / save draft. Step 5's email is never sent on create: it
+ * opens afterwards in the shared composer for explicit review and Send.
  */
 
 export interface WizardPrefill {
@@ -118,8 +113,8 @@ export function NewApplicationWizard({
   const [step, setStep] = useState(1);
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
-  const [f, setF] = useState<WizardForm>(() =>
-    initialiseFamilySizeSuggestion({
+  const [wizard, setWizard] = useState<{ form: WizardForm; selections: Record<string, RequirementAttachmentSelection> }>(() => ({
+    form: withRequirementPersonKeys(initialiseFamilySizeSuggestion({
       ...emptyWizardForm(),
       convertClientId: prefill?.convertClientId ?? null,
       convertClientName: prefill?.convertClientName ?? null,
@@ -131,9 +126,37 @@ export function NewApplicationWizard({
       familySize: prefill?.familySize != null ? String(prefill.familySize) : "",
       coverageTier: prefill?.coverageTier ?? "",
       payFreq: prefill?.paymentFrequency ?? "",
-    }),
-  );
-  const skipInitialChecklist = useRef(Boolean(prefill?.draftApplicationId));
+    })),
+    selections: {},
+  }));
+  const setF = useCallback((update: SetStateAction<WizardForm>) => {
+    setWizard((current) => {
+      const form = withRequirementPersonKeys(typeof update === "function" ? update(current.form) : update);
+      const sameScope = requirementSelectionScope(current.form) === requirementSelectionScope(form);
+      return { form, selections: sameScope ? current.selections : {} };
+    });
+  }, []);
+  const [persistedRequirementPreview, setPersistedRequirementPreview] = useState<DraftResumePayload["requirementPreview"]>(null);
+  const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
+  const canonicalPreview = persistedRequirementPreview?.applicationId === wizard.form.draftApplicationId && wizard.form.category !== "travel"
+    ? persistedRequirementPreview
+    : null;
+  // One effective form supplies rendering, draft snapshots and creation. The checklist is
+  // derived from immutable canonical rows or the same builders that create authoritative rows.
+  const f = useMemo<WizardForm>(() => {
+    const form = wizard.form;
+    const checklist = canonicalPreview
+      ? canonicalPreview.items
+      : form.category === "health"
+        ? wizardRequirementPreview(healthWizardRequirements(form))
+        : form.category === "travel"
+          ? wizardRequirementPreview(travelWizardRequirements(form))
+          : templatePreview?.key === `${form.productVersionId}:${form.remoteSale}`
+            ? templatePreview.items
+            : [];
+    return { ...form, checklist };
+  }, [wizard.form, canonicalPreview, templatePreview]);
+  const selections = wizard.selections;
   const [resumeLoading, setResumeLoading] = useState(Boolean(prefill?.draftApplicationId));
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState<Partial<Record<AutoFilledWizardField, string>>>(() => {
@@ -195,7 +218,7 @@ export function NewApplicationWizard({
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
     listPaymentChannelOptionsAction().then(setPaymentChannels).catch(() => setPaymentChannels([]));
-  }, [prefill?.coverageTier, prefill?.productInterest]);
+  }, [prefill?.coverageTier, prefill?.productInterest, setF]);
 
   useEffect(() => {
     if (!prefill?.draftApplicationId) return;
@@ -211,10 +234,11 @@ export function NewApplicationWizard({
         }
         // A draft saved before the app-type rename carries the old spelling; map it forward
         // so its select renders a matching option instead of going blank on resume.
-        setF({ ...res.data.form, appType: normaliseAppType(res.data.form.appType) });
+        setF(withRequirementPersonKeys({ ...res.data.form, appType: normaliseAppType(res.data.form.appType) }));
         setStep(res.data.form.draftStep);
         setAutoFilled(res.data.autoFilled);
         setLinkedClientName(res.data.linkedClientName);
+        setPersistedRequirementPreview(res.data.requirementPreview);
       })
       .catch(() => {
         const message = "The application draft could not be loaded.";
@@ -222,7 +246,7 @@ export function NewApplicationWizard({
         overlays.toast("Couldn’t load application draft", message);
       })
       .finally(() => setResumeLoading(false));
-  }, [overlays, prefill?.draftApplicationId]);
+  }, [overlays, prefill?.draftApplicationId, setF]);
 
   const set = (patch: Partial<WizardForm>) => {
     const keys = Object.keys(patch);
@@ -230,8 +254,20 @@ export function NewApplicationWizard({
     setF((s) => ({ ...s, ...patch }));
   };
 
-  // Travel (H6b–d): files attached on the travel screen, and the "Filled from …" marker (DH12).
-  const [travelFiles, setTravelFiles] = useState<TravelUploadFiles>({});
+  // Form changes clear incompatible choices atomically in setF, not after a render.
+  const selectionScope = requirementSelectionScope(f);
+  const attachmentClientId = canonicalPreview?.clientId || f.convertClientId || (f.clientMode === "existing" ? f.existingClientId : null) || undefined;
+  const selectRequirement = (key: string, selection: RequirementAttachmentSelection | null) => {
+    dirtyRef.current = true;
+    setWizard((current) => {
+      // Ignore a result from a picker opened before its client/person scope changed.
+      if (requirementSelectionScope(current.form) !== selectionScope) return current;
+      const selections = { ...current.selections };
+      if (selection) selections[key] = selection;
+      else delete selections[key];
+      return { ...current, selections };
+    });
+  };
   const [travelFilledFrom, setTravelFilledFrom] = useState<{ clientId: string; name: string; fromPastTrip: boolean } | null>(null);
   const isTravel = f.category === "travel";
   useEffect(() => {
@@ -257,7 +293,7 @@ export function NewApplicationWizard({
     return () => {
       cancelled = true;
     };
-  }, [isTravel, f.existingClientId, travelFilledFrom?.clientId]);
+  }, [isTravel, f.existingClientId, travelFilledFrom?.clientId, setF]);
 
   // Open work on a picked client (2026-10-06): offer to continue a draft / travel request /
   // application rather than start a duplicate. Checked once per client per wizard session, and not
@@ -282,7 +318,6 @@ export function NewApplicationWizard({
   }, [f.existingClientId, f.existingClientName, f.draftApplicationId, prefill?.draftApplicationId]);
 
   // H3a: the authoritative requirement list for template-driven (non-health, non-travel) products.
-  const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
   useEffect(() => {
     if (!f.productVersionId || f.category === "health" || f.category === "travel" || !f.category) return;
     let cancelled = false;
@@ -296,74 +331,6 @@ export function NewApplicationWizard({
       cancelled = true;
     };
   }, [f.productVersionId, f.category, f.remoteSale]);
-
-  // Auto-generate the checklist when the category (or pre-existing flag) changes.
-  useEffect(() => {
-    if (!f.category) return;
-    if (skipInitialChecklist.current) {
-      skipInitialChecklist.current = false;
-      return;
-    }
-    const base = WIZ_CHECKLISTS[f.category] ?? [];
-    let items = isBcFlexiProduct(f.productName)
-      ? BC_FLEXI_CHECKLIST.map((item) => ({ ...item }))
-      : base.map((b) => ({ ...b, checked: false, status: "Pending" }));
-    if (f.category === "health") {
-      const principal = f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Principal applicant";
-      const people = [
-        { name: principal, dob: f.dob, preExisting: f.preExisting, smokerStatus: f.smokerStatus, heightInches: f.heightInches, weightLbs: f.weightLbs, beneficiaryName: f.beneficiaryName },
-        ...f.healthDependents.map((person) => ({ name: person.name, dob: person.dob, preExisting: person.preExisting ?? "Unknown", smokerStatus: person.smokerStatus, heightInches: person.heightInches, weightLbs: person.weightLbs, beneficiaryName: person.beneficiaryName })),
-      ].filter((person) => person.name.trim());
-      items = people.flatMap((person) => {
-        const age = ageFromDob(person.dob);
-        const senior = typeof age === "number" && age >= 71;
-        const result = [
-          { name: senior ? `Age 71–100 application form — ${person.name}` : `Regular application form — ${person.name}`, cond: senior ? "individual senior form" : null, checked: false, status: "Pending" },
-          { name: `Valid ID — ${person.name}`, cond: null, checked: false, status: "Pending" },
-        ];
-        // Mirrors the server snapshot: a nominated beneficiary needs their own ID (G4).
-        const beneficiaryId = beneficiaryIdDocumentFor(person.beneficiaryName);
-        if (beneficiaryId) result.push({ name: beneficiaryId, cond: null, checked: false, status: "Pending" });
-        // Mirrors snapshotApplicationRequirements: the attestation and the advisor's
-        // declaration are alternatives, so the preview must show whichever one the
-        // sale channel actually calls for.
-        if (!f.remoteSale) result.push({ name: `Attestation — ${person.name}`, cond: null, checked: false, status: "Pending" });
-        // One shared trigger with the server snapshot (`medicalDocumentsFor`) rather than a second
-        // copy of the age/pre-existing test — G3 added smoker and BMI as a third condition, and two
-        // hand-maintained copies is how they drift.
-        medicalDocumentsFor(person).forEach((name) =>
-          result.push({ name: `${name} — ${person.name}`, cond: "required", checked: false, status: "Pending" }),
-        );
-        return result;
-      });
-      if (f.remoteSale) items.push({ name: "Advisor's Declaration", cond: "remote or online sale", checked: false, status: "Pending" });
-      // Mirrors snapshotApplicationRequirements: FlexiShield is second-layer, so it evidences the
-      // first-layer HMO instead of the TAL/CAC conforme, which only apply to Select/Blue Royale.
-      if (isFlexiShieldProduct(f.productName)) {
-        items.push(
-          { name: "Schedule of Benefits of the first-layer HMO", cond: "supplied by the client", checked: false, status: "Pending" },
-          { name: "Certificate of Coverage of the first-layer HMO", cond: "full MBL and expiry date, supplied by the client", checked: false, status: "Pending" },
-        );
-      } else {
-        items.push({ name: "TAL conforme / CAC", cond: "only if requested after underwriting", checked: false, status: "Pending" });
-      }
-    } else if (f.category === "travel") {
-      items = [{ name: "Completed Travel application form", cond: null, checked: false, status: "Pending" }, ...f.travelers.filter((traveler) => traveler.name.trim()).map((traveler) => ({ name: `${traveler.idType || "Passport"} copy — ${traveler.name}`, cond: null, checked: false, status: "Pending" })), { name: "Payment proof", cond: "before portal processing", checked: false, status: "Pending" }, { name: "Issued Travel policy", cond: "after issuance", checked: false, status: "Pending" }];
-    }
-    // Non-health, non-travel products (BC Flexi / group HMO and anything else template-driven):
-    // use the product's full set from the same template the server snapshots on create (H3a),
-    // once it has loaded for this exact product and sale channel.
-    if (
-      f.category !== "health" &&
-      f.category !== "travel" &&
-      templatePreview &&
-      templatePreview.key === `${f.productVersionId}:${f.remoteSale}` &&
-      templatePreview.items.length
-    ) {
-      items = templatePreview.items.map((item) => ({ ...item }));
-    }
-    setF((s) => ({ ...s, checklist: items }));
-  }, [f.category, templatePreview, f.productVersionId, f.preExisting, f.remoteSale, f.smokerStatus, f.heightInches, f.weightLbs, f.beneficiaryName, f.healthDependents, f.travelers, f.displayName, f.firstName, f.lastName, f.dob, f.productName]);
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {
@@ -401,11 +368,6 @@ export function NewApplicationWizard({
   // A draft captures an early inquiry, before a product/workflow is necessarily known.
   const canDraft = hasName && hasContact && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
-  // Step 5's carrier-attachment gate, mirrored client-side so Create greys out instead of bouncing
-  // off `createFromWizardAction`'s pre-flight check. That check remains the enforcement; this only
-  // blocks when an email is genuinely going to be logged, matching the server's own condition.
-  const hasEmailTarget = !!(f.emailRecipient || f.email);
-  const attachmentMissing = hasEmailTarget && templateNeedsLibraryAttachment(f.emailTemplate) && !f.emailLibraryDocumentId;
   // Why Create is disabled, as jump-to links (2026-10-06: a draft with no trip dates silently
   // greyed out "Create & open portal" and nothing said why). `canCreate` is derived from this
   // list so the two can't disagree. Steps are the travel screen numbers on the travel path.
@@ -426,7 +388,6 @@ export function NewApplicationWizard({
     ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3) }] : []),
     ...(f.category === "health" && !f.planOptionId ? [{ label: "Plan option", step: 3 }] : []),
     ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3 }] : []),
-    ...(f.sendEmail && attachmentMissing ? [{ label: "Carrier attachment for the email", step: blockerStep(5) }] : []),
   ];
   const canCreate = !pending && createBlockers.length === 0;
 
@@ -451,43 +412,29 @@ export function NewApplicationWizard({
       return current !== autoFilled[field];
     });
 
-  /** Upload the travel screen's files against the new request's requirement rows (H6d). */
-  const uploadTravelFiles = async (
-    clientId: string,
-    travelRequestId: string,
-    targets: { applicationForm: string | null; travelers: (string | null)[] },
-  ): Promise<number> => {
-    const jobs: { file: File; requirementId: string }[] = [];
-    if (travelFiles.form && targets.applicationForm) jobs.push({ file: travelFiles.form, requirementId: targets.applicationForm });
-    travelerIndexesAtSubmit.current.forEach((formIndex, i) => {
-      const file = travelFiles[`traveler:${formIndex}`];
-      const requirementId = targets.travelers[i];
-      if (file && requirementId) jobs.push({ file, requirementId });
-    });
-    let failed = 0;
-    for (const job of jobs) {
+  const attachSelections = async (targets: Record<string, RequirementTarget> = {}): Promise<string[]> => {
+    const failures: string[] = [];
+    for (const [key, selection] of Object.entries(selections)) {
+      const label = f.checklist.find((item) => item.requirementKey === key)?.name || key;
+      const target = targets[key];
+      if (!target) {
+        failures.push(label);
+        continue;
+      }
       try {
-        const begin = await beginDocumentUploadAction({ clientId, fileName: job.file.name, mimeType: job.file.type, size: job.file.size });
-        if (!begin.ok) throw new Error(begin.error);
-        const put = await getSupabaseBrowser()
-          .storage.from("documents")
-          .uploadToSignedUrl(begin.data.path, begin.data.token, job.file, { contentType: job.file.type });
-        if (put.error) throw new Error(put.error.message);
-        const done = await recordTravelRequirementUploadAction(travelRequestId, job.requirementId, begin.data.path, job.file.name);
-        if (!done.ok) throw new Error(done.error);
+        const receipt = await attachRequirementSelection(target, selection);
+        if (!receipt.ok) failures.push(label);
       } catch {
-        failed += 1;
+        failures.push(label);
       }
     }
-    return failed;
+    return failures;
   };
-  const travelerIndexesAtSubmit = useRef<number[]>([]);
 
   const finish = async (mode: WizardMode) => {
     // Travel (H6b): reserve the portal pop-up inside the click, before any await — pop-up
     // blockers only allow opens tied to the gesture. It is pointed at the portal on success.
     const portal = isTravel && mode !== "draft" ? openPortalWindow() : null;
-    travelerIndexesAtSubmit.current = namedTravelerIndexes(f);
     const changedFields = changedAutoFilledFields();
     if (changedFields.length > 0) {
       const confirmed = await overlays.confirm({
@@ -511,40 +458,62 @@ export function NewApplicationWizard({
         const titles: Record<WizardMode, string> = {
           draft: "Draft saved",
           create: res.data.groupId ? "Group account created" : "Application created",
-          email: "Application created & email logged",
           docs: "Application created & documents requested",
         };
         // Travel submissions live in the Travel Insurance lane (travel_requests / /travel),
         // not Applications — surface that instead of the generic "Application created" titles.
         const title = res.data.travelRequestId ? "Client moved to Travel Insurance" : titles[mode];
+        const failures = mode === "draft" ? [] : await attachSelections(res.data.requirementTargets);
+        const attachmentSummary = failures.length
+          ? ` ${failures.length} attachment${failures.length === 1 ? "" : "s"} failed: ${failures.join("; ")}. The record was created; attach these in its requirements workflow. Do not create it again.`
+          : mode === "draft" && Object.keys(selections).length
+            ? " Selected attachments were not saved in the draft. Choose them again when completing it."
+            : "";
+        // Step 5's email, bound to the created record. Creating sent nothing: it opens in the
+        // shared composer for explicit review and Send, after the receipt attachments above.
+        const emailDraft = mode !== "draft" && res.data.clientId ? res.data.emailDraft : undefined;
+        const emailSummary = emailDraft ? " Review the email before sending — nothing has been sent yet." : "";
+        const reviewEmail = (next: { label: string; open: () => void }) => {
+          if (!emailDraft || !res.data.clientId) return false;
+          overlays.toast(title, res.data.summary + attachmentSummary + emailSummary, { label: next.label, onClick: next.open });
+          overlays.openEngage(
+            "Send Email",
+            {
+              clientId: res.data.clientId,
+              name: (f.category === "hmo" ? f.companyName : "") || f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" ") || "Client",
+              email: emailDraft.recipient || f.email || null,
+              product: f.productName || null,
+              premium: parseAmount(f.premium),
+              record: emailDraft.origin.type === "contact" ? emailDraft.origin.record ?? null : null,
+            },
+            next.open,
+            emailDraft,
+          );
+          return true;
+        };
         if (res.data.travelRequestId && mode !== "draft") {
+          const travelRequestId = res.data.travelRequestId;
           if (portal && res.data.travelPortalUrl) portal.location.href = res.data.travelPortalUrl;
           else portal?.close();
-          const failed =
-            res.data.clientId && res.data.travelUploadTargets
-              ? await uploadTravelFiles(res.data.clientId, res.data.travelRequestId, res.data.travelUploadTargets)
-              : 0;
-          overlays.toast(
-            title,
-            failed
-              ? `${res.data.summary} ${failed} file${failed === 1 ? "" : "s"} didn’t upload — attach ${failed === 1 ? "it" : "them"} in the Travel workflow.`
-              : res.data.summary,
-          );
           router.refresh();
           onClose();
-          overlays.openTravelWorkflow(res.data.travelRequestId);
+          const openTravel = () => overlays.openTravelWorkflow(travelRequestId);
+          if (reviewEmail({ label: "Open travel workflow", open: openTravel })) return;
+          overlays.toast(title, res.data.summary + attachmentSummary);
+          openTravel();
           return;
         }
         portal?.close();
-        overlays.toast(title, res.data.summary);
         router.refresh();
         if (res.data.groupId) router.push(`/group/${res.data.groupId}`);
         onClose();
         // H3a: land on the application's full requirement set instead of making the user find
-        // "Continue Application" on the client.
-        if (mode !== "draft" && res.data.applicationId && !res.data.travelRequestId && !res.data.groupId) {
-          overlays.openApplicationRequirements(res.data.applicationId);
-        }
+        // "Continue Application" on the client — after the email review when one was composed.
+        const applicationId = mode !== "draft" && !res.data.travelRequestId ? res.data.applicationId : undefined;
+        const openChecklist = () => { if (applicationId) overlays.openApplicationRequirements(applicationId); };
+        if (applicationId && reviewEmail({ label: "Continue to checklist", open: openChecklist })) return;
+        overlays.toast(title, res.data.summary + attachmentSummary);
+        openChecklist();
       } else {
         portal?.close();
         overlays.toast("Couldn’t create the application", res.error);
@@ -692,16 +661,12 @@ export function NewApplicationWizard({
                     )}
                     <Step3 {...stepProps} />
                     <TravelRequirementUploads
+                      key={selectionScope}
                       f={f}
-                      files={travelFiles}
-                      onFile={(key, file) =>
-                        setTravelFiles((current) => {
-                          const next = { ...current };
-                          if (file) next[key] = file;
-                          else delete next[key];
-                          return next;
-                        })
-                      }
+                      clientId={attachmentClientId}
+                      selections={selections}
+                      onSelect={selectRequirement}
+                      disabled={pending}
                     />
                   </div>
                 ) : (
@@ -730,7 +695,7 @@ export function NewApplicationWizard({
                 />
               )}
               {step === 3 && <Step3 {...stepProps} />}
-              {step === 4 && <Step4 {...stepProps} />}
+              {step === 4 && <Step4 key={selectionScope} {...stepProps} clientId={attachmentClientId} selections={selections} onSelect={selectRequirement} disabled={pending} />}
               {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
               {step === 6 && <Step6 {...stepProps} />}
               </>
@@ -797,19 +762,13 @@ export function NewApplicationWizard({
                   {(
                     [
                       ["create", "Create application", "check"],
-                      ["email", "Create & log email", "mail"],
                       ["draft", "Save as draft", "doc2"],
                     ] as const
                   ).map(([mode, label, icon]) => {
                     const Ico = I[icon];
-                    // `Create & log email` sends whether or not the Step 5 toggle is on, so it has
-                    // to answer to the attachment gate on its own rather than via `canCreate`.
-                    const blocked = mode === "email" && attachmentMissing;
                     return (
                       <button
                         key={mode}
-                        disabled={blocked}
-                        title={blocked ? "Select the carrier attachment in Step 5 first." : undefined}
                         onClick={() => {
                           setSplitOpen(false);
                           finish(mode);

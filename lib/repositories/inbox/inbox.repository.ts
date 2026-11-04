@@ -18,6 +18,7 @@ export interface InboxRepository {
   commitSync(input: CommitInboxSyncInput): Promise<void>;
   releaseSync(leaseToken: string, errorCode: string | null): Promise<void>;
   enqueueNotification(input: InboxNotificationInput): Promise<void>;
+  getVisibleRevision(actorId: string): Promise<string>;
   listVisible(actorId: string, offset?: number): Promise<InboxMessage[]>;
   getVisible(id: string, actorId: string): Promise<InboxMessage | null>;
   listTargets(actorId: string): Promise<InboxTarget[]>;

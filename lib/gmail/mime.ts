@@ -34,7 +34,7 @@ function cleanHeader(value: string): string {
   return value.replace(/\r?\n[ \t]+/g, " ").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
 }
 
-function decodeWords(value: string): string {
+export function decodeWords(value: string): string {
   return cleanHeader(value.replace(/(\?=)\s+(=\?)/g, "$1$2").replace(/=\?([^?]+)\?([bq])\?([^?]*)\?=/gi, (_whole, charset: string, encoding: string, text: string) => {
     try {
       const bytes = encoding.toLowerCase() === "b"
@@ -45,7 +45,8 @@ function decodeWords(value: string): string {
   }));
 }
 
-function headers(part: JsonObject): Map<string, string> {
+/** Lowercased header map; repeated headers are joined with ", " (so duplicates parse as lists). */
+export function headers(part: JsonObject): Map<string, string> {
   const result = new Map<string, string>();
   if (part.headers === undefined) return result;
   if (!Array.isArray(part.headers) || part.headers.length > 1_000) throw new Error("gmail_invalid_headers");

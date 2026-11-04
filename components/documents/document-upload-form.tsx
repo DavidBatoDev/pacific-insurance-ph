@@ -7,6 +7,8 @@ import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import { I } from "@/components/hub/icons";
 import { Btn } from "@/components/hub/primitives";
 import { cn } from "@/lib/utils";
+import type { RequirementAttachmentReceipt, RequirementTarget } from "@/lib/documents/requirement-attachment.types";
+import { RequirementAttachmentPicker } from "./requirement-attachment-picker";
 import { FilePickField } from "./file-pick-field";
 
 const inputCls =
@@ -22,14 +24,11 @@ function SubmitButton({ ready }: { ready: boolean }) {
 }
 
 /**
- * Upload one document, optionally against a requirement row. One line in the common case — pick a
- * file, Upload — with the rarely used display name, type and visibility behind "Details".
- *
- * `onUploaded` lets a parent that holds its own copy of the requirement rows (a claim or travel
- * checklist) reload them — the upload marks the row Received server-side, and a revalidate alone
- * doesn't reach client state.
+ * Requirement rows use the shared two-source picker and return an authoritative receipt.
+ * Ordinary uploads keep their compact device form, including name/type/visibility details.
+ * `onAttached` updates local checklist state immediately; `onUploaded` can refresh other data.
  */
-export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, sourceLibraryDocumentId, onUploaded }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; sourceLibraryDocumentId?: string; onUploaded?: () => void }) {
+export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, requirementLabel, sourceLibraryDocumentId, onUploaded, onAttached }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; requirementLabel?: string; sourceLibraryDocumentId?: string; onUploaded?: () => void; onAttached?: (receipt: RequirementAttachmentReceipt) => void }) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -39,6 +38,18 @@ export function DocumentUploadForm({ clientId, applicationId, travelRequestId, c
     setFile(next);
     if (!next && fileRef.current) fileRef.current.value = "";
   };
+
+  const target: RequirementTarget | null = requirementId
+    ? travelRequestId ? { kind: "travel", recordId: travelRequestId, requirementId }
+      : claimId ? { kind: "claim", recordId: claimId, requirementId }
+        : applicationId ? { kind: "application", recordId: applicationId, requirementId } : null
+    : null;
+  if (target) return <RequirementAttachmentPicker
+    clientId={clientId}
+    target={target}
+    label={requirementLabel ?? "This requirement"}
+    onAttached={(receipt) => { onAttached?.(receipt); onUploaded?.(); }}
+  />;
 
   return (
     <form
@@ -56,13 +67,6 @@ export function DocumentUploadForm({ clientId, applicationId, travelRequestId, c
       {applicationId && <input type="hidden" name="applicationId" value={applicationId} />}
       {travelRequestId && <input type="hidden" name="travelRequestId" value={travelRequestId} />}
       {claimId && <input type="hidden" name="claimId" value={claimId} />}
-      {requirementId && (
-        <input
-          type="hidden"
-          name={travelRequestId ? "travelRequirementId" : claimId ? "claimRequirementId" : "applicationRequirementId"}
-          value={requirementId}
-        />
-      )}
       {sourceLibraryDocumentId && <input type="hidden" name="sourceLibraryDocumentId" value={sourceLibraryDocumentId} />}
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">

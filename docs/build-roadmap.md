@@ -9,10 +9,10 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0056` applied to the hosted project and genuine hosted types regenerated. `0041` remains reserved for import. |
+| Data | Supabase repositories and server actions; migrations through `0058` applied to the hosted project and genuine hosted types regenerated. `0041` remains reserved for import. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
-| Communications | Gmail reading and authenticated production push synchronization are verified. Numeric push history IDs are normalized safely; background sync completed without errors or duplicate messages. Two real emails were previously imported manually; a new post-fix arrival and provider attachment retrieval remain unobserved. Outgoing composers still log rather than deliver email. |
+| Communications | Gmail reading/push synchronization and the shared checklist picker plus non-disruptive Inbox freshness are released. Deployment `dpl_5N4uyzXopqKPdGTNics94c3D1KTi` is READY on the canonical production hostname, with authenticated HTTP/Storage acceptance. Outgoing composers still log rather than deliver email. |
 | Testing | Unit/component checks plus pre-authenticated Playwright MCP for staff flows |
 
 The old state-based SPA, clients-only repository, no-schema, and no-auth descriptions are
@@ -56,6 +56,18 @@ historical. They no longer describe this repository.
   generated types are applied; local UI, role boundaries and synthetic real-Storage filing passed.
   Production deployment, read consent, enablement and real watch/reconciliation are complete.
   The push parser correction is deployed: four real notifications returned 204 and background sync completed.
+- Shared requirement attachment picker (2026-11-03): device/email sources across Application,
+  Claim and Travel checklists and creation wizards, including already-filed originals.
+  Hosted `0057` adds immutable sources, destination usages, guarded upload intents and atomic
+  Received receipts preserving Verified. Explicit cross-record reuse does not move the email
+  or original filing. Keyed wizard targets cover equal-name people and retained draft rows.
+  Orca verification passed 250 tests, production build/TypeScript, 18 SQL/Storage and
+  17 authenticated HTTP scenarios. No browser visual verification, per owner instruction.
+- Non-disruptive Inbox freshness (2026-11-03): private complete-authorized-ID revision (`0058`),
+  lightweight authenticated endpoint and visible/online polling with explicit refresh.
+  Released together with the picker; 264 tests, lint (0 errors / 8 existing warnings),
+  optimized build/TypeScript and canonical production HTTP/Storage acceptance passed.
+  No browser visual/keyboard verification; see the release record in Development Alignment.
 - Tasks, documents, renewals, claims, travel, relationship management, email templates, and
   settings screens at varying levels of live-data completeness.
 
@@ -63,12 +75,15 @@ historical. They no longer describe this repository.
 
 - **No outbound delivery is enabled.** Gmail connection management is implemented separately;
   a composer still records `delivery_status = logged`, not actual email/attachment delivery.
-- **Incoming mail is synchronized automatically; an open inbox view does not live-refresh.**
-  Production accepted four real Pub/Sub notifications and completed background sync without
-  errors or duplicates after the numeric history-ID correction. Reload/navigation displays
-  saved mail; manual Sync remains recovery. A newly arriving post-fix email and original
-  provider attachment retrieval have not yet been observed. See
-  [Development Alignment](development-alignment.md#automatic-push-correction-2026-11-03-utc).
+- **Incoming mail does not interrupt an open Inbox.** Visible/online tabs check an authorized
+  membership revision every 30 seconds and show **Inbox updates available**. Only explicit
+  **Refresh inbox** reloads page 1, retaining the selected message ID. Hidden/offline tabs pause
+  and check on return; transient failures preserve the view and session failures stop polling.
+  The private `0058` RPC and endpoint never invoke Gmail Sync or advance business statuses.
+- **Picker receipts are not verification or business approval.** New trips do not inherit older
+  received files. Draft selections are not saved as attachments. Preview is limited to safe
+  PDF/JPEG/PNG; other original formats remain downloadable. No new OAuth scopes or environment
+  variables are needed.
 - A logged email is not evidence of delivery. Proposal status `Sent` still requires the explicit
   staff action; lead lifecycle status follows the current engagement rules documented in
   [Development Alignment](development-alignment.md).
@@ -87,7 +102,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. The next local migration number is **`0057`**; verify the hosted ledger before use. **`0041`** remains reserved for the import schema.
+5. The next local migration number is **`0059`**; verify the hosted ledger before use. **`0041`** remains reserved for the import schema.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 

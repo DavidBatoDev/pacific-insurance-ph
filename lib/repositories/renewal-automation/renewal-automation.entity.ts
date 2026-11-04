@@ -26,9 +26,12 @@ export interface RenewalEmailDraft {
   externalContactId: string | null;
   subject: string;
   body: string;
-  status: "Draft" | "Logged" | "Dismissed";
+  /** Logged = historical log-only record (never sent); Sent = accepted by Gmail through the CRM. */
+  status: "Draft" | "Logged" | "Sent" | "Dismissed";
   dismissalReason: string | null;
   communicationId: string | null;
+  /** Latest outbound send bound at claim; its state decides whether the draft may still change. */
+  outboundMessageId: string | null;
   updatedAt: string;
 }
 export interface RenewalEmailDraftEdit {

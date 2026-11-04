@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { logCallAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
+import { logCallAction } from "@/app/(app)/clients/engage-actions";
+import type { LeadAdvanceSuggestion } from "@/lib/communications/outbound-email.types";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import type { DiscoveryValues } from "../lead-config";

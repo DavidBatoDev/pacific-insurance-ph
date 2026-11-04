@@ -1,6 +1,8 @@
 import { recordAudit } from "@/lib/audit/log";
 import { getGmailAttachment } from "@/lib/gmail/api";
 import { getScopedInboxMessage, InboxReviewError, requireInboxActor } from "@/lib/gmail/review";
+import { getRequirementAttachmentsRepository } from "@/lib/repositories/requirement-attachments";
+import { downloadObject, getObjectInfo } from "@/lib/supabase/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +21,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!attachment) throw new InboxReviewError("Attachment not found.", 404);
     if (attachment.size > 25 * 1024 * 1024)
       throw new InboxReviewError("This original exceeds the 25 MB download limit. Ask an Admin with mailbox access to retrieve it in Gmail.", 413);
-    const original = await getGmailAttachment(message, partId);
+    const path = message.targetId ? await getRequirementAttachmentsRepository().getOriginalPath(actor.id, message.id, partId) : null;
+    let original: { bytes: Buffer; fileName: string };
+    if (path) {
+      const info = await getObjectInfo(path);
+      if (Number(info.size) > 25 * 1024 * 1024) throw new InboxReviewError("This original exceeds the 25 MB download limit.", 413);
+      const stored = await downloadObject(path);
+      if (stored.size > 25 * 1024 * 1024) throw new InboxReviewError("This original exceeds the 25 MB download limit.", 413);
+      original = { bytes: Buffer.from(await stored.arrayBuffer()), fileName: attachment.fileName };
+    } else {
+      original = await getGmailAttachment(message, partId);
+    }
     const fileName = original.fileName.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 180) || "attachment";
     const asciiName = fileName.replace(/[^\x20-\x7e]|[";]/g, "_");
     const encodedName = encodeURIComponent(fileName).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);

@@ -1065,7 +1065,7 @@ Every schema task must apply via Supabase MCP `apply_migration`, then regenerate
     of truth that can fall out of step with its own inputs. Units follow the carrier's own form
     (`WEIGHT (lbs.)`, `HEIGHT (ft. & in.)`) so staff transcribe rather than convert; the UI takes ft
     and in separately and stores total inches.
-  - **The trigger is now one function** — `medicalDocumentsFor()` in `wizard-data.ts`, called by both
+  - **The trigger is now one function** — `medicalRequirementDocumentsFor()` in `wizard-data.ts`, called by both
     the server snapshot and the client preview, replacing the two hand-maintained copies. It also
     de-duplicates the chest X-ray that smoker and Obese Class 1 both ask for.
   - **⚠️ The BMI cut-offs are an assumption, not carrier-confirmed.** Eman's list names the panels but
@@ -1096,7 +1096,7 @@ Every schema task must apply via Supabase MCP `apply_migration`, then regenerate
     `beneficiary_name`/`_birthdate`/`_relation`/`_contact` to `applications` and
     `application_dependents`, named to match `travelers` so health and travel describe a beneficiary
     with one vocabulary. `beneficiaryIdDocumentFor()` is shared by the server snapshot and the client
-    preview, like `medicalDocumentsFor()` before it. Naming nobody requests nothing.
+    preview, like `medicalRequirementDocumentsFor()` before it. Naming nobody requests nothing.
   - **⚠️ Correction to the premise above, found by reading the forms.** The *fillable* FlexiShield
     form does **not** have per-dependent beneficiary blocks — it has **zero** beneficiary fields, as
     do every Select and Blue Royale form we hold. Only the FlexiShield **print** edition (2024-09)
@@ -1511,8 +1511,9 @@ here has been decided on anyone's behalf.
     authenticated push, daily/manual synchronization and staff review/filing are now implemented.
     Production reading and automatic synchronization are verified: after the numeric history-ID
     parser fix, four real pushes were accepted and background sync completed without duplicates
-    or errors. A new post-fix email arrival and provider attachment retrieval remain unobserved.
-    This does not implement H2d's automatic decision/advancement.
+    or errors. The owner subsequently confirmed linking/filing an incoming Travel PDF. Migration
+    `0057` now supports explicit checklist attachment receipt/reuse; H2d's automatic decision or
+    lead advancement remains unimplemented and parked.
   - Manual portal upload-back and explicit inbox proposal filing now share the same guarded
     registration/Received transaction (`0054`). Later proposal decisions are never reset by receipt.
   - **⚠️ Decision:** DH7.
@@ -1546,10 +1547,10 @@ here has been decided on anyone's behalf.
     Select comparison, BC Flexi → Blue Royale switching, or Blue Royale draft save/resume/create.
     The active catalog version is Primary Medical. Face-to-face/remote alternatives, beneficiary
     ID, conditional medical documents and persisted health requirements were verified; no corporate
-    PIS/CET package leaked into Blue Royale. The preview combines TAL/CAC; persistence separates
-    them into two optional rows.
+    PIS/CET package leaked into Blue Royale. At that verification the preview combined TAL/CAC;
+    the 2026-11-03 shared keyed builder now separates both optional rows in preview and persistence.
   - *"Add a medical review stage when the health declaration has a 'yes' answer."* G3 already
-    generates conditional medical documents (`medicalDocumentsFor()` in `wizard-data.ts`). A
+    generates conditional medical documents (`medicalRequirementDocumentsFor()` in `wizard-data.ts`). A
     separate review *stage* would be new workflow.
   - **⚠️ Decision:** DH9.
 
@@ -1690,11 +1691,16 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
     never re-keys client information.
   - **⚠️ Decision:** DH12. JC's draft says "autofill with manual override".
 
-- [x] **H6d. Requirement uploads inside the travel step.** ✅ *Done 2026-10-06, Playwright-verified.* *The signed form plus a passport/ID per traveler (PDF/JPG/PNG) are attached on screen 1 and uploaded after create through signed URLs (`beginDocumentUploadAction`) against the server's requirement rows (`recordTravelRequirementUploadAction`), which are marked Received (`b5f0a68`).*
-  - **Current state:** the Step 4 checklist is a checkbox plus a status dropdown, with **no file
-    upload**.
-  - **Change:** upload the signed application form and the passport/ID per traveler directly
-    against the checklist rows.
+- [x] **H6d. Requirement uploads inside the travel step.** *Done 2026-10-06; expanded 2026-11-03 with the shared requirement attachment picker.*
+  - **Current state:** Travel creation and workflow requirement rows offer `Choose file` →
+    `Upload from device` or authorized `From email attachments`, including already-filed originals.
+    Application/Claim checklists and creation requirement rows use the same picker.
+  - **Persistence:** choices are staged until actual requirement rows exist. The server returns
+    keyed destinations; explicit receipt marks only that item Received and preserves Verified.
+    Previous-trip files are never inherited automatically, and cross-record reuse needs confirmation.
+    Drafts do not save selected files. The superseded one-off upload helpers were removed.
+  - **Verification:** 250 tests, build/TypeScript, 18 SQL/Storage and 17 authenticated HTTP checks
+    passed through Orca CLI; no browser visual checks were performed, per the owner's instruction.
   - **Eman's intake:** they send the client the PDF application form by email; the client
     returns it signed with a passport copy. Some signed forms are hard to read, which is why
     reading them automatically is out of scope.
@@ -1924,8 +1930,9 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
   - **Section cards:** wizard sections are cards with a completeness dot and label
     (`sectionStatus`, unit-tested): neutral, green when complete, amber for reversed trip
     dates. Reversed dates now also block Create.
-  - **Uploads:** a shared `FilePickField` is used everywhere. `DocumentUploadForm` is one line
-    (file, Details, Upload), with name, type and visibility behind Details.
+  - **Uploads:** ordinary uploads retain `FilePickField` and the compact `DocumentUploadForm`.
+    As of 2026-11-03, requirement contexts instead open the shared device/email source picker;
+    source context and explicit receipt are consistent across modules and creation wizards.
 - [x] **H10d. A status indicator on every requirement row.** ✅ *Done 2026-10-06 (`52d4711`).*
   The travel, claim and application checklists share
   `components/hub/requirement-status.tsx`: the row tint and a dot for Pending, Received,

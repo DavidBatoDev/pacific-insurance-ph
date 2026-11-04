@@ -11,43 +11,26 @@ import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getExternalContactsRepository, type ExternalContact } from "@/lib/repositories/external-contacts";
 import type { Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
-import { can, toAppRole } from "@/lib/auth/permissions";
+import { requireEmailSender, outboundEmailErrorMessage } from "@/lib/communications/outbound-email";
 import {
-  getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
-  type LibraryDocument,
-} from "@/lib/repositories/document-library";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+  attachmentRequirement, resolveEligibleLibraryDocuments, resolveOptionalLibraryDocuments,
+} from "@/lib/communications/email-attachments";
+import type {
+  EligibleLibraryDocuments, EmailDraftSeed, LeadAdvanceSuggestion,
+} from "@/lib/communications/outbound-email.types";
 import { addBusinessDays, HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS, nextLeadStage } from "@/components/hub/lead-config";
 
 /**
- * Engage composer mutations (contact-profile.md; human-in-the-loop). Emails,
- * inbound message logs, calls and notes become `communications` rows; status
- * flags and Request Proposal mutate the contact + create the follow-up task.
+ * Engage composer mutations (contact-profile.md; human-in-the-loop). Inbound
+ * message logs, calls and notes become `communications` rows; status flags and
+ * Request Proposal mutate the contact + create the follow-up task. Outgoing email
+ * goes through the reviewed Gmail send flow (`app/(app)/email/actions.ts`).
  * The contact timeline merges communications + activity_timeline.
  */
 
 function refresh(clientId: string) {
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/prospects");
-}
-
-/** A status changes automatically; the suggested stage still requires consent. */
-export interface LeadAdvanceSuggestion {
-  clientId: string;
-  name: string;
-  referenceNo: string | null;
-  currentStage: string | null;
-  currentStatus: string | null;
-  stage: string;
-  status: string;
-  label: string;
-  /** What specifically triggered this — e.g. "Send brochure: Select Brochure", "Outcome: Reached". */
-  detail?: string;
-  /** ISO timestamp captured at write time by the same communication-driven callers. */
-  occurredAt?: string;
-  /** The status as it was immediately before this write — status changes automatically (unlike
-   * stage), so by the time the popup opens `lead.status` already reflects the new value. */
-  previousStatus?: string | null;
 }
 
 export interface EngagementResult {
@@ -99,167 +82,24 @@ async function updateLeadStatus(
     : {};
 }
 
-export async function sendEmailAction(input: {
-  clientId: string;
-  recipient: string;
-  subject: string;
-  body: string;
-  templateName?: string | null;
-  externalContactId?: string | null;
-  /**
-   * Split on purpose. With one flat array the server would have to *infer*
-   * which id was meant to satisfy the mandatory gate, and every natural way of
-   * inferring that ("one of them is an eligible brochure") quietly relaxes it.
-   */
-  requiredLibraryDocumentId?: string | null;
-  optionalLibraryDocumentIds?: string[];
-}): Promise<ActionResult<EngagementResult>> {
-  const actor = await getActor();
-  if (!input.recipient.trim() || !input.subject.trim())
-    return { ok: false, error: "Recipient and subject are required." };
-
-  const client = await getClientsRepository().findById(input.clientId);
-  if (!client) return { ok: false, error: "Contact not found." };
-  const requirement = attachmentRequirement(input.templateName ?? null);
-  const requiredId = input.requiredLibraryDocumentId?.trim() || null;
-  const optionalIds = [...new Set(input.optionalLibraryDocumentIds ?? [])].filter((id) => id !== requiredId);
-  let attachmentName: string | null = null;
-
-  // Branch A — the mandatory gate. Unchanged in strictness.
-  if (requirement) {
-    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-    const eligible = await resolveEligibleLibraryDocuments(client, requirement);
-    if (eligible.reason) return { ok: false, error: eligible.reason };
-    if (!requiredId || !eligible.documents.some((doc) => doc.id === requiredId))
-      return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this contact.` };
-    attachmentName = eligible.documents.find((doc) => doc.id === requiredId)?.documentName ?? null;
-  } else if (requiredId) {
-    return { ok: false, error: "This email template does not require a carrier attachment." };
-  }
-
-  // Branch B — optional attachments, resolved independently of the template.
-  if (optionalIds.length) {
-    // This check lived inside branch A, so an optional-only send would have
-    // skipped it entirely.
-    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-    if (optionalIds.length > MAX_OPTIONAL_ATTACHMENTS)
-      return { ok: false, error: `Attach at most ${MAX_OPTIONAL_ATTACHMENTS} library assets.` };
-    const allowed = await resolveOptionalLibraryDocuments(client);
-    if (optionalIds.some((id) => !allowed.documents.some((doc) => doc.id === id)))
-      return { ok: false, error: "One or more selected attachments are no longer available. Reopen the attachment list and choose again." };
-  }
-
-  const ids = [...new Set([requiredId, ...optionalIds].filter((id): id is string => Boolean(id)))];
-
-  try {
-    await logOutboundEmail({ clientId: input.clientId, subject: input.subject, summary: input.body.split("\n").find(Boolean) ?? "", notes: input.body, actorId: actor.id, externalContactId: input.externalContactId, libraryDocumentIds: ids });
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to log email." }; }
-
-  // First touch (docs/lead-stage-status.md): Eman's send sets Attempted, no Lead reply required yet.
-  const detail = [input.templateName, attachmentName].filter(Boolean).join(": ");
-  const result =
-    client.leadStatus === "New"
-      ? await updateLeadStatus(client, actor.id, "Attempted", "Email logged", {
-          stage: nextLeadStage(client.leadStage) ?? "Contacted",
-          label: "Email logged",
-          detail: detail || undefined,
-          occurredAt: new Date().toISOString(),
-        })
-      : {};
-  refresh(input.clientId);
-  return { ok: true, data: result };
-}
-
-type RequiredLibraryType = "Brochure" | "Application Form";
-function attachmentRequirement(templateName: string | null): RequiredLibraryType | null {
-  if (templateName === "Send brochure") return "Brochure";
-  if (templateName === "Send application form") return "Application Form";
-  return null;
-}
-
-function ageOn(dateOfBirth: string) {
-  const today = new Date(); const dob = new Date(`${dateOfBirth}T00:00:00Z`);
-  let age = today.getUTCFullYear() - dob.getUTCFullYear();
-  if (today.getUTCMonth() < dob.getUTCMonth() || (today.getUTCMonth() === dob.getUTCMonth() && today.getUTCDate() < dob.getUTCDate())) age--;
-  return age;
-}
-
-/**
- * Why the picker is blocked, when staff can unblock it themselves.
- *
- * Both of these are fields on the contact record, so the UI can offer a link
- * straight to where they are edited instead of leaving a dead-end sentence.
- * Deliberately absent for "no approved asset matches": that one is the empty
- * Carrier Library (blocked on distribution clearance, R4/D3), which no amount
- * of editing this contact will fix.
- */
-export type AttachmentFix = "product-interest" | "date-of-birth";
-
-export interface EligibleLibraryDocuments {
-  documents: LibraryDocument[];
-  reason: string | null;
-  fix?: AttachmentFix;
-}
-
-async function resolveEligibleLibraryDocuments(client: Client, documentType: RequiredLibraryType): Promise<EligibleLibraryDocuments> {
-  if (!client.productInterest?.trim()) return { documents: [], reason: "Set the contact’s product interest before selecting a carrier asset.", fix: "product-interest" };
-  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
-  if (documentType === "Application Form") {
-    if (!client.dateOfBirth) return { documents: [], reason: "Add the contact’s date of birth before selecting an application form.", fix: "date-of-birth" };
-    const age = ageOn(client.dateOfBirth);
-    if (age < 0 || age > 100) return { documents: [], reason: "No supported application-form age band matches this contact.", fix: "date-of-birth" };
-    ageBand = age <= 70 ? "0-70" : "71-100";
-  }
-  const documents = await getDocumentLibraryRepository().listEligible({ productName: client.productInterest, documentTypes: [documentType], ageBand });
-  return { documents, reason: documents.length ? null : `No active, approved ${documentType.toLowerCase()} matches ${client.productInterest}${documentType === "Application Form" ? ` · ${ageBand}` : ""}.` };
-}
-
-/**
- * Optional attachments: everything approved for this contact's product, of any
- * type, with no reference to the email template. Template names are free text
- * with casing duplicates, so a name→type map would either miss the twin or
- * start matching retired rows — and an optional attachment has no wrong choice
- * to prevent anyway.
- */
-async function resolveOptionalLibraryDocuments(client: Client): Promise<EligibleLibraryDocuments> {
-  if (!client.productInterest?.trim())
-    return { documents: [], reason: "Set the contact’s product interest to browse the carrier library.", fix: "product-interest" };
-  // "All Ages" narrows to All-Ages rows rather than meaning "any band", so fall
-  // back to it whenever the required gate would also have refused the age —
-  // the optional list must never offer what the gate would reject.
-  let ageBand: "All Ages" | "0-70" | "71-100" = "All Ages";
-  if (client.dateOfBirth) {
-    const age = ageOn(client.dateOfBirth);
-    if (age >= 0 && age <= 100) ageBand = age <= 70 ? "0-70" : "71-100";
-  }
-  const documents = await getDocumentLibraryRepository().listEligible({
-    productName: client.productInterest,
-    documentTypes: LIBRARY_DOCUMENT_TYPES,
-    ageBand,
-  });
-  return { documents, reason: documents.length ? null : `No approved library assets match ${client.productInterest} yet.` };
-}
-
 export async function listOptionalLibraryDocumentsAction(clientId: string): Promise<ActionResult<EligibleLibraryDocuments>> {
   try {
-    const actor = await getActor();
-    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    await requireEmailSender();
     const client = await getClientsRepository().findById(clientId);
     if (!client) return { ok: false, error: "Contact not found." };
     return { ok: true, data: await resolveOptionalLibraryDocuments(client) };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." }; }
+  } catch (e) { return { ok: false, error: outboundEmailErrorMessage(e) }; }
 }
 
 export async function listEligibleLibraryDocumentsAction(clientId: string, templateName: string): Promise<ActionResult<EligibleLibraryDocuments>> {
   try {
-    const actor = await getActor();
-    if (!can(toAppRole(actor.role), "documentLibrary", "view")) return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    await requireEmailSender();
     const requirement = attachmentRequirement(templateName);
     if (!requirement) return { ok: true, data: { documents: [], reason: null } };
     const client = await getClientsRepository().findById(clientId);
     if (!client) return { ok: false, error: "Contact not found." };
     return { ok: true, data: await resolveEligibleLibraryDocuments(client, requirement) };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." }; }
+  } catch (e) { return { ok: false, error: outboundEmailErrorMessage(e) }; }
 }
 
 export async function logMessageAction(input: {
@@ -422,35 +262,31 @@ export async function addNoteAction(input: {
 /**
  * Request Proposal (modals.md §14) — its own modal, NOT the Email tab. Always:
  * sets proposal_status = Requested, logs a note, creates a follow-up task.
- * Optionally also logs the internal email to Pacific Cross.
+ * Saving the request never sends email: when staff chose to email Pacific Cross,
+ * this returns a populated draft that they review and send separately.
  */
 export async function requestProposalAction(input: {
   clientId: string;
   note: string;
   followUpDate?: string | null;
-  alsoEmailCarrier?: boolean;
-  carrierRecipient?: string | null;
-  carrierContactId?: string | null;
-}): Promise<ActionResult> {
+  /** Active New Business contact to draft the request email to; omitted = no email. */
+  emailContactId?: string | null;
+}): Promise<ActionResult<{ emailDraft?: EmailDraftSeed }>> {
   const actor = await getActor();
-  if (!input.note.trim()) return { ok: false, error: "A proposal request note is required." };
+  const note = input.note.trim();
+  if (!note) return { ok: false, error: "A proposal request note is required." };
 
   try {
     const repo = getClientsRepository();
     const client = await repo.findById(input.clientId);
     if (!client) return { ok: false, error: "Contact not found." };
 
-    let carrierRecipient = input.carrierRecipient?.trim() || null;
-    let carrierContactId: string | null = null;
-    if (input.alsoEmailCarrier && input.carrierContactId) {
-      const contact = await getExternalContactsRepository().findById(input.carrierContactId);
-      if (!contact || contact.status !== "Active" || !contact.email)
-        return { ok: false, error: "Choose an active Pacific Cross contact with an email address." };
-      carrierRecipient = contact.email;
-      carrierContactId = contact.id;
+    let carrier: ExternalContact | null = null;
+    if (input.emailContactId) {
+      carrier = await getExternalContactsRepository().findById(input.emailContactId);
+      if (!carrier || carrier.status !== "Active" || carrier.department !== "New Business" || !carrier.email)
+        return { ok: false, error: "Choose an active Pacific Cross New Business contact with an email address." };
     }
-    if (input.alsoEmailCarrier && !carrierRecipient)
-      return { ok: false, error: "Choose a Pacific Cross contact or enter a recipient email." };
 
     // Requesting again restarts the cycle, so any decision from the previous round is stale —
     // clearing it is both the correct semantics and what keeps the
@@ -462,7 +298,7 @@ export async function requestProposalAction(input: {
       scopeType: "client",
       scopeId: input.clientId,
       activityType: "lead.proposal",
-      summary: `Proposal requested — ${input.note.trim()}`,
+      summary: `Proposal requested — ${note}`,
       actorId: actor.id,
     });
     await getTasksRepository().create({
@@ -473,13 +309,19 @@ export async function requestProposalAction(input: {
       dueDate: input.followUpDate || addBusinessDays(HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS),
       priority: "Normal",
     });
-    if (input.alsoEmailCarrier && carrierRecipient) {
-      await logOutboundEmail({ clientId: input.clientId, subject: `Proposal request — ${client.productInterest ?? "product"} for ${client.fullName}`, summary: `Logged for ${carrierRecipient} (Pacific Cross)`, actorId: actor.id, externalContactId: carrierContactId });
-    }
 
     refresh(input.clientId);
     revalidatePath("/tasks");
-    return { ok: true, data: undefined };
+    const emailDraft: EmailDraftSeed | undefined = carrier?.email
+      ? {
+          origin: { type: "proposal_request", clientId: client.id },
+          externalContactId: carrier.id,
+          recipient: carrier.email,
+          subject: `Proposal request — ${client.productInterest ?? "product"} for ${client.fullName}`,
+          body: note,
+        }
+      : undefined;
+    return { ok: true, data: { emailDraft } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to request proposal." };
   }

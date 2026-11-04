@@ -28,6 +28,7 @@ export function ProfileHeader({
   onToggleArchive,
   onGenerateProposal,
   onRequestProposal,
+  onEmailProposal,
   focusEmail,
   focusCall,
 }: {
@@ -49,6 +50,8 @@ export function ProfileHeader({
   onToggleArchive: () => void;
   onGenerateProposal: () => void;
   onRequestProposal: () => void;
+  /** Proposal-delivery email with the current proposal attached (Lead + Received only). */
+  onEmailProposal: () => void;
   focusEmail: (templateName?: string) => void;
   focusCall: () => void;
 }) {
@@ -56,7 +59,7 @@ export function ProfileHeader({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const NURTURE: { label: string; icon: IconName; run: () => void }[] = [
-    { label: "Log Email", icon: "mail", run: () => focusEmail("New inquiry response") },
+    { label: "Send Email", icon: "mail", run: () => focusEmail("New inquiry response") },
     { label: "Send Brochure", icon: "folder", run: () => focusEmail("Send brochure") },
     { label: "Send Intake Form", icon: "clipboard", run: () => focusEmail("Send application form") },
     {
@@ -65,7 +68,7 @@ export function ProfileHeader({
       run: () => (isIndividualProposalProduct(client.productInterest) ? onGenerateProposal() : onRequestProposal()),
     },
     ...(isLead && client.proposalStatus === "Received"
-      ? [{ label: "Log Proposal Email", icon: "send" as IconName, run: () => focusEmail("Proposal / Quote Delivery") }]
+      ? [{ label: "Email Proposal", icon: "send" as IconName, run: onEmailProposal }]
       : []),
     // One `Log Call`, not three (../docs/web/lead-workflow.md §4) — same form the composer tab uses.
     { label: "Log Call", icon: "phone", run: focusCall },

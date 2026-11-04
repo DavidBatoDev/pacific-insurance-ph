@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 const APPROVED_MAILBOX = "admin@pacificinsuranceph.com";
 const WORKSPACE_DOMAIN = "pacificinsuranceph.com";
 const EMAIL_SCOPE = "https://www.googleapis.com/auth/userinfo.email";
-const SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 export const GMAIL_READ_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
 /** Never attach provider errors, request configuration, or token payloads to this error. */
@@ -105,7 +105,7 @@ export function verifyGoogleIdClaims(
 }
 
 export function requireSendScope(scopes: string[]): void {
-  if (!scopes.includes(SEND_SCOPE)) throw new GmailAuthorizationError("missing_scope", true);
+  if (!scopes.includes(GMAIL_SEND_SCOPE)) throw new GmailAuthorizationError("missing_scope", true);
 }
 
 /** Reading is a separate capability; a send-only connection remains valid. */
@@ -120,7 +120,7 @@ export function validateGrantedScopes(scopes: string[]): string[] {
   if (!canonical.includes("openid") || !canonical.includes(EMAIL_SCOPE)) {
     throw new GmailAuthorizationError("missing_scope", true);
   }
-  if (canonical.some((scope) => !["openid", EMAIL_SCOPE, SEND_SCOPE, GMAIL_READ_SCOPE].includes(scope))) {
+  if (canonical.some((scope) => !["openid", EMAIL_SCOPE, GMAIL_SEND_SCOPE, GMAIL_READ_SCOPE].includes(scope))) {
     throw new GmailAuthorizationError("unexpected_scope", true);
   }
   return canonical;

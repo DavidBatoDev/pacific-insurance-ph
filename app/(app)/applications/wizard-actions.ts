@@ -12,15 +12,16 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { can, toAppRole } from "@/lib/auth/permissions";
+import { toAppRole } from "@/lib/auth/permissions";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
-import { getApplicationRequirementsRepository, type NewApplicationRequirement, type RequirementPhase } from "@/lib/repositories/application-requirements";
+import { getApplicationRequirementsRepository, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
+import { getRequirementAttachmentsRepository } from "@/lib/repositories/requirement-attachments";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { buildDraftClientPatch, clientPreExistedDraft } from "@/lib/applications/draft-client-patch";
 import {
-  getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES, MAX_OPTIONAL_ATTACHMENTS,
+  getDocumentLibraryRepository, LIBRARY_DOCUMENT_TYPES,
   type LibraryDocument,
 } from "@/lib/repositories/document-library";
 import { getExternalCoverageRepository, type ExternalCoverageType } from "@/lib/repositories/external-coverage";
@@ -30,24 +31,30 @@ import { getTravelRepository } from "@/lib/repositories/travel";
 import { getPaymentsRepository } from "@/lib/repositories/payments";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { attachmentRequirement, type RequiredLibraryType } from "@/lib/communications/email-attachments";
+import { outboundEmailErrorMessage, requireEmailSender } from "@/lib/communications/outbound-email";
+import type { EmailDraftSeed } from "@/lib/communications/outbound-email.types";
 import type { ChecklistItem, WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
-import { ageFromDob, beneficiaryIdDocumentFor, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, medicalDocumentsFor, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
+import { ageFromDob, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
+import { healthWizardRequirements, travelWizardRequirements, type WizardRequirement } from "@/components/hub/overlays/wizard/wizard-requirements";
+import type { RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 
-export type WizardMode = "draft" | "create" | "email" | "docs";
+export type WizardMode = "draft" | "create" | "docs";
 
 export interface WizardResult {
   clientId: string | null;
   applicationId?: string;
   travelRequestId?: string;
-  /**
-   * Travel (H6d): server requirement ids for the files picked on the wizard's travel screen —
-   * the signed application form, then one passport/ID row per named traveler, in form order.
-   */
-  travelUploadTargets?: { applicationForm: string | null; travelers: (string | null)[] };
+  /** Authoritative destinations keyed by the shared preview identity, never label/order matching. */
+  requirementTargets?: Record<string, RequirementTarget>;
   /** Travel (H6b): the TravelSafe portal to open once the request exists. */
   travelPortalUrl?: string | null;
   groupId?: string;
+  /**
+   * Step 5's composition, bound to the created record, for staff to review and send afterwards.
+   * Present only on a completing save with the email toggle on; creating never sends or logs it.
+   */
+  emailDraft?: EmailDraftSeed;
   /** Human summary for the toast. */
   summary: string;
 }
@@ -74,6 +81,8 @@ export interface DraftResumePayload {
   linkedClientName: string;
   /** Fields that received a lead/default value instead of an existing draft value. */
   autoFilled: Partial<Record<AutoFilledWizardField, string>>;
+  /** Immutable existing rows are authoritative on a resumed draft, including legacy snapshots. */
+  requirementPreview: { applicationId: string; clientId: string; items: ChecklistItem[] } | null;
 }
 
 const normaliseProductName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -169,6 +178,7 @@ export async function listProductRequirementPreviewAction(productVersionId: stri
   await getActor();
   const items = await templateRequirementItems(productVersionId || null, remoteSale);
   return items.map((item) => ({
+    requirementKey: `template:${item.id}`,
     name: item.document_name,
     cond: item.applies_to ?? (item.is_required ? null : "not required yet"),
     checked: false,
@@ -284,84 +294,40 @@ export async function getTravelClientFillAction(clientId: string): Promise<Actio
   }
 }
 
-/** Copy the current configurable template into an immutable application checklist. */
-async function snapshotApplicationRequirements(applicationId: string, productVersionId: string | null, form?: WizardForm) {
+/** Batch-create authoritative rows with preassigned IDs while the stable key is still in scope. */
+async function snapshotApplicationRequirements(
+  applicationId: string,
+  productVersionId: string | null,
+  form: WizardForm,
+): Promise<Record<string, RequirementTarget>> {
   const requirements = getApplicationRequirementsRepository();
-  if ((await requirements.listByApplication(applicationId)).length > 0) return;
-
-  if (form?.category === "health") {
-    const principal = form.displayName || [form.firstName, form.lastName].filter(Boolean).join(" ") || "Principal applicant";
-    const people = [
-      { name: principal, dob: form.dob, preExisting: form.preExisting, smokerStatus: form.smokerStatus, heightInches: form.heightInches, weightLbs: form.weightLbs, beneficiaryName: form.beneficiaryName },
-      ...form.healthDependents.map((item) => ({ name: item.name, dob: item.dob, preExisting: item.preExisting ?? "Unknown", smokerStatus: item.smokerStatus, heightInches: item.heightInches, weightLbs: item.weightLbs, beneficiaryName: item.beneficiaryName })),
-    ].filter((item) => item.name.trim());
-    const items: Omit<NewApplicationRequirement, "applicationId">[] = people.flatMap((person, index) => {
-      const age = ageFromDob(person.dob);
-      const senior = typeof age === "number" && age >= 71;
-      const base: Omit<NewApplicationRequirement, "applicationId">[] = [
-        { documentName: senior ? "Completed age 71–100 application form" : "Completed regular application form", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 10 },
-        { documentName: "Valid government-issued ID", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 20 },
-      ];
-      // Pacific Cross wants an ID for the beneficiary as well as the insured. Per person: the
-      // carrier form gives the principal and each dependent their own beneficiary block (G4).
-      const beneficiaryId = beneficiaryIdDocumentFor(person.beneficiaryName);
-      if (beneficiaryId) base.push({ documentName: beneficiaryId, appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 25 });
-      // Pacific Cross wants the attestation *or* the advisor's declaration, never both:
-      // attestation if the sale was face-to-face, declaration if it was remote. The
-      // attestation is per insured person; the declaration is one per submission and is
-      // pushed once, below.
-      if (!form.remoteSale) base.push({ documentName: "Attestation letter with specimen signatures", appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 30 });
-      // Conditional medical panels — smoker, BMI and Obese Class 1 as well as the age/pre-existing
-      // triggers. Shared with the wizard's client-side preview so the two cannot drift (G3).
-      medicalDocumentsFor(person).forEach((documentName, offset) => {
-        base.push({ documentName, appliesTo: person.name, isRequired: true, sortOrder: index * 100 + 40 + offset });
-      });
-      return base;
-    });
-    if (form.remoteSale) {
-      items.push({ documentName: "Advisor's Declaration", appliesTo: "Remote or online sale", isRequired: true, sortOrder: 900 });
-    }
-    // FlexiShield is a second-layer product: Pacific Cross evidences the first layer instead of
-    // requesting the TAL/CAC conforme, which apply only to Select/Blue Royale (G6). Both documents
-    // are issued by the *other* HMO, so the client supplies them and there is correctly no
-    // library template to attach.
-    if (isFlexiShieldProduct(form.productName)) {
-      items.push(
-        { documentName: "Schedule of Benefits of the first-layer HMO", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 920 },
-        { documentName: "Certificate of Coverage of the first-layer HMO (full maximum benefit limit and expiry date)", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 930 },
-      );
-    } else {
-      items.push(
-        { documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
-        { documentName: "Client Application for Coverage (CAC)", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 930 },
-      );
-    }
-    await requirements.createMany(items.map((item) => ({ applicationId, ...item })));
-    return;
+  const existing = await requirements.listByApplication(applicationId);
+  if (existing.length) {
+    return Object.fromEntries(existing.map((row) => [
+      `persisted:${row.id}`,
+      { kind: "application" as const, recordId: applicationId, requirementId: row.id },
+    ]));
   }
-
-  // Same attestation-or-declaration rule as the health branch above. `form` is
-  // optional here, so fall back to the persisted flag; if neither is available,
-  // copy every item rather than guessing a channel and dropping a real requirement.
-  let remoteSale = form?.remoteSale;
-  if (remoteSale === undefined) {
-    const { data: application } = await getSupabaseAdmin().from("applications").select("remote_sale").eq("id", applicationId).maybeSingle();
-    remoteSale = application?.remote_sale ?? undefined;
-  }
-  const applicable = await templateRequirementItems(productVersionId, remoteSale);
-
-  await requirements.createMany(applicable.map((item) => ({
-    applicationId,
-    requiredDocumentItemId: item.id,
-    documentName: item.document_name,
-    isRequired: item.is_required,
-    appliesTo: item.applies_to,
-    notes: item.notes,
-    sortOrder: item.sort_order,
-    // Carried through so the second gate stays visible-but-not-outstanding until it is
-    // activated. Post-agreement items arrive is_required=false from the template (G9).
-    phase: item.phase as RequirementPhase | null,
-  })));
+  const applicable: WizardRequirement[] = form.category === "health"
+    ? healthWizardRequirements(form)
+    : (await templateRequirementItems(productVersionId, form.remoteSale)).map((item) => ({
+        key: `template:${item.id}`,
+        requiredDocumentItemId: item.id,
+        documentName: item.document_name,
+        isRequired: item.is_required,
+        appliesTo: item.applies_to,
+        notes: item.notes,
+        sortOrder: item.sort_order,
+        phase: item.phase as RequirementPhase | null,
+      }));
+  const targets: Record<string, RequirementTarget> = {};
+  const rows = applicable.map(({ key, ...item }) => {
+    const id = crypto.randomUUID();
+    targets[key] = { kind: "application", recordId: applicationId, requirementId: id };
+    return { applicationId, id, ...item };
+  });
+  await requirements.createMany(rows);
+  return targets;
 }
 
 const ageBandFor = (dob: string): "0-70" | "71-100" => {
@@ -381,27 +347,14 @@ async function matchCarrierForm(form: WizardForm, ageBand: "0-70" | "71-100" | "
   return { variant, document: docs[0] ?? null };
 }
 
-/* ------------- Step 5 initial email — carrier-attachment gate ------------- */
+/* ------------- Step 5 initial email — carrier-attachment pickers ------------- */
 /**
- * Step 5 composes an email that isn't logged until Create, so it can't go through
- * `sendEmailAction` (`clients/engage-actions.ts`) the way every send-now composer does — and until
- * now it therefore skipped that action's attachment requirement entirely, which is what let
- * `Send brochure` be logged from the wizard with nothing attached.
- *
- * The gate is re-implemented here against *form* values rather than a client record, because the
- * contact may not exist until `createFromWizardAction` creates it. Eligibility resolution below is
- * kept deliberately identical to `resolveEligibleLibraryDocuments` in `engage-actions.ts` so the
- * wizard and the Contact Profile composer never disagree about what may be attached.
+ * Step 5 composes an email that is only reviewed and sent after Create, from the shared Gmail
+ * composer. These pickers let staff choose carrier assets up front; the composer re-validates the
+ * selection against the created contact before anything is sent. Eligibility below resolves
+ * against *form* values because the contact may not exist yet, and is kept identical to
+ * `resolveEligibleLibraryDocuments` in `lib/communications/email-attachments.ts`.
  */
-
-type RequiredLibraryType = "Brochure" | "Application Form";
-
-/** Canonical twin: `attachmentRequirement` in `app/(app)/clients/engage-actions.ts` (not exported). */
-function wizardAttachmentRequirement(templateName: string): RequiredLibraryType | null {
-  if (templateName === "Send brochure") return "Brochure";
-  if (templateName === "Send application form") return "Application Form";
-  return null;
-}
 
 async function resolveWizardAttachments(
   documentType: RequiredLibraryType,
@@ -415,7 +368,7 @@ async function resolveWizardAttachments(
     if (!dob) return { documents: [], reason: "Add the applicant’s date of birth in Step 2 before selecting an application form." };
     const age = ageFromDob(dob);
     // Bounds-checked rather than reusing `ageBandFor`, which folds any age over 100 into `71-100`;
-    // `engage-actions.ts` refuses it, and the two surfaces must agree on what is eligible.
+    // `lib/communications/email-attachments.ts` refuses it, and the two must agree on what is eligible.
     if (age === "" || age > 100) return { documents: [], reason: "No supported application-form age band matches this applicant." };
     ageBand = age <= 70 ? "0-70" : "71-100";
   }
@@ -432,7 +385,7 @@ async function resolveWizardAttachments(
 /**
  * Optional attachments for Step 5 — every approved asset for the product, of any
  * type, independent of the email template. The twin of
- * `resolveOptionalLibraryDocuments` in `engage-actions.ts`; the two surfaces must
+ * `resolveOptionalLibraryDocuments` in `lib/communications/email-attachments.ts`; the two surfaces must
  * keep offering the same set for the same person and product.
  */
 async function resolveOptionalWizardAttachments(
@@ -459,12 +412,10 @@ export async function listOptionalWizardAttachmentsAction(input: {
   dob: string;
 }): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
   try {
-    const actor = await getActor();
-    if (!can(toAppRole(actor.role), "documentLibrary", "view"))
-      return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
+    await requireEmailSender();
     return { ok: true, data: await resolveOptionalWizardAttachments(input.productName, input.dob) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." };
+    return { ok: false, error: outboundEmailErrorMessage(e) };
   }
 }
 
@@ -475,14 +426,12 @@ export async function listWizardEmailAttachmentsAction(input: {
   dob: string;
 }): Promise<ActionResult<{ documents: LibraryDocument[]; reason: string | null }>> {
   try {
-    const actor = await getActor();
-    if (!can(toAppRole(actor.role), "documentLibrary", "view"))
-      return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-    const requirement = wizardAttachmentRequirement(input.templateName);
+    await requireEmailSender();
+    const requirement = attachmentRequirement(input.templateName);
     if (!requirement) return { ok: true, data: { documents: [], reason: null } };
     return { ok: true, data: await resolveWizardAttachments(requirement, input.productName, input.dob) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t load library assets." };
+    return { ok: false, error: outboundEmailErrorMessage(e) };
   }
 }
 
@@ -504,7 +453,6 @@ async function persistHealthWorkflow(applicationId: string, clientId: string, fo
     assignments.push({ dependentId: person.dependentId, personName: person.personName, variant: match.variant, ageBand, documentLibraryId: match.document?.id ?? null, matchStatus: match.document ? "Matched" as const : "Unavailable" as const });
   }
   await workflows.replaceApplicationCarrierForms(applicationId, assignments);
-  await snapshotApplicationRequirements(applicationId, form.productVersionId || null, form);
   await persistFirstLayerCoverage(clientId, form);
   return assignments.filter((item) => item.matchStatus === "Unavailable").length;
 }
@@ -556,11 +504,14 @@ async function persistFirstLayerCoverage(clientId: string, form: WizardForm) {
 export async function getDraftResumeAction(
   applicationId: string,
 ): Promise<ActionResult<DraftResumePayload>> {
-  await getActor();
+  const actor = await getActor();
   try {
     const draft = await getApplicationsRepository().findById(applicationId);
     if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
       return { ok: false, error: "This application draft is no longer available to continue." };
+    }
+    if (toAppRole(actor.role) === "agent" && draft.assignedUserId !== actor.id) {
+      return { ok: false, error: "This application draft is not assigned to you." };
     }
     const client = await getClientsRepository().findById(draft.clientId);
     if (!client) return { ok: false, error: "The contact for this application draft no longer exists." };
@@ -645,7 +596,31 @@ export async function getDraftResumeAction(
     }
     if (!hasSavedValue(saved.emailRecipient) && form.email) form.emailRecipient = form.email;
 
-    return { ok: true, data: { form, linkedClientName: client.fullName, autoFilled } };
+    const requirements = await getApplicationRequirementsRepository().listByApplication(draft.id);
+    let requirementPreview: DraftResumePayload["requirementPreview"] = null;
+    if (requirements.length) {
+      // Drafts are intentionally not receipt targets yet. Authorize their real linked client;
+      // canonical row IDs come only from listByApplication(draft.id), never browser input.
+      const scope = await getRequirementAttachmentsRepository().resolveScope(actor.id, {
+        type: "client",
+        clientId: draft.clientId,
+      });
+      if (scope.clientId !== draft.clientId) return { ok: false, error: "The draft requirement does not belong to this contact." };
+      requirementPreview = {
+        applicationId: draft.id,
+        clientId: draft.clientId,
+        items: requirements.map((row) => ({
+          requirementKey: `persisted:${row.id}`,
+          name: `${row.documentName}${row.appliesTo ? ` — ${row.appliesTo}` : ""}`,
+          cond: row.isRequired ? null : "not required yet",
+          checked: false,
+          status: row.status,
+          isRequired: row.isRequired,
+          phase: row.phase ?? undefined,
+        })),
+      };
+    }
+    return { ok: true, data: { form, linkedClientName: client.fullName, autoFilled, requirementPreview } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to load the application draft." };
   }
@@ -669,7 +644,6 @@ interface WizardCreateContext {
   mode: WizardMode;
   actor: Actor;
   startsApplication: boolean;
-  loggingEmail: boolean;
   resolvedClientId: string;
   clientName: string;
   resumingDraft: boolean;
@@ -706,6 +680,9 @@ async function resolveWizardContact(
       const draft = await applicationsRepo.findById(form.draftApplicationId);
       if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
         return { ok: false, error: "This application draft is no longer available to continue." };
+      }
+      if (toAppRole(actor.role) === "agent" && draft.assignedUserId !== actor.id) {
+        return { ok: false, error: "This application draft is not assigned to you." };
       }
       const existingClient = await clientsRepo.findById(draft.clientId);
       if (!existingClient) return { ok: false, error: "The contact for this application draft no longer exists." };
@@ -959,8 +936,8 @@ async function finalizeWizardApplication(
   const unavailable = mode !== "draft" && form.category === "health"
     ? await persistHealthWorkflow(application.id, resolvedClientId, form)
     : 0;
-  if (mode !== "draft" && form.category !== "health") {
-    await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
+  if (mode !== "draft") {
+    result.requirementTargets = await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
   }
   await recordActivity({
     scopeType: "client",
@@ -1124,19 +1101,15 @@ async function createTravelRecord(ctx: WizardCreateContext) {
         beneficiaryName: traveler.beneficiaryName || null, beneficiaryBirthdate: traveler.beneficiaryDob || null,
         beneficiaryRelation: traveler.beneficiaryRelationship || null, beneficiaryContact: traveler.beneficiaryContact || null,
       })));
-      await getCarrierWorkflowsRepository().replaceTravelRequirements(travel.id, [
-        { documentName: "Completed Travel application form", appliesTo: validTravelers.map((traveler) => traveler.name).join(", "), isRequired: true, sortOrder: 10 },
-        ...validTravelers.map((traveler, index) => ({ documentName: traveler.idType === "Government-issued ID" ? "Valid government-issued ID" : "Passport copy", appliesTo: traveler.name, isRequired: true, sortOrder: 20 + index * 10 })),
-        { documentName: "Payment proof", appliesTo: "Client collection", isRequired: true, sortOrder: 500 },
-        { documentName: "Issued Travel policy", appliesTo: "After portal issuance", isRequired: false, sortOrder: 510 },
-      ]);
-      // Hand the client the requirement ids its picked files belong to (H6d), keyed the same way the
-      // rows were just written: the form at sort 10, traveler i's ID at 20 + i·10.
-      const requirementRows = await getCarrierWorkflowsRepository().listTravelRequirements(travel.id);
-      result.travelUploadTargets = {
-        applicationForm: requirementRows.find((row) => row.sortOrder === 10)?.id ?? null,
-        travelers: validTravelers.map((_, index) => requirementRows.find((row) => row.sortOrder === 20 + index * 10)?.id ?? null),
-      };
+      // Preassign real IDs while the stable preview identity is in scope. No matching by order.
+      const requirementTargets: Record<string, RequirementTarget> = {};
+      const requirementRows = travelWizardRequirements(form).map(({ key, ...item }) => {
+        const id = crypto.randomUUID();
+        requirementTargets[key] = { kind: "travel", recordId: travel.id, requirementId: id };
+        return { id, ...item };
+      });
+      await getCarrierWorkflowsRepository().replaceTravelRequirements(travel.id, requirementRows);
+      result.requirementTargets = requirementTargets;
       result.travelPortalUrl = (await getIntegrationSettingsRepository().getTravelPortal())?.portalUrl ?? null;
       const premium = parseAmount(form.premium);
       if (premium && !(await getPaymentsRepository().listByTravelRequest(travel.id)).length) {
@@ -1170,15 +1143,28 @@ async function createWizardFollowUpTask(ctx: WizardCreateContext) {
       });
 }
 
-/* ---------- 4. initial email + docs checklist ---------- */
-    // Validated in step 0 above; `logOutboundEmail` links the chosen carrier asset to the
-    // communication and rolls its own row back if that link fails.
-async function logWizardInitialEmail(ctx: WizardCreateContext) {
-  const { form, actor, resolvedClientId, result } = ctx;
-  const requiredId = form.emailLibraryDocumentId?.trim() || null;
-  const attachmentIds = [...new Set([requiredId, ...(form.emailOptionalLibraryDocumentIds ?? [])].filter((id): id is string => Boolean(id)))];
-  await logOutboundEmail({ clientId: resolvedClientId, subject: form.emailSubject || `Your ${form.productName || "insurance"} application`, summary: form.emailBody.split("\n").find(Boolean) ?? "", notes: form.emailBody || null, actorId: actor.id, libraryDocumentIds: attachmentIds });
-  result.summary += ` “${form.emailTemplate || "Initial email"}” logged (not delivered)${attachmentIds.length ? ` with ${attachmentIds.length} carrier attachment${attachmentIds.length === 1 ? "" : "s"}` : ""}.`;
+/* ---------- 4. initial email draft + docs checklist ---------- */
+/**
+ * Binds Step 5's composition to the created record for the post-create review composer. Nothing
+ * is sent or logged here; the shared composer prepares and sends only on the user's explicit Send.
+ */
+function wizardEmailDraft(ctx: WizardCreateContext): EmailDraftSeed {
+  const { form, resolvedClientId, result } = ctx;
+  const record = form.category === "travel"
+    ? (result.travelRequestId ? { kind: "travel" as const, id: result.travelRequestId } : null)
+    : (result.applicationId ? { kind: "application" as const, id: result.applicationId } : null);
+  const requiredLibraryDocumentId = form.emailLibraryDocumentId?.trim() || undefined;
+  const optionalLibraryDocumentIds = [...new Set(form.emailOptionalLibraryDocumentIds ?? [])]
+    .filter((id) => id && id !== requiredLibraryDocumentId);
+  return {
+    origin: { type: "contact", clientId: resolvedClientId, ...(record ? { record } : {}) },
+    recipient: (form.emailRecipient || form.email || "").trim(),
+    subject: form.emailSubject || `Your ${form.productName || "insurance"} application`,
+    body: form.emailBody,
+    ...(form.emailTemplate ? { templateName: form.emailTemplate } : {}),
+    ...(requiredLibraryDocumentId ? { requiredLibraryDocumentId } : {}),
+    ...(optionalLibraryDocumentIds.length ? { optionalLibraryDocumentIds } : {}),
+  };
 }
 
     // Travel lives in its own lane: it already persists travel requirements
@@ -1203,8 +1189,8 @@ async function recordWizardDocsChecklist(ctx: WizardCreateContext) {
  * Create everything Step 6's "This will automatically create" list
  * promises: the client (new record,
  * existing link, or lead conversion — same record, never a duplicate), the
- * application / travel request / group account, the follow-up task, the
- * optional initial email, and the timeline entries.
+ * application / travel request / group account, the follow-up task, and the
+ * timeline entries. Step 5's email is returned as a draft to review afterwards, never sent here.
  */
 export async function createFromWizardAction(
   form: WizardForm,
@@ -1224,6 +1210,18 @@ export async function createFromWizardAction(
           : "Name, a contact method, and a product category are required.",
     };
 
+  // Reject missing/duplicate preview identities before any client or operational row is written.
+  if (mode !== "draft" && (form.category === "health" || form.category === "travel")) {
+    try {
+      const items = form.category === "health" ? healthWizardRequirements(form) : travelWizardRequirements(form);
+      if (new Set(items.map((item) => item.key)).size !== items.length) {
+        return { ok: false, error: "Requirement identities are duplicated. Reopen the wizard before creating this record." };
+      }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Refresh the wizard requirements before creating this record." };
+    }
+  }
+
   /**
    * Whether this save actually starts an application. A draft has started nothing — it is a parked
    * wizard, resumable later — and an inquiry-only application is not one either (the
@@ -1231,43 +1229,6 @@ export async function createFromWizardAction(
    * hangs off this.
    */
   const startsApplication = mode !== "draft" && form.status !== "Lead";
-
-  /**
-   * Whether Step 5's composed email actually gets logged by this save. `mode === "email"` sends
-   * regardless of the toggle; a draft never sends, which is why a draft is never gated below.
-   */
-  const sendingEmail = mode === "email" || (form.sendEmail && mode !== "draft");
-  const loggingEmail = sendingEmail && !!(form.emailRecipient || form.email);
-
-  /* ---------- 0. carrier-attachment pre-flight ---------- */
-  // Runs before the `try` and before any write: the wizard creates a client, an application, a
-  // checklist and a task in one pass, so refusing here is the only way a rejected email doesn't
-  // leave a half-built application behind. Step 5's picker is where the user satisfies it.
-  if (loggingEmail) {
-    const requirement = wizardAttachmentRequirement(form.emailTemplate);
-    const attachmentId = form.emailLibraryDocumentId?.trim() ?? "";
-    if (requirement) {
-      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
-        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-      const eligible = await resolveWizardAttachments(requirement, form.productName, form.dob);
-      if (eligible.reason) return { ok: false, error: eligible.reason };
-      if (!attachmentId || !eligible.documents.some((doc) => doc.id === attachmentId))
-        return { ok: false, error: `Choose the approved ${requirement.toLowerCase()} matched to this application in Step 5.` };
-    } else if (attachmentId) {
-      return { ok: false, error: "This email template does not require a carrier attachment." };
-    }
-    const optionalIds = [...new Set(form.emailOptionalLibraryDocumentIds ?? [])].filter((id) => id !== attachmentId);
-    if (optionalIds.length) {
-      // Its own permission check: the one above only runs when a template gates.
-      if (!can(toAppRole(actor.role), "documentLibrary", "view"))
-        return { ok: false, error: "Carrier attachments are available to Admin and Staff only." };
-      if (optionalIds.length > MAX_OPTIONAL_ATTACHMENTS)
-        return { ok: false, error: `Attach at most ${MAX_OPTIONAL_ATTACHMENTS} library assets.` };
-      const allowed = await resolveOptionalWizardAttachments(form.productName, form.dob);
-      if (optionalIds.some((id) => !allowed.documents.some((doc) => doc.id === id)))
-        return { ok: false, error: "One or more selected attachments are no longer available. Reopen the attachment list in Step 5." };
-    }
-  }
 
   try {
     const resolved = await resolveWizardContact(form, mode, actor, startsApplication, options);
@@ -1278,7 +1239,6 @@ export async function createFromWizardAction(
       mode,
       actor,
       startsApplication,
-      loggingEmail,
       resolvedClientId: resolved.clientId,
       clientName: resolved.clientName,
       resumingDraft: resolved.resumingDraft,
@@ -1309,9 +1269,9 @@ export async function createFromWizardAction(
     /* ---------- 3. follow-up task ---------- */
     if (form.createTask && mode !== "draft") await createWizardFollowUpTask(ctx);
 
-    /* ---------- 4. initial email (validated by §0) + docs checklist ---------- */
-    if (loggingEmail) await logWizardInitialEmail(ctx);
+    /* ---------- 4. docs checklist + email draft for review after creating ---------- */
     if (mode === "docs" && form.category !== "travel") await recordWizardDocsChecklist(ctx);
+    if (mode !== "draft" && form.sendEmail) result.emailDraft = wizardEmailDraft(ctx);
 
     revalidatePath("/applications");
     revalidatePath("/prospects");

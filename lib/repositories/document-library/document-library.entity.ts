@@ -6,7 +6,7 @@ export const LIBRARY_DOCUMENT_TYPES = [
 export const LIBRARY_AGE_BANDS = ["All Ages", "0-70", "71-100"] as const;
 export const LIBRARY_APPROVAL_STATUSES = ["Draft", "Pending Approval", "Approved", "Rejected"] as const;
 
-/** Ceiling on optional attachments per email — bounds the per-id fan-out in logOutboundEmail. */
+/** Ceiling on optional library attachments per email — bounds the per-id fan-out when resolving bytes. */
 export const MAX_OPTIONAL_ATTACHMENTS = 5;
 
 export type LibraryDocumentType = (typeof LIBRARY_DOCUMENT_TYPES)[number];

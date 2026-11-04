@@ -266,21 +266,22 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
     return d != null && d < 0 && r.status !== "Renewed" && r.status !== "Paid";
   }).length;
 
+  // Email acceptance never advances the renewal lifecycle; staff mark the notice sent explicitly.
   const sendNotice = (r: Renewal) =>
-    overlays.openEngage(
-      "Send Renewal Notice",
-      {
-        clientId: r.clientId,
-        name: r.clientName ?? "Client",
-        premium: r.premiumAmount,
-        product: r.policyRef,
-      },
-      () =>
-        startTransition(async () => {
-          await markRenewalNoticeSentAction(r.id);
-          router.refresh();
-        }),
-    );
+    overlays.openEngage("Send Renewal Notice", {
+      clientId: r.clientId,
+      name: r.clientName ?? "Client",
+      premium: r.premiumAmount,
+      product: r.policyRef,
+      record: { kind: "renewal", id: r.id },
+    });
+  const markNoticeSent = (r: Renewal) =>
+    startTransition(async () => {
+      const res = await markRenewalNoticeSentAction(r.id);
+      if (!res.ok) return overlays.toast("Couldn’t mark notice sent", res.error);
+      overlays.toast("Renewal notice marked sent", `${r.clientName ?? "Client"} — ${r.policyRef ?? "policy"}`);
+      router.refresh();
+    });
 
   return (
     <>
@@ -338,6 +339,12 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
               <Btn size="sm" onClick={() => sendNotice(r)}>
                 <I.send size={13} /> Send notice
               </Btn>
+              {(r.status === "Upcoming" || r.status === "Notice Received") && (
+                <Btn size="sm" variant="ghost" onClick={() => markNoticeSent(r)}
+                  title="Record that the client was sent the renewal notice. Sending an email does not do this automatically.">
+                  Mark notice sent
+                </Btn>
+              )}
             </span>
           </Td>
         </Row>

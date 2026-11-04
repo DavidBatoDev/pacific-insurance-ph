@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getInboxRepository } from "@/lib/repositories/inbox";
 import type { InboxSyncState, IncomingMessage } from "@/lib/repositories/inbox/inbox.entity";
-import { getGmailReadAccess, type GmailReadAccess } from "./access";
+import { getGmailReadAccess, type GmailAccess } from "./access";
 import { GmailApiError, gmailRequest, GMAIL_REQUEST_TIMEOUT_MS } from "./api";
 import { getGmailInboxConfig } from "./inbox-config";
 import { decodeGmailBase64, gmailObject, gmailParts, parseGmailMessage } from "./mime";
@@ -54,11 +54,11 @@ function decodeCheckpoint(value: string | null): PageCheckpoint {
   };
 }
 
-function identityMatches(state: InboxSyncState, access: GmailReadAccess): void {
+function identityMatches(state: InboxSyncState, access: GmailAccess): void {
   if (state.googleSubject !== access.googleSubject || state.oauthClientId !== access.oauthClientId) throw new GmailAuthorizationError("identity_mismatch", true);
 }
 
-async function registerWatch(access: GmailReadAccess): Promise<string> {
+async function registerWatch(access: GmailAccess): Promise<string> {
   const watch = gmailObject(await gmailRequest<unknown>("watch", { method: "POST", body: { topicName: getGmailInboxConfig().topicName }, access }));
   decimal(watch.historyId);
   if (typeof watch.expiration !== "string" || !/^\d{1,16}$/.test(watch.expiration)) throw new Error("gmail_invalid_watch_expiry");

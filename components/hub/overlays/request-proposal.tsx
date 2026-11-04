@@ -15,9 +15,10 @@ import { useOverlays } from "./overlay-provider";
 
 /**
  * Request Proposal — its own modal (modals.md §14), never the Email composer.
- * Sets proposal_status=Requested, logs a note + follow-up task, optionally
- * emails the carrier. Opened with a client from the contact profile, or with a
- * picker from the Leads quick-actions bar.
+ * Sets proposal_status=Requested, logs a note + follow-up task. Saving never
+ * sends email: with "Also email Pacific Cross" it then opens a populated email
+ * to the chosen contact for review and an explicit Send. Opened with a client
+ * from the contact profile, or with a picker from the Leads quick-actions bar.
  */
 export function RequestProposalModal({
   clientId,
@@ -39,7 +40,6 @@ export function RequestProposalModal({
   const [note, setNote] = useState("");
   const [follow, setFollow] = useState(() => addBusinessDays(HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS));
   const [alsoEmail, setAlsoEmail] = useState(false);
-  const [carrier, setCarrier] = useState("");
   const [carrierContactId, setCarrierContactId] = useState("");
   const [contacts, setContacts] = useState<ExternalContact[]>([]);
   useEffect(() => { listProposalContactsAction().then(setContacts).catch(() => setContacts([])); }, []);
@@ -51,15 +51,23 @@ export function RequestProposalModal({
         clientId: picked.id,
         note,
         followUpDate: follow || null,
-        alsoEmailCarrier: alsoEmail,
-        carrierRecipient: alsoEmail ? carrier : null,
-        carrierContactId: alsoEmail ? carrierContactId || null : null,
+        emailContactId: alsoEmail ? carrierContactId || null : null,
       });
       if (res.ok) {
         overlays.toast("Proposal requested", `Note + follow-up task added for ${picked.name}.`);
         onDone?.("Requested");
         router.refresh();
         onClose();
+        const draft = res.data.emailDraft;
+        if (draft) {
+          // A separate, reviewed send: an email failure never re-runs the request above.
+          overlays.openEngage(
+            "Request Proposal Email",
+            { clientId: picked.id, name: picked.name, email: draft.recipient, externalContactId: draft.externalContactId ?? null },
+            undefined,
+            draft,
+          );
+        }
       } else {
         overlays.toast("Couldn’t request proposal", res.error);
       }
@@ -108,21 +116,25 @@ export function RequestProposalModal({
         <span className={cn("grid size-[18px] place-items-center rounded-md border-[1.6px]", alsoEmail ? "border-brand bg-brand text-white" : "border-border-strong text-transparent")}>
           {alsoEmail && <I.check size={13} />}
         </span>
-        Also log an email to Pacific Cross (not delivered)
+        Also email Pacific Cross (review and send next)
       </button>
       {alsoEmail && (
-        <Field label="Carrier recipient" className="mt-3">
-          <select className={INPUT} value={carrierContactId} onChange={(e) => { const id = e.target.value; setCarrierContactId(id); setCarrier(contacts.find((contact) => contact.id === id)?.email ?? ""); }}>
-            <option value="">Enter another email…</option>
+        <Field label="Pacific Cross contact" className="mt-3">
+          <select className={INPUT} value={carrierContactId} onChange={(e) => setCarrierContactId(e.target.value)}>
+            <option value="">Choose a New Business contact…</option>
             {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.role ?? contact.department} · {contact.email}</option>)}
           </select>
-          {!carrierContactId && <input className={`${INPUT} mt-2`} placeholder="name@pacificcross.com.ph" type="email" value={carrier} onChange={(e) => setCarrier(e.target.value)} />}
+          <p className="mt-1.5 text-[11.5px] text-subtle">
+            {contacts.length
+              ? "Requests are sent only to active New Business contacts. Your request note becomes the email body; you review it before sending."
+              : "No active New Business contact with an email address. Add one under Contacts to email Pacific Cross."}
+          </p>
         </Field>
       )}
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>
-        <Btn variant="primary" disabled={pending || !note.trim() || !picked || (alsoEmail && !carrier.trim())} onClick={confirm}>
+        <Btn variant="primary" disabled={pending || !note.trim() || !picked || (alsoEmail && !carrierContactId)} onClick={confirm}>
           {pending ? "Requesting…" : "Request proposal"}
         </Btn>
       </div>

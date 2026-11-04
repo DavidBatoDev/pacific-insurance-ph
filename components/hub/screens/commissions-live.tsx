@@ -82,10 +82,13 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
         externalContactId: commission.pacificCrossContactId,
         product: `OR ${commission.orNumber ?? "—"} — ${commission.clientName ?? ""} (${commission.policyRef ?? "policy"})`,
         premium: commission.estimatedAmount,
+        record: commission.policyId ? { kind: "policy", id: commission.policyId } : null,
       },
+      // Runs only after Gmail accepted the request; a failed status update never invites a resend.
       () =>
         startTransition(async () => {
-          await updateCommissionAction(commission.id, "requested");
+          const result = await updateCommissionAction(commission.id, "requested");
+          if (!result.ok) overlays.toast("Email sent — update the commission manually", `The voucher request was sent, but the commission status couldn’t be updated: ${result.error}`);
           router.refresh();
         }),
     );

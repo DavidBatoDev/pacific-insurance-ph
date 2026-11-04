@@ -81,8 +81,10 @@ export const outstandingItems = (items: SubmissionItem[]) =>
   items.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
 
 /**
- * Communications logged against an application or claim whose summary starts with a known
- * prefix (submissions, Pacific Cross replies, billing sent), newest first.
+ * Communications recorded against an application or claim whose summary starts with a known
+ * prefix (submissions, Pacific Cross replies, billing sent), newest first. The prefix only locates
+ * history; `deliveryStatus` says whether Gmail actually accepted an outbound email, and the
+ * recipient comes from the immutable send-ledger snapshot, never the contact's current address.
  */
 export async function listCommunicationRecords(input: {
   kind: SubmissionKind;
@@ -90,9 +92,10 @@ export async function listCommunicationRecords(input: {
   summaryPrefix: string;
   direction?: "Inbound" | "Outbound";
 }): Promise<SubmissionRecord[]> {
+  type LedgerRecipient = { recipient_email: string };
   let query = getSupabaseAdmin()
     .from("communications")
-    .select("id, occurred_at, created_at, subject, notes, summary, external_contact_id, external_contacts (name, email), users:related_user_id (full_name)")
+    .select("id, occurred_at, created_at, subject, notes, summary, delivery_status, external_contact_id, external_contacts (name, email), users:related_user_id (full_name), gmail_outbound_messages!gmail_outbound_messages_communication_id_fkey (recipient_email)")
     .eq(input.kind === "application" ? "application_id" : "claim_id", input.id)
     .like("summary", `${input.summaryPrefix}%`);
   if (input.direction) query = query.eq("direction", input.direction);
@@ -100,23 +103,29 @@ export async function listCommunicationRecords(input: {
     .order("occurred_at", { ascending: false })
     .returns<{
       id: string; occurred_at: string | null; created_at: string; subject: string | null; notes: string | null; summary: string | null;
-      external_contact_id: string | null;
+      delivery_status: string | null; external_contact_id: string | null;
       external_contacts: { name: string; email: string | null } | null; users: { full_name: string | null } | null;
+      gmail_outbound_messages: LedgerRecipient | LedgerRecipient[] | null;
     }[]>();
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    occurredAt: row.occurred_at ?? row.created_at,
-    subject: row.subject,
-    body: row.notes,
-    summary: row.summary,
-    contactId: row.external_contact_id,
-    contactName: row.external_contacts?.name ?? null,
-    contactEmail: row.external_contacts?.email ?? null,
-    senderName: row.users?.full_name ?? null,
-  }));
+  return (data ?? []).map((row) => {
+    const ledger = Array.isArray(row.gmail_outbound_messages) ? row.gmail_outbound_messages[0] : row.gmail_outbound_messages;
+    return {
+      id: row.id,
+      occurredAt: row.occurred_at ?? row.created_at,
+      subject: row.subject,
+      body: row.notes,
+      summary: row.summary,
+      deliveryStatus: row.delivery_status,
+      recipient: ledger?.recipient_email ?? null,
+      contactId: row.external_contact_id,
+      contactName: row.external_contacts?.name ?? null,
+      contactEmail: row.external_contacts?.email ?? null,
+      senderName: row.users?.full_name ?? null,
+    };
+  });
 }
 
-/** The submission emails logged for an application or claim, newest first. */
+/** The submission emails recorded for an application or claim (any outcome), newest first. */
 export const listSubmissionRecords = (kind: SubmissionKind, id: string) =>
   listCommunicationRecords({ kind, id, summaryPrefix: SUBMISSION_SUMMARY_PREFIX, direction: "Outbound" });

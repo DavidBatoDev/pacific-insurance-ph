@@ -61,6 +61,7 @@ export function OverlayHost({
           action={overlay.action}
           contact={overlay.contact}
           onSent={overlay.onSent}
+          initialDraft={overlay.initialDraft}
           onClose={close}
         />
       );

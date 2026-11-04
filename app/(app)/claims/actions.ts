@@ -21,7 +21,8 @@ import {
 import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import { getPoliciesRepository } from "@/lib/repositories/policies";
 import { getClientsRepository } from "@/lib/repositories/clients";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { outboundEmailErrorMessage, requireEmailSender } from "@/lib/communications/outbound-email";
+import type { EmailDraftSeed } from "@/lib/communications/outbound-email.types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
@@ -408,17 +409,25 @@ export async function updateClaimRequirementRequiredAction(
   }
 }
 
+/** A reviewable missing-documents email for one claim, plus the client its attachments come from. */
+export interface MissingDocumentsDraft {
+  clientId: string;
+  outstanding: number;
+  draft: EmailDraftSeed;
+}
+
 /**
- * Logs an email to the claimant listing the required claim documents that are still Pending or
- * Incomplete (R1 — logged, not delivered). The claim counterpart of requestMissingDocumentsAction.
+ * Builds the email to the claimant listing the required claim documents that are still Pending or
+ * Incomplete. Nothing is sent or recorded here: staff review it and send it through Gmail, and the
+ * documents-requested activity is written only once Gmail accepts it.
  */
-export async function requestMissingClaimDocumentsAction(claimId: string): Promise<ActionResult<{ outstanding: number }>> {
-  const actor = await getActor();
+export async function getMissingClaimDocumentsDraftAction(claimId: string): Promise<ActionResult<MissingDocumentsDraft>> {
   try {
+    const actor = await requireEmailSender();
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
     const client = await getClientsRepository().findById(claim.clientId);
-    if (!client?.email) return { ok: false, error: "Add the client’s email address before logging a document follow-up." };
+    if (!client) return { ok: false, error: "The claim’s client could not be found." };
     const requirements = await getClaimRequirementsRepository().listByClaim(claimId);
     const missing = requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
     if (!missing.length) return { ok: false, error: "There are no outstanding required documents to request." };
@@ -435,25 +444,22 @@ export async function requestMissingClaimDocumentsAction(claimId: string): Promi
       "",
       actor.fullName,
     ].join("\n");
-    const communicationId = await logOutboundEmail({
-      clientId: client.id, claimId: claim.id, actorId: actor.id,
-      subject: `Documents needed for your ${label}`,
-      summary: `Request for ${missing.length} outstanding claim document${missing.length === 1 ? "" : "s"}`,
-      notes: body,
-    });
-    await recordActivity({
-      scopeType: "client", scopeId: client.id, actorId: actor.id,
-      activityType: "claim.documents_requested",
-      summary: `Requested ${missing.length} missing document${missing.length === 1 ? "" : "s"} for ${claim.referenceNo ?? "claim"} (logged, not delivered)`,
-    });
-    await recordAudit({
-      actorId: actor.id, action: "request_missing_documents", tableName: "communications", recordId: communicationId,
-      newValue: { claim_id: claim.id, requirement_ids: missing.map((item) => item.id) },
-    });
-    revalidatePath("/claims");
-    revalidatePath(`/clients/${client.id}`);
-    return { ok: true, data: { outstanding: missing.length } };
+    return {
+      ok: true,
+      data: {
+        clientId: client.id,
+        outstanding: missing.length,
+        draft: {
+          origin: { type: "claim_missing", id: claim.id },
+          recipient: client.email ?? "",
+          subject: `Documents needed for your ${label}`,
+          body,
+          documentIds: [],
+          emailAttachments: [],
+        },
+      },
+    };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Failed to log the document follow-up." };
+    return { ok: false, error: outboundEmailErrorMessage(error) };
   }
 }

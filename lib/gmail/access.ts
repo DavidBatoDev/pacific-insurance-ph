@@ -3,17 +3,24 @@ import "server-only";
 import { getGmailRepository } from "@/lib/repositories/gmail";
 import { getGmailConfig } from "./config";
 import { checkGmailRefresh } from "./oauth";
-import { classifyGoogleError, GmailAuthorizationError, requireReadScope } from "./policy";
+import { classifyGoogleError, GmailAuthorizationError, requireReadScope, requireSendScope } from "./policy";
 import { decryptToken, encryptToken } from "./token-crypto";
 
-export interface GmailReadAccess {
+export interface GmailAccess {
   accessToken: string;
   googleSubject: string;
   oauthClientId: string;
 }
 
+type GmailCapability = "read" | "send";
+
+function requireCapability(capability: GmailCapability, scopes: string[]): void {
+  if (capability === "send") requireSendScope(scopes);
+  else requireReadScope(scopes);
+}
+
 /** Access tokens stay in server memory for one operation; never serialized or persisted. */
-export async function getGmailReadAccess(): Promise<GmailReadAccess> {
+async function getGmailAccess(capability: GmailCapability): Promise<GmailAccess> {
   const config = getGmailConfig();
   const repo = getGmailRepository();
   const connection = await repo.getCredentials();
@@ -22,7 +29,7 @@ export async function getGmailReadAccess(): Promise<GmailReadAccess> {
   if (connection.oauthClientId !== config.clientId || connection.mailboxEmail !== config.senderEmail) {
     throw new GmailAuthorizationError("identity_mismatch", true);
   }
-  requireReadScope(connection.grantedScopes);
+  requireCapability(capability, connection.grantedScopes);
   const token = decryptToken(connection.refreshTokenCiphertext, config.encryptionKey, `gmail:refresh:${config.clientId}:${connection.googleSubject}`);
   try {
     if (connection.refreshTokenExpiresAt && Date.parse(connection.refreshTokenExpiresAt) <= Date.now()) {
@@ -43,14 +50,23 @@ export async function getGmailReadAccess(): Promise<GmailReadAccess> {
       }, connection.revision, connection.connectedBy);
       if (!updated) throw new GmailAuthorizationError("stale_connection", false);
     }
-    requireReadScope(checked.grantedScopes);
+    requireCapability(capability, checked.grantedScopes);
     return { accessToken: checked.accessToken, googleSubject: checked.googleSubject, oauthClientId: config.clientId };
   } catch (error) {
     const safe = classifyGoogleError(error);
     if (safe.permanent) {
-      // Revocation affects sending as well. A missing read grant alone never reaches this branch.
+      // Revocation or a missing send grant affects every capability. A missing read grant alone never reaches this branch.
       await repo.recordCheck(connection.revision, connection.connectedBy, "reconnect_required", safe.code);
     }
     throw safe;
   }
+}
+
+export function getGmailReadAccess(): Promise<GmailAccess> {
+  return getGmailAccess("read");
+}
+
+/** Sending alone never requires the read grant. */
+export function getGmailSendAccess(): Promise<GmailAccess> {
+  return getGmailAccess("send");
 }

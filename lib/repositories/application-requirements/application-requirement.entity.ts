@@ -25,6 +25,8 @@ export interface ApplicationRequirement {
 }
 
 export interface NewApplicationRequirement {
+  /** Optional preassigned ID for callers holding a stable requirement identity. */
+  id?: string;
   applicationId: string;
   requiredDocumentItemId?: string | null;
   documentName: string;

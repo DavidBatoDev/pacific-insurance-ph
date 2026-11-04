@@ -7,6 +7,7 @@ import { INPUT } from "@/components/hub/primitives";
 import type { InboxListMessage, InboxReviewData } from "@/lib/gmail/review";
 import { cn } from "@/lib/utils";
 import { InboxMessageDetail } from "./message-detail";
+import { InboxFreshness } from "./inbox-freshness";
 
 export type CorrespondenceState = "Unassigned" | "Linked" | "Filed";
 export function correspondenceState(message: Pick<InboxListMessage, "targetId" | "filedParts">): CorrespondenceState {
@@ -36,6 +37,7 @@ export function InboxWorkspace({ data }: { data: InboxReviewData }) {
       <div><div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"><Mail size={14} aria-hidden="true" /> Correspondence evidence</div><h1 id="inbox-title" className="text-[27px] font-bold tracking-[-0.035em]">Inbox</h1><p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">{data.canLink ? "Review incoming mail, release it to a record, then file the original evidence." : "Correspondence released to your authorized records. Filing records receipt, not verification."}</p></div>
       {data.canLink && <Link href="/settings?tab=Integrations" className="rounded-md border border-border-strong bg-card px-3 py-2 text-xs font-semibold hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring">Mailbox & sync settings</Link>}
     </header>
+    <InboxFreshness key={data.revision} revision={data.revision} selectedMessageId={data.selected?.id ?? null} page={data.page} />
     <div className="grid min-w-0 grid-cols-[minmax(270px,0.85fr)_minmax(0,1.8fr)] items-start gap-4 max-[1100px]:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.4fr)] max-[800px]:grid-cols-1">
       <aside aria-label="Correspondence list" className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs">
         <div className="border-b border-border p-3">

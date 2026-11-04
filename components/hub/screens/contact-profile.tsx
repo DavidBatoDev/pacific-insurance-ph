@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 import { archiveClientAction, restoreClientAction } from "@/app/(app)/clients/archive-actions";
-import type { LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
+import { listEmailDocumentsAction } from "@/app/(app)/email/actions";
+import type { EmailDraftSeed, EmailSendView, LeadAdvanceSuggestion } from "@/lib/communications/outbound-email.types";
 import type { TimelineEntry } from "@/lib/queries/contact-timeline";
 import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
 import type { Client } from "@/lib/repositories/clients/client.entity";
@@ -103,6 +104,7 @@ export function ContactProfile({
   const [callFormKey, setCallFormKey] = useState(0);
   const [emailFormKey, setEmailFormKey] = useState(0);
   const [initialEmailTemplate, setInitialEmailTemplate] = useState<string | undefined>(undefined);
+  const [initialEmailDraft, setInitialEmailDraft] = useState<EmailDraftSeed | undefined>(undefined);
 
   /* ---------- modal switches ---------- */
   const [advanceOpen, setAdvanceOpen] = useState<(AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) | null>(null);
@@ -144,11 +146,37 @@ export function ContactProfile({
     });
 
   /** Nurture chips: focus the inline composer with a template preselected. */
-  const focusEmail = (templateName?: string) => {
+  const focusEmail = (templateName?: string, draft?: EmailDraftSeed) => {
     setTab("Email");
     setInitialEmailTemplate(templateName);
+    setInitialEmailDraft(draft);
     setEmailFormKey((k) => k + 1);
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  /**
+   * Proposal delivery: the typed origin plus the current Illustrative Proposal, preselected and
+   * locked. Gmail acceptance (not this click) moves the proposal Received → Sent.
+   */
+  const emailProposal = async () => {
+    if (!isLead || proposalClient.proposalStatus !== "Received") return;
+    const res = await listEmailDocumentsAction(client.id).catch(() => null);
+    if (!res) return overlays.toast("Couldn’t load the proposal", "Reload the page and try again.");
+    if (!res.ok) return overlays.toast("Couldn’t load the proposal", res.error);
+    const proposal = res.data
+      .filter((d) => d.documentType === "Illustrative Proposal")
+      .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0];
+    if (!proposal) return overlays.toast("No proposal to email", "Upload the current Illustrative Proposal PDF first.");
+    focusEmail("Proposal / Quote Delivery", {
+      origin: { type: "proposal_delivery", clientId: client.id },
+      recipient: client.email ?? "",
+      subject: "",
+      body: "",
+      templateName: "Proposal / Quote Delivery",
+      documentIds: [proposal.id],
+    });
+  };
+  const onEmailSent = (view: EmailSendView) => {
+    if (view.origin.type === "proposal_delivery") showProposalStatus("Sent");
   };
   /** Land on the discovery inputs: they only render for a Reached call, so remount preset to it. */
   const focusCall = () => {
@@ -179,6 +207,7 @@ export function ContactProfile({
         onToggleArchive={toggleArchive}
         onGenerateProposal={() => setGenerateProposalOpen(true)}
         onRequestProposal={() => setProposalOpen(true)}
+        onEmailProposal={() => void emailProposal()}
         focusEmail={focusEmail}
         focusCall={focusCall}
       />
@@ -202,6 +231,8 @@ export function ContactProfile({
             emailFormKey={emailFormKey}
             callFormKey={callFormKey}
             initialEmailTemplate={initialEmailTemplate}
+            initialEmailDraft={initialEmailDraft}
+            onEmailSent={onEmailSent}
             onAdvanceSuggestion={setAdvanceOpen}
           />
           <ContactTimeline timeline={timeline} />
@@ -218,7 +249,7 @@ export function ContactProfile({
               }
               onGenerate={() => setGenerateProposalOpen(true)}
               onRequest={() => setProposalOpen(true)}
-              onLogEmail={() => focusEmail("Proposal / Quote Delivery")}
+              onEmailProposal={() => void emailProposal()}
               onRecordDecision={() => setRecordDecisionOpen(true)}
               onStatusChange={showProposalStatus}
             />

@@ -2023,6 +2023,179 @@ export type Database = {
           },
         ]
       }
+      gmail_outbound_messages: {
+        Row: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          acceptance_metadata?: Json
+          accepted_at?: string | null
+          actor_id: string
+          attachments?: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at?: string
+          dispatch_started_at?: string | null
+          dispatch_token?: string | null
+          effects_applied_at?: string | null
+          error_code?: string | null
+          external_contact_id?: string | null
+          generation?: number
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          google_subject: string
+          id: string
+          in_reply_to?: string | null
+          message_references?: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status?: number | null
+          recipient_email: string
+          repeat_of?: string | null
+          reply_to_message_id?: string | null
+          requested_thread_id?: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state?: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acceptance_metadata?: Json
+          accepted_at?: string | null
+          actor_id?: string
+          attachments?: Json
+          body?: string
+          client_id?: string
+          communication_id?: string
+          created_at?: string
+          dispatch_started_at?: string | null
+          dispatch_token?: string | null
+          effects_applied_at?: string | null
+          error_code?: string | null
+          external_contact_id?: string | null
+          generation?: number
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          google_subject?: string
+          id?: string
+          in_reply_to?: string | null
+          message_references?: string[]
+          oauth_client_id?: string
+          origin?: Json
+          payload_hash?: string
+          prepared_by?: string
+          provider_http_status?: number | null
+          recipient_email?: string
+          repeat_of?: string | null
+          reply_to_message_id?: string | null
+          requested_thread_id?: string | null
+          rfc_message_id?: string
+          sender_email?: string
+          source_key?: string
+          state?: string
+          subject?: string
+          target_id?: string
+          target_kind?: string
+          template_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_outbound_messages_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: true
+            referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_external_contact_id_fkey"
+            columns: ["external_contact_id"]
+            isOneToOne: false
+            referencedRelation: "external_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_prepared_by_fkey"
+            columns: ["prepared_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_repeat_of_fkey"
+            columns: ["repeat_of"]
+            isOneToOne: true
+            referencedRelation: "gmail_outbound_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_outbound_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_inbox_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_accounts: {
         Row: {
           address: string | null
@@ -3051,6 +3224,7 @@ export type Database = {
           external_contact_id: string | null
           id: string
           merge_context: Json
+          outbound_message_id: string | null
           recipient_email: string | null
           renewal_id: string
           rule_id: string
@@ -3070,6 +3244,7 @@ export type Database = {
           external_contact_id?: string | null
           id?: string
           merge_context: Json
+          outbound_message_id?: string | null
           recipient_email?: string | null
           renewal_id: string
           rule_id: string
@@ -3089,6 +3264,7 @@ export type Database = {
           external_contact_id?: string | null
           id?: string
           merge_context?: Json
+          outbound_message_id?: string | null
           recipient_email?: string | null
           renewal_id?: string
           rule_id?: string
@@ -3110,6 +3286,13 @@ export type Database = {
             columns: ["external_contact_id"]
             isOneToOne: false
             referencedRelation: "external_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_email_drafts_outbound_message_id_fkey"
+            columns: ["outbound_message_id"]
+            isOneToOne: true
+            referencedRelation: "gmail_outbound_messages"
             referencedColumns: ["id"]
           },
           {
@@ -3359,6 +3542,194 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workflow_templates"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      requirement_attachment_sources: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          original_document_id: string
+          part_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          original_document_id: string
+          part_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          original_document_id?: string
+          part_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_attachment_sources_message_id_part_id_fkey"
+            columns: ["message_id", "part_id"]
+            isOneToOne: true
+            referencedRelation: "gmail_inbox_filings"
+            referencedColumns: ["message_id", "part_id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_sources_original_document_id_fkey"
+            columns: ["original_document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      requirement_attachment_uploads: {
+        Row: {
+          actor_id: string
+          client_id: string
+          created_at: string
+          expires_at: string
+          file_name: string
+          mime_type: string
+          record_id: string
+          requirement_id: string
+          retired_at: string | null
+          size: number
+          storage_path: string
+          target_kind: string
+        }
+        Insert: {
+          actor_id: string
+          client_id: string
+          created_at?: string
+          expires_at?: string
+          file_name: string
+          mime_type: string
+          record_id: string
+          requirement_id: string
+          retired_at?: string | null
+          size: number
+          storage_path: string
+          target_kind: string
+        }
+        Update: {
+          actor_id?: string
+          client_id?: string
+          created_at?: string
+          expires_at?: string
+          file_name?: string
+          mime_type?: string
+          record_id?: string
+          requirement_id?: string
+          retired_at?: string | null
+          size?: number
+          storage_path?: string
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_attachment_uploads_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_uploads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      requirement_attachment_usages: {
+        Row: {
+          application_requirement_id: string | null
+          attached_at: string
+          attached_by: string
+          claim_requirement_id: string | null
+          document_id: string
+          id: string
+          source_id: string | null
+          travel_requirement_id: string | null
+          upload_path: string | null
+        }
+        Insert: {
+          application_requirement_id?: string | null
+          attached_at?: string
+          attached_by: string
+          claim_requirement_id?: string | null
+          document_id: string
+          id?: string
+          source_id?: string | null
+          travel_requirement_id?: string | null
+          upload_path?: string | null
+        }
+        Update: {
+          application_requirement_id?: string | null
+          attached_at?: string
+          attached_by?: string
+          claim_requirement_id?: string | null
+          document_id?: string
+          id?: string
+          source_id?: string | null
+          travel_requirement_id?: string | null
+          upload_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_attachment_usages_application_requirement_id_fkey"
+            columns: ["application_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "application_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_attached_by_fkey"
+            columns: ["attached_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_claim_requirement_id_fkey"
+            columns: ["claim_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "claim_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_attachment_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_travel_requirement_id_fkey"
+            columns: ["travel_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "travel_request_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_attachment_usages_upload_path_fkey"
+            columns: ["upload_path"]
+            isOneToOne: true
+            referencedRelation: "requirement_attachment_uploads"
+            referencedColumns: ["storage_path"]
           },
         ]
       }
@@ -4000,6 +4371,55 @@ export type Database = {
       }
     }
     Functions: {
+      apply_gmail_outbound_email_effects: {
+        Args: { p_id: string }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       approve_document_library_asset: {
         Args: { p_asset_id: string }
         Returns: {
@@ -4032,6 +4452,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      begin_requirement_attachment_upload: {
+        Args: { p_actor_id: string; p_target: Json; p_upload: Json }
+        Returns: undefined
+      }
       claim_gmail_inbox_sync: {
         Args: { p_lease_token: string }
         Returns: {
@@ -4062,6 +4486,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_gmail_outbound_email: {
+        Args: { p_actor_id: string; p_id: string }
+        Returns: Json
+      }
       commit_gmail_inbox_sync: { Args: { p_input: Json }; Returns: undefined }
       consume_gmail_oauth_attempt: {
         Args: {
@@ -4088,6 +4516,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      delete_document_safely: {
+        Args: { p_actor_id: string; p_document_id: string }
+        Returns: Json
       }
       enable_gmail_inbox: {
         Args: { p_actor_id: string; p_input: Json }
@@ -4123,7 +4555,109 @@ export type Database = {
         Args: { p_input: Json }
         Returns: undefined
       }
+      fail_prepared_gmail_outbound_email: {
+        Args: { p_actor_id: string; p_error_code: string; p_id: string }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       file_gmail_inbox_attachment: { Args: { p_input: Json }; Returns: string }
+      finish_gmail_outbound_email: {
+        Args: { p_dispatch_token: string; p_id: string; p_result: Json }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_gmail_inbox_revision: {
+        Args: { p_actor_id: string }
+        Returns: string
+      }
       get_gmail_inbox_thread_target: {
         Args: { p_gmail_thread_id: string; p_google_subject: string }
         Returns: {
@@ -4133,6 +4667,59 @@ export type Database = {
           label: string
           participants: string[]
         }[]
+      }
+      get_gmail_outbound_email: {
+        Args: { p_actor_id: string; p_id: string }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_requirement_attachment_original: {
+        Args: { p_actor_id: string; p_message_id: string; p_part_id: string }
+        Returns: string
       }
       gmail_inbox_actor_can_read: {
         Args: { p_actor_id: string; p_client_id: string }
@@ -4147,6 +4734,43 @@ export type Database = {
           label: string
           participants: string[]
         }[]
+      }
+      gmail_outbound_actor_can_send: {
+        Args: { p_actor_id: string }
+        Returns: boolean
+      }
+      gmail_outbound_connection_ok: {
+        Args: { p_google_subject: string; p_oauth_client_id: string }
+        Returns: boolean
+      }
+      gmail_outbound_lock_source: {
+        Args: { p_origin: Json }
+        Returns: undefined
+      }
+      gmail_outbound_renewal_due: {
+        Args: {
+          p_draft: Database["public"]["Tables"]["renewal_email_drafts"]["Row"]
+        }
+        Returns: boolean
+      }
+      gmail_outbound_source_key: {
+        Args: { p_origin: Json; p_recipient: string }
+        Returns: string
+      }
+      gmail_outbound_source_problem: {
+        Args: {
+          p_actor_id: string
+          p_attachments: Json
+          p_client_id: string
+          p_external_contact_id: string
+          p_origin: Json
+          p_outbound_id: string
+          p_phase: string
+          p_recipient: string
+          p_target_id: string
+          p_target_kind: string
+        }
+        Returns: string
       }
       link_gmail_inbox_message: {
         Args: {
@@ -4204,11 +4828,122 @@ export type Database = {
           participants: string[]
         }[]
       }
+      list_gmail_outbound_email: {
+        Args: {
+          p_actor_id: string
+          p_client_id: string
+          p_reply_to_message_id?: string
+        }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_requirement_email_attachments: {
+        Args: {
+          p_actor_id: string
+          p_offset?: number
+          p_scope: Json
+          p_search?: string
+        }
+        Returns: Json
+      }
       lock_gmail_inbox_target: {
         Args: { p_client_id: string; p_kind: string; p_target_id: string }
         Returns: boolean
       }
       next_reference: { Args: { prefix: string }; Returns: string }
+      prepare_gmail_outbound_email: {
+        Args: { p_actor_id: string; p_input: Json }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       queue_due_renewal_emails: {
         Args: { p_renewal_id?: string }
         Returns: {
@@ -4218,6 +4953,10 @@ export type Database = {
           rule_key: string
           task_id: string
         }[]
+      }
+      receive_requirement_attachment: {
+        Args: { p_actor_id: string; p_source: Json; p_target: Json }
+        Returns: Json
       }
       record_gmail_connection_check: {
         Args: {
@@ -4233,9 +4972,28 @@ export type Database = {
         Args: { p_error_code?: string; p_lease_token: string }
         Returns: undefined
       }
+      renewal_draft_send_in_flight: {
+        Args: { p_outbound_id: string }
+        Returns: boolean
+      }
       renewal_email_due_date: {
         Args: { p_renewal_id: string; p_rule_id: string }
         Returns: string
+      }
+      requirement_attachment_targets: {
+        Args: never
+        Returns: {
+          client_id: string
+          kind: string
+          label: string
+          record_id: string
+          requirement_id: string
+          status: string
+        }[]
+      }
+      resolve_requirement_attachment_scope: {
+        Args: { p_actor_id: string; p_scope: Json }
+        Returns: Json
       }
       save_gmail_connection: {
         Args: {
@@ -4285,6 +5043,7 @@ export type Database = {
           external_contact_id: string | null
           id: string
           merge_context: Json
+          outbound_message_id: string | null
           recipient_email: string | null
           renewal_id: string
           rule_id: string

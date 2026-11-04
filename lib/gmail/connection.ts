@@ -11,7 +11,7 @@ import type { GmailConnectionStatus } from "./types";
 import { getGmailConfig, gmailConfigurationProblem } from "./config";
 import { decryptToken, encryptToken } from "./token-crypto";
 import { checkGmailRefresh, exchangeGmailCode, selectRefreshToken } from "./oauth";
-import { GMAIL_READ_SCOPE, GmailAuthorizationError, classifyGoogleError } from "./policy";
+import { GMAIL_READ_SCOPE, GMAIL_SEND_SCOPE, GmailAuthorizationError, classifyGoogleError } from "./policy";
 
 /** Always authorizes the actual CRM user, independent of the persona preview. */
 export async function requireGmailAdmin() {
@@ -45,13 +45,14 @@ export async function getGmailConnectionStatus(): Promise<GmailConnectionStatus 
       lastCheckedAt: connection?.lastCheckedAt ?? null,
       canManage, setupProblem, loadProblem: null,
       readAuthorized: connection?.grantedScopes.includes(GMAIL_READ_SCOPE) ?? false,
+      sendAuthorized: connection?.status === "connected" && connection.grantedScopes.includes(GMAIL_SEND_SCOPE),
       inbox, inboxSetupProblem, inboxLoadProblem,
     };
   } catch {
     return {
       status: null, mailboxEmail: null, lastCheckedAt: null, canManage, setupProblem,
       loadProblem: "Mailbox status could not be loaded. Check database availability and the Gmail migration.",
-      readAuthorized: false, inbox: null, inboxSetupProblem, inboxLoadProblem: null,
+      readAuthorized: false, sendAuthorized: false, inbox: null, inboxSetupProblem, inboxLoadProblem: null,
     };
   }
 }

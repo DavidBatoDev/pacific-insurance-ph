@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { listEligibleLibraryDocumentsAction, type AttachmentFix } from "@/app/(app)/clients/engage-actions";
+import { listEligibleLibraryDocumentsAction } from "@/app/(app)/clients/engage-actions";
+import type { AttachmentFix } from "@/lib/communications/outbound-email.types";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
 import { I } from "../icons";
 
@@ -57,6 +58,6 @@ export function LibraryAttachmentPicker({ clientId, templateName, value, onChang
           )}
         </div>
       : <select className="h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[12.5px]" value={value} onChange={(event) => onChange(event.target.value)}><option value="">Select approved asset…</option>{documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.documentName} · {doc.versionLabel}{doc.variant ? ` · ${doc.variant}` : ""} · {doc.ageBand}</option>)}</select>}
-    <p className="mt-2 text-[11.5px] text-faint">Logged for audit only — this file and email are not delivered.</p>
+    <p className="mt-2 text-[11.5px] text-faint">Attached as the real file; review shows its name and size before anything is sent.</p>
   </div>;
 }

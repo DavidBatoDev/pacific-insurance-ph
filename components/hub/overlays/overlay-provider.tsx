@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import type { LogCallTarget } from "./log-call";
+import type { EmailDraftSeed, EmailRecordKind, EmailSendView } from "@/lib/communications/outbound-email.types";
 import { ConfirmDialog, type ConfirmOptions } from "./modal";
 import { ToastStack, type ToastData } from "./toast";
 
@@ -40,6 +41,8 @@ export interface EngageContact {
   product?: string | null;
   premium?: number | null;
   externalContactId?: string | null;
+  /** Known record context; bound to the email's origin and communication FKs. */
+  record?: { kind: EmailRecordKind; id: string } | null;
 }
 
 export interface AdvanceLeadOverlay {
@@ -56,7 +59,7 @@ export interface AdvanceLeadOverlay {
 export type OverlayState =
   | { kind: "page-modal"; modal: PageModalKind; prefill?: Record<string, unknown> }
   | { kind: "wizard"; prefill?: Record<string, unknown> }
-  | { kind: "engage"; action: string; contact?: EngageContact; onSent?: () => void }
+  | { kind: "engage"; action: string; contact?: EngageContact; onSent?: (view: EmailSendView) => void; initialDraft?: EmailDraftSeed }
   | { kind: "log-call"; target?: LogCallTarget }
   | { kind: "advance-lead"; suggestion: AdvanceLeadOverlay }
   | { kind: "add-task"; prefill?: Record<string, unknown> }
@@ -73,7 +76,8 @@ interface OverlayApi {
   close: () => void;
   openPageModal: (modal: PageModalKind, prefill?: Record<string, unknown>) => void;
   openWizard: (prefill?: Record<string, unknown>) => void;
-  openEngage: (action: string, contact?: EngageContact, onSent?: () => void) => void;
+  /** `onSent` fires only once Gmail accepted the email and its workflow update completed. */
+  openEngage: (action: string, contact?: EngageContact, onSent?: (view: EmailSendView) => void, initialDraft?: EmailDraftSeed) => void;
   /** The one `Log Call` form. Without a target the modal resolves the contact itself. */
   openLogCall: (target?: LogCallTarget) => void;
   openAdvanceLead: (suggestion: AdvanceLeadOverlay) => void;
@@ -131,7 +135,7 @@ export function OverlayProvider({
       close,
       openPageModal: (modal, prefill) => open({ kind: "page-modal", modal, prefill }),
       openWizard: (prefill) => open({ kind: "wizard", prefill }),
-      openEngage: (action, contact, onSent) => open({ kind: "engage", action, contact, onSent }),
+      openEngage: (action, contact, onSent, initialDraft) => open({ kind: "engage", action, contact, onSent, initialDraft }),
       openLogCall: (target) => open({ kind: "log-call", target }),
       openAdvanceLead: (suggestion) => open({ kind: "advance-lead", suggestion }),
       openAddTask: (prefill) => open({ kind: "add-task", prefill }),

@@ -30,17 +30,18 @@ they are historical references, not active sources of task status. Current prior
 | Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist records plus verified-only completeness on the Applications register | Aligned; filters/sorting distinguish Complete, In review, Missing, Draft, and Not initialized. |
-| Blue Royale requirements (H3b) | Active catalog version is Primary Medical; the wizard and persisted checklist use health requirements | Authenticated fresh, product-switch and owned draft/resume/create scenarios verified 2026-10-09–10. The alleged HMO package was not reproduced. Remote/face-to-face alternatives, beneficiary ID and conditional medical documents were exercised. TAL/CAC are combined in preview and separate optional persisted rows. No separate medical-review stage was added. |
+| Blue Royale requirements (H3b) | Active catalog version is Primary Medical; the wizard and persisted checklist use health requirements | Authenticated fresh, product-switch and owned draft/resume/create scenarios verified 2026-10-09–10. The alleged HMO package was not reproduced. Remote/face-to-face alternatives, beneficiary ID and conditional medical documents were exercised. As of 2026-11-03, the wizard and snapshot share keyed requirement builders: TAL/CAC are separate optional rows in both. No separate medical-review stage was added. |
 | Policy-driven renewals (H5a) | Migration `0047` locks each policy and synchronizes its renewal in the policy transaction; Admin `Sync policies` invokes the same routine for every Active policy | Renewal date takes precedence over expiry; Travel needs an explicit renewal date. One open cycle per policy; only source dates refresh. Paid/Renewed/Lapsed cycles retain history. No automatic page-load backfill or inactive-policy cancellation. SQL rollback, concurrent RPC, actual policy create/edit, repeated backfill and direct Staff rejection verified 2026-10-09–10. |
 | Carrier renewal notice receipt (H5b) | Separate nullable `renewals.notice_received_date`, receipt action/modal and sortable list column | Receipt advances only Upcoming → Notice Received, preserves every later status and audits/timelines actual changes. Repeated saves are no-ops. Legacy sent-notice data is not reinterpreted/backfilled. Receipt never sends/logs an email; existing Send notice remains logged-only and retains receipt. UI and action boundaries verified 2026-10-10. |
 | Renewal email rules and interim execution (H5c–e / DH10) | Migration `0048`, `renewal_email_rules` and separate `renewal_email_drafts`; repository/actions, Settings Notifications, Tasks/dashboard review modal, secret-protected `/api/cron/renewals` | User approved four Email-only draft/task cases: receipt immediately, reminder -30 days, missing notice -60 days and premium breakdown -60 days regardless of premium change. Existing Thea record selected, configurable by Admin. Staff view/review; Agent denied both payload and direct read/write. Broader canonical WhatsApp/payment/missing-document/auto-send automation remains outside this interim. No provider delivery or renewal-state advancement occurs. |
 | Renewal draft history and staff ownership | SQL unique `(renewal_id, rule_id)` and row locks; task/draft insert and explicit email-log/task completion are transactional | Closed/ineligible work is suppressed; pending drafts are dismissed/cancelled, including missing-notice work after receipt. Early payer suppresses client reminders, not informational receipt. Draft source dates/context can refresh, but template/recipient snapshots and edited copy remain staff-owned; changed template/contact selections apply to newly queued drafts. Completed/dismissed/logged work is never automatically re-created for the same cycle. Checkbox completion does not log email. Revision checks reject stale forms; repeated committed logs reuse their communication. |
 | Renewal cron activation | `vercel.json` keeps `sin1` and adds `0 0 * * *` (08:00 Manila); only the exact endpoint bypasses session proxy and enforces `CRON_SECRET` itself | Local missing configuration (503), missing/wrong token (401), authorized/repeated calls (200), and sibling-route login protection verified. Set `CRON_SECRET` in Vercel Production and deploy before claiming live scheduling. No push or Production web activation performed here. |
 | Carrier assets | `document_library` plus communication-version links from migration `0023` | Loaded 2026-09-07 and extended through 2026-09-25: 40 source files represented by 49 library rows, including CCAF, Geographical Loading, and the CET. The 5 `TEST —` placeholders are archived. Distribution clearance was treated as not-a-gate by client decision — see Carrier-document rules. |
-| Email and attachment delivery | `communications.delivery_status = logged`; selected document versions are recorded | Deliberate safety boundary: nothing is actually delivered without a provider. |
-| Gmail connection and incoming correspondence | Admin OAuth and Settings controls, private inbox repository, `/inbox`, authenticated Pub/Sub, daily reconciliation and attachment filing; migrations `0051`–`0056` | Production reading and automatic push synchronization are verified. Two real emails were imported manually; after fixing numeric push history IDs, four real notifications were accepted and background sync completed without duplicates or errors. Admin reviews unassigned mail; Staff sees released mail; Agent sees assigned-client mail. Matching/filing remain human-confirmed. Provider-original attachment retrieval is still unverified. No outgoing delivery or automatic approval/verification. |
-| Proposal `Sent` | `Mark Sent` button (Contact Profile proposal panel + Leads board proposal-tracking panel; `setProposalStatusAction`, `app/(app)/prospects/actions.ts`) lets staff manually confirm delivery | Aligned as of 2026-08-13 for the manual half (`Mark externally sent`, reworded to `Mark Sent` — see note below). The automatic half (advancing on real provider-confirmed delivery) remains a gap: no email provider is wired up yet. |
-| Lead status `New → Attempted` on send | `sendEmailAction` (`app/(app)/clients/engage-actions.ts`) sets `lead_status = Attempted` on any successful email/brochure log, regardless of delivery | **Doc conflict, resolved 2026-08-13 in favor of code as written.** `../../docs/web/lead-workflow.md:65` and this file's own "Proposal `Sent`" row above say logging alone must not advance status without provider confirmation or an explicit `Mark externally sent` action. But the parent workspace's `CLAUDE.md` explicitly directs *"Lead-lifecycle behavior must follow `docs/lead-stage-status.md` (+ `-example.md`)"*, and that file states plainly: *"New → Attempted \| Send Email / Send Brochure (first touch) \| Eman's send sets this; no Lead reply required yet."* Kept matching `lead-stage-status.md` per that explicit instruction. `docs/INDEX.md` ranks `web/lead-workflow.md` as canonical and `lead-stage-status.md` as a secondary "plain-language explainer" — the two root docs disagree and this has not been reconciled between them. Note the asymmetry this leaves: `lead_status` now auto-advances on mere logging, while `proposal_status = Sent` (row above) still requires the explicit `Mark Sent` click — whoever owns doc reconciliation should resolve which rule (auto-advance-on-log, or require-explicit-confirmation) should actually govern both, since they currently behave differently for what the docs describe as the same underlying rule. |
+| Email and attachment delivery | Migration `0059`: private `gmail_outbound_messages` ledger with prepare → claim → send → finish → apply-effects RPCs; `lib/communications/outbound-email.ts`, `lib/gmail/send-api.ts`, `outbound-mime.ts`, shared `EmailSendControls`. `communications.delivery_status` is `prepared`/`sending`/`sent`/`failed`/`unknown`, historical `logged` | Implemented 2026-11-04 for **reviewed individual emails** (Engage composer, missing documents, billing, Pacific Cross submission, proposal request/delivery, renewal drafts, wizard post-create review, Inbox Reply). Admin/Staff only, from `admin@pacificinsuranceph.com`, real file attachments, one dispatch per claimed intent, no automatic retry. `Sent` means Gmail accepted it, not delivery/reading. Business effects run only after acceptance. Campaigns, bulk payment links and the renewal cron stay log-only/draft-only. **Discovered constraint:** Gmail's send API replaces the supplied Message-ID and Date, so uncertain outcomes are reconciled by the server-built `X-PIPH-Outbound-ID` header within a sent-mail window, not `rfc822msgid:`. Live QA evidence is in [TESTING.md](../TESTING.md#november-4-real-gmail-sending-and-replies). |
+| Gmail connection and incoming correspondence | Admin OAuth and Settings controls, private inbox repository, `/inbox`, authenticated Pub/Sub, daily reconciliation, attachment filing and non-disruptive update banner; migrations `0051`–`0058` | Production reading/push and the picker/freshness web release are verified on November 3. Admin reviews unassigned mail; Staff sees released mail; Agent sees assigned-client mail. Polling announces membership changes without navigation; refresh is explicit and retains the selected ID. Matching/filing remain human-confirmed. No outgoing delivery or automatic approval/verification. |
+| Checklist attachment sources | Shared device/email picker for Application, Claim and Travel requirements and creation wizards; private source/usage/upload repositories and migration `0057` | Released with freshness in `dpl_5N4uyzXopqKPdGTNics94c3D1KTi`. Canonical production authenticated HTTP/Storage checks proved listing, new/repeated receipts, Verified preservation, cross-record acknowledgement, private previews/downloads, original/ZIP bytes and signed native upload. No visual/keyboard browser verification was performed, per the owner's instruction. |
+| Proposal `Sent` | **Email proposal** (proposal-delivery origin) sends the current Illustrative Proposal and moves Received → Sent only after Gmail acceptance; **Mark sent manually** (`setProposalStatusAction`) remains for proposals sent outside the CRM | Aligned 2026-11-04. The manual action is explicitly not Gmail evidence. |
+| Lead status `New → Attempted` on send | SQL `apply_gmail_outbound_email_effects` sets `lead_status = Attempted` once, only for a contact-origin email Gmail accepted, and returns the stage advance as a suggestion | Resolved 2026-11-04: both `lead-workflow.md` (no advance on mere logging) and `lead-stage-status.md` (first-touch send sets Attempted) now hold, because the advance happens only on Gmail acceptance. Unresponsive inference likewise counts only accepted Gmail (`delivery_status = 'sent'`); historical log-only rows no longer count as outreach and stored statuses were not rewritten. |
 | `Mark externally sent` wording | Implemented as **`Mark Sent`**, not the docs' literal phrase | The docs (`lead-workflow.md`, `contact-profile.md`, `data-model.md`, `build-roadmap.md`) only ever use `Mark externally sent` as a mechanism name in backticks, never as prescribed UI copy. Renamed for the shipped button because "externally" collides with this app's distinct "External Contacts" concept (the Pacific Cross officer directory) and reads as ambiguous to Eman. `Mark Sent` mirrors the existing sibling button `Mark Received` in the same panel. |
 | `Send Brochure` / `Send Intake / Application Form` as Lead Lifecycle **board** quick actions | Removed from the `/prospects` board header (`components/hub/screens/prospects-live.tsx`); both templates remain reachable from the Contact Profile composer's single template dropdown (`EmailForm`, `components/hub/overlays/send-email.tsx`) and its nurture chips (`contact-profile.tsx`) | **Doc conflict, resolved 2026-08-14 in favor of code as changed.** `../../docs/web/lead-workflow.md:45` lists these as "Available from the Contact Profile **and as Lead Lifecycle quick actions**" — i.e. the board too. `TO-BE-UPDATE-PLAN.md`'s Phase D UX audit flagged the board copies as redundant: both opened `EngageDrawer` with no contact in scope, forcing a lead search before landing on the exact same `EmailForm` the per-lead composer already exposes with a full template picker (including these two templates) once a lead is open. Since the composer covers the identical flow with no loss of capability, the board buttons were removed as duplicate surface area rather than kept to match the doc literally. `Request Proposal`, `Generate Proposal`, and `Log Call` were not template-driven `Email` composer actions (Log Call is a structured form; Request/Generate Proposal are their own modals), so they were out of scope for this collapse — **since removed on 2026-08-15, see the row below.** The corresponding `ENGAGE_ACTIONS` map entries (`components/hub/overlays/engage.tsx`) were removed alongside the buttons since nothing else called `openEngage` with those action names. |
 | `Unresponsive` inference | `lib/queries/lead-status-inference.ts`, applied on read in the Prospects board and Contact Profile loaders | Aligned as of 2026-08-14. `../../docs/lead-stage-status.md:41,47` specs this as "System: N follow-ups with no reply — no button, an automatic count"; N=3 outbound `communications` rows with no inbound reply or Reached call breaking the streak, applied only to `Attempted`/`Nurturing` (the only two spec-listed source statuses). Deliberately **computed live on every read and never written to `clients.lead_status`**; the renewal cron added by H5e does not run Lead inference. Keeping the stored value untouched means existing win-back checks in `engage-actions.ts` keep firing once a reply lands without needing to also match `"Unresponsive"`. |
@@ -103,13 +104,15 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Local migrations extend through `0056_gmail_inbox_provider_id_length.sql`; `0041` remains reserved
+- Local migrations extend through `0058_gmail_inbox_freshness.sql`; `0041` remains reserved
   for the D1 import schema. Hosted Gmail migrations: `0051` = `20261031084527`,
   `0052_gmail_incoming_mail` = `20261101074444`,
   `0053_gmail_inbox_checkpoint_attachment_alias` = `20261101074550`,
   `0054_shared_proposal_receipt` = `20261101080045`,
-  `0055_gmail_inbox_metadata_limits` = `20261101082156`, and
-  `0056_gmail_inbox_provider_id_length` = `20261101082300`.
+  `0055_gmail_inbox_metadata_limits` = `20261101082156`,
+  `0056_gmail_inbox_provider_id_length` = `20261101082300`,
+  `0057_requirement_attachment_picker` = `20261103112159`, and
+  `0058_gmail_inbox_freshness` = `20261103132142`.
 - `0053` fixes the PL/pgSQL variable/SELECT-alias ambiguity reproduced by the first hosted
   ingestion smoke. `0054` makes existing portal upload-back and inbox proposal filing use
   the same locked registration/receipt/replacement operation.
@@ -308,6 +311,101 @@ they are historical references, not active sources of task status. Current prior
 - Production push updates the shared database, including records viewed from localhost.
   An already-open `/inbox` does not live-refresh; reload/navigation reads the saved messages.
   Manual **Sync** remains recovery, not the normal import trigger.
+
+### Non-disruptive Inbox updates (2026-11-03)
+
+- `0058` adds a service-role-only, stable membership revision using the existing
+  `gmail_inbox_actor_can_read` predicate across the complete authorized ID set. No message
+  content, headers, attachment metadata, first-page count or global sync counter is polled.
+  The page reads revision before its existing 100-row list; deep-link authorization is unchanged.
+- Exact `/api/inbox/freshness` authenticates the current active account and returns only
+  `{ revision }`, private/no-store and nosniff. It bypasses only the optimistic proxy redirect;
+  anonymous/inactive accounts receive 401 JSON, and sibling routes remain gated.
+- The Inbox checks on mount, every 30 seconds while visible/online, and immediately on return.
+  The controller is single-flight, aborts on hide/offline/unmount, times out at 10 seconds,
+  ignores obsolete responses, recovers from transient failures and stops on 401/403.
+- A polite **Inbox updates available** banner is informational until staff choose
+  **Refresh inbox**. Explicit refresh exposes page 1 while retaining the selected message ID
+  and detail key; workspace search/filter ownership is unchanged. Revoked selections still
+  use the server's not-found boundary. Polling never syncs Gmail, navigates or files evidence.
+- Verification: 264 tests across 22 files passed, including 14 deterministic controller cases;
+  ESLint returned 0 errors and 8 existing unused-variable warnings. SQL rollback proof covered
+  Admin/Staff/two Agent scopes, stable empty sets, old releases beyond 100 rows, reassignment,
+  removal and no receipt/timeline/checklist mutation on reads or repeated releases.
+  Authenticated HTTP proved private revision responses, inactive/anonymous denial, exact proxy
+  isolation, actual insertion/release/reassignment changes and selected-ID retention after arrival.
+  Picker smoke exercised Application/Claim/Travel reuse and idempotency, untouched Pending rows,
+  preserved Verified, cross-record acknowledgement, role denial, exact original/ZIP bytes and
+  2 MiB signed native upload. Real Health/BC Flexi/Travel and retained-draft creation paths passed,
+  including distinct destinations for equal-name people. No browser/visual/keyboard acceptance
+  or outgoing email delivery was exercised.
+- Release: Vercel CLI 58.7.1 deployed an isolated HEAD-plus-reviewed-picker/freshness input set
+  without `.env.local`, `.auth`, QA credentials or Vercel cache. Local optimized build/TypeScript
+  passed with existing configuration supplied only to the build process. No Git commit/push.
+  Production deployment [`dpl_5N4uyzXopqKPdGTNics94c3D1KTi`](https://pacific-insurance-2xb040v5g-pacific-insurance-ph.vercel.app)
+  is READY; inspection confirmed [`pacific-insurance-ph-ten.vercel.app`](https://pacific-insurance-ph-ten.vercel.app)
+  points to it. Prior READY rollback target: `dpl_HkEqMJPzwCoeypsrkg8kumnPby21`; no rollback needed.
+  Region `sin1`, both cron schedules, OAuth/PubSub configuration and environment values were retained.
+- Canonical production acceptance passed: login 200; anonymous Inbox/sibling paths gated;
+  anonymous/inactive freshness 401 JSON; real Admin/Staff/two Agents receive revision-only,
+  private/no-store/nosniff responses; unsupported POST remains 405. Unauthorized Gmail cron and
+  webhook return 401 without triggering sync. Fresh QA Application/Claim/Travel receipts,
+  repeated originals, untouched Pending rows, preserved Verified, cross-record acknowledgement,
+  Agent denial, exact PDF/ZIP bytes and 2 MiB signed native upload passed. Excel originals list
+  and download inertly with unchanged stored bytes; unsafe inline preview is rejected with 415.
+  The authenticated Inbox payload includes its revision and retained selected message.
+  Revoked Agent access uses Next's existing streamed not-found boundary (HTTP 200 with the
+  404 fallback control), without serializing the message body. Browser interaction was not tested.
+- Cleanup verified zero owned QA Auth/CRM users, clients, messages, documents, attachment
+  usages/upload intents, audit/timeline rows or Storage objects. The original real source and
+  filing remain (one each). Canonical HTTP reads after QA removal changed Admin/Staff/assigned
+  Agent membership but not the foreign Agent's empty scope. No outgoing QA communication was
+  logged. The user's existing local dev server was left running and `/login` still returned 200.
+
+
+### Shared requirement attachment picker (2026-11-03)
+
+- `Choose file` opens one device/email picker on Application (including BC Flexi), Claim and
+  Travel requirements. Creation wizards stage selections against stable requirement/person
+  identities and attach only after the server creates authoritative rows. Existing retained
+  draft snapshots render their actual `persisted:<UUID>` rows instead of guessing by names.
+  Client/person/roster/product/trip changes invalidate staged choices; drafts do not save files.
+- `DocumentUploadForm` supplies the shared picker only for a requirement context. Ordinary
+  document uploads and non-checklist portal upload-back remain separate. Obsolete Travel
+  upload wrappers and the old requirement-only signed-upload initializer were removed.
+- Migration `0057` records immutable email originals, per-requirement usages and actor/target-bound
+  native upload intents. Existing filing metadata is backfilled without receipt/status changes.
+  Destination documents retain the existing requirement foreign keys used by downloads and ZIPs.
+  Shared bytes are retained when an individual association is removed; hard deletion is Admin-only.
+- Candidate listing filters authorized client-linked mail before pagination and includes already-filed
+  attachments. Same-client reuse across records requires acknowledgement; unassigned mail and
+  cross-client use remain unavailable. Admin/Staff can file email; Agent can upload native files
+  for owned clients but gains no Gmail filing permission. A client-profile email link alone does
+  not trigger a false cross-record warning; existing uses in other records still do.
+- Both sources use locked, idempotent receipt. Only the selected requirement becomes Received;
+  Verified stays Verified. Original email links, first filings, other checklist items, optional
+  phases and policy/payment decisions are untouched. Receipts never duplicate inbound communications.
+- Source files retain their original bytes and filename, including Excel CET workbooks. Only
+  signature-approved PDF/JPEG/PNG preview inline; other formats download inertly. Responses are
+  authenticated, private/no-store and nosniff. Stored originals require no current Gmail connection.
+- Verification used Orca terminals, not browsers: **250 tests / 21 files**, ESLint **0 errors /
+  8 existing unused-variable warnings**, optimized build and its TypeScript phase passed.
+  **18 SQL/Storage checks** exercised roles, ownership, explicit cross-record acknowledgement,
+  concurrent/repeated receipts, Verified preservation, immutable originals and safe association removal.
+  **17 authenticated HTTP scenarios** exercised real Server Actions, stored PDF previews and Inbox
+  downloads with process-local Gmail credentials blank, inert Excel downloads, a 3 MiB direct signed
+  upload, original-byte hashes, submission ZIPs, fresh Travel/Health/HMO creation and retained draft
+  completion. Equal-name dependents received distinct destinations; new trips did not inherit files.
+  No outbound email was sent/logged. New provider-original fetching and visual/keyboard interaction
+  were not exercised in this slice.
+- Post-DDL security advisory review found the expected service-role-only RLS/no-browser-policy
+  information and the existing unrelated [disabled leaked-password protection warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+  No Auth settings or Gmail credentials were changed.
+- Inquiry-only creation previews do not accept attachments because they create no checklist rows;
+  switching application type invalidates staged selections. QA records, Auth actors, objects,
+  temporary credentials and smoke scripts were removed. Final identity-scoped checks found zero
+  owned QA clients/users/messages/sources/upload intents/objects; the original real filing remains.
+
 
 
 

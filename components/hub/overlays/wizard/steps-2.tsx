@@ -5,6 +5,8 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   listOptionalWizardAttachmentsAction, listWizardEmailAttachmentsAction,
 } from "@/app/(app)/applications/wizard-actions";
+import { RequirementAttachmentPicker } from "@/components/documents/requirement-attachment-picker";
+import type { RequirementAttachmentSelection } from "@/lib/documents/requirement-attachment.types";
 import type { LibraryDocument } from "@/lib/repositories/document-library/document-library.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
@@ -21,6 +23,7 @@ import {
   BMI_THRESHOLDS,
   daysBetween,
   INQUIRY_APP_TYPE,
+  isInquiryAppType,
   isFlexiShieldProduct,
   SMOKER_STATUSES,
   sectionStatus,
@@ -554,13 +557,24 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
 }
 
 /* ------------------------------- Step 4 ------------------------------- */
-export function Step4({ f, set }: StepProps) {
+export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps & {
+  clientId?: string;
+  selections: Record<string, RequirementAttachmentSelection>;
+  onSelect: (key: string, selection: RequirementAttachmentSelection | null) => void;
+  disabled?: boolean;
+}) {
   const list = f.checklist;
+  const inquiryOnly = isInquiryAppType(f.appType);
   return (
     <div>
+      <p className="mb-3 text-[12px] text-muted-foreground">
+        {inquiryOnly
+          ? "Inquiry-only records do not create checklist rows. Choose a full application type before attaching documents."
+          : "Choose a device file or an email attachment for each requirement. Selections attach only after the application is created, and are not saved with a draft. No requirement is received or verified by selecting a file here."}
+      </p>
       <div className="flex flex-col gap-1.5">
         {list.map((r, index) => (
-          <Fragment key={r.name}>
+          <Fragment key={r.requirementKey ?? r.name}>
             {r.phase && r.phase !== list[index - 1]?.phase && (
               <div className="mb-1 mt-3 flex items-center justify-between first:mt-0">
                 <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">{r.phase}</span>
@@ -571,23 +585,10 @@ export function Step4({ f, set }: StepProps) {
             )}
             <div
               className={cn(
-                "flex items-center gap-3 rounded-md border px-3.5 py-2.5",
-                r.checked ? "border-brand/40 bg-brand-soft/50" : "border-border-soft",
+                "flex flex-wrap items-center gap-3 rounded-md border px-3.5 py-2.5",
+                r.requirementKey && selections[r.requirementKey] ? "border-brand/40 bg-brand-soft/50" : "border-border-soft",
               )}
             >
-            <button
-              onClick={() =>
-                set({
-                  checklist: list.map((x) => (x.name === r.name ? { ...x, checked: !x.checked } : x)),
-                })
-              }
-              className={cn(
-                "grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
-                r.checked ? "border-brand bg-brand text-white" : "border-border-strong text-transparent",
-              )}
-            >
-              <I.check size={13} />
-            </button>
             <span className="flex-1 text-[13px] font-[550]">
               {r.name}
               {r.cond && <span className="ml-2 text-[11px] font-semibold text-subtle">({r.cond})</span>}
@@ -595,19 +596,16 @@ export function Step4({ f, set }: StepProps) {
                 <span className="ml-2 text-[11px] font-semibold text-subtle">(not required yet)</span>
               )}
             </span>
-            <select
-              className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] outline-none focus:border-brand"
-              value={r.status}
-              onChange={(e) =>
-                set({
-                  checklist: list.map((x) => (x.name === r.name ? { ...x, status: e.target.value } : x)),
-                })
-              }
-            >
-              {WIZ_OPTS.docStatus.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+            <span className="text-[11px] font-semibold text-muted-foreground">{r.status}</span>
+            {r.requirementKey ? (
+              <RequirementAttachmentPicker
+                clientId={clientId}
+                label={r.name}
+                value={selections[r.requirementKey] ?? null}
+                onSelect={(selection) => onSelect(r.requirementKey!, selection)}
+                disabled={disabled || inquiryOnly}
+              />
+            ) : <span className="text-[12px] text-muted-foreground">Loading requirement identity…</span>}
             </div>
           </Fragment>
         ))}
@@ -660,12 +658,18 @@ export function Step5({
 
   return (
     <div>
-      <Section title="Initial email">
+      <Section title="Email to review after creating">
         <Toggle
           on={f.sendEmail}
           onToggle={() => set({ sendEmail: !f.sendEmail, emailRecipient: f.emailRecipient || f.email })}
-          label="Compose an initial email from a template"
+          label="Compose an email from a template to review after creating"
         />
+        {f.sendEmail && (
+          <p className="mt-2 text-[11.5px] text-faint">
+            Nothing is sent when you create. The email opens afterwards for review, and is sent from
+            admin@pacificinsuranceph.com only when you press Send.
+          </p>
+        )}
         {f.sendEmail && (
           <div className="mt-3">
             <div className="grid grid-cols-2 gap-4">
@@ -724,11 +728,11 @@ export function Step5({
 }
 
 /**
- * Step 5's carrier-attachment picker — the wizard's half of the gate `sendEmailAction` enforces
- * everywhere else. Not `../library-attachment-picker`'s `LibraryAttachmentPicker`, which resolves
- * eligibility from a `clientId`: the contact this email is about may not exist until Create, so
- * this one asks against the form's product and birthdate instead. Same markup and copy, so the two
- * surfaces read identically. `createFromWizardAction` re-checks the choice before it logs anything.
+ * Step 5's carrier-attachment picker. Not `../library-attachment-picker`'s `LibraryAttachmentPicker`,
+ * which resolves eligibility from a `clientId`: the contact this email is about may not exist until
+ * Create, so this one asks against the form's product and birthdate instead. Same markup and copy,
+ * so the two surfaces read identically. The post-create review composer re-validates the choice
+ * against the created contact before anything is sent.
  */
 function WizardAttachmentPicker({
   templateName,
@@ -786,7 +790,7 @@ function WizardAttachmentPicker({
           ))}
         </select>
       )}
-      <p className="mt-2 text-[11.5px] text-faint">Logged for audit only — this file and email are not delivered.</p>
+      <p className="mt-2 text-[11.5px] text-faint">Sent as a real attachment only after you review the email and press Send.</p>
     </div>
   );
 }
@@ -831,15 +835,9 @@ export function Step6({ f, set }: StepProps) {
       : `Document checklist (${f.checklist.length} items)`,
     `Timeline entry — application created`,
   ];
-  // Matches `createFromWizardAction`'s pre-flight condition: no recipient means no email is
-  // logged, so nothing to attach to.
-  const needsAttachment = f.sendEmail && !!(f.emailRecipient || f.email) && templateNeedsLibraryAttachment(f.emailTemplate);
-  const attachmentMissing = needsAttachment && !f.emailLibraryDocumentId;
+  // Not an enforcement gate: the post-create review composer blocks Send until it is chosen.
+  const attachmentMissing = f.sendEmail && templateNeedsLibraryAttachment(f.emailTemplate) && !f.emailLibraryDocumentId;
   if (f.createTask) willCreate.push("Follow-up task on the board + dashboard");
-  if (f.sendEmail)
-    willCreate.push(
-      `Logged email — ${f.emailTemplate || "initial email"} (not delivered)${needsAttachment && !attachmentMissing ? " · with its carrier attachment" : ""}`,
-    );
   if (f.preExisting === "Yes") willCreate.push("Medical Evaluation type — records + questionnaire required");
 
   return (
@@ -883,13 +881,15 @@ export function Step6({ f, set }: StepProps) {
             </div>
           ))}
         </div>
-        {attachmentMissing && (
-          <div className="mt-3 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
-            <I.alertTri size={16} className="mt-0.5 shrink-0" />
+        {f.sendEmail && (
+          <div className="mt-3 flex gap-2.5 rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-muted-foreground">
+            <I.mail size={16} className="mt-0.5 shrink-0" />
             <div>
-              <b>Carrier attachment required.</b> “{f.emailTemplate}” must carry an approved carrier asset before
-              this application can be created. Go back to <b>Step 5</b> to select one, or pick a template that
-              doesn’t need an attachment.
+              After creating, the “{f.emailTemplate || "initial email"}” email opens for review. Nothing is sent
+              until you press Send.
+              {attachmentMissing && (
+                <> It needs an approved carrier attachment before it can be sent — choose one in <b>Step 5</b> or in the review.</>
+              )}
             </div>
           </div>
         )}

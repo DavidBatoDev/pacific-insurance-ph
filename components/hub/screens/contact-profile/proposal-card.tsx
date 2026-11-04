@@ -28,7 +28,7 @@ export function ProposalCard({
   proposalDocument,
   onGenerate,
   onRequest,
-  onLogEmail,
+  onEmailProposal,
   onRecordDecision,
   onStatusChange,
 }: {
@@ -38,8 +38,8 @@ export function ProposalCard({
   proposalDocument: Doc | null;
   onGenerate: () => void;
   onRequest: () => void;
-  /** Focus the composer preset to the proposal-delivery template. */
-  onLogEmail: () => void;
+  /** Open the proposal-delivery email with the current proposal attached, for review + Send. */
+  onEmailProposal: () => void;
   onRecordDecision: () => void;
   onStatusChange: (proposalStatus: string) => void;
 }) {
@@ -125,11 +125,12 @@ export function ProposalCard({
                   )}
                   {client.leadStage === "Proposal" && status === "Received" && (
                     <>
-                      <Btn size="sm" variant="primary" onClick={onLogEmail}>
-                        Log Proposal Email
+                      <Btn size="sm" variant="primary" onClick={onEmailProposal}>
+                        Email proposal
                       </Btn>
-                      <Btn size="sm" disabled={pending} onClick={() => markProposal("Sent")}>
-                        {pending && proposalMarking === "Sent" ? "Marking sent…" : "Mark Sent"}
+                      <Btn size="sm" disabled={pending} onClick={() => markProposal("Sent")}
+                        title="Record a proposal you sent outside the CRM. This is not Gmail evidence.">
+                        {pending && proposalMarking === "Sent" ? "Marking sent…" : "Mark sent manually"}
                       </Btn>
                     </>
                   )}
@@ -222,9 +223,9 @@ export function ProposalCard({
                 )}
                 {client.leadStage === "Proposal" && status === "Received" && (
                   <p className="mt-2 text-[11.5px] text-faint">
-                    Click <b>Mark Sent</b>{" "}
-                    once you&apos;ve actually sent this to the client yourself — the app doesn&apos;t deliver
-                    emails yet.
+                    <b>Email proposal</b> sends the current PDF from admin@pacificinsuranceph.com after review; the status
+                    becomes Sent only when Gmail accepts it. Use <b>Mark sent manually</b> only for a proposal you sent
+                    outside the CRM.
                   </p>
                 )}
               </div>

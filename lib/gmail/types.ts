@@ -9,6 +9,8 @@ export interface GmailConnectionStatus {
   setupProblem: string | null;
   loadProblem: string | null;
   readAuthorized: boolean;
+  /** Recorded connected state + stored send grant; not proof of current provider health. */
+  sendAuthorized: boolean;
   inbox: { enabled: boolean; lastSyncedAt: string | null; watchExpiresAt: string | null; lastError: string | null; pending: boolean } | null;
   inboxSetupProblem: string | null;
   inboxLoadProblem: string | null;
@@ -16,7 +18,7 @@ export interface GmailConnectionStatus {
 
 /** Callback results are allowlisted messages, never provider error descriptions. */
 export const GMAIL_CALLBACK_MESSAGES: Record<string, string> = {
-  connected: "Gmail connected. Authorization verified. Enable incoming email separately; outgoing delivery remains disabled.",
+  connected: "Gmail connected. Authorization verified. Admin and Staff can now review and send individual emails; campaigns are not sent automatically. Enable incoming email separately.",
   cancelled: "Google authorization was cancelled. Any existing connection was kept.",
   invalid_attempt: "This authorization attempt expired or was already used. Start Connect Gmail again.",
   forbidden: "Only an active CRM Admin can connect this mailbox.",

@@ -27,6 +27,11 @@ export async function requireInboxActor(actorId?: string) {
   return { ...user, appRole: toAppRole(user.role) };
 }
 
+export async function getInboxRevision(actorId?: string): Promise<string> {
+  const actor = await requireInboxActor(actorId);
+  return getInboxRepository().getVisibleRevision(actor.id);
+}
+
 export async function getScopedInboxMessage(messageId: string, actorId?: string): Promise<InboxMessage> {
   const actor = await requireInboxActor(actorId);
   validateInboxId(messageId);
@@ -65,6 +70,7 @@ export async function getInboxRequirements(message: InboxMessage): Promise<Inbox
 export type InboxListMessage = Pick<InboxMessage, "id" | "subject" | "fromAddress" | "fromName" | "receivedAt" | "isAutoReply" | "targetId" | "filedParts"> & { attachmentCount: number };
 
 export interface InboxReviewData {
+  revision: string;
   messages: InboxListMessage[];
   page: number;
   mayHaveNextPage: boolean;
@@ -76,12 +82,18 @@ export interface InboxReviewData {
   purposes: InboxPurposeOption[];
   canLink: boolean;
   canFile: boolean;
+  /** Real active Owner/Admin/Assistant and linked correspondence; persona preview never grants it. */
+  canReply: boolean;
+  replyBlockedReason: string | null;
 }
 
 export async function getInboxReviewData(actorId: string, selectedId?: string, page = 1): Promise<InboxReviewData> {
   const actor = await requireInboxActor(actorId);
   if (!Number.isSafeInteger(page) || page < 1 || page > 21474836) throw new InboxReviewError("Correspondence page not found.", 404);
   const repository = getInboxRepository();
+  // Read membership first: arrivals during list loading may prompt an extra check,
+  // but cannot silently become the baseline without appearing in the rendered list.
+  const revision = await repository.getVisibleRevision(actor.id);
   const rows = await repository.listVisible(actor.id, (page - 1) * 100);
   const messages = rows.map(({ id, subject, fromAddress, fromName, receivedAt, isAutoReply, targetId, filedParts, attachments }) => ({
     id, subject, fromAddress, fromName, receivedAt, isAutoReply, targetId, filedParts, attachmentCount: attachments.length,
@@ -98,12 +110,17 @@ export async function getInboxReviewData(actorId: string, selectedId?: string, p
     suggestions = suggestInboxTargets(selected, targets, scopedThreadTarget);
   }
   const canFile = actor.appRole !== "agent";
+  const canSend = actor.appRole === "admin" || actor.appRole === "staff";
+  const canReply = canSend && !!selected?.targetId;
+  const replyBlockedReason = !selected || canReply ? null
+    : !canSend ? "Only active Admin and Staff accounts can reply from admin@pacificinsuranceph.com."
+    : "Link this correspondence before replying.";
   return {
-    messages, selected, linkedTarget, suggestions, page, mayHaveNextPage: rows.length === 100,
+    revision, messages, selected, linkedTarget, suggestions, page, mayHaveNextPage: rows.length === 100,
     targets: actor.appRole === "admin" ? targets : [],
     requirements: selected && canFile ? await getInboxRequirements(selected) : [],
     purposes: selected?.targetKind && canFile ? inboxPurposeOptions(selected.targetKind) : [],
-    canLink: actor.appRole === "admin", canFile,
+    canLink: actor.appRole === "admin", canFile, canReply, replyBlockedReason,
   };
 }
 

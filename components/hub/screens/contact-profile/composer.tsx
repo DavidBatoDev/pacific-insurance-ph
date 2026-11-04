@@ -3,7 +3,8 @@
 import { useState, useTransition, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 
-import { addNoteAction, logMessageAction, type LeadAdvanceSuggestion } from "@/app/(app)/clients/engage-actions";
+import { addNoteAction, logMessageAction } from "@/app/(app)/clients/engage-actions";
+import type { EmailDraftSeed, EmailSendView, LeadAdvanceSuggestion } from "@/lib/communications/outbound-email.types";
 import { MESSAGE_LOG_CHANNELS } from "@/lib/db-enums";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
@@ -31,6 +32,8 @@ export function ContactComposer({
   emailFormKey,
   callFormKey,
   initialEmailTemplate,
+  initialEmailDraft,
+  onEmailSent,
   onAdvanceSuggestion,
 }: {
   client: Client;
@@ -41,6 +44,10 @@ export function ContactComposer({
   emailFormKey: number;
   callFormKey: number;
   initialEmailTemplate: string | undefined;
+  /** Workflow-populated email (e.g. proposal delivery), remounted with `emailFormKey`. */
+  initialEmailDraft?: EmailDraftSeed;
+  /** Fires once Gmail accepted the email and its workflow update completed. */
+  onEmailSent?: (view: EmailSendView) => void;
   onAdvanceSuggestion: (advance: AdvanceLeadPreset & Partial<LeadAdvanceSuggestion>) => void;
 }) {
   const router = useRouter();
@@ -106,9 +113,11 @@ export function ContactComposer({
                   }}
                   templates={templates}
                   initialTemplate={initialEmailTemplate}
-                  onSent={(advance, sent) => {
-                    toast("Email logged", `“${sent.template || sent.subject}” recorded for ${client.fullName}; nothing was delivered.`);
-                    if (advance) onAdvanceSuggestion(advance);
+                  initialDraft={initialEmailDraft}
+                  onSent={(view) => {
+                    toast("Email sent", `Accepted by Gmail for ${view.recipient}. Delivery and reading are not confirmed.`);
+                    onEmailSent?.(view);
+                    if (view.advance) onAdvanceSuggestion(view.advance);
                   }}
                 />
               )}

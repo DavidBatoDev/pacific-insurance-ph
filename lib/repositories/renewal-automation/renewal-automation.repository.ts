@@ -5,6 +5,6 @@ export interface RenewalAutomationRepository {
   findRule(id: string): Promise<RenewalEmailRule | null>;
   updateRule(id: string, input: RenewalEmailRuleUpdate): Promise<RenewalEmailRule>;
   findDraft(id: string): Promise<RenewalEmailDraft | null>;
-  updateDraft(id: string, actorId: string, operation: "save" | "log" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<RenewalEmailDraft>;
+  updateDraft(id: string, actorId: string, operation: "save" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<RenewalEmailDraft>;
   queueDue(): Promise<RenewalQueueCounts>;
 }

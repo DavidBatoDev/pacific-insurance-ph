@@ -105,6 +105,7 @@ export class SupabaseCarrierWorkflowsRepository implements CarrierWorkflowsRepos
     if (deleteError) throw toRepositoryError("CarrierWorkflows.replaceTravelRequirements.delete", deleteError);
     if (!requirements.length) return;
     const { error } = await db.from("travel_request_requirements").insert(requirements.map((item, index) => ({
+      ...(item.id ? { id: item.id } : {}),
       travel_request_id: travelRequestId, document_name: item.documentName,
       applies_to: item.appliesTo ?? null, notes: item.notes ?? null,
       is_required: item.isRequired ?? true, sort_order: item.sortOrder ?? index * 10,

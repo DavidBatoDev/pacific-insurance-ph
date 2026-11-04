@@ -7,9 +7,9 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { PDF_UPLOAD_MAX_BYTES, UPLOAD_MIME_EXTENSIONS, documentUploadPath, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
+import { PDF_UPLOAD_MAX_BYTES, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { getRequirementAttachmentsRepository } from "@/lib/repositories/requirement-attachments";
 import { createSignedUpload, removeObject, uploadObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
@@ -43,29 +43,6 @@ export async function beginPdfUploadAction(input: {
   }
 }
 
-/**
- * Signed URL for a browser-to-Storage requirement upload that may be a PDF or a JPEG/PNG scan
- * (travel passports and signed forms, H6d). Same 25 MB cap and client-scoped path as PDFs.
- */
-export async function beginDocumentUploadAction(input: {
-  clientId: string;
-  fileName: string;
-  mimeType: string;
-  size: number;
-}): Promise<ActionResult<{ path: string; token: string }>> {
-  try {
-    await getActor();
-    if (!input.clientId) return { ok: false, error: "Missing client." };
-    if (input.size <= 0) return { ok: false, error: "Choose a file to upload." };
-    if (input.size > PDF_UPLOAD_MAX_BYTES) return { ok: false, error: "Files must be 25 MB or smaller." };
-    const ext = UPLOAD_MIME_EXTENSIONS[input.mimeType];
-    if (!ext) return { ok: false, error: "Only PDF, JPG or PNG files can be uploaded here." };
-    return { ok: true, data: await createSignedUpload(documentUploadPath(input.clientId, randomUUID(), ext)) };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn’t start upload." };
-  }
-}
-
 export async function uploadDocumentAction(formData: FormData) {
   const actor = await getActor();
 
@@ -80,9 +57,6 @@ export async function uploadDocumentAction(formData: FormData) {
   const travelRequestId = str(formData, "travelRequestId") ?? null;
   const claimId = str(formData, "claimId") ?? null;
   const sourceLibraryDocumentId = str(formData, "sourceLibraryDocumentId") ?? null;
-  const applicationRequirementId = str(formData, "applicationRequirementId") ?? null;
-  const travelRequirementId = str(formData, "travelRequirementId") ?? null;
-  const claimRequirementId = str(formData, "claimRequirementId") ?? null;
 
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -100,23 +74,10 @@ export async function uploadDocumentAction(formData: FormData) {
     travelRequestId,
     claimId,
     sourceLibraryDocumentId,
-    applicationRequirementId,
-    travelRequirementId,
-    claimRequirementId,
     documentType,
     visibility,
     uploadedBy: actor.id,
   });
-
-  if (applicationRequirementId) {
-    await getSupabaseAdmin().from("application_requirements").update({ status: "Received" }).eq("id", applicationRequirementId);
-  }
-  if (travelRequirementId) {
-    await getSupabaseAdmin().from("travel_request_requirements").update({ status: "Received" }).eq("id", travelRequirementId);
-  }
-  if (claimRequirementId) {
-    await getSupabaseAdmin().from("claim_requirements").update({ status: "Received" }).eq("id", claimRequirementId);
-  }
 
   await recordAudit({
     actorId: actor.id,
@@ -150,32 +111,29 @@ export async function deleteDocumentAction(formData: FormData) {
 
   const repo = getDocumentsRepository();
   const doc = await repo.findById(id);
-  if (doc?.filePath) {
+  // The transaction removes only the authorized association and decides whether
+  // bytes are unreferenced. Never remove Storage before a restrictive FK check.
+  const deletion = await getRequirementAttachmentsRepository().deleteDocument(actor.id, id);
+  if (deletion.storagePath) {
     try {
-      await removeObject(doc.filePath);
+      await removeObject(deletion.storagePath);
     } catch {
-      // Object may already be gone; proceed to remove the record.
+      // Logical deletion succeeded; an unreferenced object can be collected later.
     }
   }
-  await repo.delete(id);
-
-  await recordAudit({
-    actorId: actor.id,
-    action: "delete",
-    tableName: "documents",
-    recordId: id,
-    previousValue: (doc ?? null) as unknown as Json,
-  });
 
   if (doc?.clientId) {
     await recordActivity({
       scopeType: "client",
       scopeId: doc.clientId,
       activityType: "document.deleted",
-      summary: `Document “${doc.name}” removed`,
+      summary: deletion.originalPreserved ? `Checklist attachment “${doc.name}” removed; email original retained` : `Document “${doc.name}” removed`,
       actorId: actor.id,
     });
     revalidatePath(`/clients/${doc.clientId}`);
   }
   revalidatePath("/documents");
+  if (doc?.applicationId) revalidatePath("/applications");
+  if (doc?.claimId) revalidatePath("/claims");
+  if (doc?.travelRequestId) revalidatePath("/travel");
 }

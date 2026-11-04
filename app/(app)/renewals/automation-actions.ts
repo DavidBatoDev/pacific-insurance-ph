@@ -70,7 +70,7 @@ export async function getRenewalEmailDraftAction(id: string): Promise<ActionResu
   }
 }
 
-async function mutateDraft(id: string, operation: "save" | "log" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<ActionResult<RenewalEmailDraft>> {
+async function mutateDraft(id: string, operation: "save" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<ActionResult<RenewalEmailDraft>> {
   try {
     const actor = await getActor();
     if (toAppRole(actor.role) === "agent") return { ok: false, error: "Renewal drafts are available to Admin and Staff only." };
@@ -93,9 +93,6 @@ async function mutateDraft(id: string, operation: "save" | "log" | "dismiss", re
 
 export async function saveRenewalEmailDraftAction(id: string, edits: RenewalEmailDraftEdit): Promise<ActionResult<RenewalEmailDraft>> {
   return mutateDraft(id, "save", edits.updatedAt, edits);
-}
-export async function logRenewalEmailDraftAction(id: string, edits: RenewalEmailDraftEdit): Promise<ActionResult<RenewalEmailDraft>> {
-  return mutateDraft(id, "log", edits.updatedAt, edits);
 }
 export async function dismissRenewalEmailDraftAction(id: string, updatedAt: string): Promise<ActionResult<RenewalEmailDraft>> {
   return mutateDraft(id, "dismiss", updatedAt);

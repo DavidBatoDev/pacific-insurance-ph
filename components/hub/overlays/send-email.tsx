@@ -1,19 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { listOptionalLibraryDocumentsAction } from "@/app/(app)/clients/engage-actions";
+import { EmailAttachmentChoices } from "@/components/email/email-attachment-choices";
+import { EmailSendControls } from "@/components/email/email-send-controls";
 import {
-  listOptionalLibraryDocumentsAction, sendEmailAction, type LeadAdvanceSuggestion,
-} from "@/app/(app)/clients/engage-actions";
+  SENDER_MAILBOX,
+  type EmailDraftSeed, type EmailOrigin, type EmailRecordKind, type EmailSendView,
+} from "@/lib/communications/outbound-email.types";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
 import { usePersona } from "../persona";
-import { Avatar, Btn, Field, INPUT } from "../primitives";
+import { Field, INPUT } from "../primitives";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 import { OptionalLibraryAttachments } from "./optional-library-attachments";
-import { useOverlays } from "./overlay-provider";
 
 /**
  * The shared, templated email composer. Two containers, one form, same split as
@@ -23,7 +26,8 @@ import { useOverlays } from "./overlay-provider";
  * Unlike `Log Call`, email genuinely needs a recipient/template/body — this IS the templated
  * composer the call form explicitly isn't. Reconciles the two payload shapes that used to diverge:
  * an internal client (never has `externalContactId`) and an external carrier/commission contact
- * (`engage.tsx`'s callers, which do).
+ * (`engage.tsx`'s callers, which do). Sending goes through the shared review → send control:
+ * nothing is sent until staff review the final email and click Send.
  */
 
 /** Who the email is to, plus the merge-field context (product/premium) and send target. */
@@ -34,12 +38,15 @@ export interface EmailTarget {
   product?: string | null;
   premium?: number | null;
   externalContactId?: string | null;
+  /** Known record this email is about; bound into the contact origin. */
+  record?: { kind: EmailRecordKind; id: string } | null;
 }
 
 export function EmailForm({
   target,
   templates,
   initialTemplate,
+  initialDraft,
   onSent,
 }: {
   target: EmailTarget;
@@ -47,30 +54,49 @@ export function EmailForm({
   /** Preset so a nurture chip / an Engage action opens with its template preselected. */
   initialTemplate?: string;
   /**
-   * Fired after a successful log. Carries what was actually sent so the caller can toast with its
-   * own copy — the two containers word the confirmation slightly differently, so that stays their
-   * call rather than being baked in here.
+   * Workflow-populated draft (origin, recipient, content, attachments). Empty subject and body
+   * fall back to the template's merged copy.
    */
-  onSent: (advance: LeadAdvanceSuggestion | undefined, sent: { template: string; subject: string }) => void;
+  initialDraft?: EmailDraftSeed;
+  /**
+   * Fired once Gmail accepted the email and its workflow update completed. Toast copy stays the
+   * caller's; the lead-advance suggestion, if any, is `view.advance`.
+   */
+  onSent: (view: EmailSendView) => void;
 }) {
   const router = useRouter();
-  const overlays = useOverlays();
   const persona = usePersona();
-  const [pending, startTransition] = useTransition();
+  const canAttachLibrary = persona.can("documentLibrary", "view");
 
-  const [tpl, setTpl] = useState(initialTemplate ?? "");
-  const [recipient, setRecipient] = useState(target.email ?? "");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const origin = useMemo<EmailOrigin>(
+    () => initialDraft?.origin
+      ?? { type: "contact", clientId: target.clientId, ...(target.record ? { record: target.record } : {}) },
+    [initialDraft?.origin, target.clientId, target.record],
+  );
+  const recipientLocked = origin.type === "proposal_request";
+  const lockedDocumentIds = useMemo(
+    () => (origin.type === "proposal_delivery" ? initialDraft?.documentIds ?? [] : []),
+    [origin.type, initialDraft?.documentIds],
+  );
+  const externalContactId = initialDraft?.externalContactId ?? target.externalContactId ?? undefined;
+
+  // A workflow draft keeps its own template (or none); the drawer's default applies only to fresh emails.
+  const [tpl, setTpl] = useState(initialDraft ? initialDraft.templateName ?? "" : initialTemplate ?? "");
+  const [recipient, setRecipient] = useState(initialDraft?.recipient ?? target.email ?? "");
+  const [subject, setSubject] = useState(initialDraft?.subject ?? "");
+  const [body, setBody] = useState(initialDraft?.body ?? "");
   // Named "required" so `grep requiredLibraryDocumentId` enumerates every read of
   // the mandatory gate. Optional attachments live in their own state and must
-  // never appear in canComplete or the red banner below.
-  const [requiredLibraryDocumentId, setRequiredLibraryDocumentId] = useState("");
-  const [optionalLibraryDocumentIds, setOptionalLibraryDocumentIds] = useState<string[]>([]);
+  // never appear in the ready check or the red banner below.
+  const [requiredLibraryDocumentId, setRequiredLibraryDocumentId] = useState(initialDraft?.requiredLibraryDocumentId ?? "");
+  const [optionalLibraryDocumentIds, setOptionalLibraryDocumentIds] = useState<string[]>(initialDraft?.optionalLibraryDocumentIds ?? []);
+  const [documentIds, setDocumentIds] = useState<string[]>(initialDraft?.documentIds ?? []);
+  const [emailAttachments, setEmailAttachments] = useState(initialDraft?.emailAttachments ?? []);
   // Guards the seed below so it only ever fires once per mount — needed because a caller
   // (EngageDrawer) may still be fetching `templates` when this mounts, so the initial template
-  // can't always be seeded synchronously from a useState initializer.
-  const [seeded, setSeeded] = useState(false);
+  // can't always be seeded synchronously from a useState initializer. A workflow draft that
+  // already carries its own copy is never overwritten.
+  const [seeded, setSeeded] = useState(Boolean(initialDraft?.subject || initialDraft?.body));
 
   const ctx = useMemo<MergeContext>(
     () => ({
@@ -108,25 +134,29 @@ export function EmailForm({
     [target.clientId],
   );
 
-  const canSend = !pending && !!recipient.trim() && !!subject.trim();
-  const canComplete = canSend && (!templateNeedsLibraryAttachment(tpl) || !!requiredLibraryDocumentId);
+  const needsRequired = templateNeedsLibraryAttachment(tpl);
+  const ready = !!recipient.trim() && !!subject.trim() && (!needsRequired || !!requiredLibraryDocumentId);
 
-  const submit = () =>
-    startTransition(async () => {
-      const res = await sendEmailAction({
-        clientId: target.clientId,
-        recipient,
-        subject,
-        body,
-        templateName: tpl || null,
-        externalContactId: target.externalContactId ?? null,
-        requiredLibraryDocumentId: requiredLibraryDocumentId || null,
-        optionalLibraryDocumentIds,
-      });
-      if (!res.ok) return overlays.toast("Couldn’t log email", res.error);
-      router.refresh();
-      onSent(res.data.advance, { template: tpl, subject });
-    });
+  const draft = useMemo<EmailDraftSeed>(
+    () => ({
+      origin,
+      recipient,
+      subject,
+      body,
+      ...(tpl ? { templateName: tpl } : {}),
+      ...(externalContactId ? { externalContactId } : {}),
+      ...(requiredLibraryDocumentId ? { requiredLibraryDocumentId } : {}),
+      optionalLibraryDocumentIds,
+      documentIds,
+      emailAttachments,
+    }),
+    [origin, recipient, subject, body, tpl, externalContactId, requiredLibraryDocumentId, optionalLibraryDocumentIds, documentIds, emailAttachments],
+  );
+
+  const handleSent = useCallback((view: EmailSendView) => {
+    router.refresh();
+    onSent(view);
+  }, [router, onSent]);
 
   return (
     <>
@@ -140,7 +170,9 @@ export function EmailForm({
           </select>
         </Field>
         <Field label="Recipient" required>
-          <input className={INPUT} type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
+          <input className={INPUT} type="email" value={recipient} readOnly={recipientLocked}
+            title={recipientLocked ? "Sent to the selected Pacific Cross contact." : undefined}
+            onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
         </Field>
       </div>
       <Field label="Subject" required className="mt-3.5">
@@ -153,35 +185,42 @@ export function EmailForm({
           onChange={(e) => setBody(e.target.value)}
         />
       </Field>
-      <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
-      <OptionalLibraryAttachments
-        load={loadOptional}
-        value={optionalLibraryDocumentIds}
-        onChange={setOptionalLibraryDocumentIds}
-        exclude={requiredLibraryDocumentId || undefined}
-        fixHref={`/clients/${target.clientId}/edit`}
-      />
+      {canAttachLibrary && (
+        <>
+          <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
+          <OptionalLibraryAttachments
+            load={loadOptional}
+            value={optionalLibraryDocumentIds}
+            onChange={setOptionalLibraryDocumentIds}
+            exclude={requiredLibraryDocumentId || undefined}
+            fixHref={`/clients/${target.clientId}/edit`}
+          />
+          <EmailAttachmentChoices
+            clientId={target.clientId}
+            documentIds={documentIds}
+            onDocumentIds={setDocumentIds}
+            emailAttachments={emailAttachments}
+            onEmailAttachments={setEmailAttachments}
+            lockedDocumentIds={lockedDocumentIds}
+          />
+        </>
+      )}
 
       <div className="mt-5">
         <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-subtle">
           <I.mail size={13} /> Preview
         </div>
         <div className="rounded-md border border-border-soft bg-surface-2 p-4">
-          <div className="mb-2.5 flex items-center gap-2.5">
-            <Avatar name={persona.userName} size={34} />
-            <div>
-              <div className="text-[13px] font-[650]">
-                {persona.userName} <span className="font-normal text-subtle">· Pacific Insurance PH</span>
-              </div>
-              <div className="text-[11.5px] text-subtle">To: {recipient || target.name}</div>
-            </div>
+          <div className="mb-2.5 text-[11.5px] text-subtle">
+            <div>From: Pacific Insurance PH &lt;{SENDER_MAILBOX}&gt;</div>
+            <div>To: {recipient || target.name}</div>
           </div>
           <div className="text-[13.5px] font-[650]">{subject}</div>
           <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{body}</div>
         </div>
       </div>
 
-      {templateNeedsLibraryAttachment(tpl) && !requiredLibraryDocumentId && (
+      {needsRequired && !requiredLibraryDocumentId && (
         <div className="mt-3.5 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
           <I.alertTri size={16} className="mt-0.5 shrink-0" />
           <div>
@@ -191,14 +230,7 @@ export function EmailForm({
         </div>
       )}
 
-      <div className="mt-3.5 flex items-center justify-between gap-3">
-        <span className="text-[11.5px] text-faint">
-          Logged only — neither the email nor selected attachments are delivered.
-        </span>
-        <Btn variant="primary" disabled={!canComplete} onClick={submit}>
-          <I.send size={15} /> {pending ? "Logging…" : "Log email"}
-        </Btn>
-      </div>
+      <EmailSendControls draft={draft} ready={ready} onSent={handleSent} />
     </>
   );
 }

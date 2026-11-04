@@ -1,12 +1,120 @@
 # Manual web test guide
 
-Manual checks for the application, claim and renewal changes from the **October 7–10, 2026**
-commit batch. Start with the dated section below; older checks are preserved afterward as history.
+Manual checks are grouped by feature/date. Start with the current picker section below;
+the October application, claim and renewal checks are preserved afterward as history.
 Run commands from the `app/` repository, not the parent workspace.
 
 The new instructions are based on the current implementation and the recorded verification in
 [Development Alignment](docs/development-alignment.md). They are not a claim that every scenario
 was rerun while updating this document.
+
+## November 4: real Gmail sending and replies
+
+Prerequisites: schema through `0059`, a connected `admin@pacificinsuranceph.com` with the send
+grant (Settings shows the recorded grant; **Check connection** verifies it live), and real Admin,
+Staff and Agent sessions. **Only ever address QA mail to admin@pacificinsuranceph.com**; check the
+final To in the review before pressing Send. Use a clearly labeled QA client and, for carrier
+steps, a QA external contact with that same address (never the real Pacific Cross contacts).
+
+1. Every individual email (contact composer/Engage drawer, missing application/claim documents,
+   billing, Pacific Cross submission, proposal request, proposal delivery, renewal draft, wizard
+   post-create review, Inbox Reply) shows the editor, then **Review email** with the final From,
+   To, subject, body and real attachment names/sizes. Nothing is sent until the final Send button.
+   Editing after review invalidates it. Double clicks never send twice.
+2. Accepted shows `Sent — accepted by Gmail. Delivery and reading are not confirmed.` and the
+   workflow change (first-touch Attempted, proposal Sent, submission status/date, renewal draft
+   Sent + task Completed, activity/audit) happens only then. Not sent/Outcome unknown change
+   nothing. Unknown never offers resend: **Check status** reads Gmail; an empty search stays unknown.
+3. Attachments are the stored originals (PDF, Excel, …). Same-named files become `name (2).ext`.
+   A changed/replaced/foreign file fails before Gmail. Submission attaches every checklist file
+   with the numbered ZIP names; a required item without a file blocks sending by name.
+4. Reply works only for linked correspondence (Admin sees “Link this correspondence before
+   replying” otherwise); recipient and subject are locked; the reply lands in the same Gmail thread.
+   Typing a reply survives the Inbox freshness banner and **Refresh inbox**.
+5. Agents see the restriction message and cannot prepare/send/check even by direct POST.
+   Campaigns and bulk payment links remain logged only.
+
+Recorded verification (2026-11-04, local dev server against the production project): 345 unit
+tests (transport against a local HTTP simulator incl. dropped responses; MIME parsed back with
+`mailparser`; service races/uncertainty; controller recovery), type-check and lint. SQL: rollback
+transition tests (repeat rules, unknown→failed rejected, late acceptance after deactivation,
+renewal binding/queue/dismiss guards, thread-target suggestion and ambiguity), eight concurrent
+claims → one token, eight concurrent same-intent prepares → one communication, changed payload →
+conflict, browser roles denied on table/RPC. Live Gmail, all to admin@pacificinsuranceph.com:
+contact email (PDFs + native .xlsx, duplicate names), proposal delivery, application missing
+documents, application submission, billing, claim missing documents, claim submission, proposal
+request, renewal draft, wizard post-create email, Inbox reply, and a real dispatch whose answer was
+discarded then reconciled to accepted without a second send. Attachment SHA-256/name/type of the
+fetched Gmail copies matched the originals; no Cc/Bcc; the reply kept thread, In-Reply-To,
+References and subject; a double-clicked Send produced exactly one Gmail copy. Agent/inactive
+direct POSTs and cross-client documents/record pairings were rejected. Not exercised: Travel
+portal path of the wizard, commission voucher/renewal-notice Engage shortcuts, a real external
+sender's reply, and a production deployment.
+
+QA fixtures kept because sent evidence references them (restrictive FKs): client
+`QA GMAIL OUTBOUND Synthetic Fixture` (CLI-2026-00008) with its applications, claim, policy
+`QA-SYNTHETIC-001`/renewal, synthetic documents, the linked QA inbox fixture, two now-Inactive QA
+external contacts and two now-Inactive QA staff accounts. QA emails remain in the mailbox.
+
+## November 3: non-disruptive Inbox freshness
+
+Prerequisites: schema through `0058` and the matching web build. Use real active accounts,
+not the persona switcher, and disposable correspondence/client requirements.
+
+1. Keep a message selected with unsaved linking/filing choices or an attachment picker open.
+   A newly authorized message should show **Inbox updates available** within the next visible,
+   online check (30 seconds), without replacing the page or changing any selection.
+2. Choose **Refresh inbox**. The button shows **Refreshing…** while pending; page 1 displays
+   newer correspondence while retaining the selected message and local workspace filters.
+   A selected message whose access was revoked must return the server's not-found view.
+3. Hide the tab or go offline: checks pause. Returning visible/online checks immediately.
+   Failed checks preserve known updates and show the unchanged-view warning; success clears it.
+   Expired/inactive access stops checks and offers **Sign in again**.
+4. Release an older email to an assigned client even with more than 100 newer messages.
+   Staff and that client's Agent get a notice; an Agent assigned elsewhere must not.
+5. Confirm `/api/inbox/freshness` returns only a 32-character lowercase revision, private/no-store,
+   nosniff; anonymous/inactive sessions get 401 JSON, not login HTML. Sibling routes stay gated.
+
+Automated/terminal verification: 14 deterministic controller cases, real scoped SQL rollback
+checks and authenticated HTTP checks passed. Owner-side visual/keyboard/dialog-state acceptance
+is not exercised by terminal checks; steps 1–3 still require that manual acceptance.
+
+## November 3: shared requirement attachment picker
+
+Prerequisites: schema through `0057`, the matching application build, real Admin/Staff/Agent
+sessions, and isolated QA clients/records. Email choices require correspondence already released
+to the selected client; an email-address match alone is not authorization. Use harmless sample
+files and do not attach them to live client requirements.
+
+1. Open a requirement in an Application, Claim or Travel workflow. `Choose file` opens
+   `Upload from device` / authorized `From email attachments`, with the destination visible.
+2. Upload a PDF/image and an Excel workbook. Confirm receipt only after `Use for this requirement`.
+   The selected row becomes Received; an existing Verified row stays Verified. Other rows and
+   business statuses must not change. A file over 1 MB must work through direct signed Storage
+   upload; the limit is 25 MB. Ordinary non-checklist document upload still works separately.
+3. Select a previously filed email original. Inspect sender/date/source record and existing
+   uses. Reuse for another record of the same client requires acknowledgement, leaves the first
+   filing intact, and creates no second inbound-email communication.
+4. Preview PDF/JPG/PNG. Download other formats as unchanged originals, never an external viewer.
+   Already-stored files remain available without a working Gmail connection. An unavailable
+   unfiled provider original must show an error, not a fabricated file or successful receipt.
+5. Confirm the same email/requirement twice: no duplicate association/document. As Admin, remove
+   one association and verify another record's download and original filing still work.
+6. Check real role boundaries: Staff can file released same-client email; Agent can upload to
+   owned records but cannot file Gmail attachments. Foreign-client IDs and anonymous preview
+   requests must fail server-side. Persona preview does not substitute for these sessions.
+7. Create Health, BC Flexi and Travel records with staged selections. A new trip must not inherit
+   an older file without explicit selection. Same-name people must retain separate destinations;
+   changing client/person/roster/trip clears incompatible choices. Draft saves must not claim
+   selected files were saved. Retained draft checklist rows use their actual persisted IDs.
+8. Verify Application/Claim submission ZIPs and document downloads contain the attached originals.
+   Test keyboard focus, Escape/backdrop closure and preservation of unsaved workflow fields.
+
+Recorded verification: 250 tests, lint with no errors, production build/TypeScript, 18 SQL/Storage
+and 17 authenticated HTTP scenarios passed. Visual/keyboard browser checks were **not performed**
+in this implementation run, at the owner's request. See
+[the evidence and boundaries](docs/development-alignment.md#shared-requirement-attachment-picker-2026-11-03).
+
 
 ## October 7 onward: feature inventory
 

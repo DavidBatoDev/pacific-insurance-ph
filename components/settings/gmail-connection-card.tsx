@@ -67,7 +67,10 @@ export function GmailConnectionCard({ connection, canManage, callbackResult }: {
     </div>
     <p className="mt-2 break-all text-[13px] font-semibold">{connection.mailboxEmail ?? "admin@pacificinsuranceph.com"}</p>
     <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-      Authorize the agency mailbox with Google. Outgoing emails are still logged, not delivered. Incoming access is read-only: the CRM does not send, mark read, move or delete mailbox messages.
+      Authorize the agency mailbox with Google. Admin and Staff can send individual emails after reviewing them; campaigns and bulk payment links are still logged only, never sent automatically. Incoming access is read-only: the CRM does not mark read, move or delete mailbox messages.
+    </p>
+    <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+      Sending · {connection.sendAuthorized ? "Recorded as authorized" : "Not authorized — reconnect and approve sending permission"}. This is the recorded grant, not a live provider check; use Check connection to verify it now.
     </p>
     {connection.lastCheckedAt && <p className="mt-2 text-[11.5px] text-subtle">
       Last checked: {new Date(connection.lastCheckedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })} (Manila).

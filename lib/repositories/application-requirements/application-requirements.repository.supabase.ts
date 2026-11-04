@@ -39,6 +39,7 @@ export class SupabaseApplicationRequirementsRepository implements ApplicationReq
     if (items.length === 0) return [];
     const { data, error } = await getSupabaseAdmin().from("application_requirements").insert(
       items.map((item) => ({
+        ...(item.id ? { id: item.id } : {}),
         application_id: item.applicationId,
         required_document_item_id: item.requiredDocumentItemId ?? null,
         document_name: item.documentName,

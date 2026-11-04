@@ -2,12 +2,58 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-import type { TimelineEntry, TimelineKind } from "@/lib/queries/contact-timeline";
+import { checkEmailSendAction } from "@/app/(app)/email/actions";
+import { gmailThreadUrl } from "@/lib/communications/outbound-email.types";
+import type { TimelineEntry, TimelineKind, TimelineStatus } from "@/lib/queries/contact-timeline";
 import { cn } from "@/lib/utils";
 import type { Tone } from "../../tone";
 import { I, type IconName } from "../../icons";
+import { usePersona } from "../../persona";
 import { Card, CardHead, TONE_SOFT } from "../../primitives";
+
+/** Only `sent` is provider-accepted; historical rows without a status are merely recorded. */
+const STATUS_META: Record<TimelineStatus, { label: string; className: string }> = {
+  prepared: { label: "Prepared", className: "bg-surface-3 text-subtle" },
+  sending: { label: "Sending", className: "bg-amber-soft text-amber" },
+  sent: { label: "Sent", className: "bg-blue-soft text-blue" },
+  failed: { label: "Not sent", className: "bg-red-soft text-red" },
+  unknown: { label: "Outcome unknown", className: "bg-amber-soft text-amber" },
+  logged: { label: "Logged", className: "bg-amber-soft text-amber" },
+  recorded: { label: "Recorded", className: "bg-surface-3 text-subtle" },
+  received: { label: "Received", className: "bg-green-soft text-green" },
+};
+
+/** Open in Gmail and outcome reconciliation for CRM sends; the server re-authorizes every check. */
+function OutboundControls({ entry }: { entry: TimelineEntry }) {
+  const persona = usePersona();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const uncertain = entry.status === "unknown" || entry.status === "sending" || Boolean(entry.effectsPending);
+  if (persona.role === "agent" || (!uncertain && !entry.gmailThreadId)) return null;
+  const check = async () => {
+    if (busy || !entry.outboundId) return;
+    setBusy(true);
+    try {
+      const result = await checkEmailSendAction(entry.outboundId);
+      setNote(result.ok ? result.data.notice ?? null : result.error);
+      if (result.ok) router.refresh();
+    } catch {
+      setNote("Status could not be checked. Try again shortly; do not resend.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px]">
+      {entry.gmailThreadId && <a href={gmailThreadUrl(entry.gmailThreadId)} target="_blank" rel="noreferrer" className="font-semibold text-primary underline underline-offset-2">Open in Gmail</a>}
+      {uncertain && <button type="button" disabled={busy} onClick={() => void check()} className="font-semibold text-primary underline underline-offset-2 disabled:opacity-50">{busy ? "Checking…" : "Check status"}</button>}
+      {note && <span role="status" className="text-subtle">{note}</span>}
+    </div>
+  );
+}
 
 const FILTERS: { label: string; kinds: TimelineKind[] | null }[] = [
     { label: "All", kinds: null },
@@ -80,14 +126,14 @@ export function ContactTimeline({ timeline }: { timeline: TimelineEntry[] }) {
                     <div className="min-w-0 flex-1 pb-1">
                       <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-[600] leading-snug">
                         {e.title}
-                        {e.direction && (
+                        {e.status && (
                           <span
                             className={cn(
                               "rounded-[5px] px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.04em]",
-                              e.direction === "sent" ? "bg-blue-soft text-blue" : e.direction === "logged" ? "bg-amber-soft text-amber" : "bg-green-soft text-green",
+                              STATUS_META[e.status].className,
                             )}
                           >
-                            {e.direction}
+                            {STATUS_META[e.status].label}
                           </span>
                         )}
                       </div>
@@ -98,6 +144,7 @@ export function ContactTimeline({ timeline }: { timeline: TimelineEntry[] }) {
                         {[e.actorName, e.atLabel].filter(Boolean).join(" · ")}
                       </div>
                       {e.inboxHref && <Link href={e.inboxHref} className="mt-1 inline-block text-[12px] font-semibold text-primary underline underline-offset-2">View received email</Link>}
+                      {e.outboundId && <OutboundControls entry={e} />}
                     </div>
                   </div>
                 );

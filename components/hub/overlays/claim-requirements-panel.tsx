@@ -7,7 +7,6 @@ import {
   changeClaimTypeAction,
   updateClaimRequirementRequiredAction,
   updateClaimRequirementStatusAction,
-  getClaimRequirementsAction,
 } from "@/app/(app)/claims/actions";
 import {
   CLAIM_TYPES,
@@ -32,12 +31,14 @@ export function ClaimRequirementsPanel({
   claimId,
   clientId,
   claimType,
+  recordLabel,
   requirements,
   onChange,
 }: {
   claimId: string;
   clientId: string;
   claimType: string | null;
+  recordLabel: string;
   requirements: ClaimRequirement[];
   onChange: (
     requirements: ClaimRequirement[] | ((prev: ClaimRequirement[]) => ClaimRequirement[]),
@@ -56,12 +57,6 @@ export function ClaimRequirementsPanel({
   const progress = required.length ? Math.round((complete / required.length) * 100) : 0;
   // A mis-chosen claim type can be undone only before any document work has started.
   const canChangeType = requirements.every((item) => item.status === "Pending");
-  // An upload marks its row Received on the server; reload so the row (and the type lock) reflect it.
-  const reloadAfterUpload = () => {
-    void getClaimRequirementsAction(claimId).then((result) => {
-      if (result.ok) onChange(result.data.requirements);
-    });
-  };
   const replace = (updated: ClaimRequirement) =>
     onChange((prev) => prev.map((requirement) => (requirement.id === updated.id ? updated : requirement)));
 
@@ -132,7 +127,17 @@ export function ClaimRequirementsPanel({
                     {CLAIM_REQUIREMENT_STATUSES.map((status) => <option key={status}>{status}</option>)}
                   </select>
                 </div>
-                <div className="mt-2 pl-10"><DocumentUploadForm clientId={clientId} claimId={claimId} requirementId={item.id} onUploaded={reloadAfterUpload} /></div>
+                <div className="mt-2 pl-10"><DocumentUploadForm
+                  clientId={clientId}
+                  claimId={claimId}
+                  requirementId={item.id}
+                  requirementLabel={`${recordLabel} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+                  onAttached={(receipt) => {
+                    latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
+                    onChange((previous) => previous.map((requirement) => requirement.id === item.id ? { ...requirement, status: receipt.requirementStatus } : requirement));
+                    router.refresh();
+                  }}
+                /></div>
               </div>
             ))}
           </div>

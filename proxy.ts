@@ -14,6 +14,8 @@ export async function proxy(request: NextRequest) {
   if (["/api/cron/renewals", "/api/cron/gmail", "/api/integrations/gmail/notifications"].includes(request.nextUrl.pathname)) return NextResponse.next();
   // The callback checks the real CRM session itself and never forwards OAuth codes to login.
   if (request.nextUrl.pathname === "/api/integrations/gmail/callback") return NextResponse.next();
+  // Freshness resolves the active CRM account itself; expired sessions need JSON, not login HTML.
+  if (request.nextUrl.pathname === "/api/inbox/freshness") return NextResponse.next();
 
   let response = NextResponse.next({ request });
 

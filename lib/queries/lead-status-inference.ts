@@ -27,6 +27,7 @@ interface CommunicationRow {
   direction: string | null;
   channel: string | null;
   subject: string | null;
+  delivery_status: string | null;
   occurred_at: string;
 }
 
@@ -37,13 +38,19 @@ function isReachedCall(row: CommunicationRow): boolean {
   return row.channel === "Phone" && row.subject === "Call logged — Reached";
 }
 
+/** Gmail counts only when Gmail accepted it (`sent`); prepared, sending, unknown, failed, logged
+ * and historical null rows are not proof of outreach. Other channels keep their logged semantics. */
+function countsAsOutreach(row: CommunicationRow): boolean {
+  return row.channel !== "Gmail" || row.delivery_status === "sent";
+}
+
 /** Walks a lead's communications oldest-first, counting outbound touches since the last inbound
  * reply or Reached call. True once that streak reaches {@link UNRESPONSIVE_THRESHOLD}. */
 function hasUnansweredStreak(rows: CommunicationRow[]): boolean {
   let streak = 0;
   for (const row of [...rows].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))) {
     if (row.direction === "Inbound") streak = 0;
-    else if (row.direction === "Outbound") streak = isReachedCall(row) ? 0 : streak + 1;
+    else if (row.direction === "Outbound" && countsAsOutreach(row)) streak = isReachedCall(row) ? 0 : streak + 1;
   }
   return streak >= UNRESPONSIVE_THRESHOLD;
 }
@@ -68,7 +75,7 @@ export async function withInferredLeadStatus(client: Client): Promise<Client> {
 
   const { data } = await getSupabaseAdmin()
     .from("communications")
-    .select("client_id, direction, channel, subject, occurred_at")
+    .select("client_id, direction, channel, subject, delivery_status, occurred_at")
     .eq("client_id", client.id)
     .order("occurred_at", { ascending: true });
 
@@ -80,7 +87,7 @@ export async function withInferredLeadStatus(client: Client): Promise<Client> {
 export async function leadInferenceCommunications(clientId: string): Promise<CommunicationRow[]> {
   const { data } = await getSupabaseAdmin()
     .from("communications")
-    .select("client_id, direction, channel, subject, occurred_at")
+    .select("client_id, direction, channel, subject, delivery_status, occurred_at")
     .eq("client_id", clientId)
     .order("occurred_at", { ascending: true });
   return data ?? [];
@@ -95,12 +102,12 @@ export function applyLeadStatusInference(client: Client, rows: CommunicationRow[
 export async function candidateLeadCommunications(): Promise<CommunicationRow[]> {
   const { data } = await getSupabaseAdmin()
     .from("communications")
-    .select("client_id, direction, channel, subject, occurred_at, clients!inner(lifecycle_stage, lead_status)")
+    .select("client_id, direction, channel, subject, delivery_status, occurred_at, clients!inner(lifecycle_stage, lead_status)")
     .eq("clients.lifecycle_stage", "Lead")
     .in("clients.lead_status", [...UNRESPONSIVE_SOURCE_STATUSES])
     .order("occurred_at", { ascending: true });
-  return (data ?? []).map(({ client_id, direction, channel, subject, occurred_at }) => ({
-    client_id, direction, channel, subject, occurred_at,
+  return (data ?? []).map(({ client_id, direction, channel, subject, delivery_status, occurred_at }) => ({
+    client_id, direction, channel, subject, delivery_status, occurred_at,
   }));
 }
 

@@ -52,7 +52,7 @@ export function RenewalEmailRulesTab({ rules, templates, contacts, canEdit }: {
         <div className="max-w-[720px]">
           <h3 className="text-[15px] font-bold">Renewal email rules</h3>
           <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-            Due rules create email drafts for review, with one draft per rule per renewal cycle. Re-running refreshes eligible drafts without creating duplicates. Emails are logging-only: reviewing and logging records the communication, but never delivers an email.
+            Due rules create email drafts for review, with one draft per rule per renewal cycle. Re-running refreshes eligible drafts without creating duplicates. Nothing is sent automatically: Admin or Staff review each draft and send it from admin@pacificinsuranceph.com. Drafts logged before Gmail sending stay marked as logged only.
           </p>
           {!canEdit && <p className="mt-2 text-[12.5px] text-muted-foreground">Admin controls rule settings and queue runs. Staff can view rules and review drafts from Tasks.</p>}
         </div>

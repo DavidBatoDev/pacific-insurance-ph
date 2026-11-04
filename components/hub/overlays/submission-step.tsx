@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
-import { getSubmissionDraftAction, submitToPacificCrossAction, type SubmissionDraft } from "@/app/(app)/submissions/actions";
+import { getSubmissionDraftAction, type SubmissionDraft } from "@/app/(app)/submissions/actions";
+import { EmailSendControls } from "@/components/email/email-send-controls";
+import { RecentEmailSends } from "@/components/email/recent-email-sends";
 import { RequirementStatusDot } from "@/components/hub/requirement-status";
+import type { EmailDraftSeed, EmailOrigin } from "@/lib/communications/outbound-email.types";
 import { fmtDate } from "@/lib/format";
 import { emailClipboardText, type SubmissionKind } from "@/lib/submissions/submission-email";
 import { cn } from "@/lib/utils";
@@ -12,9 +15,10 @@ import { AREA, Btn, Field, INPUT, SEL } from "../primitives";
 import { useOverlays } from "./overlay-provider";
 
 /**
- * The finalizing step after a requirements checklist: compose the email to Pacific Cross, download
- * every checklist file as one ZIP, then record the submission. Nothing is delivered from here (R1)
- * — Eman copies the email into her own mailbox, attaches the ZIP and sends it herself.
+ * The finalizing step after a requirements checklist: compose the email to Pacific Cross, review
+ * the exact package (every checklist original attached by the server), then send it through Gmail
+ * from the agency mailbox. The record moves to its submitted status only after Gmail accepts it.
+ * Download ZIP and Copy email text are conveniences with no effect on the workflow.
  */
 export function SubmissionStep({
   kind,
@@ -27,7 +31,8 @@ export function SubmissionStep({
   kind: SubmissionKind;
   id: string;
   onBack: () => void;
-  onSubmitted: (submittedDate: string) => void;
+  /** Gmail accepted the submission and its workflow update (status/date) completed. */
+  onSubmitted: () => void;
   /** Inside the application workflow: no own heading or scroll area, footer pinned to the bottom. */
   embedded?: boolean;
   backLabel?: string;
@@ -38,7 +43,7 @@ export function SubmissionStep({
   const [contactId, setContactId] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [sentCount, setSentCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +54,7 @@ export function SubmissionStep({
       setContactId(result.data.defaultContactId ?? "");
       setSubject(result.data.subject);
       setBody(result.data.body);
-    });
+    }).catch(() => { if (active) setError("The submission could not be prepared. Reload and try again."); });
     return () => { active = false; };
   }, [kind, id]);
 
@@ -65,25 +70,36 @@ export function SubmissionStep({
 
   const contact = draft.contacts.find((candidate) => candidate.id === contactId) ?? null;
   const fileCount = draft.items.reduce((count, item) => count + item.documents.length, 0);
-  const withoutFile = draft.items.filter((item) => !item.documents.length).length;
-  const blocked = draft.outstanding > 0;
+  const blockedReason = draft.outstanding.length
+    ? `Still outstanding on the checklist: ${draft.outstanding.join(", ")}.`
+    : draft.withoutFile.length
+      ? `Upload the file for: ${draft.withoutFile.join(", ")}. Every required item is sent as an attachment.`
+      : !contact
+        ? "Pick a Pacific Cross contact to send to."
+        : null;
+  const emailDraft: EmailDraftSeed = {
+    origin: { type: "submission", kind, id, contactId },
+    recipient: contact?.email ?? "",
+    externalContactId: contact?.id,
+    subject,
+    body,
+    // The server attaches exactly the checklist originals; browser selections are ignored.
+    documentIds: [],
+  };
+  const isThisSubmission = (origin: EmailOrigin) => origin.type === "submission" && origin.kind === kind && origin.id === id;
 
   const copy = () => {
     void navigator.clipboard
       .writeText(emailClipboardText(contact?.email ?? "", subject, body))
-      .then(() => overlays.toast("Email copied", "Paste it into a new message in your mailbox."))
+      .then(() => overlays.toast("Email copied", "Copied for reference only — sending it elsewhere does not mark the submission."))
       .catch(() => overlays.toast("Couldn’t copy", "Your browser blocked clipboard access — select the text and copy it instead."));
   };
 
-  const submit = () =>
-    startTransition(async () => {
-      const result = await submitToPacificCrossAction(kind, id, { contactId, subject, body }).catch(
-        (failure: unknown) => ({ ok: false as const, error: failure instanceof Error ? failure.message : "The request didn’t reach the server." }),
-      );
-      if (!result.ok) return overlays.toast("Couldn’t record the submission", result.error);
-      overlays.toast("Marked as sent", `Logged to ${contact?.email ?? "Pacific Cross"} — nothing was sent from the CRM.`);
-      onSubmitted(result.data.submittedDate);
-    });
+  const submitted = () => {
+    setSentCount((count) => count + 1);
+    overlays.toast("Sent to Pacific Cross", "Accepted by Gmail. Delivery and reading are not confirmed.");
+    onSubmitted();
+  };
 
   return (
     <div className={cn(embedded && "flex flex-1 flex-col")}>
@@ -97,16 +113,28 @@ export function SubmissionStep({
 
       {draft.submittedDate && (
         <div className="mt-3 rounded-md border border-blue-border bg-blue-soft/50 px-3 py-2 text-[12px]">
-          Already submitted on {fmtDate(draft.submittedDate)}. Submitting again logs another email and keeps the original date.
+          Already submitted on {fmtDate(draft.submittedDate)}. Sending again emails Pacific Cross another copy and keeps the original date.
         </div>
       )}
-      {blocked && (
-        <div className="mt-3 rounded-md border border-red-border bg-red-soft/50 px-3 py-2 text-[12px]">
-          {draft.outstanding} required item{draft.outstanding === 1 ? " is" : "s are"} still outstanding — go back to the checklist first.
+      {draft.outstanding.length > 0 && (
+        <div role="alert" className="mt-3 rounded-md border border-red-border bg-red-soft/50 px-3 py-2 text-[12px]">
+          Still outstanding — go back to the checklist first: {draft.outstanding.join(", ")}.
+        </div>
+      )}
+      {!draft.outstanding.length && draft.withoutFile.length > 0 && (
+        <div role="alert" className="mt-3 rounded-md border border-red-border bg-red-soft/50 px-3 py-2 text-[12px]">
+          Required items without an uploaded file: {draft.withoutFile.join(", ")}. Upload each file on the checklist before sending.
         </div>
       )}
 
       <div className={cn("space-y-3", embedded ? "mt-3" : "mt-4 max-h-[52vh] overflow-y-auto pr-1")}>
+        <RecentEmailSends
+          clientId={draft.clientId}
+          matches={isThisSubmission}
+          title="Earlier sends of this submission"
+          refreshKey={sentCount}
+          onSettled={onSubmitted}
+        />
         <Field label="To" hint={contact ? `${contact.name}${contact.department ? ` · ${contact.department}` : ""}` : undefined}>
           {draft.contacts.length ? (
             <select aria-label="Recipient" className={cn(SEL, "w-full")} value={contactId} onChange={(event) => setContactId(event.target.value)}>
@@ -128,7 +156,7 @@ export function SubmissionStep({
             <div>
               <div className="text-[12px] font-semibold">Attachments</div>
               <div className="text-[11.5px] text-muted-foreground">
-                {fileCount} file{fileCount === 1 ? "" : "s"} from the checklist{withoutFile ? ` · ${withoutFile} item${withoutFile === 1 ? "" : "s"} without an uploaded file` : ""}
+                {fileCount} file{fileCount === 1 ? "" : "s"} from the checklist, each attached to the email. Review shows the exact names and sizes.
               </div>
             </div>
             {fileCount ? (
@@ -152,16 +180,22 @@ export function SubmissionStep({
                   {item.documents.length ? (
                     <div className="truncate text-[11.5px] text-muted-foreground">{item.documents.map((document) => document.name).join(", ")}</div>
                   ) : (
-                    <div className="text-[11.5px] text-amber">No file uploaded — attach it yourself or send it later</div>
+                    <div className="text-[11.5px] text-red">No file uploaded — required before sending</div>
                   )}
                 </div>
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-[11.5px] text-subtle">
-          Nothing is sent from the CRM yet. Copy the email into your mailbox, attach the ZIP, send it, then mark it as submitted here.
-        </p>
+
+        <EmailSendControls
+          draft={emailDraft}
+          ready={Boolean(contact && subject.trim() && body.trim())}
+          blockedReason={blockedReason}
+          reviewLabel="Review submission"
+          sendLabel="Send to Pacific Cross"
+          onSent={submitted}
+        />
       </div>
 
       {embedded && <div aria-hidden className="min-h-6 flex-1" />}
@@ -171,13 +205,8 @@ export function SubmissionStep({
           embedded ? "sticky -bottom-6 -mx-6 -mb-6 bg-surface-2 px-5 py-3.5" : "mt-5 pt-4",
         )}
       >
-        <Btn onClick={onBack} disabled={pending}>← {backLabel}</Btn>
-        <div className="flex gap-2">
-          <Btn onClick={copy}><I.copy size={14} /> Copy email text</Btn>
-          <Btn variant="primary" disabled={pending || blocked || !contact || !subject.trim() || !body.trim()} onClick={submit}>
-            <I.check size={14} /> Mark as sent
-          </Btn>
-        </div>
+        <Btn onClick={onBack}>← {backLabel}</Btn>
+        <Btn onClick={copy}><I.copy size={14} /> Copy email text</Btn>
       </div>
     </div>
   );

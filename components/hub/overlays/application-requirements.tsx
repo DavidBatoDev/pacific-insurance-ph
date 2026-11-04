@@ -7,26 +7,29 @@ import {
   activateRequirementPhaseAction,
   createApplicationPaymentAction,
   getApplicationRequirementsAction,
-  logBillingSentAction,
+  getMissingDocumentsDraftAction,
   logPacificCrossReplyAction,
   recordApplicationProposalAction,
-  requestMissingDocumentsAction,
   updateApplicationRequirementRequiredAction,
   updateApplicationRequirementStatusAction,
   type ApplicationRequirementsPayload,
 } from "@/app/(app)/applications/actions";
+import { EmailAttachmentChoices } from "@/components/email/email-attachment-choices";
+import { EmailSendControls } from "@/components/email/email-send-controls";
+import { RecentEmailSends } from "@/components/email/recent-email-sends";
 import type { Payment } from "@/lib/repositories/payments";
 import { APPLICATION_REQUIREMENT_STATUSES, type ApplicationRequirement, type ApplicationRequirementStatus, type RequirementPhase } from "@/lib/repositories/application-requirements/application-requirement.entity";
 import { cn } from "@/lib/utils";
 import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requirement-status";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { PdfUpload } from "@/components/documents/pdf-upload";
-import type { SubmissionRecord } from "@/lib/submissions/submission-email";
+import { countsAsCompleted, deliveryOutcomeLabel, type SubmissionRecord } from "@/lib/submissions/submission-email";
 import { APPLICATION_WORKFLOW_STEPS, isStepUnlocked, workflowProgress, type WorkflowStepNumber } from "@/lib/applications/workflow";
 import { fmtDate, peso } from "@/lib/format";
 import { I } from "../icons";
 import { AREA, Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { usePolicyCopyForm, type PolicyFromApplication } from "./issue-policy";
+import { MissingDocumentsEmail } from "./missing-documents-email";
 import { useOverlays } from "./overlay-provider";
 import { SubmissionRecordCard } from "./submission-record";
 import { SubmissionStep } from "./submission-step";
@@ -213,7 +216,16 @@ function PacificCrossReplyStep({
   );
 }
 
-/** Payment checkpoint 2: the billing and payment channels, ready to paste to the client. */
+/** One recorded billing email: outcome, when, by whom, and the recipient snapshot. */
+function billingRecordLine(record: SubmissionRecord): string {
+  return `${deliveryOutcomeLabel(record.deliveryStatus)} · ${fmtWhen(record.occurredAt)}${record.senderName ? ` by ${record.senderName}` : ""}${record.recipient ? ` to ${record.recipient}` : ""}: “${record.subject ?? "(no subject)"}”`;
+}
+
+/**
+ * Payment checkpoint 2: the billing and payment channels emailed to the client through Gmail, with
+ * the proposal or billing documents as real attachments. Only a Gmail-accepted email completes it;
+ * historical log-only records stay visible as history.
+ */
 function BillingToClient({
   payload,
   payment,
@@ -226,9 +238,10 @@ function BillingToClient({
   onChanged: () => Promise<unknown>;
 }) {
   const overlays = useOverlays();
-  const [pending, startTransition] = useTransition();
   const firstName = payload.clientName.split(" ")[0];
   const product = payload.application.productName ?? "Pacific Cross";
+  const clientId = payload.application.clientId;
+  const [recipient, setRecipient] = useState(payload.clientEmail ?? "");
   const [subject, setSubject] = useState(`Your ${product} billing — ${payload.application.referenceNo ?? ""}`.trim());
   const [body, setBody] = useState(
     [
@@ -244,45 +257,73 @@ function BillingToClient({
       "Thank you!",
     ].join("\n"),
   );
+  const [documentIds, setDocumentIds] = useState<string[]>(payload.proposal ? [payload.proposal.id] : []);
+  const [emailAttachments, setEmailAttachments] = useState<{ messageId: string; partId: string }[]>([]);
   const sent = payload.billingSent;
+  const history = payload.billingHistory.filter((record) => record.id !== sent?.id);
   const copy = () =>
     void navigator.clipboard
-      .writeText(`${payload.clientEmail ? `To: ${payload.clientEmail}\n` : ""}Subject: ${subject}\n\n${body}`)
-      .then(() => overlays.toast("Email copied", "Paste it into a message to the client and attach the proposal."))
+      .writeText(`${recipient ? `To: ${recipient}\n` : ""}Subject: ${subject}\n\n${body}`)
+      .then(() => overlays.toast("Email copied", "Copied for reference only — sending it elsewhere does not complete this checkpoint."))
       .catch(() => overlays.toast("Couldn’t copy", "Select the text and copy it instead."));
-  const markSent = () =>
-    startTransition(async () => {
-      const result = await logBillingSentAction(applicationId, { subject, body });
-      if (!result.ok) return overlays.toast("Couldn’t log it", result.error);
-      overlays.toast("Billing logged as sent", "Nothing was delivered from the CRM.");
-      await onChanged();
-    });
 
   return (
-    <Section title="Billing sent to client" state={sent ? { status: "done", label: `Sent ${fmtWhen(sent.occurredAt)}` } : { status: "todo", label: "Not sent yet" }}>
+    <Section
+      title="Billing sent to client"
+      state={sent ? { status: "done", label: `Sent ${fmtWhen(sent.occurredAt)}` } : { status: "todo", label: "Not sent yet" }}
+    >
       {sent ? (
         <p className="text-[12.5px] text-muted-foreground">
-          Logged {fmtWhen(sent.occurredAt)}{sent.senderName ? ` by ${sent.senderName}` : ""}: “{sent.subject}”.{" "}
+          {billingRecordLine(sent)}.{" "}
           <button type="button" className="font-semibold text-brand-hover hover:underline" onClick={() => overlays.openPaymentLinks()}>Send payment instructions again</button>
         </p>
       ) : (
         <>
-          <Field label="Subject">
+          <RecentEmailSends
+            clientId={clientId}
+            matches={(origin) => origin.type === "billing" && origin.id === applicationId}
+            title="Billing emails"
+            onSettled={() => void onChanged()}
+          />
+          <Field label="To" className="mt-3">
+            <input aria-label="Billing recipient" type="email" className={INPUT} value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="client@example.com" />
+          </Field>
+          <Field label="Subject" className="mt-3">
             <input aria-label="Billing subject" className={INPUT} value={subject} onChange={(event) => setSubject(event.target.value)} />
           </Field>
           <Field label="Message" className="mt-3">
             <textarea aria-label="Billing message" className={cn(AREA, "text-[13px]")} rows={8} value={body} onChange={(event) => setBody(event.target.value)} />
           </Field>
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-            {payload.proposal && (
-              <a href={`/api/documents/${payload.proposal.id}/download`} target="_blank" rel="noreferrer" className="mr-auto text-[12px] font-semibold text-brand-hover hover:underline">
-                Open the proposal to attach
-              </a>
-            )}
+          <EmailAttachmentChoices
+            clientId={clientId}
+            documentIds={documentIds}
+            onDocumentIds={setDocumentIds}
+            emailAttachments={emailAttachments}
+            onEmailAttachments={setEmailAttachments}
+          />
+          {!payload.proposal && <p className="mt-2 text-[12px] text-amber">No illustrative proposal is on file — attach the billing document you want the client to receive.</p>}
+          <div className="mt-3 flex justify-end">
             <Btn size="sm" onClick={copy}><I.copy size={13} /> Copy email text</Btn>
-            <Btn size="sm" disabled={pending} onClick={markSent}><I.send size={13} /> Mark as sent</Btn>
           </div>
+          <EmailSendControls
+            draft={{ origin: { type: "billing", id: applicationId }, recipient, subject, body, documentIds, emailAttachments }}
+            ready={Boolean(recipient.trim() && subject.trim() && body.trim())}
+            blockedReason={recipient.trim() ? null : "Add the client’s email address."}
+            sendLabel="Send billing"
+            onSent={() => {
+              overlays.toast("Billing sent", "Accepted by Gmail. Delivery and reading are not confirmed.");
+              void onChanged();
+            }}
+          />
         </>
+      )}
+      {history.length > 0 && (
+        <details className="mt-3 text-[12px] text-muted-foreground">
+          <summary className="cursor-pointer font-semibold">{history.length} other billing record{history.length === 1 ? "" : "s"}</summary>
+          <ul className="mt-1.5 space-y-1">
+            {history.map((record) => <li key={record.id}>{billingRecordLine(record)}</li>)}
+          </ul>
+        </details>
       )}
     </Section>
   );
@@ -295,6 +336,16 @@ const STEP_HEADINGS: Record<WorkflowStepNumber, { title: string; sub: string }> 
   4: { title: "Payment", sub: "Send the billing, collect proof of payment, and record Pacific Cross’s service invoice." },
   5: { title: "Log policy copy", sub: "File the issued policy — the client becomes a policyholder." },
 };
+
+const SUBMITTED_OR_LATER: Record<string, true> = { "Submitted to Pacific Cross": true, "Awaiting Payment": true, Approved: true };
+
+/**
+ * Pacific Cross has the package: the application's own status/date says so, or a Gmail-accepted
+ * (or historical log-only) submission exists. Prepared, failed and unknown sends never count.
+ */
+function hasSubmitted(data: ApplicationRequirementsPayload): boolean {
+  return !!SUBMITTED_OR_LATER[data.application.status] || !!data.application.dateSubmitted || data.submissions.some(countsAsCompleted);
+}
 
 /**
  * The application workflow after the wizard (TO-BE-UPDATE-PLAN.md H7e follow-up): Requirements →
@@ -331,7 +382,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         const outstandingCount = result.data.requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete")).length;
         const opening = workflowProgress({
           outstanding: outstandingCount,
-          submitted: result.data.submissions.length > 0,
+          submitted: hasSubmitted(result.data),
           proposalOnFile: !!result.data.proposal,
           paymentStatus: result.data.payment?.status ?? null,
           policyLinked: !!result.data.policy,
@@ -404,19 +455,15 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       router.refresh();
     });
 
-  const request = () =>
-    startTransition(async () => {
-      const result = await requestMissingDocumentsAction(applicationId);
-      if (!result.ok) return overlays.toast("Couldn’t log follow-up", result.error);
-      overlays.toast("Follow-up logged", `${result.data.outstanding} outstanding document${result.data.outstanding === 1 ? "" : "s"} recorded; nothing was delivered.`);
-    });
+  const [requesting, setRequesting] = useState(false);
 
   const payment = payload?.payment ?? null;
   const policy = payload?.policy ?? null;
   const submissions = payload?.submissions ?? [];
+  const submitted = !!payload && hasSubmitted(payload);
   const flow = workflowProgress({
     outstanding: outstanding.length,
-    submitted: submissions.length > 0,
+    submitted,
     proposalOnFile: !!payload?.proposal,
     paymentStatus: payment?.status ?? null,
     policyLinked: !!policy,
@@ -446,6 +493,9 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
     if (active === 1) {
       return (
         <>
+          {requesting && (
+            <MissingDocumentsEmail load={() => getMissingDocumentsDraftAction(applicationId)} onClose={() => setRequesting(false)} />
+          )}
           <div className="rounded-md border border-border-soft bg-surface-2 px-4 py-3">
             <div className="flex items-end justify-between gap-3"><div><div className="text-[12px] font-semibold">Verified package</div><div className="mt-0.5 text-[11.5px] text-muted-foreground">{complete} of {required.length} required documents verified</div></div><div className="text-[17px] font-bold tabular-nums text-brand-hover">{progress}%</div></div>
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-border-soft"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} /></div>
@@ -480,6 +530,11 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                         clientId={payload.application.clientId}
                         applicationId={applicationId}
                         requirementId={item.id}
+                        requirementLabel={`${payload.application.referenceNo ?? "Application"} · ${payload.clientName} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+                        onAttached={(receipt) => {
+                          latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
+                          setRowStatus(item.id, receipt.requirementStatus);
+                        }}
                         onUploaded={() => void reload()}
                         sourceLibraryDocumentId={item.documentName.toLowerCase().includes("application form") ? payload.carrierForms.find((form) => form.personName === item.appliesTo)?.documentLibraryId ?? undefined : undefined}
                       />
@@ -494,14 +549,14 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       );
     }
     if (active === 2) {
-      if (composing || !submissions.length) {
+      if (composing || !submitted) {
         return (
           <SubmissionStep
             embedded
             kind="application"
             id={applicationId}
-            backLabel={submissions.length ? "Cancel resubmission" : "Back to requirements"}
-            onBack={() => (submissions.length ? setComposing(false) : go(1))}
+            backLabel={submitted ? "Cancel resubmission" : "Back to requirements"}
+            onBack={() => (submitted ? setComposing(false) : go(1))}
             onSubmitted={() => {
               setComposing(false);
               void reload().then((data) => { if (data) setStep(3); });
@@ -510,7 +565,9 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
           />
         );
       }
-      return <SubmissionRecordCard records={submissions} />;
+      return submissions.length
+        ? <SubmissionRecordCard records={submissions} />
+        : <p className="text-[12.5px] text-muted-foreground">Submitted to Pacific Cross{payload.application.dateSubmitted ? ` on ${fmtDate(payload.application.dateSubmitted)}` : ""}. No email is recorded in the CRM for it.</p>;
     }
     if (active === 3) {
       return (
@@ -653,8 +710,12 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         </Btn>
       );
     } else if (active === 2) {
-      if (composing || !submissions.length) return null; // SubmissionStep has its own footer
-      note = `Sent ${fmtDate(submissions[0].occurredAt)}${payload.application.dateSubmitted ? ` · submitted ${fmtDate(payload.application.dateSubmitted)}` : ""}`;
+      if (composing || !submitted) return null; // SubmissionStep has its own footer
+      const lastSent = submissions.find(countsAsCompleted);
+      note = [
+        lastSent && `${lastSent.deliveryStatus === "sent" ? "Sent" : "Logged"} ${fmtDate(lastSent.occurredAt)}`,
+        payload.application.dateSubmitted && `submitted ${fmtDate(payload.application.dateSubmitted)}`,
+      ].filter(Boolean).join(" · ");
       primary = (
         <>
           <Btn onClick={() => setComposing(true)}><I.send size={14} /> Resubmit</Btn>
@@ -723,7 +784,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       }))}
       heading={STEP_HEADINGS[active]}
       headerAction={active === 1 && outstanding.length > 0 && (
-        <Btn size="sm" disabled={pending} onClick={request} title="Logs an email to the client listing the outstanding documents">
+        <Btn size="sm" disabled={requesting} onClick={() => setRequesting(true)} title="Opens an email to the client listing the outstanding documents, for review before sending">
           <I.mail size={13} /> Request missing documents
         </Btn>
       )}

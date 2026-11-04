@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { logOutboundEmail } from "@/lib/communications/log-outbound-email";
+import { BILLING_SUMMARY_PREFIX, outboundEmailErrorMessage, requireEmailSender } from "@/lib/communications/outbound-email";
+import type { EmailDraftSeed } from "@/lib/communications/outbound-email.types";
 import { getApplicationRequirementsRepository, type ApplicationRequirement, type ApplicationRequirementStatus, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getApplicationsRepository, type Application } from "@/lib/repositories/applications";
 import { getClientsRepository } from "@/lib/repositories/clients";
@@ -16,7 +17,7 @@ import { getPoliciesRepository, type Policy } from "@/lib/repositories/policies"
 import { registerUploadedProposalReceipt } from "@/lib/documents/uploaded-pdf";
 import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
 import { getPaymentChannelsRepository } from "@/lib/repositories/payment-channels";
-import type { SubmissionRecord } from "@/lib/submissions/submission-email";
+import { countsAsCompleted, type SubmissionRecord } from "@/lib/submissions/submission-email";
 import { listCommunicationRecords, listSubmissionRecords } from "@/lib/submissions/submission-files";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { fillTemplate, pesoMerge } from "@/lib/templates/merge";
@@ -37,15 +38,16 @@ export interface ApplicationRequirementsPayload {
   proposal: Pick<DocumentRecord, "id" | "name" | "uploadedAt"> | null;
   /** Replies from Pacific Cross logged against this application, newest first. */
   replies: SubmissionRecord[];
-  /** The latest "billing sent to client" email, if Eman has logged one. */
+  /** The latest billing email Gmail accepted (delivery_status 'sent') — the only proof the billing went out. */
   billingSent: SubmissionRecord | null;
+  /** Every billing email recorded for the application, any outcome (incl. historical log-only rows), newest first. */
+  billingHistory: SubmissionRecord[];
   /** Active payment channels, for the billing message to the client. */
   paymentChannels: string[];
 }
 
-/** Summary prefixes that let the workflow find its own logged communications again. */
+/** Summary prefixes that let the workflow find its own communications again (never proof of sending). */
 const REPLY_PREFIX = "Pacific Cross reply";
-const BILLING_PREFIX = "Billing sent to client";
 const PROPOSAL_TYPE = "Illustrative Proposal";
 
 /** The client's current illustrative proposal: the newest one not marked Replaced. */
@@ -76,7 +78,7 @@ export async function getApplicationRequirementsAction(applicationId: string): P
       application.policyId ? getPoliciesRepository().findById(application.policyId) : Promise.resolve(null),
       currentProposal(application.clientId),
       listCommunicationRecords({ kind: "application", id: applicationId, summaryPrefix: REPLY_PREFIX, direction: "Inbound" }),
-      listCommunicationRecords({ kind: "application", id: applicationId, summaryPrefix: BILLING_PREFIX, direction: "Outbound" }),
+      listCommunicationRecords({ kind: "application", id: applicationId, summaryPrefix: BILLING_SUMMARY_PREFIX, direction: "Outbound" }),
       getPaymentChannelsRepository().list(),
     ]);
     return {
@@ -85,7 +87,7 @@ export async function getApplicationRequirementsAction(applicationId: string): P
         application, clientName: client.fullName, clientEmail: client.email, requirements, carrierForms,
         submissions, payment: payments.at(-1) ?? null, policy,
         proposal: proposal && { id: proposal.id, name: proposal.name, uploadedAt: proposal.uploadedAt },
-        replies, billingSent: billing[0] ?? null,
+        replies, billingSent: billing.find((record) => record.deliveryStatus === "sent") ?? null, billingHistory: billing,
         paymentChannels: channels.filter((channel) => channel.active).map((channel) => `${channel.label} — ${channel.accountNumber}`),
       },
     };
@@ -177,13 +179,25 @@ export async function activateRequirementPhaseAction(
   }
 }
 
-export async function requestMissingDocumentsAction(applicationId: string): Promise<ActionResult<{ outstanding: number }>> {
-  const actor = await getActor();
+/** A reviewable missing-documents email for one application, plus the client its attachments come from. */
+export interface MissingDocumentsDraft {
+  clientId: string;
+  outstanding: number;
+  draft: EmailDraftSeed;
+}
+
+/**
+ * Builds the "Request missing documents" email listing the required checklist rows still Pending
+ * or Incomplete. Nothing is sent or recorded here: staff review it and send it through Gmail, and
+ * the documents-requested activity is written only once Gmail accepts it.
+ */
+export async function getMissingDocumentsDraftAction(applicationId: string): Promise<ActionResult<MissingDocumentsDraft>> {
   try {
+    const actor = await requireEmailSender();
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const client = await getClientsRepository().findById(application.clientId);
-    if (!client?.email) return { ok: false, error: "Add the contact’s email address before logging a document follow-up." };
+    if (!client) return { ok: false, error: "The linked contact could not be found." };
     const requirements = await getApplicationRequirementsRepository().listByApplication(application.id);
     const missing = requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
     if (!missing.length) return { ok: false, error: "There are no outstanding required documents to request." };
@@ -201,24 +215,24 @@ export async function requestMissingDocumentsAction(applicationId: string): Prom
       ? merged.replace("- (documents will be listed here)", list)
       : `${merged.trim()}\n\nOutstanding documents:\n${list}`;
     const subject = fillTemplate(template.subject, { first_name: client.firstName, product: application.productName ?? client.productInterest, agent: actor.fullName });
-    const communicationId = await logOutboundEmail({
-      clientId: client.id, applicationId: application.id, actorId: actor.id,
-      subject, summary: `Request for ${missing.length} outstanding document${missing.length === 1 ? "" : "s"}`,
-      notes: body,
-    });
-    await recordActivity({
-      scopeType: "client", scopeId: client.id, actorId: actor.id,
-      activityType: "application.documents_requested",
-      summary: `Requested ${missing.length} missing document${missing.length === 1 ? "" : "s"} for ${application.referenceNo ?? "application"} (logged, not delivered)`,
-    });
-    await recordAudit({
-      actorId: actor.id, action: "request_missing_documents", tableName: "communications", recordId: communicationId,
-      newValue: { application_id: application.id, requirement_ids: missing.map((item) => item.id) },
-    });
-    refresh(client.id);
-    return { ok: true, data: { outstanding: missing.length } };
+    return {
+      ok: true,
+      data: {
+        clientId: client.id,
+        outstanding: missing.length,
+        draft: {
+          origin: { type: "application_missing", id: application.id },
+          recipient: client.email ?? "",
+          subject,
+          body,
+          templateName: template.name,
+          documentIds: [],
+          emailAttachments: [],
+        },
+      },
+    };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Failed to log the document follow-up." };
+    return { ok: false, error: outboundEmailErrorMessage(error) };
   }
 }
 
@@ -325,7 +339,8 @@ export async function logPacificCrossReplyAction(
       touched.push(...created.map((item) => item.id));
     }
 
-    const submission = (await listSubmissionRecords("application", applicationId))[0];
+    // Only a submission that reached Pacific Cross (or a historical log) identifies the replying contact.
+    const submission = (await listSubmissionRecords("application", applicationId)).find(countsAsCompleted);
     const what = input.kind === "Conforme to sign" ? `${input.kind} (${conformes.join(", ")})` : input.kind === "More requirements" ? `${input.kind} (${items.length})` : input.kind;
     const body = [note, ...(input.kind === "More requirements" ? items.map((item) => `- ${item}`) : [])].filter(Boolean).join("\n") || null;
     const { data: communication, error } = await getSupabaseAdmin().from("communications").insert({
@@ -377,40 +392,5 @@ export async function recordApplicationProposalAction(
     return { ok: true, data: { id: doc.id, name: doc.name } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Couldn’t file the proposal." };
-  }
-}
-
-/** Payment step: records that the billing and payment channels went to the client (R1 — logged only). */
-export async function logBillingSentAction(
-  applicationId: string,
-  input: { subject: string; body: string },
-): Promise<ActionResult<null>> {
-  const actor = await getActor();
-  try {
-    const subject = input.subject.trim();
-    const body = input.body.trim();
-    if (!subject || !body) return { ok: false, error: "Add a subject and a message first." };
-    const application = await getApplicationsRepository().findById(applicationId);
-    if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
-    const payment = (await getPaymentsRepository().listByApplication(applicationId)).at(-1);
-    if (!payment) return { ok: false, error: "Record the billed amount first." };
-    const amount = payment.amount != null ? "₱" + payment.amount.toLocaleString("en-PH") : "the billed premium";
-    const communicationId = await logOutboundEmail({
-      clientId: application.clientId, applicationId, actorId: actor.id,
-      subject, summary: `${BILLING_PREFIX} — ${amount}`, notes: body,
-    });
-    await recordActivity({
-      scopeType: "client", scopeId: application.clientId, actorId: actor.id,
-      activityType: "payment.instruction_logged",
-      summary: `Billing (${amount}) and payment channels sent for ${application.referenceNo ?? "application"} (logged, not delivered)`,
-    });
-    await recordAudit({
-      actorId: actor.id, action: "log_billing_sent", tableName: "communications", recordId: communicationId,
-      newValue: { application_id: applicationId, payment_id: payment.id },
-    });
-    refresh(application.clientId);
-    return { ok: true, data: null };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Failed to log the billing email." };
   }
 }

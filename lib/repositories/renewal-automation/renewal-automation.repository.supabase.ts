@@ -33,7 +33,7 @@ function draftToDomain(row: JoinedDraft): RenewalEmailDraft {
     subject: row.edited_subject ?? fillTemplate(row.subject, context),
     body: row.edited_body ?? fillTemplate(row.body, context),
     status: row.status as RenewalEmailDraft["status"], dismissalReason: row.dismissal_reason,
-    communicationId: row.communication_id, updatedAt: row.updated_at,
+    communicationId: row.communication_id, outboundMessageId: row.outbound_message_id, updatedAt: row.updated_at,
   };
 }
 
@@ -61,7 +61,7 @@ export class SupabaseRenewalAutomationRepository implements RenewalAutomationRep
     if (error) throw toRepositoryError("RenewalAutomationRepository.findDraft", error);
     return data ? draftToDomain(data) : null;
   }
-  async updateDraft(id: string, actorId: string, operation: "save" | "log" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<RenewalEmailDraft> {
+  async updateDraft(id: string, actorId: string, operation: "save" | "dismiss", revision: string, edits?: RenewalEmailDraftEdit): Promise<RenewalEmailDraft> {
     const { data, error } = await getSupabaseAdmin().rpc("update_renewal_email_draft", {
       p_draft_id: id, p_actor_id: actorId, p_operation: operation, p_expected_updated_at: revision,
       ...(edits && { p_recipient_email: edits.recipientEmail, p_subject: edits.subject, p_body: edits.body }),

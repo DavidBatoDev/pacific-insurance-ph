@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   generateClaimRequirementsAction,
   getClaimRequirementsAction,
-  requestMissingClaimDocumentsAction,
+  getMissingClaimDocumentsDraftAction,
   updateClaimIntakeAction,
   type ClaimRequirementsPayload,
 } from "@/app/(app)/claims/actions";
@@ -15,11 +15,12 @@ import { CLAIM_WORKFLOW_STEPS, claimWorkflowProgress, isClaimStepUnlocked, type 
 import { CLAIM_SUBMISSION_MODES } from "@/lib/db-enums";
 import { fmtDate, peso } from "@/lib/format";
 import { checklistForClaimType } from "@/lib/repositories/claim-requirements/claim-requirement.entity";
-import type { SubmissionRecord } from "@/lib/submissions/submission-email";
+import { countsAsCompleted, type SubmissionRecord } from "@/lib/submissions/submission-email";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClaimRequirementsPanel } from "./claim-requirements-panel";
 import { useFileClaimForm } from "./file-claim";
+import { MissingDocumentsEmail } from "./missing-documents-email";
 import { useOverlays } from "./overlay-provider";
 import { SubmissionRecordCard } from "./submission-record";
 import { SubmissionStep } from "./submission-step";
@@ -31,6 +32,19 @@ const STEP_HEADINGS: Record<ClaimStepNumber, { title: string; sub: string }> = {
   2: { title: "Requirements", sub: "Collect and verify the claim documents for the checklist." },
   3: { title: "Email Pacific Cross", sub: "Send the complete claim to Pacific Cross Claims." },
 };
+
+/** Claim statuses that mean Pacific Cross already has the claim. */
+const SUBMITTED_OR_LATER: Record<string, true> = {
+  Submitted: true, "Pending Review": true, "Compliance Required": true, Approved: true, Rejected: true, Credited: true,
+};
+
+/**
+ * Pacific Cross has the claim: its own status/date says so, or a Gmail-accepted (or historical
+ * log-only) submission exists. Prepared, failed and unknown sends never count.
+ */
+function hasSubmitted(claim: ClaimRequirementsPayload["claim"], records: SubmissionRecord[]): boolean {
+  return !!SUBMITTED_OR_LATER[claim.status] || !!claim.claimSubmittedDate || records.some(countsAsCompleted);
+}
 
 /** Step 1 for a new claim: the File claim form, with its own pinned action bar. */
 function NewClaimStep({ onCancel, onFiled }: { onCancel: () => void; onFiled: (payload: ClaimRequirementsPayload) => void }) {
@@ -80,7 +94,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
         setPayload(result.data);
         setSent(submissions);
         const outstandingCount = result.data.requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete")).length;
-        const opening = claimWorkflowProgress({ claimExists: true, outstanding: outstandingCount, submitted: submissions.length > 0 });
+        const opening = claimWorkflowProgress({ claimExists: true, outstanding: outstandingCount, submitted: hasSubmitted(result.data.claim, submissions) });
         setStep(Math.min(opening.current, 3) as ClaimStepNumber);
       }
       setLoading(false);
@@ -92,7 +106,8 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
   const requirements = payload?.requirements ?? [];
   const checklistType = checklistForClaimType(claim?.claimType ?? null);
   const outstanding = requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
-  const flow = claimWorkflowProgress({ claimExists: !!claim, outstanding: outstanding.length, submitted: sent.length > 0 });
+  const submitted = !!claim && hasSubmitted(claim, sent);
+  const flow = claimWorkflowProgress({ claimExists: !!claim, outstanding: outstanding.length, submitted });
   const go = (n: ClaimStepNumber) => { setComposing(false); setStep(n); };
   const lockedReason: Record<ClaimStepNumber, string> = { 1: "", 2: "File the claim first", 3: "Collect the required documents first" };
 
@@ -122,13 +137,13 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
       overlays.toast("Checklist generated", `${result.data.length} requirement${result.data.length === 1 ? "" : "s"} added from the ${checklistType} NOC checklist.`);
     });
 
-  const request = () =>
-    startTransition(async () => {
-      if (!claimId) return;
-      const result = await requestMissingClaimDocumentsAction(claimId);
-      if (!result.ok) return overlays.toast("Couldn’t log follow-up", result.error);
-      overlays.toast("Follow-up logged", `${result.data.outstanding} outstanding document${result.data.outstanding === 1 ? "" : "s"} recorded; nothing was delivered.`);
-    });
+  const [requesting, setRequesting] = useState(false);
+
+  const refreshAfterSubmission = async (id: string) => {
+    const [result] = await Promise.all([getClaimRequirementsAction(id), loadSent(id)]);
+    if (result.ok) setPayload(result.data);
+    router.refresh();
+  };
 
   const body = (() => {
     if (step === 1) {
@@ -187,6 +202,9 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
     if (step === 2) {
       return (
         <>
+          {requesting && (
+            <MissingDocumentsEmail load={() => getMissingClaimDocumentsDraftAction(claimId)} onClose={() => setRequesting(false)} />
+          )}
           {requirements.length === 0 && (
             <div className="mb-4 rounded-md border border-dashed border-border-strong px-4 py-8 text-center">
               <p className="text-[13px] font-semibold">No checklist generated yet</p>
@@ -210,6 +228,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
             claimId={claimId}
             clientId={claim.clientId}
             claimType={claim.claimType}
+            recordLabel={`${claim.referenceNo ?? "Claim"} · ${claim.clientName ?? "Client"}`}
             requirements={requirements}
             onChange={(next, nextType) =>
               setPayload((current) =>
@@ -224,27 +243,24 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
         </>
       );
     }
-    if (composing || !sent.length) {
+    if (composing || !submitted) {
       return (
         <SubmissionStep
           embedded
           kind="claim"
           id={claimId}
-          backLabel={sent.length ? "Cancel resubmission" : "Back to requirements"}
-          onBack={() => (sent.length ? setComposing(false) : go(2))}
-          onSubmitted={(submittedDate) => {
+          backLabel={submitted ? "Cancel resubmission" : "Back to requirements"}
+          onBack={() => (submitted ? setComposing(false) : go(2))}
+          onSubmitted={() => {
             setComposing(false);
-            setPayload((current) => current && {
-              ...current,
-              claim: { ...current.claim, status: "Submitted", claimSubmittedDate: current.claim.claimSubmittedDate ?? submittedDate },
-            });
-            void loadSent(claimId);
-            router.refresh();
+            void refreshAfterSubmission(claimId);
           }}
         />
       );
     }
-    return <SubmissionRecordCard records={sent} />;
+    return sent.length
+      ? <SubmissionRecordCard records={sent} />
+      : <p className="text-[12.5px] text-muted-foreground">Submitted to Pacific Cross{claim.claimSubmittedDate ? ` on ${fmtDate(claim.claimSubmittedDate)}` : ""}. No email is recorded in the CRM for it.</p>;
   })();
 
   const footer = (() => {
@@ -268,9 +284,11 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
         </WorkflowFooter>
       );
     }
-    if (composing || !sent.length) return null; // SubmissionStep has its own footer
+    if (composing || !submitted) return null; // SubmissionStep has its own footer
+    const lastSent = sent.find(countsAsCompleted);
+    const submittedOn = claim.claimSubmittedDate ?? lastSent?.occurredAt;
     return (
-      <WorkflowFooter back={back} note={`Submitted to Pacific Cross on ${fmtDate(claim.claimSubmittedDate ?? sent[0].occurredAt)}`}>
+      <WorkflowFooter back={back} note={submittedOn ? `Submitted to Pacific Cross on ${fmtDate(submittedOn)}` : `Claim ${claim.status}`}>
         <Btn onClick={() => setComposing(true)}><I.send size={14} /> Resubmit</Btn>
         <Btn variant="primary" onClick={onClose}>Done</Btn>
       </WorkflowFooter>
@@ -295,7 +313,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
       }))}
       heading={claim && step === 1 ? { title: "Claim details", sub: "Filed — intake details stay editable here." } : STEP_HEADINGS[step]}
       headerAction={step === 2 && outstanding.length > 0 && (
-        <Btn size="sm" disabled={pending} onClick={request} title="Logs an email to the client listing the outstanding documents">
+        <Btn size="sm" disabled={requesting} onClick={() => setRequesting(true)} title="Opens an email to the client listing the outstanding documents, for review before sending">
           <I.mail size={13} /> Request missing documents
         </Btn>
       )}

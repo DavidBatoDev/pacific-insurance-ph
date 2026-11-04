@@ -44,6 +44,7 @@ export interface TravelerInput {
 export interface TravelerRecord extends TravelerInput { id: string; travelRequestId: string; sortOrder: number }
 
 export interface TravelRequirementInput {
+  id?: string;
   documentName: string;
   appliesTo?: string | null;
   notes?: string | null;

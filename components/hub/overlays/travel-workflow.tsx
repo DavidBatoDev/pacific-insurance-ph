@@ -207,7 +207,44 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       </div>
 
 
-      <div className="mt-4"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div><div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className={`rounded-md border p-3 transition-colors ${requirementRowTone(item.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"><RequirementStatusDot status={item.status} className="max-sm:hidden" /><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div><div className="text-[11px] text-muted-foreground">{item.appliesTo}</div></div><select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}><option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option></select></div><div className="mt-2 sm:pl-10"><DocumentUploadForm clientId={payload.travel.clientId} travelRequestId={travelRequestId} requirementId={item.id} sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined} /></div></div>)}</div></div>
+      <div className="mt-4">
+        <div className="mb-2 text-[11px] font-bold uppercase text-subtle">Requirements and completed originals</div>
+        <div className="space-y-2">{payload.requirements.map((item) => <div key={item.id} className={`rounded-md border p-3 transition-colors ${requirementRowTone(item.status)}`}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <RequirementStatusDot status={item.status} className="max-sm:hidden" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div>
+              <div className="text-[11px] text-muted-foreground">{item.appliesTo}</div>
+            </div>
+            <select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}>
+              <option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option>
+            </select>
+          </div>
+          <div className="mt-2 sm:pl-10">
+            <DocumentUploadForm
+              clientId={payload.travel.clientId}
+              travelRequestId={travelRequestId}
+              requirementId={item.id}
+              requirementLabel={`${payload.travel.referenceNo ?? "Travel request"} · ${payload.travel.clientName} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+              sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined}
+              onAttached={(receipt) => {
+                latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
+                setPayload((current) => current ? {
+                  ...current,
+                  requirements: current.requirements.map((requirement) => requirement.id === item.id ? { ...requirement, status: receipt.requirementStatus } : requirement),
+                  documents: [receipt.document, ...current.documents.filter((document) => document.id !== receipt.document.id)],
+                } : current);
+                // Refresh the checklist only: never reset unsaved portal/payment fields.
+                void getTravelWorkflowAction(travelRequestId).then((result) => {
+                  if (result.ok) setPayload((current) => current ? { ...current, requirements: result.data.requirements, documents: result.data.documents } : current);
+                  else overlays.toast("Document attached; checklist refresh failed", result.error);
+                }).catch(() => overlays.toast("Document attached", "Reopen the workflow to refresh the complete checklist."));
+                router.refresh();
+              }}
+            />
+          </div>
+        </div>)}</div>
+      </div>
     </div>}
     <div className="mt-5 flex justify-end gap-2 border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn><Btn variant="primary" disabled={!payload || pending} onClick={save}>Save workflow</Btn></div>
   </Modal>;

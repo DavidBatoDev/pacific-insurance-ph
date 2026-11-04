@@ -10,9 +10,9 @@ import { getRenewalsRepository, type Renewal } from "@/lib/repositories/renewals
 import { noticeReceiptPatch } from "@/lib/renewals/notice-receipt";
 
 /**
- * Send Renewal Notice (modals.md §5): the notice itself goes out through the
- * Engage composer (Renewal reminder template); this marks the renewal row and
- * logs the status change once the send completes.
+ * Mark Renewal Notice Sent (modals.md §5): an explicit staff action. Emailing the
+ * notice through the Engage composer (Renewal reminder template) never advances
+ * the renewal lifecycle by itself; this marks the renewal row and logs the change.
  */
 export async function markRenewalNoticeSentAction(
   renewalId: string,

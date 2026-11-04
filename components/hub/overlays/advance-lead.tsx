@@ -46,8 +46,9 @@ export interface AdvanceLeadPreset {
   detail?: string;
   /** ISO timestamp captured at write time by the same communication-driven callers. */
   occurredAt?: string;
-  /** The status as it was immediately before this write — see `LeadAdvanceSuggestion` for why
-   * `lead.status` alone isn't reliable for the "before" card. */
+  /** The status as it was immediately before this write — see `LeadAdvanceSuggestion`
+   * (`lib/communications/outbound-email.types.ts`) for why `lead.status` alone isn't reliable
+   * for the "before" card. */
   previousStatus?: string | null;
 }
 

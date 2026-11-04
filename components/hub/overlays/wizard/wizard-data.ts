@@ -6,6 +6,8 @@
 export type WizardCategory = "health" | "hmo" | "travel";
 
 export interface WizardMember {
+  /** Stable wizard-only identity, shared by preview and creation; never a display-name match. */
+  requirementPersonKey?: string;
   id?: string | null;
   name: string;
   dob: string;
@@ -54,6 +56,7 @@ export interface WizardMember {
 }
 
 export interface WizardTraveler {
+  requirementPersonKey?: string;
   name: string;
   dob: string;
   nationality: string;
@@ -69,6 +72,7 @@ export interface WizardTraveler {
 }
 
 export interface ChecklistItem {
+  requirementKey?: string;
   name: string;
   cond: string | null;
   checked: boolean;
@@ -137,7 +141,7 @@ export interface WizardForm {
   medicalNotes: string;
   /**
    * Principal applicant's underwriting inputs. Pacific Cross keys three conditional medical panels
-   * off these — see `medicalDocumentsFor`. Dependents carry their own on `WizardMember`.
+   * off these — see `medicalRequirementDocumentsFor`. Dependents carry their own on `WizardMember`.
    */
   smokerStatus: string;
   heightInches: string;
@@ -193,12 +197,12 @@ export interface WizardForm {
   emailSubject: string;
   emailBody: string;
   /**
-   * Carrier-library asset staged for the initial email. Lives on the form rather than in Step 5's
-   * own state because Step 5 unmounts whenever the wizard changes step, and because
-   * `createFromWizardAction` re-validates it server-side before it logs anything.
+   * Carrier-library asset staged for the email reviewed after Create. Lives on the form rather than
+   * in Step 5's own state because Step 5 unmounts whenever the wizard changes step, and because a
+   * saved draft resumes it. The post-create review composer re-validates it before anything is sent.
    */
   emailLibraryDocumentId: string;
-  /** Optional extras. Separate from the gate field above, which drives the Create button. */
+  /** Optional extras. Separate from the required asset above. */
   emailOptionalLibraryDocumentIds: string[];
   createTask: boolean;
   followDate: string;
@@ -267,67 +271,7 @@ export const WIZ_OPTS = {
   relationship: ["Employee", "Principal", "Dependent", "Other"],
   travelPurpose: ["", "Leisure", "Business", "Family visit", "Other"],
   statuses: ["Lead", "Applicant", "Pending Requirements", "Submitted to Pacific Cross", "Awaiting Payment"],
-  docStatus: ["Pending", "Received", "Incomplete", "Verified"],
 } as const;
-
-/** Auto document checklist by category (design NA_CHECKLISTS). */
-export const WIZ_CHECKLISTS: Record<WizardCategory, { name: string; cond: string | null }[]> = {
-  health: [
-    { name: "Application form", cond: null },
-    { name: "Valid ID", cond: null },
-    { name: "Attestation letter (3 specimen signatures)", cond: null },
-    { name: "Medical records", cond: "if applicable" },
-    { name: "Pacific Cross questionnaire", cond: "if applicable" },
-    { name: "Proof of payment", cond: "later stage" },
-    { name: "Policy documents", cond: "after issuance" },
-  ],
-  hmo: [
-    { name: "Company / group details", cond: null },
-    { name: "Member list", cond: null },
-    { name: "Member information sheets", cond: null },
-    { name: "Application documents", cond: null },
-    { name: "Valid IDs", cond: "if needed" },
-    { name: "Payment proof", cond: null },
-    { name: "Policy documents", cond: "after issuance" },
-  ],
-  travel: [
-    { name: "Application details", cond: null },
-    { name: "Passport copy", cond: null },
-    { name: "Travel dates confirmation", cond: null },
-    { name: "Destination details", cond: null },
-    { name: "Payment proof", cond: null },
-    { name: "Issued policy", cond: "after issuance" },
-  ],
-};
-
-/**
- * Client-side preview of the BC Flexi template seeded by migration 0035.
- *
- * The persisted template remains authoritative. This copy lets the wizard explain the two gates
- * before save; `isRequired: false` also prevents conditional/future items from being reported as
- * documents the client must provide now when staff choose Create & request documents.
- */
-export const BC_FLEXI_CHECKLIST: ChecklistItem[] = [
-  { name: "Proposal Information Sheet (PIS)", cond: "internal use", checked: false, status: "Pending", isRequired: true, phase: "For proposal" },
-  { name: "Corporate Enrollment Template (CET)", cond: null, checked: false, status: "Pending", isRequired: true, phase: "For proposal" },
-  { name: "Franchise Application Form", cond: "only if the group has no previous HMO", checked: false, status: "Pending", isRequired: false, phase: "For proposal" },
-  { name: "Utilization Report from the previous HMO", cond: "only if the group has a previous HMO", checked: false, status: "Pending", isRequired: false, phase: "For proposal" },
-  { name: "SEC/BSP-issued Certificate of Registration (COR)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Articles of Incorporation (AOI)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Latest General Information Sheet (GIS)", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "SSS Alphalist", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "BIR Alphalist", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "PhilHealth list", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "HR Certification", cond: "KYC member checking", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Corporate Secretary's Attestation Form + valid ID", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Authorized Representative's Attestation Form + valid ID", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Duly accomplished and signed Employer's Application Form", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Duly accomplished Enrollment List in Excel", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Duly accomplished and signed Enrollment List in PDF", cond: null, checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-  { name: "Notarized Secretary's Certificate", cond: "KYC requirement", checked: false, status: "Pending", isRequired: false, phase: "Once the group agrees" },
-];
-
-export const isBcFlexiProduct = (productName: string): boolean => /\bbc\s+flexi\b/i.test(productName);
 
 /** Product name → wizard category. */
 export function categoryForProduct(name: string, productCategory?: string | null): WizardCategory {
@@ -547,12 +491,9 @@ export interface MedicalProfileInput {
 /**
  * The conditional medical documents Pacific Cross requires for one insured person.
  *
- * **Single source of truth for the trigger**, called by both the server-side requirement snapshot
- * (`wizard-actions.ts`) and the wizard's client-side checklist preview (`new-application.tsx`).
- * Those two previously carried separate copies of the age/pre-existing test, which is exactly how
- * they drift once a third condition arrives — and G3 is that third condition.
- *
- * Returns document names in checklist order. Empty when nothing applies.
+ * Medical trigger rules used by the shared requirement builder (`wizard-requirements.ts`).
+ * Preview and server snapshot consume the same keyed documents; labels are never identities.
+ * Empty when no panel applies.
  */
 /** The valid-ID line Pacific Cross wants for a nominated beneficiary, or null when none is named. */
 export function beneficiaryIdDocumentFor(beneficiaryName?: string): string | null {
@@ -561,26 +502,20 @@ export function beneficiaryIdDocumentFor(beneficiaryName?: string): string | nul
     : null;
 }
 
-export function medicalDocumentsFor(person: MedicalProfileInput): string[] {
+export function medicalRequirementDocumentsFor(person: MedicalProfileInput): { key: string; name: string }[] {
   const age = ageFromDob(person.dob);
   const senior = typeof age === "number" && age >= 71;
   const bmi = bmiFrom(person.heightInches ?? "", person.weightLbs ?? "");
-  const docs: string[] = [];
-
-  if (senior) docs.push("Senior medical examination / physician statement");
-  else if (person.preExisting === "Yes") docs.push("Medical questionnaire or supporting records");
-
-  if (person.smokerStatus === "Current") docs.push("Chest X-ray taken within the last 6 months");
-
+  const docs: { key: string; name: string }[] = [];
+  if (senior) docs.push({ key: "senior-medical", name: "Senior medical examination / physician statement" });
+  else if (person.preExisting === "Yes") docs.push({ key: "medical-questionnaire", name: "Medical questionnaire or supporting records" });
+  if (person.smokerStatus === "Current") docs.push({ key: "chest-xray", name: "Chest X-ray taken within the last 6 months" });
   if (bmi != null && bmi >= BMI_THRESHOLDS.overweight) {
-    docs.push("Lipid Profile, HbA1c, Creatinine, BUN, Uric Acid, SGOT, SGPT and GGT");
+    docs.push({ key: "bmi-panel", name: "Lipid Profile, HbA1c, Creatinine, BUN, Uric Acid, SGOT, SGPT and GGT" });
   }
   if (bmi != null && bmi >= BMI_THRESHOLDS.obeseClass1Min && bmi <= BMI_THRESHOLDS.obeseClass1Max) {
-    // The carrier lists a chest X-ray here too; a current smoker already has one above, so don't
-    // ask the client for the same film twice.
-    if (person.smokerStatus !== "Current") docs.push("Chest X-ray taken within the last 6 months");
-    docs.push("ECG");
-    docs.push("TMST (treadmill stress test)");
+    if (person.smokerStatus !== "Current") docs.push({ key: "chest-xray", name: "Chest X-ray taken within the last 6 months" });
+    docs.push({ key: "ecg", name: "ECG" }, { key: "tmst", name: "TMST (treadmill stress test)" });
   }
   return docs;
 }
