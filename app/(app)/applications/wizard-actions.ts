@@ -36,10 +36,11 @@ import { outboundEmailErrorMessage, requireEmailSender } from "@/lib/communicati
 import type { EmailDraftSeed } from "@/lib/communications/outbound-email.types";
 import type { ChecklistItem, WizardForm } from "@/components/hub/overlays/wizard/wizard-data";
 import { ageFromDob, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
-import { healthWizardRequirements, travelWizardRequirements, type WizardRequirement } from "@/components/hub/overlays/wizard/wizard-requirements";
+import { healthWizardRequirements, persistedDependentSubjects, questionnaireSubject, travelWizardRequirements, type WizardRequirement } from "@/components/hub/overlays/wizard/wizard-requirements";
 import type { RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 import { validateCatalogSelection } from "@/lib/products/catalog-selection";
 import { isSelectProduct, plansForSelectVariant, resumeSelectVariant } from "@/lib/products/select-variant";
+import { requirementSection } from "@/lib/applications/requirement-sections";
 
 export type WizardMode = "draft" | "create" | "docs";
 
@@ -84,7 +85,7 @@ export interface DraftResumePayload {
   /** Fields that received a lead/default value instead of an existing draft value. */
   autoFilled: Partial<Record<AutoFilledWizardField, string>>;
   /** Immutable existing rows are authoritative on a resumed draft, including legacy snapshots. */
-  requirementPreview: { applicationId: string; clientId: string; items: ChecklistItem[] } | null;
+  requirementPreview: { applicationId: string; clientId: string; productVersionId: string | null; items: ChecklistItem[] } | null;
 }
 
 const normaliseProductName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -182,6 +183,8 @@ export async function listProductRequirementPreviewAction(productVersionId: stri
   return items.map((item) => ({
     requirementKey: `template:${item.id}`,
     name: item.document_name,
+    documentName: item.document_name,
+    section: requirementSection({ documentName: item.document_name }),
     cond: item.applies_to ?? (item.is_required ? null : "not required yet"),
     checked: false,
     status: "Pending",
@@ -301,6 +304,7 @@ async function snapshotApplicationRequirements(
   applicationId: string,
   productVersionId: string | null,
   form: WizardForm,
+  dependentSubjects: Record<string, string>,
 ): Promise<Record<string, RequirementTarget>> {
   const requirements = getApplicationRequirementsRepository();
   const existing = await requirements.listByApplication(applicationId);
@@ -316,6 +320,7 @@ async function snapshotApplicationRequirements(
         key: `template:${item.id}`,
         requiredDocumentItemId: item.id,
         documentName: item.document_name,
+        section: requirementSection({ documentName: item.document_name }),
         isRequired: item.is_required,
         appliesTo: item.applies_to,
         notes: item.notes,
@@ -326,7 +331,7 @@ async function snapshotApplicationRequirements(
   const rows = applicable.map(({ key, ...item }) => {
     const id = crypto.randomUUID();
     targets[key] = { kind: "application", recordId: applicationId, requirementId: id };
-    return { applicationId, id, ...item };
+    return { applicationId, id, ...item, medicalReviewSubject: questionnaireSubject({ key, ...item }, dependentSubjects) };
   });
   await requirements.createMany(rows);
   return targets;
@@ -446,6 +451,7 @@ async function persistHealthWorkflow(applicationId: string, clientId: string, fo
     beneficiaryName: person.beneficiaryName || null, beneficiaryBirthdate: person.beneficiaryBirthDate || null,
     beneficiaryRelation: person.beneficiaryRelationship || null, beneficiaryContact: person.beneficiaryContact || null,
   })));
+  const dependentSubjects = persistedDependentSubjects(form, dependents);
   const principalName = form.displayName || [form.firstName, form.lastName].filter(Boolean).join(" ") || "Principal applicant";
   const people = [{ dependentId: null, personName: principalName, dob: form.dob }, ...dependents.map((person) => ({ dependentId: person.id, personName: person.name, dob: person.dateOfBirth ?? "" }))];
   const assignments = [];
@@ -456,7 +462,7 @@ async function persistHealthWorkflow(applicationId: string, clientId: string, fo
   }
   await workflows.replaceApplicationCarrierForms(applicationId, assignments);
   await persistFirstLayerCoverage(clientId, form);
-  return assignments.filter((item) => item.matchStatus === "Unavailable").length;
+  return { unavailable: assignments.filter((item) => item.matchStatus === "Unavailable").length, dependentSubjects };
 }
 
 /**
@@ -576,6 +582,10 @@ export async function getDraftResumeAction(
         : uniqueProduct ? categoryForProduct(uniqueProduct.name, (matches[0]?.product as { category?: string | null } | null)?.category) : "",
     } satisfies WizardForm);
     const selectedVersion = (productRows ?? []).find((row) => row.id === form.productVersionId);
+    if (selectedVersion?.product) {
+      form.productName = selectedVersion.product.name;
+      form.category = categoryForProduct(selectedVersion.product.name, selectedVersion.product.category);
+    }
     let selectedFamily: string | null = null;
     if (form.planOptionId) {
       // Retired exact plans still identify an old draft's family, but are not valid new selections.
@@ -625,9 +635,12 @@ export async function getDraftResumeAction(
       requirementPreview = {
         applicationId: draft.id,
         clientId: draft.clientId,
+        productVersionId: draft.productVersionId,
         items: requirements.map((row) => ({
           requirementKey: `persisted:${row.id}`,
           name: `${row.documentName}${row.appliesTo ? ` — ${row.appliesTo}` : ""}`,
+          documentName: row.documentName,
+          section: requirementSection(row),
           cond: row.isRequired ? null : "not required yet",
           checked: false,
           status: row.status,
@@ -663,6 +676,7 @@ interface WizardCreateContext {
   resolvedClientId: string;
   clientName: string;
   resumingDraft: boolean;
+  dependentSubjects?: Record<string, string>;
   result: WizardResult;
 }
 
@@ -699,6 +713,9 @@ async function resolveWizardContact(
       }
       if (toAppRole(actor.role) === "agent" && draft.assignedUserId !== actor.id) {
         return { ok: false, error: "This application draft is not assigned to you." };
+      }
+      if (draft.productVersionId !== (form.productVersionId || null) && (await getApplicationRequirementsRepository().listByApplication(draft.id)).length) {
+        return { ok: false, error: "This draft already has a persisted checklist. Keep its original product, or start a new application for a different product; existing documents will not be reassigned." };
       }
       const existingClient = await clientsRepo.findById(draft.clientId);
       if (!existingClient) return { ok: false, error: "The contact for this application draft no longer exists." };
@@ -958,11 +975,13 @@ async function finalizeWizardApplication(
   kind: "created" | "updated",
 ) {
   const { form, mode, actor, resolvedClientId, clientName, result } = ctx;
-  const unavailable = mode !== "draft" && form.category === "health"
+  const health = mode !== "draft" && form.category === "health"
     ? await persistHealthWorkflow(application.id, resolvedClientId, form)
-    : 0;
+    : null;
+  ctx.dependentSubjects = health?.dependentSubjects ?? {};
+  const unavailable = health?.unavailable ?? 0;
   if (mode !== "draft") {
-    result.requirementTargets = await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form);
+    result.requirementTargets = await snapshotApplicationRequirements(application.id, application.productVersionId ?? null, form, ctx.dependentSubjects);
   }
   await recordActivity({
     scopeType: "client",

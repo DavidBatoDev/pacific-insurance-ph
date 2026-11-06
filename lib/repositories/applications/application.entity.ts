@@ -4,6 +4,7 @@
  */
 
 import type { Json } from "@/lib/supabase/types";
+import type { MedicalReviewStatus } from "@/lib/applications/medical-review";
 
 export interface ApplicationRequirementProgress {
   initialized: boolean;
@@ -49,6 +50,11 @@ export interface Application {
   beneficiaryContact: string | null;
   preExistingStatus: string | null;
   medicalNotes: string | null;
+  medicalClass: string | null;
+  medicalReviewClearedAt: string | null;
+  medicalReviewClearedBy: string | null;
+  /** Internal pre-submission review, independent of the application lifecycle. */
+  medicalReviewStatus: MedicalReviewStatus;
   notes: string | null;
   wizardState: Json | null;
   /** Derived from the persisted C4 checklist; optional items are excluded from status counts. */

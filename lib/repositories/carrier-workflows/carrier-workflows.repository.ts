@@ -1,6 +1,7 @@
-import type { ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";
+import type { ApplicationDependent, ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";
 
 export interface CarrierWorkflowsRepository {
+  listApplicationDependents(applicationId: string): Promise<ApplicationDependent[]>;
   saveApplicationDependents(applicationId: string, clientId: string, people: ApplicationDependentInput[]): Promise<Array<ApplicationDependentInput & { id: string }>>;
   replaceApplicationCarrierForms(applicationId: string, assignments: CarrierFormAssignmentInput[]): Promise<void>;
   listApplicationCarrierForms(applicationId: string): Promise<CarrierFormAssignmentRecord[]>;

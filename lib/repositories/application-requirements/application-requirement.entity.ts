@@ -1,3 +1,6 @@
+import type { RequirementSection } from "@/lib/applications/requirement-sections";
+export type { RequirementSection } from "@/lib/applications/requirement-sections";
+
 export const REQUIREMENT_PHASES = ["For proposal", "Once the group agrees"] as const;
 /**
  * Which gate a requirement belongs to. `null` means it applies throughout, which is every
@@ -20,6 +23,8 @@ export interface ApplicationRequirement {
   status: ApplicationRequirementStatus;
   sortOrder: number;
   phase: RequirementPhase | null;
+  section: RequirementSection | null;
+  medicalReviewSubject: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,4 +41,6 @@ export interface NewApplicationRequirement {
   status?: ApplicationRequirementStatus;
   sortOrder?: number;
   phase?: RequirementPhase | null;
+  section?: RequirementSection | null;
+  medicalReviewSubject?: string | null;
 }

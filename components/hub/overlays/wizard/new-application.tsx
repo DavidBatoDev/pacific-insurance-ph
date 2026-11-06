@@ -141,7 +141,8 @@ export function NewApplicationWizard({
   }, []);
   const [persistedRequirementPreview, setPersistedRequirementPreview] = useState<DraftResumePayload["requirementPreview"]>(null);
   const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
-  const canonicalPreview = persistedRequirementPreview?.applicationId === wizard.form.draftApplicationId && wizard.form.category !== "travel"
+  const canonicalPreview = persistedRequirementPreview?.applicationId === wizard.form.draftApplicationId
+    && persistedRequirementPreview.productVersionId === wizard.form.productVersionId && wizard.form.category !== "travel"
     ? persistedRequirementPreview
     : null;
   // One effective form supplies rendering, draft snapshots and creation. The checklist is
@@ -229,8 +230,10 @@ export function NewApplicationWizard({
 
   useEffect(() => {
     if (!prefill?.draftApplicationId) return;
+    let current = true;
     getDraftResumeAction(prefill.draftApplicationId)
       .then((res) => {
+        if (!current) return;
         if (!res.ok || !res.data?.form) {
           const message = res.ok
             ? "The application draft returned incomplete data. Close and reopen it to try again."
@@ -248,11 +251,13 @@ export function NewApplicationWizard({
         setPersistedRequirementPreview(res.data.requirementPreview);
       })
       .catch(() => {
+        if (!current) return;
         const message = "The application draft could not be loaded.";
         setResumeError(message);
         overlays.toast("Couldn’t load application draft", message);
       })
-      .finally(() => setResumeLoading(false));
+      .finally(() => { if (current) setResumeLoading(false); });
+    return () => { current = false; };
   }, [overlays, prefill?.draftApplicationId, setF]);
 
   const set = (patch: Partial<WizardForm>) => {

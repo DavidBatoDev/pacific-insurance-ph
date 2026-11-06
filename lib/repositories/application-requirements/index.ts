@@ -14,5 +14,6 @@ export type {
   ApplicationRequirementStatus,
   NewApplicationRequirement,
   RequirementPhase,
+  RequirementSection,
 } from "./application-requirement.entity";
 export { APPLICATION_REQUIREMENT_STATUSES, REQUIREMENT_PHASES } from "./application-requirement.entity";

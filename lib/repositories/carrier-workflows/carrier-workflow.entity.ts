@@ -17,6 +17,18 @@ export interface ApplicationDependentInput {
   beneficiaryContact?: string | null;
 }
 
+/** Persisted dependent identity, never reconstructed from a display name or wizard snapshot. */
+export interface ApplicationDependent {
+  id: string;
+  applicationId: string;
+  fullName: string;
+  preExistingStatus: string | null;
+  medicalNotes: string | null;
+  smokerStatus: string | null;
+  heightInches: number | null;
+  weightLbs: number | null;
+}
+
 export interface CarrierFormAssignmentInput {
   dependentId?: string | null;
   personName: string;
