@@ -17,7 +17,7 @@ import { NewCampaignDrawer } from "./new-campaign";
 import { NewLeadDrawer } from "./new-lead";
 import { PaymentLinksDrawer } from "./payment-links";
 import { RequestProposalModal } from "./request-proposal";
-import { NewApplicationWizard, type WizardPrefill } from "./wizard/new-application";
+import { NewApplicationWizard } from "./wizard/new-application";
 import { useOverlays, type OverlayState } from "./overlay-provider";
 
 /**
@@ -47,7 +47,7 @@ export function OverlayHost({
     case "wizard":
       return (
         <NewApplicationWizard
-          prefill={overlay.prefill as WizardPrefill | undefined}
+          prefill={overlay.prefill}
           onClose={close}
         />
       );

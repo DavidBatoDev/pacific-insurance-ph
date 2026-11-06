@@ -11,6 +11,7 @@ import type { LibraryDocument } from "@/lib/repositories/document-library/docume
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
+import { isSelectProduct, plansForSelectVariant, planLimitDescription, SELECT_VARIANTS, selectLimitBasis, type SelectVariant } from "@/lib/products/select-variant";
 import { I } from "../../icons";
 import { AREA, Field, INPUT } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
@@ -122,7 +123,9 @@ function BmiReadout({ heightInches, weightLbs }: { heightInches: string; weightL
 }
 
 function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
-  const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
+  const allPlans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
+  const plans = plansForSelectVariant(allPlans, f.productName, f.selectVariant);
+  const selectedPlan = plans.find((plan) => plan.id === f.planOptionId);
   // H1a: the tier choices are the selected product's catalog tiers, so a pick can resolve the plan.
   const tiers = [...new Set(plans.map((plan) => plan.coverageTier).filter((tier): tier is string => !!tier))];
   const chooseTier = (coverageTier: string) => {
@@ -132,11 +135,23 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
   return (
     <div>
       <Section title="Plan & coverage" state={sectionStatus(f, "plan")}>
+        {isSelectProduct(f.productName) && <Field label="Select variant" required className="mb-4">
+          <select className={INPUT} value={f.selectVariant} onChange={(e) => {
+            const variant = e.target.value as SelectVariant | "";
+            const compatible = plansForSelectVariant(allPlans, f.productName, variant);
+            set({ selectVariant: variant, planOptionId: compatible.some((plan) => plan.id === f.planOptionId) ? f.planOptionId : "" });
+          }}>
+            <option value="">Choose Plus or Standard…</option>
+            {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
+          </select>
+          <p className="mt-1 text-[12px] text-muted">{f.selectVariant ? selectLimitBasis(f.selectVariant) : "Choose a variant before choosing a plan; room preference never chooses the variant."}</p>
+        </Field>}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Plan option" required>
             <select className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
               <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
+            <p className="mt-1 text-[12px] text-muted">{planLimitDescription(selectedPlan)}</p>
           </Field>
           <Field label="Coverage type" required>
             <select className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>

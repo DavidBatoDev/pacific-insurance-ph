@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { listProductOptionsAction, updatePolicyAction, type ProductOption } from "@/app/(app)/policies/actions";
 import type { Policy } from "@/lib/repositories/policies";
+import { isSelectProduct, isSelectVariant, plansForSelectVariant, planLimitDescription, SELECT_VARIANTS, selectLimitBasis, type SelectVariant } from "@/lib/products/select-variant";
 import { I } from "../icons";
 import { AREA, Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
@@ -28,6 +29,7 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
   const [policyNumber, setPolicyNumber] = useState(policy.policyNumber ?? "");
   const [productVersionId, setProductVersionId] = useState(policy.productVersionId ?? "");
   const [planOptionId, setPlanOptionId] = useState(policy.planOptionId ?? "");
+  const [selectVariant, setSelectVariant] = useState<SelectVariant | "">(isSelectVariant(policy.planFamily) ? policy.planFamily : "");
   const [paymentMode, setPaymentMode] = useState(policy.paymentMode ?? "");
   const [premium, setPremium] = useState(policy.premiumAmount != null ? String(policy.premiumAmount) : "");
   const [effective, setEffective] = useState(policy.effectiveDate ?? "");
@@ -41,7 +43,10 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
   }, []);
 
   const product = products.find((p) => p.productVersionId === productVersionId);
-  const plans = product?.planOptions ?? [];
+  const productName = product?.productName ?? (productVersionId === policy.productVersionId ? policy.productName : null);
+  const plans = plansForSelectVariant(product?.planOptions ?? [], productName, selectVariant);
+  const selectedPlan = plans.find((plan) => plan.id === planOptionId);
+  const select = isSelectProduct(productName);
   const currentProductMissing =
     !!policy.productVersionId && productVersionId === policy.productVersionId && !product;
   const currentPlanMissing =
@@ -53,6 +58,7 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
         policyNumber: policyNumber.trim() || null,
         productVersionId: productVersionId || null,
         planOptionId: planOptionId || null,
+        selectVariant: selectVariant || null,
         paymentMode: paymentMode || null,
         premiumAmount: premium ? Number(premium.replace(/[^0-9.]/g, "")) : null,
         effectiveDate: effective || null,
@@ -94,6 +100,7 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
             onChange={(e) => {
               setProductVersionId(e.target.value);
               setPlanOptionId("");
+              setSelectVariant("");
             }}
           >
             <option value="">Choose a product…</option>
@@ -105,16 +112,28 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
             ))}
           </select>
         </Field>
+        {select && <Field label="Select variant" required>
+          <select className={INPUT} value={selectVariant} onChange={(e) => {
+            const variant = e.target.value as SelectVariant | "";
+            setSelectVariant(variant);
+            if (!product?.planOptions.some((plan) => plan.id === planOptionId && plan.planFamily === variant)) setPlanOptionId("");
+          }}>
+            <option value="">Not recorded / choose a variant…</option>
+            {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
+          </select>
+          <p className="mt-1 text-[12px] text-muted-foreground">{selectVariant ? selectLimitBasis(selectVariant) : "Not recorded. An unrelated edit preserves the unresolved historical selection."}</p>
+        </Field>}
         <Field label="Plan option">
           <select className={INPUT} value={planOptionId} onChange={(e) => setPlanOptionId(e.target.value)}>
-            <option value="">Select…</option>
-            {currentPlanMissing && <option value={policy.planOptionId!}>{policy.planName ?? "Current plan"} (current)</option>}
+            <option value="">{productVersionId === (policy.productVersionId ?? "") && !policy.planOptionId ? "Not recorded (current / unresolved)" : "Select…"}</option>
+            {currentPlanMissing && <option value={policy.planOptionId!}>{policy.planName ?? "Not recorded"} (current / unresolved)</option>}
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </select>
+          <p className="mt-1 text-[12px] text-muted-foreground">{planLimitDescription(selectedPlan ?? (planOptionId === policy.planOptionId && productVersionId === policy.productVersionId ? policy : null))}</p>
         </Field>
       </div>
 

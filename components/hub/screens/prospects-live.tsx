@@ -74,6 +74,11 @@ export function ProspectsLive({ leads, userNames, activity, exits }: Props) {
     referenceNo: l.referenceNo,
     stage: l.leadStage,
     status: l.leadStatus,
+    estPremium: l.estPremium,
+    familySize: l.familySize,
+    productInterest: l.productInterest,
+    coverageTier: l.coverageTier,
+    selectVariant: l.selectVariant,
   });
 
   /* ---------- derived numbers ---------- */

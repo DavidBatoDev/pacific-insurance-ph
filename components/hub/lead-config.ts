@@ -1,3 +1,5 @@
+import { isSelectProduct, isSelectVariant, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
+
 /**
  * Lead Lifecycle constants shared by the board, list, forecast, Advance-Lead
  * modal and Contact Profile chips (client-safe).
@@ -128,8 +130,8 @@ export function stagesSkippedByConvert(stage: string | null | undefined): string
 }
 
 /**
- * Discovery readiness — the four answers a quote needs (docs/lead-stage-status.md: `Qualified`
- * means budget, family size, product and tier are actually on file, not just discussed).
+ * Discovery readiness — budget, family size, product and tier must be on file, not just discussed.
+ * Select additionally requires an explicit Plus/Standard choice, independent of room preference.
  * Defined once and shared by the Advance popup's checklist and the server guard, so the UI and
  * the rule can never drift apart.
  */
@@ -137,6 +139,7 @@ export interface DiscoveryValues {
   estPremium?: number | null;
   familySize?: number | null;
   productInterest?: string | null;
+  selectVariant?: SelectVariant | null;
   coverageTier?: string | null;
 }
 
@@ -149,6 +152,9 @@ export function discoveryChecklist(
     { key: "familySize", label: "Family size", done: values.familySize != null && values.familySize >= 1 },
     { key: "productInterest", label: "Product", done: !!values.productInterest },
     { key: "coverageTier", label: "Coverage tier", done: !!values.coverageTier },
+    ...(isSelectProduct(values.productInterest)
+      ? [{ key: "selectVariant" as const, label: "Select variant", done: isSelectVariant(values.selectVariant ?? selectVariantFromInterest(values.productInterest)) }]
+      : []),
   ];
 }
 

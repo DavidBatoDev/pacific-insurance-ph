@@ -7,6 +7,7 @@ import { attachPolicyPdfAction } from "@/app/(app)/policies/actions";
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { fmtDate, peso } from "@/lib/format";
 import type { Policy } from "@/lib/repositories/policies";
+import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
 import { I } from "../../icons";
 import { EditPolicyDrawer } from "../../overlays/edit-policy";
 import { useOverlays } from "../../overlays/overlay-provider";
@@ -46,6 +47,9 @@ export function PoliciesCard({ policies, documents }: { policies: Policy[]; docu
             <div className="mt-0.5 text-[11.5px] text-muted-foreground">
               {[policy.productName, policy.planName].filter(Boolean).join(" · ") || "Product not set"}
             </div>
+            {isSelectProduct(policy.productName) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+              {policy.planFamily ?? "Not recorded"} · {planLimitDescription(policy)}
+            </div>}
             <div className="mt-0.5 text-[11px] text-subtle">
               {[
                 policy.paymentMode,

@@ -18,13 +18,13 @@ type JoinedRow = PolicyRow & {
     group_members: { group_accounts: { id: string; name: string } | null }[];
   } | null;
   product_versions: { product: { name: string; category: string | null } | null } | null;
-  plan_options: { plan_name: string } | null;
+  plan_options: { plan_name: string; plan_family: string | null; limit_basis: string | null; maximum_coverage: number | null; coverage_currency: string | null } | null;
 };
 
 const SELECT = `*,
   clients (first_name, last_name, group_members (group_accounts (id, name))),
   product_versions (product:products (name, category)),
-  plan_options (plan_name)`;
+  plan_options (plan_name, plan_family, limit_basis, maximum_coverage, coverage_currency)`;
 
 function toDomain(row: JoinedRow): Policy {
   return {
@@ -39,6 +39,10 @@ function toDomain(row: JoinedRow): Policy {
     productName: row.product_versions?.product?.name ?? null,
     productCategory: row.product_versions?.product?.category ?? null,
     planName: row.plan_options?.plan_name ?? null,
+    planFamily: row.plan_options?.plan_family ?? null,
+    limitBasis: row.plan_options?.limit_basis ?? null,
+    maximumCoverage: row.plan_options?.maximum_coverage ?? null,
+    coverageCurrency: row.plan_options?.coverage_currency ?? null,
     productVersionId: row.product_version_id,
     planOptionId: row.plan_option_id,
     policyNumber: row.policy_number,

@@ -18,6 +18,7 @@ import {
 import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { RepositoryError } from "@/lib/repositories/types";
 import type { Json } from "@/lib/supabase/types";
+import { isSelectProduct, isSelectVariant } from "@/lib/products/select-variant";
 
 export interface ClientFormState {
   error?: string;
@@ -48,6 +49,7 @@ function parseClient(fd: FormData) {
     status: str(fd, "status") ?? "Active",
     notes: str(fd, "notes") ?? null,
     productInterest: str(fd, "productInterest") ?? null,
+    selectVariant: isSelectProduct(str(fd, "productInterest")) && isSelectVariant(str(fd, "selectVariant")) ? str(fd, "selectVariant") as "Select Plus" | "Select Standard" : null,
     estPremium: fd.get("estPremium") ? Number(fd.get("estPremium")) : null,
     familySize: fd.get("familySize") ? Number(fd.get("familySize")) : null,
     coverageTier: str(fd, "coverageTier") ?? null,
@@ -60,6 +62,7 @@ export async function createClientAction(
 ): Promise<ClientFormState> {
   const actor = await getActor();
   const input = parseClient(formData);
+  if (formData.get("selectVariant") && !isSelectVariant(formData.get("selectVariant"))) return { error: "Choose Select Plus or Select Standard." };
   if (!input.firstName || !input.lastName) {
     return { error: "First name and last name are required." };
   }
@@ -101,6 +104,7 @@ export async function createClientAction(
       status: input.status,
       notes: input.notes,
       productInterest: input.productInterest,
+      selectVariant: input.selectVariant,
       estPremium: input.estPremium,
       familySize: input.familySize,
       coverageTier: input.coverageTier,
@@ -137,6 +141,7 @@ export async function updateClientAction(
   const actor = await getActor();
   const id = String(formData.get("id") ?? "");
   const input = parseClient(formData);
+  if (formData.get("selectVariant") && !isSelectVariant(formData.get("selectVariant"))) return { error: "Choose Select Plus or Select Standard." };
   if (!id) return { error: "Missing client id." };
   if (!input.firstName || !input.lastName) {
     return { error: "First name and last name are required." };
@@ -160,6 +165,7 @@ export async function updateClientAction(
       status: input.status,
       notes: input.notes,
       productInterest: input.productInterest,
+      selectVariant: input.selectVariant,
       estPremium: input.estPremium,
       familySize: input.familySize,
       coverageTier: input.coverageTier,

@@ -14,6 +14,7 @@
  * Pure (no I/O) so it is unit-tested in draft-client-patch.test.ts.
  */
 import type { Client, ClientUpdate } from "@/lib/repositories/clients/client.entity";
+import { isSelectProduct, type SelectVariant } from "@/lib/products/select-variant";
 
 export interface DraftClientFields {
   firstName: string;
@@ -31,6 +32,7 @@ export interface DraftClientFields {
   estPremium: number | null;
   familySize: number | null;
   coverageTier: string;
+  selectVariant: SelectVariant | "";
 }
 
 type PatchableClient = Pick<
@@ -49,6 +51,7 @@ type PatchableClient = Pick<
   | "estPremium"
   | "familySize"
   | "coverageTier"
+  | "selectVariant"
 >;
 
 const IDENTITY_KEYS = [
@@ -93,5 +96,14 @@ export function buildDraftClientPatch(
 
   if (!opts.clientPreExisted) IDENTITY_KEYS.forEach((key) => consider(key, false));
   DISCOVERY_KEYS.forEach((key) => consider(key, opts.clientPreExisted));
+  if (fields.productInterest.trim()) {
+    const variant = isSelectProduct(fields.productInterest) ? fields.selectVariant || null : null;
+    if (variant !== existing.selectVariant) patch.selectVariant = variant;
+    // An explicit family choice is meaningful only with its product; keep that preference coherent.
+    // Likewise, deliberately leaving a recorded Select family clears both parts of that choice.
+    if ((variant || existing.selectVariant) && fields.productInterest.trim() !== existing.productInterest) {
+      patch.productInterest = fields.productInterest.trim();
+    }
+  }
   return patch as ClientUpdate;
 }

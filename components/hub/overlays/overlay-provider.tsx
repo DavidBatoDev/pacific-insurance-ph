@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import type { LogCallTarget } from "./log-call";
+import type { WizardPrefill } from "./wizard/new-application";
 import type { EmailDraftSeed, EmailRecordKind, EmailSendView } from "@/lib/communications/outbound-email.types";
 import { ConfirmDialog, type ConfirmOptions } from "./modal";
 import { ToastStack, type ToastData } from "./toast";
@@ -58,7 +59,7 @@ export interface AdvanceLeadOverlay {
 
 export type OverlayState =
   | { kind: "page-modal"; modal: PageModalKind; prefill?: Record<string, unknown> }
-  | { kind: "wizard"; prefill?: Record<string, unknown> }
+  | { kind: "wizard"; prefill?: WizardPrefill }
   | { kind: "engage"; action: string; contact?: EngageContact; onSent?: (view: EmailSendView) => void; initialDraft?: EmailDraftSeed }
   | { kind: "log-call"; target?: LogCallTarget }
   | { kind: "advance-lead"; suggestion: AdvanceLeadOverlay }
@@ -75,7 +76,7 @@ interface OverlayApi {
   open: (overlay: OverlayState) => void;
   close: () => void;
   openPageModal: (modal: PageModalKind, prefill?: Record<string, unknown>) => void;
-  openWizard: (prefill?: Record<string, unknown>) => void;
+  openWizard: (prefill?: WizardPrefill) => void;
   /** `onSent` fires only once Gmail accepted the email and its workflow update completed. */
   openEngage: (action: string, contact?: EngageContact, onSent?: (view: EmailSendView) => void, initialDraft?: EmailDraftSeed) => void;
   /** The one `Log Call` form. Without a target the modal resolves the contact itself. */

@@ -23,6 +23,7 @@ import { listAssignableUsersAction, type AssignableUser } from "@/app/(app)/task
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { cn } from "@/lib/utils";
+import { isSelectProduct, isSelectVariant, plansForSelectVariant, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
 import { I } from "../../icons";
 import { usePersona } from "../../persona";
 import { BrandGlyph } from "../../shell";
@@ -65,6 +66,7 @@ export interface WizardPrefill {
   dob?: string | null;
   familySize?: number | null;
   coverageTier?: string | null;
+  selectVariant?: SelectVariant | null;
   /** H2a: the lead's payment frequency from Generate Proposal (Annual / Semi-annual). */
   paymentFrequency?: string | null;
   /* Display-only, for Step 2's read-only "Lead details" panel. These deliberately do NOT enter
@@ -125,6 +127,7 @@ export function NewApplicationWizard({
       dob: prefill?.dob ?? "",
       familySize: prefill?.familySize != null ? String(prefill.familySize) : "",
       coverageTier: prefill?.coverageTier ?? "",
+      selectVariant: isSelectProduct(prefill?.productInterest) ? prefill?.selectVariant ?? selectVariantFromInterest(prefill?.productInterest) ?? "" : "",
       payFreq: prefill?.paymentFrequency ?? "",
     })),
     selections: {},
@@ -181,9 +184,12 @@ export function NewApplicationWizard({
     listProductOptionsAction().then((items) => {
       setProducts(items);
       if (!prefill?.productInterest) return;
-      const product = items.find((item) => item.productName.toLowerCase() === prefill.productInterest?.toLowerCase());
+      const product = items.find((item) => isSelectProduct(prefill.productInterest)
+        ? isSelectProduct(item.productName)
+        : item.productName.trim().toLowerCase() === prefill.productInterest?.trim().toLowerCase());
+      const variant = isSelectProduct(product?.productName) ? prefill.selectVariant ?? selectVariantFromInterest(prefill.productInterest) ?? "" : "";
       const preferredPlan = product && prefill.coverageTier
-        ? uniquePlanPreferenceMatch(prefill.coverageTier, product.planOptions)
+        ? uniquePlanPreferenceMatch(prefill.coverageTier, plansForSelectVariant(product.planOptions, product.productName, variant))
         : null;
       // Starting from a lead is an inquiry until someone says otherwise, so that is what the type
       // defaults to. It is consequential, not cosmetic: the inquiry type derives
@@ -208,6 +214,7 @@ export function NewApplicationWizard({
               productName: product.productName,
               category: categoryForProduct(product.productName, product.productCategory),
               planOptionId: current.planOptionId || preferredPlan?.id || "",
+              selectVariant: current.selectVariant || variant,
             }
           : {}),
       }));
@@ -218,7 +225,7 @@ export function NewApplicationWizard({
     listAssignableUsersAction().then(setUsers).catch(() => setUsers([]));
     listActiveTemplatesAction().then(setTemplates).catch(() => setTemplates([]));
     listPaymentChannelOptionsAction().then(setPaymentChannels).catch(() => setPaymentChannels([]));
-  }, [prefill?.coverageTier, prefill?.productInterest, setF]);
+  }, [prefill?.coverageTier, prefill?.productInterest, prefill?.selectVariant, setF]);
 
   useEffect(() => {
     if (!prefill?.draftApplicationId) return;
@@ -372,10 +379,13 @@ export function NewApplicationWizard({
   // greyed out "Create & open portal" and nothing said why). `canCreate` is derived from this
   // list so the two can't disagree. Steps are the travel screen numbers on the travel path.
   const blockerStep = (standard: number) => (f.category === "travel" ? (standard === 5 || standard === 6 ? 2 : 1) : standard);
+  const activeProduct = products.find((product) => product.productVersionId === f.productVersionId);
+  const activeHealthPlan = plansForSelectVariant(activeProduct?.planOptions ?? [], f.productName, f.selectVariant)
+    .find((plan) => plan.id === f.planOptionId);
   const createBlockers: { label: string; step: number }[] = [
     ...(!hasName ? [{ label: "Client name", step: blockerStep(2) }] : []),
     ...(!hasContact ? [{ label: "Email or mobile", step: blockerStep(2) }] : []),
-    ...(!f.productVersionId ? [{ label: "Product", step: 1 }] : []),
+    ...(!activeProduct ? [{ label: "Active product", step: 1 }] : []),
     ...(!f.appType ? [{ label: "Application type", step: 1 }] : []),
     ...(!f.source ? [{ label: "Source", step: 1 }] : []),
     ...(groupTooFew ? [{ label: "At least 3 group members", step: 3 }] : []),
@@ -386,7 +396,8 @@ export function NewApplicationWizard({
       ? [{ label: "Return date after departure", step: blockerStep(3) }]
       : []),
     ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3) }] : []),
-    ...(f.category === "health" && !f.planOptionId ? [{ label: "Plan option", step: 3 }] : []),
+    ...(f.category === "health" && !activeHealthPlan ? [{ label: "Matching active plan option", step: 3 }] : []),
+    ...(isSelectProduct(f.productName) && !isSelectVariant(f.selectVariant) ? [{ label: "Select variant", step: 3 }] : []),
     ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3 }] : []),
   ];
   const canCreate = !pending && createBlockers.length === 0;

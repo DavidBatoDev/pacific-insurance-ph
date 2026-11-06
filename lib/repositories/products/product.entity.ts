@@ -1,3 +1,5 @@
+import type { SelectLimitBasis } from "@/lib/products/select-variant";
+
 /** Domain types for the configurable, source-dated carrier catalog. */
 
 export const PRODUCT_CATEGORIES = [
@@ -19,6 +21,7 @@ export interface CatalogProductVersion {
 }
 export interface CatalogPlanOption {
   id: string; productVersionId: string; planName: string; planFamily: string | null;
+  limitBasis: SelectLimitBasis | null;
   coverageTier: string | null; coverageCurrency: string | null; maximumCoverage: number | null;
   coverageDescription: string | null; deductibleRange: string | null; sourceKey: string | null; active: boolean;
 }
@@ -60,6 +63,7 @@ export interface CatalogVersionInput {
 export type CatalogVersionUpdate = Partial<CatalogVersionInput>;
 export interface CatalogPlanInput {
   productVersionId: string; planName: string; planFamily?: string | null; coverageTier?: string | null;
+  limitBasis?: SelectLimitBasis | null;
   coverageCurrency?: string | null; maximumCoverage?: number | null; coverageDescription?: string | null;
   deductibleRange?: string | null; sourceKey?: string | null; active?: boolean;
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useState } from "react";
 
 import type { ProductOption } from "@/app/(app)/policies/actions";
+import { isSelectProduct, plansForSelectVariant } from "@/lib/products/select-variant";
 import type { AssignableUser } from "@/app/(app)/tasks/actions";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
@@ -61,12 +62,14 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             value={f.productVersionId}
             onChange={(e) => {
               const p = products.find((x) => x.productVersionId === e.target.value);
-              const preferredPlan = p ? uniquePlanPreferenceMatch(f.coverageTier, p.planOptions) : null;
+              const variant = p && isSelectProduct(p.productName) && isSelectProduct(f.productName) ? f.selectVariant : "";
+              const preferredPlan = p ? uniquePlanPreferenceMatch(f.coverageTier, plansForSelectVariant(p.planOptions, p.productName, variant)) : null;
               set({
                 productVersionId: e.target.value,
                 productName: p?.productName ?? "",
                 category: p ? categoryForProduct(p.productName, p.productCategory) : "",
                 planOptionId: preferredPlan?.id ?? "",
+                selectVariant: variant,
               });
             }}
           >
