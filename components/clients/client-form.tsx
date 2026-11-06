@@ -14,6 +14,7 @@ import { CoverageTierSelect } from "@/components/hub/overlays/coverage-tier-sele
 import type { Client } from "@/lib/repositories/clients";
 import { CLIENT_STATUSES, CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { cn } from "@/lib/utils";
+import { isSelectProduct, SELECT_VARIANTS, selectLimitBasis, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
 
 
 const inputCls =
@@ -37,6 +38,7 @@ interface Values {
   estPremium: string;
   familySize: string;
   coverageTier: string;
+  selectVariant: SelectVariant | "";
 }
 
 function initialValues(client?: Client): Values {
@@ -54,10 +56,11 @@ function initialValues(client?: Client): Values {
     vipStatus: client?.vipStatus ?? false,
     address: client?.address ?? "",
     notes: client?.notes ?? "",
-    productInterest: client?.productInterest ?? "",
+    productInterest: isSelectProduct(client?.productInterest) ? "Select" : client?.productInterest ?? "",
     estPremium: client?.estPremium != null ? String(client.estPremium) : "",
     familySize: client?.familySize != null ? String(client.familySize) : "",
     coverageTier: client?.coverageTier ?? "",
+    selectVariant: client?.selectVariant ?? selectVariantFromInterest(client?.productInterest) ?? "",
   };
 }
 
@@ -245,7 +248,7 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
               <select
                 name="productInterest"
                 value={v.productInterest}
-                onChange={(e) => set("productInterest", e.target.value)}
+                onChange={(e) => setV((prev) => ({ ...prev, productInterest: e.target.value, selectVariant: isSelectProduct(e.target.value) ? prev.selectVariant : "" }))}
                 className={inputCls}
               >
                 <option value="">Choose a product…</option>
@@ -256,6 +259,13 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
                 ))}
               </select>
             </Field>
+            {isSelectProduct(v.productInterest) && <Field label="Select variant">
+              <select name="selectVariant" value={v.selectVariant} onChange={(e) => set("selectVariant", e.target.value as SelectVariant | "")} className={inputCls}>
+                <option value="">Choose Plus or Standard…</option>
+                {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
+              </select>
+              <span className="text-[12px] text-muted-foreground">{v.selectVariant ? selectLimitBasis(v.selectVariant) : "Required before qualification; incomplete discovery can be saved."}</span>
+            </Field>}
             <Field label="Budget / est. premium">
               <input
                 name="estPremium"

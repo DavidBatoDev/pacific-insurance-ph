@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { issuePolicyAction, listProductOptionsAction, type ProductOption, type UploadedPolicyPdf } from "@/app/(app)/policies/actions";
 import { PdfUpload } from "@/components/documents/pdf-upload";
+import { isSelectProduct, isSelectVariant, plansForSelectVariant, planLimitDescription, SELECT_VARIANTS, selectLimitBasis, type SelectVariant } from "@/lib/products/select-variant";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
@@ -50,6 +51,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   );
   const [productVersionId, setProductVersionId] = useState(fromApplication?.productVersionId ?? "");
   const [planOptionId, setPlanOptionId] = useState(fromApplication?.planOptionId ?? "");
+  const [selectVariant, setSelectVariant] = useState<SelectVariant | "">("");
   const [policyNumber, setPolicyNumber] = useState("");
   const [premium, setPremium] = useState(fromApplication?.premium != null ? String(Math.round(fromApplication.premium)) : "");
   const [paymentMode, setPaymentMode] = useState(fromApplication?.paymentMode === "Semi-Annual" ? "Semi-Annual" : "Annual");
@@ -61,18 +63,19 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   useEffect(() => {
     listProductOptionsAction()
       .then((options) => {
-        // The application may sit on a product version that has since been retired; keep it pickable.
-        const pinned = fromApplication?.productVersionId;
-        if (pinned && !options.some((option) => option.productVersionId === pinned)) {
-          options = [...options, { productVersionId: pinned, productName: fromApplication?.productName ?? "Application product", productCategory: null, planOptions: [] }];
-        }
+        const initialPlan = options.find((option) => option.productVersionId === fromApplication?.productVersionId)
+          ?.planOptions.find((plan) => plan.id === fromApplication?.planOptionId);
+        if (initialPlan && isSelectVariant(initialPlan.planFamily)) setSelectVariant(initialPlan.planFamily);
         setProducts(options);
       })
       .catch(() => setProducts([]));
-  }, [fromApplication?.productVersionId, fromApplication?.productName]);
+  }, [fromApplication?.productVersionId, fromApplication?.planOptionId]);
 
-  const plans = products.find((p) => p.productVersionId === productVersionId)?.planOptions ?? [];
-  const canSave = client && productVersionId && !pending;
+  const product = products.find((p) => p.productVersionId === productVersionId);
+  const plans = plansForSelectVariant(product?.planOptions ?? [], product?.productName, selectVariant);
+  const selectedPlan = plans.find((plan) => plan.id === planOptionId);
+  const select = isSelectProduct(product?.productName);
+  const canSave = client && product && !pending && (!select || (!!selectVariant && !!selectedPlan));
 
   const save = () => {
     if (!client) return;
@@ -81,6 +84,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
         clientId: client.id,
         productVersionId,
         planOptionId: planOptionId || undefined,
+        selectVariant: selectVariant || null,
         policyNumber: policyNumber.trim() || undefined,
         premiumAmount: premium ? Number(premium.replace(/[^0-9]/g, "")) : undefined,
         paymentMode,
@@ -104,7 +108,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   const submitLabel = pending ? "Saving…" : fromApplication ? "Log policy & convert" : "Log policy copy";
 
   // Grouped like the New Application wizard: each card's dot says whether it is complete.
-  const missing = [...(client ? [] : ["client"]), ...(productVersionId ? [] : ["product"])];
+  const missing = [...(client ? [] : ["client"]), ...(productVersionId ? [] : ["product"]), ...(select && !selectVariant ? ["Select variant"] : []), ...(select && !selectedPlan ? ["matching active plan"] : [])];
   const recommended = [policyNumber.trim(), premium, effective, expiry].filter(Boolean).length;
   const clientState: SectionState = missing.length
     ? { status: "todo", label: `${missing.length} needed` }
@@ -144,9 +148,11 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
               onChange={(e) => {
                 setProductVersionId(e.target.value);
                 setPlanOptionId("");
+                setSelectVariant("");
               }}
             >
               <option value="">Choose a product…</option>
+              {productVersionId && !product && <option value={productVersionId}>{fromApplication?.productName ?? "Current product"} (unavailable — choose an active version)</option>}
               {products.map((p) => (
                 <option key={p.productVersionId} value={p.productVersionId}>
                   {p.productName}
@@ -154,7 +160,18 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
               ))}
             </select>
           </Field>
-          <Field label="Plan option">
+          {select && <Field label="Select variant" required>
+            <select className={INPUT} value={selectVariant} onChange={(e) => {
+              const variant = e.target.value as SelectVariant | "";
+              setSelectVariant(variant);
+              if (!product?.planOptions.some((plan) => plan.id === planOptionId && plan.planFamily === variant)) setPlanOptionId("");
+            }}>
+              <option value="">Choose Plus or Standard…</option>
+              {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
+            </select>
+            <p className="mt-1 text-[12px] text-muted-foreground">{selectVariant ? selectLimitBasis(selectVariant) : "Choose the variant recorded on the carrier policy."}</p>
+          </Field>}
+          <Field label="Plan option" required={select}>
             <select
               className={INPUT}
               value={planOptionId}
@@ -168,6 +185,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-[12px] text-muted-foreground">{planLimitDescription(selectedPlan)}</p>
           </Field>
         </div>
       </Section>

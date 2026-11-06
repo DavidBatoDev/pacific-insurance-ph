@@ -19,6 +19,11 @@ import type {
   EligibleLibraryDocuments, EmailDraftSeed, LeadAdvanceSuggestion,
 } from "@/lib/communications/outbound-email.types";
 import { addBusinessDays, HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS, nextLeadStage } from "@/components/hub/lead-config";
+import { discoveryGaps } from "@/components/hub/lead-config";
+import { isSelectProduct, isSelectVariant, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
+import type { DiscoveryValues } from "@/components/hub/lead-config";
 
 /**
  * Engage composer mutations (contact-profile.md; human-in-the-loop). Inbound
@@ -35,6 +40,20 @@ function refresh(clientId: string) {
 
 export interface EngagementResult {
   advance?: LeadAdvanceSuggestion;
+}
+
+/** Hydrate picker/suggestion entry points without exposing another agent's client preferences. */
+export async function getDiscoveryValuesAction(clientId: string): Promise<ActionResult<DiscoveryValues>> {
+  const actor = await getCurrentUser();
+  if (!actor || actor.status !== "Active") return { ok: false, error: "An active account is required." };
+  const client = await getClientsRepository().findById(clientId);
+  if (!client || (toAppRole(actor.role) === "agent" && client.assignedUserId !== actor.id)) {
+    return { ok: false, error: "Contact not found." };
+  }
+  return { ok: true, data: {
+    productInterest: client.productInterest, selectVariant: client.selectVariant,
+    coverageTier: client.coverageTier, estPremium: client.estPremium, familySize: client.familySize,
+  } };
 }
 
 async function updateLeadStatus(
@@ -146,7 +165,7 @@ export async function logMessageAction(input: {
       : // Coming out of a nurture hold: the lead signalled they're ready. Discovery data is already
         // on file, so this returns straight to `Qualified` with no re-asking, and the stage never
         // moved — so there is nothing to suggest advancing (docs/lead-stage-status.md).
-        client.leadStatus === "Nurturing"
+        client.leadStatus === "Nurturing" && discoveryGaps(client).length === 0
         ? await updateLeadStatus(client, actor.id, "Qualified", "Re-engaged during nurture hold")
         : {};
   refresh(input.clientId);
@@ -163,6 +182,7 @@ export async function logCallAction(input: {
     familySize?: number | null;
     productInterest?: string | null;
     coverageTier?: string | null;
+    selectVariant?: SelectVariant | null;
   };
   followUpDate?: string | null;
 }): Promise<ActionResult<EngagementResult>> {
@@ -171,11 +191,20 @@ export async function logCallAction(input: {
   if (!client) return { ok: false, error: "Contact not found." };
 
   const d = input.discovery;
+  if (d?.selectVariant != null && !isSelectVariant(d.selectVariant)) {
+    return { ok: false, error: "Choose Select Plus or Select Standard." };
+  }
+  const effectiveInterest = d?.productInterest === undefined ? client.productInterest : d.productInterest;
+  const variant = isSelectProduct(effectiveInterest)
+    ? d?.selectVariant === undefined ? client.selectVariant ?? selectVariantFromInterest(effectiveInterest) : d.selectVariant
+    : null;
+  const discoveryAfter = { ...client, ...d, selectVariant: variant };
   const bits = [
     d?.estPremium != null ? `Budget ₱${d.estPremium.toLocaleString("en-PH")}` : null,
     d?.familySize != null ? `${d.familySize} ${d.familySize === 1 ? "person" : "people"} to cover` : null,
     d?.productInterest,
     d?.coverageTier,
+    variant,
   ].filter(Boolean);
   const structured = bits.join(" · ");
   const body = [structured, input.notes].filter(Boolean).join(structured && input.notes ? " — " : "");
@@ -192,11 +221,12 @@ export async function logCallAction(input: {
   if (error) return { ok: false, error: error.message };
 
   // Discovery details carry into Convert to Application.
-  if (d && (d.estPremium != null || d.familySize != null || d.productInterest || d.coverageTier)) {
+  if (d) {
     await getClientsRepository().update(input.clientId, {
       ...(d.estPremium != null ? { estPremium: d.estPremium } : {}),
       ...(d.familySize != null ? { familySize: d.familySize } : {}),
-      ...(d.productInterest ? { productInterest: d.productInterest } : {}),
+      ...(d.productInterest !== undefined ? { productInterest: d.productInterest && isSelectProduct(d.productInterest) ? "Select" : d.productInterest } : {}),
+      selectVariant: variant,
       ...(d.coverageTier ? { coverageTier: d.coverageTier } : {}),
     });
   }
@@ -230,7 +260,7 @@ export async function logCallAction(input: {
         )
       : // Reaching a lead on nurture hold ends the hold — back to `Qualified`, discovery already on
         // file, stage unchanged so no advance suggestion (docs/lead-stage-status.md).
-        input.outcome === "Reached" && client.leadStatus === "Nurturing"
+        input.outcome === "Reached" && client.leadStatus === "Nurturing" && discoveryGaps(discoveryAfter).length === 0
         ? await updateLeadStatus(client, actor.id, "Qualified", "Re-engaged during nurture hold")
         : input.outcome === "No answer" && client.leadStatus === "Connected"
           ? await updateLeadStatus(client, actor.id, "Attempted", "No-answer call logged")

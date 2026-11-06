@@ -18,6 +18,10 @@ export interface Policy {
   productCategory: string | null;
   /** Joined convenience: plan option's plan name. */
   planName: string | null;
+  planFamily: string | null;
+  limitBasis: string | null;
+  maximumCoverage: number | null;
+  coverageCurrency: string | null;
   productVersionId: string | null;
   planOptionId: string | null;
   policyNumber: string | null;

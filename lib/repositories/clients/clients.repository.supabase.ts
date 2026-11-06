@@ -36,6 +36,7 @@ function toDomain(row: ClientRow): Client {
     proposalStatus: row.proposal_status,
     proposalDecision: row.proposal_decision,
     productInterest: row.product_interest,
+    selectVariant: row.select_variant as Client["selectVariant"],
     estPremium: row.est_premium,
     familySize: row.family_size,
     coverageTier: row.coverage_tier,
@@ -117,6 +118,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.proposalStatus !== undefined) payload.proposal_status = input.proposalStatus;
     if (input.proposalDecision !== undefined) payload.proposal_decision = input.proposalDecision;
     if (input.productInterest !== undefined) payload.product_interest = input.productInterest;
+    if (input.selectVariant !== undefined) payload.select_variant = input.selectVariant;
     if (input.estPremium !== undefined) payload.est_premium = input.estPremium;
     if (input.familySize !== undefined) payload.family_size = input.familySize;
     if (input.coverageTier !== undefined) payload.coverage_tier = input.coverageTier;
@@ -156,6 +158,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
     if (input.proposalStatus !== undefined) patch.proposal_status = input.proposalStatus;
     if (input.proposalDecision !== undefined) patch.proposal_decision = input.proposalDecision;
     if (input.productInterest !== undefined) patch.product_interest = input.productInterest;
+    if (input.selectVariant !== undefined) patch.select_variant = input.selectVariant;
     if (input.estPremium !== undefined) patch.est_premium = input.estPremium;
     if (input.familySize !== undefined) patch.family_size = input.familySize;
     if (input.coverageTier !== undefined) patch.coverage_tier = input.coverageTier;

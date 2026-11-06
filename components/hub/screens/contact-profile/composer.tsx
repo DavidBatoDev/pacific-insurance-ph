@@ -163,6 +163,7 @@ export function ContactComposer({
                     familySize: client.familySize,
                     productInterest: client.productInterest,
                     coverageTier: client.coverageTier,
+                    selectVariant: client.selectVariant,
                   }}
                   onLogged={(advance) => {
                     if (advance) onAdvanceSuggestion(advance);

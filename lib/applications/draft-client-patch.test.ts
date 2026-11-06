@@ -17,6 +17,7 @@ const existing = {
   estPremium: 50000,
   familySize: 2,
   coverageTier: null,
+  selectVariant: null,
 };
 
 const form = (over: Partial<DraftClientFields> = {}): DraftClientFields => ({
@@ -34,6 +35,7 @@ const form = (over: Partial<DraftClientFields> = {}): DraftClientFields => ({
   estPremium: null,
   familySize: null,
   coverageTier: "",
+  selectVariant: "",
   ...over,
 });
 
@@ -70,6 +72,17 @@ describe("buildDraftClientPatch — a client the wizard created for this draft",
   it("omits unchanged values and trims input", () => {
     const patch = buildDraftClientPatch(existing, form({ firstName: " H7d ", lastName: "Tester", productInterest: "Blue Royale" }), { clientPreExisted: false });
     expect(patch).toEqual({ lastName: "Tester", productInterest: "Blue Royale" });
+  });
+});
+
+describe("explicit Select discovery preference in a draft", () => {
+  it("updates the explicit variant without overwriting a pre-existing client's identity", () => {
+    const patch = buildDraftClientPatch(existing, form({ productInterest: "Select", selectVariant: "Select Plus", firstName: "Unrelated autofill" }), { clientPreExisted: true });
+    expect(patch).toEqual({ selectVariant: "Select Plus" });
+  });
+  it("clears a stale Select preference on a deliberate product switch", () => {
+    const patch = buildDraftClientPatch({ ...existing, selectVariant: "Select Plus" }, form({ productInterest: "TravelSafe" }), { clientPreExisted: true });
+    expect(patch).toEqual({ selectVariant: null, productInterest: "TravelSafe" });
   });
 });
 

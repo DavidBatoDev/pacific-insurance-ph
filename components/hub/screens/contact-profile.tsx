@@ -139,6 +139,7 @@ export function ContactProfile({
       dob: client.dateOfBirth,
       familySize: client.familySize,
       coverageTier: client.coverageTier,
+      selectVariant: client.selectVariant,
       paymentFrequency: client.paymentFrequency,
       mobileNumber: client.mobileNumber,
       referenceNo: client.referenceNo,
@@ -275,6 +276,7 @@ export function ContactProfile({
             familySize: client.familySize,
             productInterest: client.productInterest,
             coverageTier: client.coverageTier,
+            selectVariant: client.selectVariant,
           }}
           preset={advanceOpen}
           onClose={() => setAdvanceOpen(null)}

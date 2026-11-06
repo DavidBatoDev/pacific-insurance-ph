@@ -107,14 +107,14 @@ export async function advanceLeadAction(
     // a direct call — can set the state without the data behind it.
     const gaps = discoveryGaps(lead);
     if (gaps.length) {
-      const movingToProposal = input.stage === "Proposal" && input.stage !== current;
-      const qualifying = status === "Qualified" && status !== lead.leadStatus;
-      if (movingToProposal || qualifying)
+      const movingToQuotedStage = (input.stage === "Proposal" || input.stage === "Product Selected") && input.stage !== current;
+      const qualifying = status === "Qualified";
+      if (movingToQuotedStage || qualifying)
         return {
           ok: false,
           error: `Add ${formatGaps(gaps)} before ${
-            movingToProposal
-              ? `moving ${lead.fullName} to Proposal`
+            movingToQuotedStage
+              ? `moving ${lead.fullName} to ${input.stage}`
               : `marking ${lead.fullName} Qualified`
           }.`,
         };

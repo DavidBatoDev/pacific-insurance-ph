@@ -19,7 +19,7 @@ type VersionRow = Database["public"]["Tables"]["product_versions"]["Row"] & {
   source_key: string | null; source_document: string | null; source_confirmed_current_date: string | null;
   products?: { name: string } | null;
 };
-type PlanRow = Database["public"]["Tables"]["plan_options"]["Row"] & { source_key: string | null };
+type PlanRow = Database["public"]["Tables"]["plan_options"]["Row"];
 type AddOnRow = Database["public"]["Tables"]["add_ons"]["Row"] & { source_key: string | null };
 type DiscountRow = Database["public"]["Tables"]["discount_rules"]["Row"] & {
   source_key: string | null; source_notes: string | null;
@@ -44,6 +44,7 @@ const versionDomain = (r: VersionRow): CatalogProductVersion => ({
 });
 const planDomain = (r: PlanRow): CatalogPlanOption => ({
   id:r.id,productVersionId:r.product_version_id,planName:r.plan_name,planFamily:r.plan_family,
+  limitBasis:r.limit_basis as CatalogPlanOption["limitBasis"],
   coverageTier:r.coverage_tier,coverageCurrency:r.coverage_currency,maximumCoverage:r.maximum_coverage,
   coverageDescription:r.coverage_description,deductibleRange:r.deductible_range,sourceKey:r.source_key,active:r.status==="Active",
 });
@@ -135,7 +136,7 @@ export class SupabaseProductsRepository implements ProductsRepository {
   }
   async createPlan(i:CatalogPlanInput){return this.writePlan(undefined,i);} async updatePlan(id:string,i:CatalogPlanUpdate){return this.writePlan(id,i);}
   private async writePlan(id:string|undefined,i:CatalogPlanUpdate){const p:Record<string,unknown>={};
-    const map:Record<string,string>={productVersionId:"product_version_id",planName:"plan_name",planFamily:"plan_family",coverageTier:"coverage_tier",coverageCurrency:"coverage_currency",maximumCoverage:"maximum_coverage",coverageDescription:"coverage_description",deductibleRange:"deductible_range",sourceKey:"source_key"};
+    const map:Record<string,string>={productVersionId:"product_version_id",planName:"plan_name",planFamily:"plan_family",limitBasis:"limit_basis",coverageTier:"coverage_tier",coverageCurrency:"coverage_currency",maximumCoverage:"maximum_coverage",coverageDescription:"coverage_description",deductibleRange:"deductible_range",sourceKey:"source_key"};
     for(const [k,v] of Object.entries(map)){const value=i[k as keyof CatalogPlanUpdate];if(value!==undefined)p[v]=k==="sourceKey"&&!value?generatedKey("plan"):value;}if(!id&&!p.source_key)p.source_key=generatedKey("plan");if(i.active!==undefined||!id)p.status=status(i.active);
     const q=id?getSupabaseAdmin().from("plan_options").update(p as never).eq("id",id):getSupabaseAdmin().from("plan_options").insert(p as never);const {data,error}=await q.select("*").single();if(error)throw toRepositoryError("ProductsRepository.writePlan",error);return planDomain(data as unknown as PlanRow);}
   async createAddOn(i:CatalogAddOnInput){return this.writeAddOn(undefined,i);} async updateAddOn(id:string,i:CatalogAddOnUpdate){return this.writeAddOn(id,i);}

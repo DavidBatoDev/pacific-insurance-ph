@@ -12,6 +12,7 @@ import { I } from "../../icons";
 import { useOverlays } from "../../overlays/overlay-provider";
 import { Avatar, Card, CardHead, INPUT } from "../../primitives";
 import { CollapsibleListCard } from "./collapsible-list-card";
+import { isSelectProduct, selectLimitBasis } from "@/lib/products/select-variant";
 
 export interface Dependent {
   id: string;
@@ -54,6 +55,10 @@ export function ContactPropertiesCard({ client }: { client: Client }) {
                   // The four discovery answers a quote needs, shown together so it is obvious
                   // at a glance which are still outstanding (they gate the move to Proposal).
                   ["Product interest", client.productInterest],
+                  ...(isSelectProduct(client.productInterest) ? [
+                    ["Select variant", client.selectVariant ?? "Not recorded"],
+                    ["Limit basis", client.selectVariant ? selectLimitBasis(client.selectVariant) : "Not recorded"],
+                  ] : []),
                   ["Budget / est. premium", client.estPremium != null ? peso(client.estPremium) : null],
                   ["Family size", client.familySize != null ? String(client.familySize) : null],
                   ["Coverage tier", client.coverageTier],

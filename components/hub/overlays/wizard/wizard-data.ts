@@ -1,3 +1,5 @@
+import { isSelectProduct, type SelectVariant } from "@/lib/products/select-variant";
+
 /**
  * New Client Application wizard — shared types, options and checklists
  * (see web/new-application-wizard.md).
@@ -84,7 +86,7 @@ export interface ChecklistItem {
 }
 
 export interface WizardForm {
-  schemaVersion: 3;
+  schemaVersion: 4;
   /** Application row that owns a saved wizard draft, if this is a resume. */
   draftApplicationId: string | null;
   /** Last active wizard step, persisted with a saved draft. */
@@ -96,6 +98,7 @@ export interface WizardForm {
   productVersionId: string;
   productName: string;
   planOptionId: string;
+  selectVariant: SelectVariant | "";
   clientMode: "new" | "existing";
   existingClientId: string | null;
   existingClientName: string;
@@ -293,7 +296,7 @@ export const isFlexiShieldProduct = (productName: string): boolean => /flexishie
 
 export function emptyWizardForm(): WizardForm {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     draftApplicationId: null,
     draftStep: 1,
     appType: "",
@@ -302,6 +305,7 @@ export function emptyWizardForm(): WizardForm {
     productVersionId: "",
     productName: "",
     planOptionId: "",
+    selectVariant: "",
     clientMode: "new",
     existingClientId: null,
     existingClientName: "",
@@ -587,7 +591,7 @@ export function sectionStatus(f: WizardForm, key: SectionKey): SectionState {
       if (linked) return { status: "done", label: "Linked" };
       return neededLabel(f.email || f.mobile ? 0 : 1);
     case "plan":
-      return neededLabel([f.planOptionId, f.coverage].filter((value) => !value).length);
+      return neededLabel([f.planOptionId, f.coverage, isSelectProduct(f.productName) ? f.selectVariant : true].filter((value) => !value).length);
     case "trip": {
       if (f.departure && f.returnDate && f.returnDate < f.departure) {
         return { status: "attention", label: "Return is before departure" };

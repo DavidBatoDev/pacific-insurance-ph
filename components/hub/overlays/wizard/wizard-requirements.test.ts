@@ -51,6 +51,13 @@ describe("creation attachment requirement identities", () => {
     expect(requirementSelectionScope({ ...form, travelers: [{ ...form.travelers[0], idNumber: "new passport" }] })).not.toBe(scope);
   });
 
+  it("retains staged originals and requirement identities when only the Select variant/plan changes", () => {
+    const form = { ...emptyWizardForm(), category: "health" as const, productName: "Select", productVersionId: "select-version", selectVariant: "Select Plus" as const, planOptionId: "plus-private-5m" };
+    const changed = { ...form, selectVariant: "Select Standard" as const, planOptionId: "standard-ward" };
+    expect(requirementSelectionScope(changed)).toBe(requirementSelectionScope(form));
+    expect(healthWizardRequirements(changed).map((row) => row.key)).toEqual(healthWizardRequirements(form).map((row) => row.key));
+  });
+
   it("invalidates a staged company document when the enrollment roster changes", () => {
     const member = { ...emptyHealthDependent(), name: "Member", dob: "1990-01-01" };
     const form = { ...emptyWizardForm(), category: "hmo" as const, members: [member] };

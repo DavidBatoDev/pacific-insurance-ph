@@ -38,6 +38,8 @@ import type { ChecklistItem, WizardForm } from "@/components/hub/overlays/wizard
 import { ageFromDob, categoryForProduct, emptyWizardForm, initialiseFamilySizeSuggestion, isFlexiShieldProduct, parseAmount, uniquePlanPreferenceMatch } from "@/components/hub/overlays/wizard/wizard-data";
 import { healthWizardRequirements, travelWizardRequirements, type WizardRequirement } from "@/components/hub/overlays/wizard/wizard-requirements";
 import type { RequirementTarget } from "@/lib/documents/requirement-attachment.types";
+import { validateCatalogSelection } from "@/lib/products/catalog-selection";
+import { isSelectProduct, plansForSelectVariant, resumeSelectVariant } from "@/lib/products/select-variant";
 
 export type WizardMode = "draft" | "create" | "docs";
 
@@ -519,13 +521,14 @@ export async function getDraftResumeAction(
     const saved = draft.wizardState as Partial<WizardForm>;
     const { data: productRows, error: productError } = await getSupabaseAdmin()
       .from("product_versions")
-      .select("id, product:products (name, category), plan_options (id, plan_name, coverage_tier)")
+      .select("id, product:products (name, category, status), plan_options (id, plan_name, coverage_tier, plan_family, status)")
       .eq("status", "Active");
     if (productError) return { ok: false, error: productError.message };
 
     const matches = (productRows ?? []).filter((row) => {
       const name = (row.product as { name: string } | null)?.name;
-      return !!client.productInterest && !!name && normaliseProductName(name) === normaliseProductName(client.productInterest);
+      return row.product?.status === "Active" && !!client.productInterest && !!name &&
+        (isSelectProduct(client.productInterest) ? isSelectProduct(name) : normaliseProductName(name) === normaliseProductName(client.productInterest));
     });
     const uniqueProduct = matches.length === 1
       ? { id: matches[0].id, name: (matches[0].product as { name: string }).name }
@@ -542,7 +545,7 @@ export async function getDraftResumeAction(
     const form = initialiseFamilySizeSuggestion({
       ...emptyWizardForm(),
       ...saved,
-      schemaVersion: 3,
+      schemaVersion: 4,
       draftApplicationId: draft.id,
       draftStep: typeof saved.draftStep === "number" ? saved.draftStep : 1,
       clientMode: "existing" as const,
@@ -572,17 +575,30 @@ export async function getDraftResumeAction(
         ? (saved.productName && /flexishield/i.test(saved.productName) ? "health" : saved.category!)
         : uniqueProduct ? categoryForProduct(uniqueProduct.name, (matches[0]?.product as { category?: string | null } | null)?.category) : "",
     } satisfies WizardForm);
-    if (!form.planOptionId && form.coverageTier && uniqueProduct) {
-      const row = matches[0] as typeof matches[number] & {
-        plan_options: { id: string; plan_name: string; coverage_tier: string | null }[];
-      };
+    const selectedVersion = (productRows ?? []).find((row) => row.id === form.productVersionId);
+    let selectedFamily: string | null = null;
+    if (form.planOptionId) {
+      // Retired exact plans still identify an old draft's family, but are not valid new selections.
+      const { data: selectedPlan, error: selectedPlanError } = await getSupabaseAdmin().from("plan_options")
+        .select("plan_family, product_version_id").eq("id", form.planOptionId).maybeSingle();
+      if (selectedPlanError) throw new Error(selectedPlanError.message);
+      if (selectedPlan?.product_version_id === form.productVersionId) selectedFamily = selectedPlan.plan_family;
+    }
+    form.selectVariant = resumeSelectVariant({
+      productName: selectedVersion?.product?.name ?? form.productName,
+      savedVariant: saved.schemaVersion === 4 ? saved.selectVariant : undefined,
+      planFamily: selectedFamily,
+      legacyProductInterest: client.productInterest,
+    });
+    if (!form.planOptionId && form.coverageTier && selectedVersion) {
       const preferredPlan = uniquePlanPreferenceMatch(
         form.coverageTier,
-        (row.plan_options ?? []).map((plan) => ({
-          id: plan.id,
-          name: plan.plan_name,
-          coverageTier: plan.coverage_tier,
-        })),
+        plansForSelectVariant(
+          (selectedVersion.plan_options ?? []).filter((plan) => plan.status === "Active").map((plan) => ({
+            id: plan.id, name: plan.plan_name, coverageTier: plan.coverage_tier, planFamily: plan.plan_family,
+          })),
+          form.productName, form.selectVariant,
+        ),
       );
       if (preferredPlan) form.planOptionId = preferredPlan.id;
     }
@@ -708,6 +724,7 @@ async function resolveWizardContact(
           estPremium: parseAmount(form.premium),
           familySize: clientFamilySize(form.familySize),
           coverageTier: form.coverageTier,
+          selectVariant: form.selectVariant,
         },
         { clientPreExisted },
       );
@@ -749,6 +766,8 @@ async function resolveWizardContact(
       await clientsRepo.update(lead.id, {
         familySize: clientFamilySize(form.familySize),
         coverageTier: form.coverageTier.trim() || null,
+        productInterest: form.productName || null,
+        selectVariant: form.selectVariant || null,
       });
       if (lead.lifecycleStage === "Lead") leadAwaitingHandOff = lead;
     } else if (!resumingDraft && form.clientMode === "existing" && form.existingClientId) {
@@ -759,6 +778,10 @@ async function resolveWizardContact(
       const discoveryPatch: ClientUpdate = {};
       if (form.familySize.trim()) discoveryPatch.familySize = clientFamilySize(form.familySize);
       if (form.coverageTier.trim()) discoveryPatch.coverageTier = form.coverageTier.trim();
+      if (form.productName) {
+        discoveryPatch.productInterest = form.productName;
+        discoveryPatch.selectVariant = form.selectVariant || null;
+      }
       if (Object.keys(discoveryPatch).length) await clientsRepo.update(existing.id, discoveryPatch);
       // Picking a lead out of the client search is the same hand-off as the Convert button, so it
       // has to leave the board too — otherwise a lead ends up with a live application on it.
@@ -784,6 +807,7 @@ async function resolveWizardContact(
         notes: form.notes || null,
         familySize: clientFamilySize(form.familySize),
         coverageTier: form.coverageTier.trim() || null,
+        selectVariant: form.selectVariant || null,
       });
       clientId = created.id;
       clientName = created.fullName;
@@ -814,6 +838,7 @@ async function resolveWizardContact(
         estPremium: parseAmount(form.premium),
         familySize: clientFamilySize(form.familySize),
         coverageTier: form.coverageTier.trim() || null,
+        selectVariant: form.selectVariant || null,
         leadSource: form.source || null,
         assignedUserId: form.assignedUserId || actor.id,
         notes: form.notes || null,
@@ -1199,6 +1224,26 @@ export async function createFromWizardAction(
 ): Promise<ActionResult<WizardResult>> {
   const actor = await getActor();
 
+  try {
+    const selection = await validateCatalogSelection({
+      productVersionId: form.productVersionId, planOptionId: form.planOptionId,
+      selectVariant: form.selectVariant, completing: mode !== "draft", requireHealthPlan: true,
+    });
+    // Product/category control all downstream builders and writes; browser labels are not authority.
+    form = {
+      ...form, schemaVersion: 4,
+      productName: selection?.productName ?? "",
+      category: selection ? categoryForProduct(selection.productName, selection.productCategory) : "",
+      selectVariant: selection && isSelectProduct(selection.productName) ? form.selectVariant : "",
+    };
+    if (form.category === "travel") {
+      for (const planOptionId of new Set(form.travelers.map((traveler) => traveler.planOptionId).filter(Boolean))) {
+        await validateCatalogSelection({ productVersionId: form.productVersionId, planOptionId, completing: false });
+      }
+    }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Choose a valid product and plan." };
+  }
   const hasName = !!(form.firstName || form.displayName || form.companyName || form.existingClientId || form.convertClientId);
   const hasContact = !!(form.email || form.mobile || form.existingClientId || form.convertClientId);
   if (!hasName || !hasContact || (mode !== "draft" && !form.category))

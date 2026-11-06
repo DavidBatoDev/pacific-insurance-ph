@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { advanceLeadAction } from "@/app/(app)/prospects/actions";
+import { getDiscoveryValuesAction } from "@/app/(app)/clients/engage-actions";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import {
@@ -115,6 +116,19 @@ export function AdvanceLeadModal({
   const router = useRouter();
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
+  const [loadedDiscovery, setLoadedDiscovery] = useState<{ clientId: string; values?: DiscoveryValues; error?: string } | null>(null);
+  const needsDiscoveryLoad = lead.productInterest === undefined;
+  useEffect(() => {
+    if (!needsDiscoveryLoad) return;
+    let cancelled = false;
+    getDiscoveryValuesAction(lead.clientId).then((result) => {
+      if (!cancelled) setLoadedDiscovery(result.ok
+        ? { clientId: lead.clientId, values: result.data }
+        : { clientId: lead.clientId, error: result.error });
+    }).catch(() => { if (!cancelled) setLoadedDiscovery({ clientId: lead.clientId, error: "Could not load discovery details. Reopen this transition." }); });
+    return () => { cancelled = true; };
+  }, [lead.clientId, needsDiscoveryLoad]);
+  const discovery = !needsDiscoveryLoad ? lead : loadedDiscovery?.clientId === lead.clientId ? loadedDiscovery.values : undefined;
 
   // Open on the move this popup is named after: an action-supplied stage wins, otherwise
   // suggest the next stage. At the final stage there is nothing to advance to, so hold.
@@ -153,17 +167,17 @@ export function AdvanceLeadModal({
   // Moving to Proposal or marking Qualified both claim the lead is quotable, so both have to
   // stand on the four discovery answers. The server enforces this too; showing it here turns
   // a rejection into guidance about exactly what is missing.
-  const checklist = discoveryChecklist(lead);
+  const checklist = discoveryChecklist(discovery ?? lead);
   /** What is on file for a field, formatted — null when nothing is recorded. */
   const recordedValue = (key: keyof DiscoveryValues): string | null => {
-    if (key === "estPremium") return lead.estPremium != null ? peso(lead.estPremium) : null;
-    const value = lead[key];
+    if (key === "estPremium") return discovery?.estPremium != null ? peso(discovery.estPremium) : null;
+    const value = discovery?.[key];
     return value == null || value === "" ? null : String(value);
   };
   const gaps = checklist.filter((item) => !item.done);
   const assertsDiscovery =
-    (stage === "Proposal" && stage !== lead.stage) || status === "Qualified";
-  const blocked = assertsDiscovery && gaps.length > 0;
+    ((stage === "Proposal" || stage === "Product Selected") && stage !== lead.stage) || status === "Qualified";
+  const blocked = (needsDiscoveryLoad && !discovery) || (assertsDiscovery && gaps.length > 0);
 
   const confirm = () => {
     startTransition(async () => {
@@ -198,6 +212,7 @@ export function AdvanceLeadModal({
           <h3 className="text-[16px] font-bold tracking-[-0.01em]">Advance lead</h3>
         </div>
       </div>
+      {needsDiscoveryLoad && !discovery && <p role="status" className="mb-3 text-[12px] text-amber">{loadedDiscovery?.error ?? "Loading discovery details…"}</p>}
 
       <div className="rounded-md border border-border-strong bg-card px-4 py-3.5">
         <div className="text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">

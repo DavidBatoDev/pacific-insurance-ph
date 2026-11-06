@@ -12,31 +12,42 @@ import { getPaymentsRepository } from "@/lib/repositories/payments";
 import { getPoliciesRepository, type NewPolicy, type Policy, type PolicyUpdate } from "@/lib/repositories/policies";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
+import { validateCatalogSelection } from "@/lib/products/catalog-selection";
+import { isSelectVariant } from "@/lib/products/select-variant";
 
 /** Product picker options (products + versions + plan options) for the drawers. */
 export interface ProductOption {
   productVersionId: string;
   productName: string;
   productCategory: string | null;
-  planOptions: { id: string; name: string; coverageTier: string | null }[];
+  planOptions: {
+    id: string; name: string; coverageTier: string | null; planFamily: string | null;
+    limitBasis: string | null; maximumCoverage: number | null; coverageCurrency: string | null;
+  }[];
 }
 
 export async function listProductOptionsAction(): Promise<ProductOption[]> {
+  await getActor();
   const { data, error } = await getSupabaseAdmin()
     .from("product_versions")
-    .select("id, status, product:products (name, category), plan_options (id, plan_name, coverage_tier)")
+    .select("id, status, product:products (name, category, status), plan_options (id, plan_name, coverage_tier, plan_family, limit_basis, maximum_coverage, coverage_currency, status)")
     .eq("status", "Active")
     .order("id");
   if (error) return [];
   return (data ?? [])
+    .filter((v) => v.product?.status === "Active")
     .map((v) => ({
       productVersionId: v.id,
       productName: (v.product as { name: string } | null)?.name ?? "—",
       productCategory: (v.product as { category: string | null } | null)?.category ?? null,
-      planOptions: ((v.plan_options ?? []) as { id: string; plan_name: string; coverage_tier: string | null }[]).map((p) => ({
+      planOptions: (v.plan_options ?? []).filter((p) => p.status === "Active").map((p) => ({
         id: p.id,
         name: p.plan_name,
         coverageTier: p.coverage_tier,
+        planFamily: p.plan_family,
+        limitBasis: p.limit_basis,
+        maximumCoverage: p.maximum_coverage,
+        coverageCurrency: p.coverage_currency,
       })),
     }))
     .sort((a, b) => a.productName.localeCompare(b.productName));
@@ -56,7 +67,7 @@ const POLICY_COPY_DOCUMENT_TYPE = "Policy Copy";
  * logged before the password-free copy is ready; it can be attached later from the profile.
  */
 export async function issuePolicyAction(
-  input: NewPolicy,
+  input: NewPolicy & { selectVariant?: string | null },
   pdf?: UploadedPolicyPdf | null,
   options?: { applicationId?: string | null },
 ): Promise<ActionResult<Policy>> {
@@ -64,6 +75,7 @@ export async function issuePolicyAction(
   if (!input.clientId) return { ok: false, error: "A client is required." };
 
   try {
+    await validateCatalogSelection({ ...input, completing: true });
     // Logged from the application workflow: the policy closes out that application.
     const application = options?.applicationId ? await getApplicationsRepository().findById(options.applicationId) : null;
     if (options?.applicationId) {
@@ -184,15 +196,28 @@ const POLICY_FIELD_LABELS: Partial<Record<keyof PolicyUpdate, string>> = {
 };
 
 /** Edit a policy from the contact profile (TO-BE-UPDATE-PLAN.md H1c) — e.g. a corrected policy number. */
-export async function updatePolicyAction(id: string, input: PolicyUpdate): Promise<ActionResult<Policy>> {
+export async function updatePolicyAction(id: string, input: PolicyUpdate & { selectVariant?: string | null }): Promise<ActionResult<Policy>> {
   const actor = await getActor();
   try {
     const repo = getPoliciesRepository();
     const before = await repo.findById(id);
     if (!before) return { ok: false, error: "This policy could not be found." };
+    const productChanged = input.productVersionId !== undefined && input.productVersionId !== before.productVersionId;
+    const planChanged = input.planOptionId !== undefined && input.planOptionId !== before.planOptionId;
+    const variantChanged = input.selectVariant !== undefined &&
+      (input.selectVariant || null) !== (isSelectVariant(before.planFamily) ? before.planFamily : null);
+    // Historical unresolved/inactive selections survive unrelated edits; a new selection never does.
+    if (productChanged || planChanged || variantChanged) {
+      await validateCatalogSelection({
+        productVersionId: input.productVersionId === undefined ? before.productVersionId : input.productVersionId,
+        planOptionId: input.planOptionId === undefined ? before.planOptionId : input.planOptionId,
+        selectVariant: input.selectVariant,
+        completing: true,
+      });
+    }
 
     const changed = (Object.keys(input) as (keyof PolicyUpdate)[]).filter(
-      (key) => input[key] !== undefined && (input[key] ?? null) !== ((before as unknown as Record<string, unknown>)[key] ?? null),
+      (key) => key !== ("selectVariant" as string) && input[key] !== undefined && (input[key] ?? null) !== ((before as unknown as Record<string, unknown>)[key] ?? null),
     );
     if (changed.length === 0) return { ok: true, data: before };
 

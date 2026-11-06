@@ -1,3 +1,5 @@
+import type { SelectVariant } from "@/lib/products/select-variant";
+
 /**
  * Domain types for a Client.
  *
@@ -39,6 +41,7 @@ export interface Client {
   /** Sub-state of `proposalStatus = Decision`; null at every other step. */
   proposalDecision: string | null;
   productInterest: string | null;
+  selectVariant: SelectVariant | null;
   estPremium: number | null;
   familySize: number | null;
   coverageTier: string | null;
@@ -73,6 +76,7 @@ export interface NewClient {
   proposalStatus?: string | null;
   proposalDecision?: string | null;
   productInterest?: string | null;
+  selectVariant?: SelectVariant | null;
   estPremium?: number | null;
   familySize?: number | null;
   coverageTier?: string | null;
@@ -103,6 +107,7 @@ export interface ClientUpdate {
   proposalStatus?: string | null;
   proposalDecision?: string | null;
   productInterest?: string | null;
+  selectVariant?: SelectVariant | null;
   estPremium?: number | null;
   familySize?: number | null;
   coverageTier?: string | null;

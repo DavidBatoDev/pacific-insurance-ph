@@ -11,6 +11,7 @@ import type { Renewal } from "@/lib/repositories/renewals";
 import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { peso, pesoShort } from "@/lib/format";
+import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
@@ -226,7 +227,13 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
                 {p.groupName && <GroupChip id={p.groupId} name={p.groupName} />}
               </div>
             </Td>
-            <Td className="text-muted-foreground">{p.productName ?? "—"}</Td>
+            <Td className="text-muted-foreground">
+              {p.productName ?? "—"}
+              {isSelectProduct(p.productName) && <div className="mt-1 text-[11px]">
+                <div>{p.planFamily ?? "Not recorded"}</div>
+                <div>{planLimitDescription(p)}</div>
+              </div>}
+            </Td>
             <Td className="text-right font-mono font-semibold tabular-nums">
               {p.premiumAmount != null ? peso(p.premiumAmount) : "—"}
             </Td>

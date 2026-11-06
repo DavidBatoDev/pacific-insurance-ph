@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
-import { logCallAction } from "@/app/(app)/clients/engage-actions";
+import { getDiscoveryValuesAction, logCallAction } from "@/app/(app)/clients/engage-actions";
 import type { LeadAdvanceSuggestion } from "@/lib/communications/outbound-email.types";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
@@ -13,14 +13,15 @@ import { ClientPicker, type PickedClient } from "./client-picker";
 import { CoverageTierSelect } from "./coverage-tier-select";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
+import { isSelectProduct, SELECT_VARIANTS, selectLimitBasis, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
 
 /**
  * The one `Log Call` form (../docs/web/lead-workflow.md §4: "There is one `Log Call`, not three").
  *
  * It is a structured discovery capture, not a diary entry and not part of the templated Engage
- * composer — no recipient, no template, no email body. The four fields it collects on a `Reached`
- * outcome are exactly the four `discoveryGaps()` checks before a lead may go `Qualified` or move to
- * `Proposal`, so anywhere a call can be logged has to offer them; a call form that omits them is a
+ * composer — no recipient, no template, no email body. Reached calls capture every answer checked
+ * by `discoveryGaps()`, including the conditional Select variant, before qualification or Proposal.
+ * Anywhere a call can be logged must offer these fields; a form that omits them is a
  * dead end that can never complete discovery.
  *
  * Two containers, one form: the Contact Profile composer tab renders {@link LogCallForm} inline,
@@ -36,7 +37,7 @@ export interface LogCallTarget extends DiscoveryValues {
   name: string;
 }
 
-export function LogCallForm({
+function LogCallFields({
   target,
   initialOutcome = "Reached",
   onLogged,
@@ -55,7 +56,9 @@ export function LogCallForm({
   // (logCallAction patches each field only when non-null, so re-sending them is harmless).
   const [budget, setBudget] = useState(target.estPremium != null ? String(target.estPremium) : "");
   const [family, setFamily] = useState(target.familySize != null ? String(target.familySize) : "");
-  const [interest, setInterest] = useState(target.productInterest ?? "");
+  const [interest, setInterest] = useState(isSelectProduct(target.productInterest) ? "Select" : target.productInterest ?? "");
+  const [variant, setVariant] = useState<SelectVariant | "">(target.selectVariant ?? selectVariantFromInterest(target.productInterest) ?? "");
+  const [interestEdited, setInterestEdited] = useState(false);
   const [tier, setTier] = useState(target.coverageTier ?? "");
   const [note, setNote] = useState("");
   const [follow, setFollow] = useState("");
@@ -73,7 +76,8 @@ export function LogCallForm({
           ? {
               estPremium: budget ? Number(budget) : null,
               familySize: family ? Number(family) : null,
-              productInterest: interest || null,
+              productInterest: interest || (interestEdited ? null : undefined),
+              selectVariant: interest || interestEdited ? (isSelectProduct(interest) ? variant || null : null) : undefined,
               coverageTier: tier || null,
             }
           : undefined,
@@ -114,12 +118,19 @@ export function LogCallForm({
           </div>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
             <Field label="Product interest">
-              <input className={INPUT} value={interest} onChange={(e) => setInterest(e.target.value)} placeholder="e.g. Blue Royale" />
+              <input className={INPUT} value={interest} onChange={(e) => { setInterest(e.target.value); setInterestEdited(true); if (!isSelectProduct(e.target.value)) setVariant(""); }} placeholder="e.g. Blue Royale" />
             </Field>
             <Field label="Coverage tier / room">
               <CoverageTierSelect className={INPUT} value={tier} onChange={setTier} productInterest={interest} />
             </Field>
           </div>
+          {isSelectProduct(interest) && <Field label="Select variant" required className="mt-3.5">
+            <select className={INPUT} value={variant} onChange={(e) => setVariant(e.target.value as SelectVariant | "")}>
+              <option value="">Choose Plus or Standard…</option>
+              {SELECT_VARIANTS.map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <p className="mt-1 text-[12px] text-muted">{variant ? selectLimitBasis(variant) : "Required before qualification; an incomplete call can still be saved."}</p>
+          </Field>}
         </>
       )}
 
@@ -144,6 +155,25 @@ export function LogCallForm({
   );
 }
 
+/** Pickers and communication suggestions have an ID, not a discovery snapshot. */
+export function LogCallForm(props: Parameters<typeof LogCallFields>[0]) {
+  const [loaded, setLoaded] = useState<{ clientId: string; values?: DiscoveryValues; error?: string } | null>(null);
+  const needsLoad = props.target.productInterest === undefined;
+  useEffect(() => {
+    if (!needsLoad) return;
+    let cancelled = false;
+    getDiscoveryValuesAction(props.target.clientId).then((result) => {
+      if (!cancelled) setLoaded(result.ok
+        ? { clientId: props.target.clientId, values: result.data }
+        : { clientId: props.target.clientId, error: result.error });
+    }).catch(() => { if (!cancelled) setLoaded({ clientId: props.target.clientId, error: "Could not load discovery details. Reopen this call form." }); });
+    return () => { cancelled = true; };
+  }, [needsLoad, props.target.clientId]);
+  if (needsLoad && loaded?.clientId !== props.target.clientId) return <p className="text-[12px] text-muted-foreground">Loading discovery details…</p>;
+  if (needsLoad && loaded?.error) return <p role="alert" className="text-[12px] text-amber">{loaded.error}</p>;
+  return <LogCallFields key={props.target.clientId} {...props} target={{ ...props.target, ...(needsLoad ? loaded?.values : {}) }} />;
+}
+
 /**
  * The same form as a standalone overlay, for every entry point that isn't the Contact Profile
  * composer. Without a `target` it resolves the contact first — the Lead Lifecycle quick-action row
@@ -152,8 +182,7 @@ export function LogCallForm({
 export function LogCallModal({ target, onClose }: { target?: LogCallTarget; onClose: () => void }) {
   const overlays = useOverlays();
   const [picked, setPicked] = useState<PickedClient | null>(null);
-  // A picked contact carries no discovery values, so those fields open blank. That is safe:
-  // logCallAction only patches non-null fields, so a blank never clears what is already on file.
+  // ID-only picker results are hydrated by LogCallForm before discovery can be saved.
   const resolved: LogCallTarget | null = target ?? (picked ? { clientId: picked.id, name: picked.name } : null);
 
   return (
