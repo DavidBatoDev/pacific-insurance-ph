@@ -1,4 +1,5 @@
 import { isSelectProduct, type SelectVariant } from "@/lib/products/select-variant";
+import type { RequirementSection } from "@/lib/applications/requirement-sections";
 
 /**
  * New Client Application wizard — shared types, options and checklists
@@ -76,6 +77,8 @@ export interface WizardTraveler {
 export interface ChecklistItem {
   requirementKey?: string;
   name: string;
+  documentName?: string;
+  section?: RequirementSection | null;
   cond: string | null;
   checked: boolean;
   status: string;
@@ -512,7 +515,7 @@ export function medicalRequirementDocumentsFor(person: MedicalProfileInput): { k
   const bmi = bmiFrom(person.heightInches ?? "", person.weightLbs ?? "");
   const docs: { key: string; name: string }[] = [];
   if (senior) docs.push({ key: "senior-medical", name: "Senior medical examination / physician statement" });
-  else if (person.preExisting === "Yes") docs.push({ key: "medical-questionnaire", name: "Medical questionnaire or supporting records" });
+  if (person.preExisting === "Yes") docs.push({ key: "medical-questionnaire", name: "Medical questionnaire or supporting records" });
   if (person.smokerStatus === "Current") docs.push({ key: "chest-xray", name: "Chest X-ray taken within the last 6 months" });
   if (bmi != null && bmi >= BMI_THRESHOLDS.overweight) {
     docs.push({ key: "bmi-panel", name: "Lipid Profile, HbA1c, Creatinine, BUN, Uric Acid, SGOT, SGPT and GGT" });

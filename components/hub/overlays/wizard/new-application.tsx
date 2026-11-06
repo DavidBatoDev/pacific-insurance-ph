@@ -141,7 +141,8 @@ export function NewApplicationWizard({
   }, []);
   const [persistedRequirementPreview, setPersistedRequirementPreview] = useState<DraftResumePayload["requirementPreview"]>(null);
   const [templatePreview, setTemplatePreview] = useState<{ key: string; items: ChecklistItem[] } | null>(null);
-  const canonicalPreview = persistedRequirementPreview?.applicationId === wizard.form.draftApplicationId && wizard.form.category !== "travel"
+  const canonicalPreview = persistedRequirementPreview?.applicationId === wizard.form.draftApplicationId
+    && persistedRequirementPreview.productVersionId === wizard.form.productVersionId && wizard.form.category !== "travel"
     ? persistedRequirementPreview
     : null;
   // One effective form supplies rendering, draft snapshots and creation. The checklist is

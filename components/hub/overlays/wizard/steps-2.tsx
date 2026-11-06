@@ -12,6 +12,7 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { isSelectProduct, plansForSelectVariant, planLimitDescription, SELECT_VARIANTS, selectLimitBasis, type SelectVariant } from "@/lib/products/select-variant";
+import { groupRequirementSections, requirementSection } from "@/lib/applications/requirement-sections";
 import { I } from "../../icons";
 import { AREA, Field, INPUT } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
@@ -580,6 +581,12 @@ export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps
 }) {
   const list = f.checklist;
   const inquiryOnly = isInquiryAppType(f.appType);
+  const phases = list.reduce<{ phase: string | undefined; items: typeof list }[]>((groups, row) => {
+    const group = groups.find((item) => item.phase === row.phase);
+    if (group) group.items.push(row);
+    else groups.push({ phase: row.phase, items: [row] });
+    return groups;
+  }, []);
   return (
     <div>
       <p className="mb-3 text-[12px] text-muted-foreground">
@@ -588,16 +595,17 @@ export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps
           : "Choose a device file or an email attachment for each requirement. Selections attach only after the application is created, and are not saved with a draft. No requirement is received or verified by selecting a file here."}
       </p>
       <div className="flex flex-col gap-1.5">
-        {list.map((r, index) => (
-          <Fragment key={r.requirementKey ?? r.name}>
-            {r.phase && r.phase !== list[index - 1]?.phase && (
-              <div className="mb-1 mt-3 flex items-center justify-between first:mt-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">{r.phase}</span>
-                {r.phase === "Once the group agrees" && (
-                  <span className="text-[11px] font-semibold text-subtle">Forthcoming · not requested yet</span>
-                )}
-              </div>
-            )}
+        {phases.map(({ phase, items }) => (
+          <Fragment key={phase ?? "default"}>
+            {phase && <div className="mb-1 mt-3 flex items-center justify-between first:mt-0">
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">{phase}</span>
+              {phase === "Once the group agrees" && <span className="text-[11px] font-semibold text-subtle">Forthcoming · not requested yet</span>}
+            </div>}
+            {groupRequirementSections(items, (item) => requirementSection({ section: item.section, documentName: item.documentName ?? item.name })).map(({ section, items: sectionItems }) => (
+              <Fragment key={section}>
+                <h3 className="mt-3 text-[11px] font-bold uppercase tracking-wide text-subtle">{section}</h3>
+                {sectionItems.map((r) => (
+                  <Fragment key={r.requirementKey ?? r.name}>
             <div
               className={cn(
                 "flex flex-wrap items-center gap-3 rounded-md border px-3.5 py-2.5",
@@ -622,6 +630,10 @@ export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps
               />
             ) : <span className="text-[12px] text-muted-foreground">Loading requirement identity…</span>}
             </div>
+          </Fragment>
+                ))}
+              </Fragment>
+            ))}
           </Fragment>
         ))}
         {list.length === 0 && (

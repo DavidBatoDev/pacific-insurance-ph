@@ -5,7 +5,9 @@ import { Fragment, useCallback, useEffect, useRef, useState, useTransition } fro
 
 import {
   activateRequirementPhaseAction,
+  addApplicationMedicalQuestionnaireAction,
   createApplicationPaymentAction,
+  clearApplicationMedicalReviewAction,
   getApplicationRequirementsAction,
   getMissingDocumentsDraftAction,
   logPacificCrossReplyAction,
@@ -25,6 +27,7 @@ import { DocumentUploadForm } from "@/components/documents/document-upload-form"
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { countsAsCompleted, deliveryOutcomeLabel, type SubmissionRecord } from "@/lib/submissions/submission-email";
 import { APPLICATION_WORKFLOW_STEPS, isStepUnlocked, workflowProgress, type WorkflowStepNumber } from "@/lib/applications/workflow";
+import { groupRequirementSections, isMedicalQuestionnaireName, requirementSection } from "@/lib/applications/requirement-sections";
 import { fmtDate, peso } from "@/lib/format";
 import { I } from "../icons";
 import { AREA, Btn, Field, INPUT, StatusBadge } from "../primitives";
@@ -70,9 +73,8 @@ const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/
 type ReplyKind = "Conforme to sign" | "More requirements" | "Note";
 
 /**
- * Step 3: what Pacific Cross sent back after the submission. Eman logs it by hand (the CRM has no
- * inbox): conformes and extra requirements become checklist rows the client must return, and the
- * illustrative proposal — the final billing — unlocks Payment. A lead-stage proposal counts.
+ * Step 4: what Pacific Cross sent back after submission. Conformes and extra requirements become
+ * checklist rows the client must return; the illustrative proposal unlocks Payment.
  */
 function PacificCrossReplyStep({
   payload,
@@ -151,7 +153,7 @@ function PacificCrossReplyStep({
           <ul className="mt-1 list-disc pl-5 text-muted-foreground">{requested.map((item) => <li key={item.id}>{item.documentName}</li>)}</ul>
           <div className="mt-2 flex flex-wrap gap-2">
             <Btn size="sm" onClick={onOpenRequirements}>Open the checklist</Btn>
-            <span className="self-center text-[11.5px] text-muted-foreground">Once they’re in, send them back with <button type="button" className="font-semibold text-brand-hover hover:underline" onClick={onResubmit}>Resubmit</button> on step 2.</span>
+            <span className="self-center text-[11.5px] text-muted-foreground">Once they’re in, send them back with <button type="button" className="font-semibold text-brand-hover hover:underline" onClick={onResubmit}>Resubmit</button> on step 3.</span>
           </div>
         </div>
       )}
@@ -329,12 +331,93 @@ function BillingToClient({
   );
 }
 
+function MedicalReviewStep({ applicationId, payload, onReload, onCleared, onOpenRequirements }: {
+  applicationId: string;
+  payload: ApplicationRequirementsPayload;
+  onReload: () => Promise<ApplicationRequirementsPayload | null>;
+  onCleared: () => Promise<boolean>;
+  onOpenRequirements: () => void;
+}) {
+  const review = payload.medicalReview;
+  const [medicalClass, setMedicalClass] = useState(review.medicalClass ?? "");
+  const [mapping, setMapping] = useState<Record<string, string>>(() => Object.fromEntries(review.subjects.map((subject) => [subject.key, subject.questionnaireRequirementId ?? ""])));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const candidates = payload.requirements.filter((item) => requirementSection(item) === "Medical requirements" && isMedicalQuestionnaireName(item.documentName));
+  const clear = () => startTransition(async () => {
+    setError(null);
+    try {
+      const result = await clearApplicationMedicalReviewAction(applicationId, {
+        medicalClass,
+        expectedUpdatedAt: payload.application.updatedAt,
+        questionnaireRequirements: Object.fromEntries(review.subjects.map((subject) => [subject.key, mapping[subject.key] ?? ""])),
+      });
+      if (!result.ok) { setError(result.error); return; }
+      if (result.data.medicalReview.status !== "Cleared") { setError("The medical review was not cleared. Reload the latest review before continuing."); return; }
+      if (!await onCleared()) setError("Clearance was saved, but the latest review could not be loaded. Reload before continuing.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The review did not reach the server. Your entries have been kept.");
+    }
+  });
+  if (review.status === "Not required") return <p className="text-[13px] text-muted-foreground">Not required. No insured has declared a pre-existing condition requiring this internal agency review.</p>;
+  return <div className="space-y-4">
+    <div className="rounded-md border border-border-soft bg-surface-2 p-3.5 text-[12.5px]">
+      <div className="font-semibold">Internal agency medical review · {review.status}</div>
+      <p className="mt-1 text-muted-foreground">Staff review the appropriate original questionnaire or supporting records before carrier submission. This is an agency clearance, not a diagnosis or a universal carrier questionnaire requirement.</p>
+      {review.clearedAt && <p className="mt-2">Cleared {fmtWhen(review.clearedAt)}{review.clearedBy ? ` · reviewer ${review.clearedBy}` : ""}</p>}
+    </div>
+    {review.subjects.map((subject) => {
+      const selectedId = mapping[subject.key] ?? "";
+      const selected = candidates.find((item) => item.id === selectedId);
+      const originals = payload.medicalReviewDocuments.filter((document) => document.applicationRequirementId === selectedId && document.filePath);
+      return <div key={subject.key} className="rounded-md border border-border-soft p-3.5">
+        <div className="text-[13px] font-semibold">{subject.name}</div>
+        <div className="mt-0.5 break-all text-[11px] text-subtle">{subject.key}</div>
+        <p className="mt-2 whitespace-pre-wrap text-[12.5px] text-muted-foreground">{subject.medicalNotes || "No medical notes recorded."}</p>
+        <Field label={`Original questionnaire / supporting records for ${subject.name}`} required className="mt-3">
+          <select className={INPUT} value={selectedId} disabled={!review.canClear || pending} onChange={(event) => setMapping((current) => ({ ...current, [subject.key]: event.target.value }))}>
+            <option value="">Choose an existing questionnaire item…</option>
+            {candidates.map((item) => <option key={item.id} value={item.id}>{item.documentName}{item.appliesTo ? ` — ${item.appliesTo}` : ""} · {item.status} · {item.id.slice(0, 8)}</option>)}
+          </select>
+        </Field>
+        {selected && <p className="mt-2 text-[12px]">Checklist: <b>{selected.status}</b>{!originals.length && " · No linked original"}</p>}
+        {originals.map((document) => <a key={document.id} href={`/api/documents/${document.id}/download`} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 text-[12px] font-semibold text-brand-hover hover:underline"><I.download size={13} /> {document.name} · {document.status}</a>)}
+        {review.canClear && !subject.questionnaireRequirementId && <div className="mt-3 text-[12px] text-muted-foreground">
+          <p>If no existing item belongs to this person, add a Pending questionnaire item, then upload and verify the real original in the checklist.</p>
+          <Btn size="sm" className="mt-2" disabled={pending} onClick={() => startTransition(async () => {
+            setError(null);
+            try {
+              const result = await addApplicationMedicalQuestionnaireAction(applicationId, subject.key);
+              if (!result.ok) { setError(result.error); return; }
+              const requirementId = result.data.medicalReview.subjects.find((item) => item.key === subject.key)?.questionnaireRequirementId;
+              if (requirementId) setMapping((current) => ({ ...current, [subject.key]: current[subject.key] || requirementId }));
+              if (!await onReload()) setError("The Pending item was saved, but the latest checklist could not be loaded. Reload before retrying.");
+            } catch { setError("Could not add the questionnaire item. Reload the latest checklist before retrying."); }
+          })}>Add questionnaire item for {subject.name}</Btn>
+        </div>}
+      </div>;
+    })}
+    <Field label="Medical class / staff assessment" required hint="Identify the affected people in your assessment if their classes differ. 1–500 characters.">
+      <textarea className={AREA} rows={4} maxLength={500} value={medicalClass} disabled={!review.canClear || pending} onChange={(event) => setMedicalClass(event.target.value)} />
+    </Field>
+    {review.blockers.length > 0 && <div className="rounded-md border border-amber-border bg-amber-soft p-3 text-[12.5px]"><div className="font-semibold">Review blockers</div><ul className="mt-1 list-disc pl-5">{review.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div>}
+    {error && <div role="alert" className="rounded-md border border-red bg-red-soft p-3 text-[12.5px] text-red">{error}<p className="mt-1">If this review changed, reload it before retrying. Your class and selections are retained.</p></div>}
+    <div className="flex flex-wrap gap-2">
+      <Btn onClick={onOpenRequirements}>Open document checklist</Btn>
+      <Btn disabled={pending} onClick={() => startTransition(async () => { try { if (!await onReload()) setError("Could not reload the review. Your entries are retained."); } catch { setError("Could not reload the review. Your entries are retained."); } })}>Reload latest review</Btn>
+      {review.canClear && <Btn variant="primary" disabled={pending || !medicalClass.trim()} onClick={clear}>{pending ? "Saving…" : "Clear medical review"}</Btn>}
+    </div>
+    {!review.canClear && <p className="text-[12px] text-muted-foreground">Read-only. Only active Admin or Staff can clear this review.</p>}
+  </div>;
+}
+
 const STEP_HEADINGS: Record<WorkflowStepNumber, { title: string; sub: string }> = {
   1: { title: "Requirements", sub: "Collect and verify every required document from the client." },
-  2: { title: "Email Pacific Cross", sub: "Send the complete package to Pacific Cross New Business." },
-  3: { title: "Pacific Cross reply", sub: "Log what Pacific Cross sent back — conformes, extra requirements, and the illustrative proposal." },
-  4: { title: "Payment", sub: "Send the billing, collect proof of payment, and record Pacific Cross’s service invoice." },
-  5: { title: "Log policy copy", sub: "File the issued policy — the client becomes a policyholder." },
+  2: { title: "Medical review", sub: "Internal agency clearance for declared pre-existing conditions." },
+  3: { title: "Email Pacific Cross", sub: "Send the complete package to Pacific Cross New Business." },
+  4: { title: "Pacific Cross reply", sub: "Log what Pacific Cross sent back — conformes, extra requirements, and the illustrative proposal." },
+  5: { title: "Payment", sub: "Send the billing, collect proof of payment, and record Pacific Cross’s service invoice." },
+  6: { title: "Log policy copy", sub: "File the issued policy — the client becomes a policyholder." },
 };
 
 const SUBMITTED_OR_LATER: Record<string, true> = { "Submitted to Pacific Cross": true, "Awaiting Payment": true, Approved: true };
@@ -348,11 +431,8 @@ function hasSubmitted(data: ApplicationRequirementsPayload): boolean {
 }
 
 /**
- * The application workflow after the wizard (TO-BE-UPDATE-PLAN.md H7e follow-up): Requirements →
- * Email Pacific Cross → Pacific Cross reply → Payment → Log policy copy, laid out like the New
- * Application wizard. Each step's state comes from the records (checklist, logged emails and
- * replies, the illustrative proposal, payment, policy); payment and policy render the Payments
- * page's and the Log policy copy drawer's shared forms inline.
+ * Requirements → internal Medical review → Email Pacific Cross → Pacific Cross reply → Payment →
+ * Log policy copy. Each step derives from persisted records; payment and policy reuse their forms.
  */
 export function ApplicationRequirementsModal({ applicationId, onClose }: { applicationId: string; onClose: () => void }) {
   const router = useRouter();
@@ -366,12 +446,13 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
   const [amount, setAmount] = useState("");
 
   const reload = useCallback(async () => {
-    const result = await getApplicationRequirementsAction(applicationId);
-    if (result.ok) setPayload(result.data);
-    else setError(result.error);
+    const result = await getApplicationRequirementsAction(applicationId).catch(() => null);
+    if (!result) { overlays.toast("Couldn’t reload the application", "Your unsaved review entries are retained."); return null; }
+    if (result.ok) { setPayload(result.data); setError(null); }
+    else overlays.toast("Couldn’t reload the application", result.error);
     setLoading(false);
     return result.ok ? result.data : null;
-  }, [applicationId]);
+  }, [applicationId, overlays]);
 
   useEffect(() => {
     let active = true;
@@ -386,8 +467,10 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
           proposalOnFile: !!result.data.proposal,
           paymentStatus: result.data.payment?.status ?? null,
           policyLinked: !!result.data.policy,
+          medicalReviewRequired: result.data.medicalReview.status !== "Not required",
+          medicalReviewCleared: result.data.medicalReview.status === "Cleared",
         });
-        setStep(Math.min(opening.current, 5) as WorkflowStepNumber);
+        setStep(Math.min(opening.current, 6) as WorkflowStepNumber);
         const estimate = result.data.payment?.amount ?? result.data.application.estimatedPremium;
         setAmount(estimate != null ? String(Math.round(estimate)) : "");
       } else setError(result.error);
@@ -441,6 +524,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       if (latestStatusPick.current[item.id] === pick) setRowStatus(item.id, item.status);
       return overlays.toast("Couldn’t update requirement", result.error);
     }
+    await reload();
     router.refresh();
   };
 
@@ -452,6 +536,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         ...current,
         requirements: current.requirements.map((requirement) => requirement.id === item.id ? result.data : requirement),
       });
+      await reload();
       router.refresh();
     });
 
@@ -467,16 +552,36 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
     proposalOnFile: !!payload?.proposal,
     paymentStatus: payment?.status ?? null,
     policyLinked: !!policy,
+    medicalReviewRequired: payload?.medicalReview.status !== "Not required",
+    medicalReviewCleared: payload?.medicalReview.status === "Cleared",
   });
   const active: WorkflowStepNumber = step ?? 1;
   const lockedReason: Record<WorkflowStepNumber, string> = {
     1: "",
     2: "Finish the requirements first",
-    3: "Email Pacific Cross first",
-    4: "Waiting on Pacific Cross’s illustrative proposal",
-    5: "Verify the payment first",
+    3: "Finish requirements and clear any required medical review first",
+    4: "Email Pacific Cross first",
+    5: "Waiting on Pacific Cross’s illustrative proposal",
+    6: "Verify the payment first",
   };
   const go = (n: WorkflowStepNumber) => { setComposing(false); setStep(n); };
+  const resubmit = () => {
+    setComposing(false);
+    startTransition(async () => {
+      try {
+        const latest = await reload();
+        if (!latest) return;
+        if (latest.medicalReview.status === "Pending") {
+          setStep(2);
+          overlays.toast("Medical review required", "Complete the medical review before submitting this application.");
+          return;
+        }
+        setStep(3); setComposing(true);
+      } catch {
+        overlays.toast("Couldn’t check the latest review", "Reload before resubmitting.");
+      }
+    });
+  };
 
   const createPayment = () =>
     startTransition(async () => {
@@ -512,7 +617,9 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                     {items.every((item) => !item.isRequired) && <Btn disabled={pending} onClick={() => activatePhase(phase)}>Mark agreed</Btn>}
                   </div>
                 )}
-                {items.map((item) => (
+                {groupRequirementSections(items, requirementSection).map(({ section, items: sectionItems }) => <Fragment key={section}>
+                  <h3 className="pt-3 text-[11px] font-bold uppercase tracking-wide text-subtle">{section}</h3>
+                  {sectionItems.map((item) => (
                   <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
                     <div className="flex items-center gap-3">
                       <RequirementStatusDot status={item.status} />
@@ -541,6 +648,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                     </div>
                   </div>
                 ))}
+                </Fragment>)}
               </Fragment>
             ))}
             {!requirements.length && <div className="rounded-md border border-dashed border-border-strong px-4 py-8 text-center text-[12.5px] text-muted-foreground">No requirements.</div>}
@@ -548,18 +656,20 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         </>
       );
     }
-    if (active === 2) {
+    if (active === 2) return null;
+    if (active === 3) {
+      if (payload.medicalReview.status === "Pending" && (composing || !submitted)) return <div className="space-y-3 text-[13px]"><p>Complete the medical review before submitting this application.</p><Btn onClick={() => go(2)}>Open medical review</Btn></div>;
       if (composing || !submitted) {
         return (
           <SubmissionStep
             embedded
             kind="application"
             id={applicationId}
-            backLabel={submitted ? "Cancel resubmission" : "Back to requirements"}
-            onBack={() => (submitted ? setComposing(false) : go(1))}
+            backLabel={submitted ? "Cancel resubmission" : payload.medicalReview.status === "Not required" ? "Back to requirements" : "Back to medical review"}
+            onBack={() => (submitted ? setComposing(false) : go(payload.medicalReview.status === "Not required" ? 1 : 2))}
             onSubmitted={() => {
               setComposing(false);
-              void reload().then((data) => { if (data) setStep(3); });
+              void reload().then((data) => { if (data) setStep(4); });
               router.refresh();
             }}
           />
@@ -569,7 +679,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         ? <SubmissionRecordCard records={submissions} />
         : <p className="text-[12.5px] text-muted-foreground">Submitted to Pacific Cross{payload.application.dateSubmitted ? ` on ${fmtDate(payload.application.dateSubmitted)}` : ""}. No email is recorded in the CRM for it.</p>;
     }
-    if (active === 3) {
+    if (active === 4) {
       return (
         <PacificCrossReplyStep
           payload={payload}
@@ -577,11 +687,11 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
           outstanding={outstanding}
           onChanged={reload}
           onOpenRequirements={() => go(1)}
-          onResubmit={() => { setStep(2); setComposing(true); }}
+          onResubmit={resubmit}
         />
       );
     }
-    if (active === 4) {
+    if (active === 5) {
       const awaiting = !payment || payment.status === "Awaiting" || payment.status === "Overdue";
       const billingState: SectionState = payment
         ? { status: "done", label: `${payment.amount != null ? peso(payment.amount) : "Amount"} requested` }
@@ -646,14 +756,14 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
             <VerifyPaymentInline
               key={`${payment.id}:${payment.status}`}
               payment={payment}
-              onBack={() => go(3)}
+              onBack={() => go(4)}
               onSaved={() => void reload()}
             />
           )}
         </div>
       );
     }
-    // Step 5
+    // Step 6
     if (policy) {
       return (
         <div className="space-y-4">
@@ -681,7 +791,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
     }
     return (
       <PolicyCopyInline
-        onBack={() => go(4)}
+        onBack={() => go(5)}
         onSaved={() => void reload()}
         fromApplication={{
           applicationId,
@@ -705,12 +815,15 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
     if (active === 1) {
       note = outstanding.length ? `${outstanding.length} required item${outstanding.length === 1 ? "" : "s"} still need attention` : "All required documents are in";
       primary = (
-        <Btn variant="primary" disabled={!flow.done[1] && !flow.done[2]} title={outstanding.length ? "Every required item must be received or verified first" : undefined} onClick={() => go(2)}>
+        <Btn variant="primary" disabled={!flow.done[1] && !submitted} title={outstanding.length ? "Every required item must be received or verified first" : undefined} onClick={() => go(payload.medicalReview.status === "Not required" ? 3 : 2)}>
           Continue <I.chevRight size={15} />
         </Btn>
       );
     } else if (active === 2) {
-      if (composing || !submitted) return null; // SubmissionStep has its own footer
+      note = payload.medicalReview.status;
+      primary = <Btn variant="primary" disabled={!flow.done[2]} onClick={() => go(3)}>Continue <I.chevRight size={15} /></Btn>;
+    } else if (active === 3) {
+      if (composing || !submitted) return null;
       const lastSent = submissions.find(countsAsCompleted);
       note = [
         lastSent && `${lastSent.deliveryStatus === "sent" ? "Sent" : "Logged"} ${fmtDate(lastSent.occurredAt)}`,
@@ -718,17 +831,17 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       ].filter(Boolean).join(" · ");
       primary = (
         <>
-          <Btn onClick={() => setComposing(true)}><I.send size={14} /> Resubmit</Btn>
-          <Btn variant="primary" onClick={() => go(3)}>Continue <I.chevRight size={15} /></Btn>
+          <Btn disabled={pending} onClick={resubmit}><I.send size={14} /> Resubmit</Btn>
+          <Btn variant="primary" onClick={() => go(4)}>Continue <I.chevRight size={15} /></Btn>
         </>
       );
-    } else if (active === 3) {
+    } else if (active === 4) {
       const missing = [
         ...(!payload.proposal ? ["illustrative proposal"] : []),
         ...(outstanding.length ? [`${outstanding.length} checklist item${outstanding.length === 1 ? "" : "s"} from the client`] : []),
       ];
       note = missing.length ? "" : `Proposal on file${payload.replies.length ? ` · ${payload.replies.length} repl${payload.replies.length === 1 ? "y" : "ies"} logged` : ""}`;
-      primary = <Btn variant="primary" disabled={!flow.done[3] && !flow.done[4]} onClick={() => go(4)}>Continue <I.chevRight size={15} /></Btn>;
+      primary = <Btn variant="primary" disabled={!flow.done[4] && !flow.done[5]} onClick={() => go(5)}>Continue <I.chevRight size={15} /></Btn>;
       return (
         <>
           {back}
@@ -736,7 +849,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
           <div className="flex gap-2">{primary}</div>
         </>
       );
-    } else if (active === 4) {
+    } else if (active === 5) {
       if (!payment) {
         note = "Record the premium on Pacific Cross’s illustrative proposal";
         primary = <Btn variant="primary" disabled={pending || !amount} onClick={createPayment}><I.peso size={14} /> Create payment request</Btn>;
@@ -744,7 +857,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         return null; // VerifyPaymentInline has its own action bar
       } else {
         note = `Verified · service invoice ${payment.orNumber ?? "—"}`;
-        primary = <Btn variant="primary" onClick={() => go(5)}>Continue <I.chevRight size={15} /></Btn>;
+        primary = <Btn variant="primary" onClick={() => go(6)}>Continue <I.chevRight size={15} /></Btn>;
       }
     } else if (policy) {
       note = `Policy logged ${fmtDate(payload.application.policyIssuedDate)}`;
@@ -793,6 +906,13 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       footer={footer}
     >
       {body}
+      {payload && <div hidden={active !== 2}>
+        <MedicalReviewStep key={applicationId} applicationId={applicationId} payload={payload} onReload={reload} onOpenRequirements={() => go(1)} onCleared={async () => {
+          const data = await reload();
+          if (data?.medicalReview.status !== "Cleared") return false;
+          go(3); router.refresh(); return true;
+        }} />
+      </div>}
     </WorkflowShell>
   );
 }

@@ -124,6 +124,7 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
         { k: "productName", label: "Product" },
         { k: "status", label: "Status" },
         { k: "completenessLabel", sortKey: "completenessSort", label: "Completeness" },
+        { k: "medicalReviewStatus", label: "Medical review" },
         { k: "applicationType", label: "Type" },
         { k: "dateStarted", label: "Started" },
         { k: "id", label: "" },
@@ -143,6 +144,12 @@ export function ApplicationsLive({ rows }: { rows: Application[] }) {
               )}
               <StatusBadge status={a.completenessState} />
             </div>
+          </Td>
+          <Td>
+            <span className={a.medicalReviewStatus === "Pending" ? "font-semibold text-amber" : a.medicalReviewStatus === "Cleared" ? "font-semibold text-green" : "text-muted-foreground"}>
+              {a.medicalReviewStatus}
+            </span>
+            {a.medicalReviewStatus === "Pending" && <div className="mt-1 text-[11px] text-muted-foreground">Staff clearance needed before submission</div>}
           </Td>
           <Td className="text-muted-foreground">{a.applicationType}</Td>
           <Td className="text-muted-foreground">{fmtDate(a.dateStarted)}</Td>

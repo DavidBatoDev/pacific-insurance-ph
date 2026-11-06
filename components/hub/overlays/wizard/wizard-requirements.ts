@@ -1,4 +1,5 @@
 import type { NewApplicationRequirement } from "@/lib/repositories/application-requirements";
+import { requirementSection } from "@/lib/applications/requirement-sections";
 import {
   ageFromDob, beneficiaryIdDocumentFor, isFlexiShieldProduct, medicalRequirementDocumentsFor,
   type ChecklistItem, type WizardForm,
@@ -52,7 +53,13 @@ export function healthWizardRequirements(form: WizardForm): WizardRequirement[] 
     { key: "health:tal", documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
     { key: "health:cac", documentName: "Client Application for Coverage (CAC)", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 930 },
   );
-  return items;
+  return items.map((item) => ({
+    ...item,
+    section: item.key.endsWith(":id") || item.key.endsWith(":beneficiary-id") || item.key.endsWith(":attestation") || item.key === "health:declaration"
+      ? "Basic intake" as const
+      : item.key.includes(":form:") || item.key.startsWith("health:first-layer-") || item.key === "health:tal" || item.key === "health:cac"
+        ? "Application documents" as const : "Medical requirements" as const,
+  }));
 }
 
 export function travelWizardRequirements(form: WizardForm): WizardRequirement[] {
@@ -68,6 +75,8 @@ export function travelWizardRequirements(form: WizardForm): WizardRequirement[] 
 export function wizardRequirementPreview(items: WizardRequirement[]): ChecklistItem[] {
   return items.map((item) => ({
     requirementKey: item.key,
+    documentName: item.documentName,
+    section: requirementSection(item),
     name: `${item.documentName}${item.appliesTo ? ` — ${item.appliesTo}` : ""}`,
     cond: item.isRequired === false ? "not required yet" : null,
     checked: false,
@@ -75,6 +84,26 @@ export function wizardRequirementPreview(items: WizardRequirement[]): ChecklistI
     isRequired: item.isRequired,
     phase: item.phase ?? undefined,
   }));
+}
+
+/** The save repository returns nonblank dependents in input order. Never associate by name. */
+export function persistedDependentSubjects(form: WizardForm, saved: { id: string }[]): Record<string, string> {
+  const people = form.healthDependents.filter((person) => person.name.trim());
+  if (saved.length !== people.length || new Set(saved.map((person) => person.id)).size !== people.length) {
+    throw new Error("Dependent identities could not be associated with the saved application. Reload before completing it.");
+  }
+  const pairs = people.map((person, index) => [personKey(person.requirementPersonKey), `dependent:${saved[index].id}`] as const);
+  if (new Set(pairs.map(([key]) => key)).size !== people.length) throw new Error("Dependent requirement identities are duplicated. Reopen the wizard.");
+  return Object.fromEntries(pairs);
+}
+
+export function questionnaireSubject(requirement: WizardRequirement, dependentSubjects: Record<string, string>): string | null {
+  if (!requirement.key.endsWith(":medical-questionnaire")) return null;
+  const key = requirement.key.slice("health:".length, -":medical-questionnaire".length);
+  if (key === "principal") return "principal";
+  const subject = dependentSubjects[key];
+  if (!subject) throw new Error("The medical questionnaire has no saved dependent identity. Reload before completing the application.");
+  return subject;
 }
 
 /** Selection scope, not document matching: changing anyone's identity invalidates staged bytes. */
