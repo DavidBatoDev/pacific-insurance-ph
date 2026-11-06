@@ -247,9 +247,11 @@ export type Database = {
           document_name: string
           id: string
           is_required: boolean
+          medical_review_subject: string | null
           notes: string | null
           phase: string | null
           required_document_item_id: string | null
+          section: string | null
           sort_order: number
           status: string
           updated_at: string
@@ -261,9 +263,11 @@ export type Database = {
           document_name: string
           id?: string
           is_required?: boolean
+          medical_review_subject?: string | null
           notes?: string | null
           phase?: string | null
           required_document_item_id?: string | null
+          section?: string | null
           sort_order?: number
           status?: string
           updated_at?: string
@@ -275,9 +279,11 @@ export type Database = {
           document_name?: string
           id?: string
           is_required?: boolean
+          medical_review_subject?: string | null
           notes?: string | null
           phase?: string | null
           required_document_item_id?: string | null
+          section?: string | null
           sort_order?: number
           status?: string
           updated_at?: string
@@ -316,7 +322,10 @@ export type Database = {
           estimated_premium: number | null
           height_inches: number | null
           id: string
+          medical_class: string | null
           medical_notes: string | null
+          medical_review_cleared_at: string | null
+          medical_review_cleared_by: string | null
           notes: string | null
           pacific_cross_contact_id: string | null
           payment_proof_sent_date: string | null
@@ -353,7 +362,10 @@ export type Database = {
           estimated_premium?: number | null
           height_inches?: number | null
           id?: string
+          medical_class?: string | null
           medical_notes?: string | null
+          medical_review_cleared_at?: string | null
+          medical_review_cleared_by?: string | null
           notes?: string | null
           pacific_cross_contact_id?: string | null
           payment_proof_sent_date?: string | null
@@ -390,7 +402,10 @@ export type Database = {
           estimated_premium?: number | null
           height_inches?: number | null
           id?: string
+          medical_class?: string | null
           medical_notes?: string | null
+          medical_review_cleared_at?: string | null
+          medical_review_cleared_by?: string | null
           notes?: string | null
           pacific_cross_contact_id?: string | null
           payment_proof_sent_date?: string | null
@@ -424,6 +439,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_medical_review_cleared_by_fkey"
+            columns: ["medical_review_cleared_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -4377,6 +4399,81 @@ export type Database = {
       }
     }
     Functions: {
+      add_application_medical_questionnaire: {
+        Args: {
+          p_actor_id: string
+          p_application_id: string
+          p_subject_key: string
+        }
+        Returns: {
+          application_type: string
+          assigned_user_id: string | null
+          beneficiary_birthdate: string | null
+          beneficiary_contact: string | null
+          beneficiary_name: string | null
+          beneficiary_relation: string | null
+          client_id: string
+          coverage_type: string | null
+          created_at: string
+          date_started: string | null
+          date_submitted: string | null
+          desired_start_date: string | null
+          estimated_premium: number | null
+          height_inches: number | null
+          id: string
+          medical_class: string | null
+          medical_notes: string | null
+          medical_review_cleared_at: string | null
+          medical_review_cleared_by: string | null
+          notes: string | null
+          pacific_cross_contact_id: string | null
+          payment_proof_sent_date: string | null
+          payment_received_date: string | null
+          plan_option_id: string | null
+          policy_id: string | null
+          policy_issued_date: string | null
+          pre_existing_status: string | null
+          preferred_payment_mode: string | null
+          product_version_id: string | null
+          proposal_received_date: string | null
+          proposal_sent_date: string | null
+          reference_no: string | null
+          remote_sale: boolean
+          smoker_status: string | null
+          status: string
+          updated_at: string
+          weight_lbs: number | null
+          wizard_state: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      application_medical_original_exists: {
+        Args: { p_requirement_id: string }
+        Returns: boolean
+      }
+      application_medical_review_evidence_valid: {
+        Args: { p_application_id: string }
+        Returns: boolean
+      }
+      application_medical_review_problem: {
+        Args: { p_application_id: string }
+        Returns: string
+      }
+      application_medical_review_subjects: {
+        Args: { p_application_id: string }
+        Returns: {
+          subject: string
+        }[]
+      }
+      application_requirement_is_medical: {
+        Args: { p_name: string; p_section: string }
+        Returns: boolean
+      }
       apply_gmail_outbound_email_effects: {
         Args: { p_id: string }
         Returns: {
@@ -4495,6 +4592,61 @@ export type Database = {
       claim_gmail_outbound_email: {
         Args: { p_actor_id: string; p_id: string }
         Returns: Json
+      }
+      clear_application_medical_review: {
+        Args: {
+          p_actor_id: string
+          p_application_id: string
+          p_expected_updated_at: string
+          p_medical_class: string
+          p_questionnaire_requirements: Json
+        }
+        Returns: {
+          application_type: string
+          assigned_user_id: string | null
+          beneficiary_birthdate: string | null
+          beneficiary_contact: string | null
+          beneficiary_name: string | null
+          beneficiary_relation: string | null
+          client_id: string
+          coverage_type: string | null
+          created_at: string
+          date_started: string | null
+          date_submitted: string | null
+          desired_start_date: string | null
+          estimated_premium: number | null
+          height_inches: number | null
+          id: string
+          medical_class: string | null
+          medical_notes: string | null
+          medical_review_cleared_at: string | null
+          medical_review_cleared_by: string | null
+          notes: string | null
+          pacific_cross_contact_id: string | null
+          payment_proof_sent_date: string | null
+          payment_received_date: string | null
+          plan_option_id: string | null
+          policy_id: string | null
+          policy_issued_date: string | null
+          pre_existing_status: string | null
+          preferred_payment_mode: string | null
+          product_version_id: string | null
+          proposal_received_date: string | null
+          proposal_sent_date: string | null
+          reference_no: string | null
+          remote_sale: boolean
+          smoker_status: string | null
+          status: string
+          updated_at: string
+          weight_lbs: number | null
+          wizard_state: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       commit_gmail_inbox_sync: { Args: { p_input: Json }; Returns: undefined }
       consume_gmail_oauth_attempt: {
@@ -4777,6 +4929,10 @@ export type Database = {
           p_target_kind: string
         }
         Returns: string
+      }
+      invalidate_application_medical_review: {
+        Args: { p_application_id: string }
+        Returns: undefined
       }
       link_gmail_inbox_message: {
         Args: {

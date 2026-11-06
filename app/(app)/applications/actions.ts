@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
 import { medicalReviewRequired, type ApplicationMedicalReview } from "@/lib/applications/medical-review";
 import { isMedicalQuestionnaireName, requirementSection } from "@/lib/applications/requirement-sections";
 import { RepositoryError } from "@/lib/repositories/types";
@@ -76,7 +77,7 @@ export async function getApplicationRequirementsAction(applicationId: string): P
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application) return { ok: false, error: "This application is not available." };
     const client = await getClientsRepository().findById(application.clientId);
-    if (!client || (actor.role === "Agent" && client.assignedUserId !== actor.id)) {
+    if (!client || (toAppRole(actor.role) === "agent" && client.assignedUserId !== actor.id)) {
       return { ok: false, error: "This application is not available." };
     }
     if (application.status === "Lead") return { ok: false, error: "This application does not have a persisted requirements checklist." };
