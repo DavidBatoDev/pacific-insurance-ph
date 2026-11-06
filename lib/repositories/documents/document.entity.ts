@@ -7,6 +7,7 @@ export interface DocumentRecord {
   id: string;
   referenceNo: string | null;
   clientId: string | null;
+  commissionId: string | null;
   policyId: string | null;
   applicationId: string | null;
   claimId: string | null;
@@ -33,6 +34,7 @@ export interface NewDocumentRecord {
   name: string;
   filePath: string;
   clientId?: string | null;
+  commissionId?: string | null;
   policyId?: string | null;
   applicationId?: string | null;
   claimId?: string | null;

@@ -1,12 +1,13 @@
 /**
- * Domain types for commission tracking (design payments-page.md Commissions
- * tab): OR number → voucher requested → follow-up → received → paid.
+ * Domain types for commission payments and independently filed carrier vouchers.
  */
 
 export interface Commission {
   id: string;
   clientId: string | null;
   clientName: string | null;
+  assignedUserId: string | null;
+  assignedUserName: string | null;
   policyId: string | null;
   policyRef: string | null;
   paymentId: string | null;
@@ -15,6 +16,10 @@ export interface Commission {
   pacificCrossContactEmail: string | null;
   pacificCrossContactStatus: string | null;
   orNumber: string | null;
+  voucherDocumentId: string | null;
+  voucherReference: string | null;
+  voucherReceivedAt: string | null;
+  voucherFileName: string | null;
   /** DB voucher_status: Not Started / Waiting for OR / Voucher Pending /
    *  Issue · Follow-Up Required / Received / Paid. */
   status: string;
@@ -38,6 +43,16 @@ export interface Commission {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Verified upload finalized atomically with the current voucher pointer. */
+export interface FileCommissionVoucherInput {
+  actorId: string;
+  commissionId: string;
+  storagePath: string;
+  fileName: string;
+  voucherReference: string | null;
+  expectedDocumentId: string | null;
 }
 
 export interface NewCommission {

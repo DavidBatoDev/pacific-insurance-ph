@@ -8,6 +8,7 @@ import { DocumentUploadForm } from "@/components/documents/document-upload-form"
 import type { ClientRelatedCounts } from "@/lib/queries/client-summary";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import type { Application } from "@/lib/repositories/applications";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 import { I } from "../../icons";
 import { useOverlays } from "../../overlays/overlay-provider";
 import { Btn, Card, CardHead } from "../../primitives";
@@ -17,6 +18,7 @@ export interface Doc {
   id: string;
   name: string;
   documentType: string | null;
+  commissionId?: string | null;
   visibility: string | null;
   status: string;
   /** Set when the document is a filed policy copy (H4a). */
@@ -144,12 +146,14 @@ export function DocumentsCard({ client, documents }: { client: Client; documents
                   >
                     <I.download size={13} />
                   </a>
+                  {!isCommissionVoucher({ documentType: d.documentType, commissionId: d.commissionId ?? null }) && (
                   <form action={deleteDocumentAction}>
                     <input type="hidden" name="id" value={d.id} />
                     <button type="submit" className="rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-subtle hover:bg-hover hover:text-red">
                       ✕
                     </button>
                   </form>
+                  )}
                 </div>
               ))}
             </div>

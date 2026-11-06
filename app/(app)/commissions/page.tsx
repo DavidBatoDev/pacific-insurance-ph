@@ -1,11 +1,10 @@
 import { CommissionsLive } from "@/components/hub/screens/commissions-live";
-import { getCommissionsRepository } from "@/lib/repositories/payments";
-import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
+import { loadCommissionTracker } from "@/lib/queries/commission-tracker";
 
 export const dynamic = "force-dynamic";
 
-/** Standalone commission tracker over the existing commissions repository. */
+/** Standalone tracker using the same protected payload as the Payments tab. */
 export default async function Page() {
-  const [commissions, contacts] = await Promise.all([getCommissionsRepository().list(), getExternalContactsRepository().list({ status: "Active", contactTypes: ["Commission Contact"] })]);
-  return <CommissionsLive commissions={commissions} commissionContacts={contacts} />;
+  const { commissions, commissionContacts } = await loadCommissionTracker();
+  return <CommissionsLive commissions={commissions} commissionContacts={commissionContacts} />;
 }

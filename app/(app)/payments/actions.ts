@@ -12,6 +12,8 @@ import {
   type Payment,
 } from "@/lib/repositories/payments";
 import { computeCommission } from "@/lib/commissions/compute";
+import { requireCommissionAccess, requireCommissionActor } from "@/lib/commissions/access";
+import { registerUploadedCommissionVoucher } from "@/lib/documents/uploaded-pdf";
 import { getCommissionRatesRepository } from "@/lib/repositories/commission-rates";
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
 import { getTasksRepository } from "@/lib/repositories/tasks";
@@ -248,11 +250,71 @@ export async function sendPaymentLinksAction(input: {
   }
 }
 
-export type CommissionStep = "requested" | "follow-up" | "received" | "paid";
+export type CommissionStep = "requested" | "follow-up" | "paid";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VOUCHER_PDF_NAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;
+
+export interface FileCommissionVoucherActionInput {
+  commissionId: string;
+  path: string;
+  fileName: string;
+  voucherReference: string | null;
+  expectedDocumentId: string | null;
+}
+
+export async function fileCommissionVoucherAction(
+  input: FileCommissionVoucherActionInput,
+): Promise<ActionResult<Commission>> {
+  try {
+    await requireCommissionActor();
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      return { ok: false, error: "Invalid voucher filing input." };
+    if (typeof input.commissionId !== "string" || !UUID_PATTERN.test(input.commissionId))
+      return { ok: false, error: "Commission not found." };
+    const { actor, commission } = await requireCommissionAccess(input.commissionId, "canFileVoucher");
+    if (!commission.clientId)
+      return { ok: false, error: "This commission has no client; voucher cannot be filed." };
+    if (input.expectedDocumentId !== null
+      && (typeof input.expectedDocumentId !== "string" || !UUID_PATTERN.test(input.expectedDocumentId)))
+      return { ok: false, error: "Invalid current voucher ID." };
+    if (typeof input.fileName !== "string" || !input.fileName.trim() || input.fileName.length > 1024
+      || /[/\\\u0000-\u001f\u007f-\u009f]/.test(input.fileName))
+      return { ok: false, error: "Invalid voucher filename." };
+    if (input.voucherReference !== null && typeof input.voucherReference !== "string")
+      return { ok: false, error: "Invalid carrier voucher number." };
+    const voucherReference = input.voucherReference?.trim() || null;
+    if (voucherReference && voucherReference.length > 200)
+      return { ok: false, error: "Carrier voucher number must be 200 characters or fewer." };
+    const prefix = `${commission.clientId}/`;
+    if (typeof input.path !== "string" || !input.path.startsWith(prefix)
+      || !VOUCHER_PDF_NAME_PATTERN.test(input.path.slice(prefix.length)))
+      return { ok: false, error: "Invalid upload path." };
+
+    const updated = await registerUploadedCommissionVoucher({
+      actorId: actor.id,
+      commissionId: commission.id,
+      clientId: commission.clientId,
+      storagePath: input.path,
+      fileName: input.fileName,
+      voucherReference,
+      expectedDocumentId: input.expectedDocumentId,
+    });
+    revalidatePath("/payments");
+    revalidatePath("/commissions");
+    revalidatePath("/documents");
+    revalidatePath(`/clients/${commission.clientId}`);
+    return { ok: true, data: updated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to file commission voucher." };
+  }
+}
 
 export async function assignCommissionContactAction(id: string, contactId: string | null): Promise<ActionResult<Commission>> {
   try {
-    const actor = await getActor();
+    const { actor } = await requireCommissionAccess(id, "canUpdateCommission");
+    if (contactId !== null && (typeof contactId !== "string" || !UUID_PATTERN.test(contactId)))
+      return { ok: false, error: "Choose an active, verified commission contact with an email address." };
     if (contactId) {
       const contact = await getExternalContactsRepository().findById(contactId);
       if (!contact || contact.status !== "Active" || contact.contactType !== "Commission Contact" || !contact.email)
@@ -265,47 +327,16 @@ export async function assignCommissionContactAction(id: string, contactId: strin
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to assign contact." }; }
 }
 
-/** Commission row actions (Request Voucher / Log Follow-up / Mark Received / Mark Paid). */
+/** Commission money and follow-up actions; voucher receipt requires filing its PDF. */
 export async function updateCommissionAction(
   id: string,
   step: CommissionStep,
 ): Promise<ActionResult<Commission>> {
-  const actor = await getActor();
   try {
-    const repo = getCommissionsRepository();
-    const commission = await repo.findById(id);
-    if (!commission) return { ok: false, error: "Commission not found." };
-
-    const today = new Date().toISOString().slice(0, 10);
-    const patch =
-      step === "requested"
-        ? { status: "Voucher Pending", followUpDate: today }
-        : step === "follow-up"
-          ? { status: "Issue / Follow-Up Required", followUpDate: today }
-          : step === "received"
-            ? {
-                status: "Received",
-                receivedDate: today,
-                amount: commission.amount ?? commission.estimatedAmount,
-              }
-            : { status: "Paid", paidDate: today };
-    const updated = await repo.update(id, patch);
-
-    if (commission.clientId) {
-      const summaries: Record<CommissionStep, string> = {
-        requested: `Commission voucher requested — OR ${commission.orNumber ?? "—"}`,
-        "follow-up": `Commission follow-up logged — OR ${commission.orNumber ?? "—"}`,
-        received: `Commission received — OR ${commission.orNumber ?? "—"} · voucher on file`,
-        paid: `Commission paid — OR ${commission.orNumber ?? "—"} · ${updated.amount != null ? money(updated.amount, updated.currency) : ""}`.trim(),
-      };
-      await recordActivity({
-        scopeType: "client",
-        scopeId: commission.clientId,
-        activityType: `commission.${step}`,
-        summary: summaries[step],
-        actorId: actor.id,
-      });
-    }
+    const { actor } = await requireCommissionAccess(id, "canUpdateCommission");
+    if (step !== "requested" && step !== "follow-up" && step !== "paid")
+      return { ok: false, error: "Invalid commission step." };
+    const updated = await getCommissionsRepository().transition(actor.id, id, step);
 
     revalidatePath("/payments");
     revalidatePath("/commissions");

@@ -8,6 +8,7 @@ import { getClientsRepository } from "@/lib/repositories/clients";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 import {
   SUBMISSION_DEPARTMENTS,
   SUBMISSION_SUMMARY_PREFIX,
@@ -51,6 +52,7 @@ export async function loadSubmissionSource(kind: SubmissionKind, id: string): Pr
   const filePaths = new Map<string, string>();
   const items = requirements.map((requirement) => {
     const linked = documents.filter((document) =>
+      !isCommissionVoucher(document) &&
       document.filePath &&
       (kind === "application" ? document.applicationRequirementId : document.claimRequirementId) === requirement.id);
     for (const document of linked) filePaths.set(document.id, document.filePath!);

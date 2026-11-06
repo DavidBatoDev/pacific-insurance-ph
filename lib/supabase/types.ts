@@ -858,6 +858,9 @@ export type Database = {
           rate_pct: number | null
           received_date: string | null
           updated_at: string
+          voucher_document_id: string | null
+          voucher_received_at: string | null
+          voucher_reference: string | null
           voucher_status: string
         }
         Insert: {
@@ -878,6 +881,9 @@ export type Database = {
           rate_pct?: number | null
           received_date?: string | null
           updated_at?: string
+          voucher_document_id?: string | null
+          voucher_received_at?: string | null
+          voucher_reference?: string | null
           voucher_status?: string
         }
         Update: {
@@ -898,6 +904,9 @@ export type Database = {
           rate_pct?: number | null
           received_date?: string | null
           updated_at?: string
+          voucher_document_id?: string | null
+          voucher_received_at?: string | null
+          voucher_reference?: string | null
           voucher_status?: string
         }
         Relationships: [
@@ -935,6 +944,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "policies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_voucher_document_id_fkey"
+            columns: ["voucher_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_voucher_document_scope_fkey"
+            columns: ["voucher_document_id", "id", "client_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id", "commission_id", "client_id"]
           },
         ]
       }
@@ -1323,6 +1346,7 @@ export type Database = {
           claim_id: string | null
           claim_requirement_id: string | null
           client_id: string | null
+          commission_id: string | null
           created_at: string
           document_type: string | null
           file_path: string | null
@@ -1348,6 +1372,7 @@ export type Database = {
           claim_id?: string | null
           claim_requirement_id?: string | null
           client_id?: string | null
+          commission_id?: string | null
           created_at?: string
           document_type?: string | null
           file_path?: string | null
@@ -1373,6 +1398,7 @@ export type Database = {
           claim_id?: string | null
           claim_requirement_id?: string | null
           client_id?: string | null
+          commission_id?: string | null
           created_at?: string
           document_type?: string | null
           file_path?: string | null
@@ -1426,6 +1452,20 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_commission_client_fkey"
+            columns: ["commission_id", "client_id"]
+            isOneToOne: false
+            referencedRelation: "commissions"
+            referencedColumns: ["id", "client_id"]
+          },
+          {
+            foreignKeyName: "documents_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "commissions"
             referencedColumns: ["id"]
           },
           {
@@ -4762,6 +4802,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      file_commission_voucher: {
+        Args: {
+          p_actor_id: string
+          p_commission_id: string
+          p_expected_document_id: string
+          p_file_name: string
+          p_storage_path: string
+          p_voucher_reference: string
+        }
+        Returns: string
+      }
       file_gmail_inbox_attachment: { Args: { p_input: Json }; Returns: string }
       finish_gmail_outbound_email: {
         Args: { p_dispatch_token: string; p_id: string; p_result: Json }
@@ -5179,6 +5230,10 @@ export type Database = {
           policy_id: string
           renewal_id: string
         }[]
+      }
+      transition_commission: {
+        Args: { p_actor_id: string; p_commission_id: string; p_step: string }
+        Returns: string
       }
       update_gmail_inbox_watch: {
         Args: { p_expires_at: string; p_google_subject: string }

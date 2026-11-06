@@ -2,8 +2,8 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
-import type { Commission, CommissionUpdate, NewCommission } from "./commission.entity";
+import { DEFAULT_LIST_LIMIT, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import type { Commission, CommissionUpdate, FileCommissionVoucherInput, NewCommission } from "./commission.entity";
 import type { NewPayment, Payment, PaymentSource, PaymentUpdate } from "./payment.entity";
 import type { CommissionsRepository, PaymentsRepository } from "./payments.repository";
 
@@ -164,19 +164,29 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
 }
 
 type CommissionJoined = CommissionRow & {
-  clients: { first_name: string; last_name: string } | null;
+  clients: {
+    first_name: string;
+    last_name: string;
+    assigned_user_id: string | null;
+    assigned_user: { full_name: string } | null;
+  } | null;
   policies: { reference_no: string | null } | null;
   external_contacts: { name: string; email: string | null; status: string } | null;
   payments: { amount: number | null; currency: string | null } | null;
   commission_rates: { business_type: string; effective_date: string; products: { name: string } | null } | null;
+  voucher_document: { name: string } | null;
 };
 
 const COMMISSION_SELECT = `*,
-  clients (first_name, last_name),
-  policies (reference_no),
-  external_contacts (name, email, status),
-  payments (amount, currency),
-  commission_rates (business_type, effective_date, products (name))`;
+  clients:clients!commissions_client_id_fkey (
+    first_name, last_name, assigned_user_id,
+    assigned_user:users!clients_assigned_user_id_fkey (full_name)
+  ),
+  policies:policies!commissions_policy_id_fkey (reference_no),
+  external_contacts:external_contacts!commissions_pacific_cross_contact_id_fkey (name, email, status),
+  payments:payments!commissions_payment_id_fkey (amount, currency),
+  commission_rates:commission_rates!commissions_commission_rate_id_fkey (business_type, effective_date, products (name)),
+  voucher_document:documents!commissions_voucher_document_id_fkey (name)`;
 
 function commissionToDomain(row: CommissionJoined): Commission {
   return {
@@ -185,6 +195,8 @@ function commissionToDomain(row: CommissionJoined): Commission {
     clientName: row.clients
       ? [row.clients.first_name, row.clients.last_name].filter(Boolean).join(" ")
       : null,
+    assignedUserId: row.clients?.assigned_user_id ?? null,
+    assignedUserName: row.clients?.assigned_user?.full_name ?? null,
     policyId: row.policy_id,
     policyRef: row.policies?.reference_no ?? null,
     paymentId: row.payment_id,
@@ -193,6 +205,10 @@ function commissionToDomain(row: CommissionJoined): Commission {
     pacificCrossContactEmail: row.external_contacts?.email ?? null,
     pacificCrossContactStatus: row.external_contacts?.status ?? null,
     orNumber: row.or_number,
+    voucherDocumentId: row.voucher_document_id,
+    voucherReference: row.voucher_reference,
+    voucherReceivedAt: row.voucher_received_at,
+    voucherFileName: row.voucher_document?.name ?? null,
     status: row.voucher_status,
     estimatedAmount: row.estimated_amount,
     ratePct: row.rate_pct == null ? null : Number(row.rate_pct),
@@ -211,6 +227,21 @@ function commissionToDomain(row: CommissionJoined): Commission {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function commissionMutationError(message: string | undefined, fallback: string): RepositoryError {
+  // RPC details can contain confidential filenames/paths. Expose only known safe errors.
+  const safeMessages = [
+    "Not authenticated.",
+    "Your account is inactive.",
+    "Commission not found.",
+    "The voucher changed. Reload before replacing it.",
+  ];
+  return new RepositoryError(message && safeMessages.includes(message) ? message : fallback, {
+    code: message === "The voucher changed. Reload before replacing it."
+      ? "commission_voucher_conflict"
+      : "commission_mutation_failed",
+  });
 }
 
 /** supabase-js (service role) implementation of {@link CommissionsRepository}. */
@@ -258,6 +289,47 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
       .single<CommissionJoined>();
     if (error) throw toRepositoryError("CommissionsRepository.create", error);
     return commissionToDomain(data);
+  }
+
+  async fileVoucher(input: FileCommissionVoucherInput): Promise<Commission> {
+    // Supabase's generator omits SQL argument nullability. This RPC explicitly
+    // accepts null for a missing carrier reference and an initial expected pointer.
+    const { data, error } = await getSupabaseAdmin().rpc("file_commission_voucher", {
+      p_actor_id: input.actorId,
+      p_commission_id: input.commissionId,
+      p_storage_path: input.storagePath,
+      p_file_name: input.fileName,
+      p_voucher_reference: input.voucherReference,
+      p_expected_document_id: input.expectedDocumentId,
+    } as Database["public"]["Functions"]["file_commission_voucher"]["Args"]);
+    if (error || !data) {
+      throw commissionMutationError(error?.message, "The commission voucher could not be filed.");
+    }
+    const commission = await this.findById(input.commissionId);
+    if (!commission) {
+      throw new RepositoryError("The voucher was filed but the commission could not be loaded. Refresh the record.", {
+        code: "commission_voucher_unavailable",
+      });
+    }
+    return commission;
+  }
+
+  async transition(actorId: string, id: string, step: "requested" | "follow-up" | "paid"): Promise<Commission> {
+    const { data, error } = await getSupabaseAdmin().rpc("transition_commission", {
+      p_actor_id: actorId,
+      p_commission_id: id,
+      p_step: step,
+    });
+    if (error || !data) {
+      throw commissionMutationError(error?.message, "The commission status could not be updated.");
+    }
+    const commission = await this.findById(data);
+    if (!commission) {
+      throw new RepositoryError("The commission was updated but could not be loaded. Refresh the record.", {
+        code: "commission_transition_unavailable",
+      });
+    }
+    return commission;
   }
 
   async update(id: string, input: CommissionUpdate): Promise<Commission> {

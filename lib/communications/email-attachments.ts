@@ -14,6 +14,7 @@ import {
 import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
 import { getInboxRepository } from "@/lib/repositories/inbox";
 import { downloadObject, getObjectInfo } from "@/lib/supabase/storage";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 import type { EligibleLibraryDocuments, EmailAttachmentSource, EmailDraftSeed } from "./outbound-email.types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -195,7 +196,7 @@ async function checkLibrarySelection(draft: EmailDraftSeed, client: Client): Pro
 }
 
 function usableDocument(document: DocumentRecord | null, clientId: string): document is DocumentRecord & { filePath: string } {
-  return Boolean(document && document.clientId === clientId && document.filePath && document.status !== "Replaced");
+  return Boolean(document && !isCommissionVoucher(document) && document.clientId === clientId && document.filePath && document.status !== "Replaced");
 }
 
 async function loadEmailOriginal(messageId: string, partId: string, clientId: string, budget: { remaining: number }) {

@@ -8,6 +8,7 @@ import { Card, Pill } from "@/components/hub/primitives";
 import { Row, Table, Td, Th, useSort } from "@/components/hub/table";
 import type { Tone } from "@/components/hub/tone";
 import type { DocumentListItem } from "@/lib/queries/documents-list";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
 const VIS_TONE: Record<string, Tone> = {
   "Client Visible": "green",
@@ -93,6 +94,7 @@ export function DocumentsList({ items, total }: { items: DocumentListItem[]; tot
                   >
                     <I.download size={13} /> Download
                   </a>
+                  {!isCommissionVoucher(d) && (
                   <form
                     action={deleteDocumentAction}
                     onSubmit={(e) => {
@@ -107,6 +109,7 @@ export function DocumentsList({ items, total }: { items: DocumentListItem[]; tot
                       Delete
                     </button>
                   </form>
+                  )}
                 </div>
               </Td>
             </Row>

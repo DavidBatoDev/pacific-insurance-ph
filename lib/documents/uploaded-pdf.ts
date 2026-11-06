@@ -1,7 +1,10 @@
 import "server-only";
 
 import { recordAudit } from "@/lib/audit/log";
+import { COMMISSION_VOUCHER_DOCUMENT_TYPE } from "@/lib/commissions/voucher";
 import { getDocumentsRepository, type DocumentRecord, type ProposalReceiptInput } from "@/lib/repositories/documents";
+import { getCommissionsRepository, type Commission } from "@/lib/repositories/payments";
+import type { FileCommissionVoucherInput } from "@/lib/repositories/payments/commission.entity";
 import { getObjectInfo, removeObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
 
@@ -27,6 +30,8 @@ export async function registerUploadedPdf(input: {
   policyId?: string | null;
   applicationId?: string | null;
 }): Promise<DocumentRecord> {
+  if (input.documentType === COMMISSION_VOUCHER_DOCUMENT_TYPE)
+    throw new Error("File commission vouchers from Commissions.");
   await verifyUploadedDocument(input.path, input.clientId);
 
   const doc = await getDocumentsRepository().create({
@@ -66,4 +71,17 @@ export async function registerUploadedProposalReceipt(input: ProposalReceiptInpu
   await verifyUploadedDocument(input.storagePath, input.clientId);
   const { clientId: _clientId, ...receipt } = input;
   return getDocumentsRepository().registerProposalReceipt(receipt);
+}
+
+/** Verify the carrier PDF before atomically filing its original and current pointer. */
+export async function registerUploadedCommissionVoucher(
+  input: FileCommissionVoucherInput & { clientId: string },
+): Promise<Commission> {
+  const prefix = `${input.clientId}/`;
+  if (!input.storagePath.startsWith(prefix)
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/.test(input.storagePath.slice(prefix.length)))
+    throw new Error("Invalid upload path.");
+  await verifyUploadedDocument(input.storagePath, input.clientId);
+  const { clientId: _clientId, ...voucher } = input;
+  return getCommissionsRepository().fileVoucher(voucher);
 }

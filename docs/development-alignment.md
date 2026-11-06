@@ -27,7 +27,7 @@ they are historical references, not active sources of task status. Current prior
 | Admin / Staff / Agent | Database roles Owner / Admin / Assistant / Viewer are mapped by `lib/auth/permissions.ts` | Intentional adapter; UI language remains Admin / Staff / Agent. |
 | Lead stage and status | Stored on the unified client/lead record and written through repositories/actions | Aligned; `../../docs/lead-stage-status*.md` remains lifecycle truth. |
 | Lead Lifecycle filters | One shared client-side filter popover applies multi-select Status, Product Interest, and overdue follow-up criteria across Board, List, and Forecast; page-level KPIs and supporting widgets remain global | Intentional extension: canonical `web/pages.md` specifies persistent Stage / Status / Owner / Product filters, while the overdue-only criterion was added by the 2026-08-14 Lead board filter request. |
-| Commissions | Standalone `/commissions` route plus Payments sub-tab, both using the shared commissions component/repository | Canonical navigation updated to match the delivered slice. |
+| Commissions (H9d) | Shared authorized loader for `/commissions` and Payments; private carrier PDF originals with atomic current-pointer replacement and independent payment state (`0062`–`0064`) | User-approved receive-and-file only, not generated statements. Ownership uses populated `clients.assigned_user_id`, not the canonical page's unused policy assignment. Active Admin/Owner: all; Staff: own-client filing/mutations and no foreign amounts/original metadata; Agent: own-client original reads only. Generic download/list/profile paths enforce the same guard; outbound attachments and generic deletion exclude vouchers. |
 | Pacific Cross officers | `external_contacts` repository and Settings interface | Aligned; production recipients still require human verification. |
 | Application requirements | Persisted checklist sections `Basic intake` / `Application documents` / `Medical requirements`, separate from BC Flexi's original phase gates; verified-only completeness remains unchanged | Verified 2026-11-06 against supplied `REQUIREMENTS.md`: fresh Select, Blue Royale, FlexiShield, BC Flexi and Travel preview/persisted parity; remote/face-to-face alternatives, first-layer documents, conditional TAL/CAC and BC Flexi's 13-item agreement activation retained. Legacy null sections use an exact read-only label fallback, not a checklist rewrite. This is engineering source comparison, not fresh Eman sign-off. |
 | Blue Royale requirements (H3b) | Primary Medical catalog category; shared keyed health builders, not HMO templates | The alleged HMO package was not reproduced. Authenticated BC Flexi → Blue Royale switching and Blue Royale draft resume verified 2026-11-06: health sections and regular form, no corporate/HMO rows. Existing persisted-checklist drafts cannot change product and silently reassign original documents; fresh drafts can switch. Requirement keys, row IDs and staged attachment identities are preserved. |
@@ -109,7 +109,7 @@ they are historical references, not active sources of task status. Current prior
 
 ## Migration and deployment state
 
-- Local migrations extend through `0061_application_medical_review.sql`; `0041` remains reserved
+- Local migrations extend through `0064_commission_voucher_scope_indexes.sql`; `0041` remains reserved
   for the D1 import schema. Hosted Gmail migrations: `0051` = `20261031084527`,
   `0052_gmail_incoming_mail` = `20261101074444`,
   `0053_gmail_inbox_checkpoint_attachment_alias` = `20261101074550`,
@@ -137,6 +137,36 @@ they are historical references, not active sources of task status. Current prior
   The project still reports [leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
   and informational [unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys),
   including the new nullable reviewer FK. No broad security/settings/index changes were made.
+- H9d verified 2026-11-06: `0062_commission_voucher` = `20261106085803`,
+  `0063_commission_voucher_conflict` = `20261106090635`, and
+  `0064_commission_voucher_scope_indexes` = `20261106091309`. Genuine hosted types include the
+  voucher fields/RPCs. `0063` fixes the reproduced
+  [PostgREST 14 retry loop for custom SQLSTATE 40001](https://supabase.com/kb/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b);
+  stale pointers now return the same reload error immediately with SQLSTATE 22023.
+- H9d evidence: 399 tests across 33 files and `npx tsc --noEmit` passed. Rollback SQL and
+  concurrent RPCs proved replay-once evidence, one replacement winner, Paid precedence,
+  financial preservation, browser EXECUTE denial, immutable originals and blocked path aliases.
+  Actual authenticated desktop/390px browser filing/replacement, both entry points, original
+  SHA-256 equality, payment-first/receipt-first flows, retained stale/network-error drafts,
+  role-scoped downloads/payloads and forged persona/outbound-attachment denial were exercised.
+  All PDFs were explicitly synthetic QA, not evidence of genuine Pacific Cross receipt.
+- Tracker Paid actual totals exclude missing actual amounts; those remain separately labelled
+  estimates. Reports retain the all-pipeline `Commission` aggregate and historical date rules;
+  `Voucher receipt logged` (Received) and `Paid` are separate counts. A QA filing changed the
+  receipt count 3 → 4, left Paid at 4, and preserved both currency aggregates.
+- H9d advisors: the two new unindexed scope FKs were corrected in `0064`. No new security or
+  health findings. New scope indexes currently produce informational
+  [unused-index notices](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index);
+  retain them for FK coverage rather than remove them on a tiny QA workload.
+  DH16 tax confirmation and DH19 Travel netting remain unresolved; no formulas, historical
+  financial values or source-query caps changed. No email dispatch, branch, push or deployment.
+- H9d teardown removed only the newly tagged QA fixtures: 6 clients, 5 disposable auth users,
+  their related application/policy/payment/commission/document rows, and 17 synthetic Storage
+  objects (including failed-finalization orphans). The historical USD/no-payment boundary also
+  rendered `US$123` as an estimate, never PHP or paid actual cash. Protected Joshua commission
+  original-column snapshots match before testing, after testing and after teardown. Generic
+  current/replaced-original deletion was rejected during testing; fixture teardown used a
+  transaction-local privileged cleanup, not the application deletion path.
 - `0053` fixes the PL/pgSQL variable/SELECT-alias ambiguity reproduced by the first hosted
   ingestion smoke. `0054` makes existing portal upload-back and inbox proposal filing use
   the same locked registration/receipt/replacement operation.

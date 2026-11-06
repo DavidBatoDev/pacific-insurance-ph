@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { toAppRole } from "@/lib/auth/permissions";
+import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
 import { ContactProfile } from "@/components/hub/screens/contact-profile";
 import { getClientRelatedCounts } from "@/lib/queries/client-summary";
@@ -46,13 +48,15 @@ export default async function ContactProfilePage({
     getPoliciesRepository().listByClient(id),
   ]);
   const client = applyLeadStatusInference(rawClient, inferenceRows);
+  const visibleDocuments = (await filterCommissionVoucherDocuments(documents, actor))
+    .map((doc) => isCommissionVoucher(doc) ? { ...doc, filePath: null } : doc);
 
   return (
     <ContactProfile
       client={client}
       counts={counts}
       dependents={dependents}
-      documents={documents}
+      documents={visibleDocuments}
       policies={policies}
       timeline={timeline}
       templates={templates}

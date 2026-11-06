@@ -9,7 +9,7 @@
 | Area | Current state |
 | :--- | :--- |
 | Application | Next.js App Router application with dedicated routes for the operational modules |
-| Data | Supabase repositories and server actions; migrations through `0058` applied to the hosted project and genuine hosted types regenerated. `0041` remains reserved for import. |
+| Data | Supabase repositories and server actions; migrations through `0064` applied to the hosted project, with genuine hosted schema types. Exact versions and verification are in `development-alignment.md`. `0041` remains reserved for import. |
 | Authentication | Supabase Auth with protected routes and application roles |
 | Storage | Private Supabase buckets for client documents and the carrier library |
 | Communications | Gmail reading/push synchronization and the shared checklist picker plus non-disruptive Inbox freshness are released. Deployment `dpl_5N4uyzXopqKPdGTNics94c3D1KTi` is READY on the canonical production hostname, with authenticated HTTP/Storage acceptance. Outgoing composers still log rather than deliver email. |
@@ -23,8 +23,9 @@ historical. They no longer describe this repository.
 - Unified people records, lead lifecycle, contact profile, group accounts, clients, and policies.
 - Application creation and draft resume, including persisted application requirements and
   verified-only completeness reporting on the Applications register.
-- Payments and Commissions, with a standalone `/commissions` route and the Payments sub-tab as a
-  second entry point to the same component.
+- Payments and Commissions share an authorized tracker at `/commissions` and the Payments sub-tab.
+  H9d files private carrier PDF originals, retains replacements and keeps receipt independent from
+  recorded commission payment. No internal voucher generation; DH16/DH19 remain external decisions.
 - Pacific Cross officer contacts with repository-backed list/create/edit administration and
   recipient selection.
 - Carrier Document Library administration: upload, metadata, approval state, archive, and exact
@@ -102,7 +103,7 @@ historical. They no longer describe this repository.
 2. After applying a migration to Supabase, regenerate `lib/supabase/types.ts`.
 3. Put entity access behind `lib/repositories/`; use server actions for mutations.
 4. Keep service-role credentials server-only and preserve audit/timeline writes.
-5. The next local migration number is **`0059`**; verify the hosted ledger before use. **`0041`** remains reserved for the import schema.
+5. The next local migration number is **`0065`**; verify source files and the hosted ledger before use. **`0041`** remains reserved for the import schema.
 6. Verify remote migration state before claiming a feature is deployed. Source files alone do not
    prove a migration was applied.
 

@@ -15,6 +15,7 @@ import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getRequirementAttachmentsRepository } from "@/lib/repositories/requirement-attachments";
 import { createSignedUpload, removeObject, uploadObject } from "@/lib/supabase/storage";
 import type { Json } from "@/lib/supabase/types";
+import { COMMISSION_VOUCHER_DOCUMENT_TYPE, isCommissionVoucher } from "@/lib/commissions/voucher";
 
 function str(fd: FormData, key: string): string | undefined {
   const v = fd.get(key);
@@ -60,6 +61,7 @@ export async function uploadDocumentAction(formData: FormData) {
 
   const clientId = str(formData, "clientId") ?? null;
   const documentType = str(formData, "documentType") ?? null;
+  if (documentType === COMMISSION_VOUCHER_DOCUMENT_TYPE) throw new Error("File commission vouchers from Commissions.");
   const visibility = str(formData, "visibility") ?? "Internal Only";
   const name = str(formData, "name") ?? file.name;
   const applicationId = str(formData, "applicationId") ?? null;
@@ -120,6 +122,7 @@ export async function deleteDocumentAction(formData: FormData) {
 
   const repo = getDocumentsRepository();
   const doc = await repo.findById(id);
+  if (doc && isCommissionVoucher(doc)) throw new Error("Commission voucher originals cannot be deleted. Replace the voucher from Commissions.");
   // The transaction removes only the authorized association and decides whether
   // bytes are unreferenced. Never remove Storage before a restrictive FK check.
   const deletion = await getRequirementAttachmentsRepository().deleteDocument(actor.id, id);

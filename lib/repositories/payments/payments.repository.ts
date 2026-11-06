@@ -1,5 +1,5 @@
 import type { ListOptions } from "../types";
-import type { NewCommission, Commission, CommissionUpdate } from "./commission.entity";
+import type { NewCommission, Commission, CommissionUpdate, FileCommissionVoucherInput } from "./commission.entity";
 import type { NewPayment, Payment, PaymentUpdate } from "./payment.entity";
 
 /** The Payments (collections ledger) repository port. */
@@ -19,4 +19,6 @@ export interface CommissionsRepository {
   list(opts?: ListOptions): Promise<Commission[]>;
   create(input: NewCommission): Promise<Commission>;
   update(id: string, input: CommissionUpdate): Promise<Commission>;
+  fileVoucher(input: FileCommissionVoucherInput): Promise<Commission>;
+  transition(actorId: string, id: string, step: "requested" | "follow-up" | "paid"): Promise<Commission>;
 }

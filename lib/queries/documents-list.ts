@@ -1,6 +1,9 @@
 import "server-only";
 
 import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
 export interface DocumentListItem extends DocumentRecord {
   clientName: string | null;
@@ -15,5 +18,9 @@ export async function listDocumentsWithClient(
     orderBy: "created_at",
     ascending: false,
   });
-  return { items: rows, total };
+  const allowed = await filterCommissionVoucherDocuments(rows, await getCurrentUser());
+  return {
+    items: allowed.map((doc) => isCommissionVoucher(doc) ? { ...doc, filePath: null } : doc),
+    total: total - (rows.length - allowed.length),
+  };
 }

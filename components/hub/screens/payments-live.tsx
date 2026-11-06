@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import type { Commission, Payment } from "@/lib/repositories/payments";
+import type { Payment } from "@/lib/repositories/payments";
+import type { CommissionTrackerRow } from "@/lib/queries/commission-tracker";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
 import { money, moneyTotals } from "@/lib/format";
@@ -29,7 +30,7 @@ export function PaymentsLive({
   commissionContacts,
 }: {
   payments: Payment[];
-  commissions: Commission[];
+  commissions: CommissionTrackerRow[];
   commissionContacts: ExternalContact[];
 }) {
   const { openContact, prefetchContact } = useRecordNav();

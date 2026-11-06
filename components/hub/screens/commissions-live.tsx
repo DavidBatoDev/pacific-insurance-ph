@@ -3,14 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { assignCommissionContactAction, updateCommissionAction } from "@/app/(app)/payments/actions";
+import { assignCommissionContactAction, fileCommissionVoucherAction, updateCommissionAction } from "@/app/(app)/payments/actions";
+import { PdfUpload } from "@/components/documents/pdf-upload";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
-import type { Commission } from "@/lib/repositories/payments";
+import type { CommissionTrackerRow } from "@/lib/queries/commission-tracker";
 import { computeCommission, VAT_BASE_FACTOR, WITHHOLDING_TAX_RATE } from "@/lib/commissions/compute";
 import { money, moneyTotals } from "@/lib/format";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { useOverlays } from "../overlays/overlay-provider";
+import { Modal } from "../overlays/modal";
 import { usePersona } from "../persona";
 import { Avatar, Btn, StatusBadge } from "../primitives";
 import { Row, Td } from "../table";
@@ -36,43 +38,54 @@ const fmtDate = (iso: string | null) =>
     : "—";
 
 /** Reusable commission tracker rendered at /commissions and under Payments. */
-export function CommissionsLive({ commissions, commissionContacts }: { commissions: Commission[]; commissionContacts: ExternalContact[] }) {
+export function CommissionsLive({ commissions, commissionContacts }: { commissions: CommissionTrackerRow[]; commissionContacts: ExternalContact[] }) {
   const router = useRouter();
   const overlays = useOverlays();
   const persona = usePersona();
   const { openContact } = useRecordNav();
   const [, startTransition] = useTransition();
 
-  const label = (commission: Commission) => COMM_LABEL[commission.status] ?? commission.status;
+  const label = (commission: CommissionTrackerRow) => COMM_LABEL[commission.status] ?? commission.status;
   const count = (displayLabel: string) =>
     commissions.filter((commission) => label(commission) === displayLabel).length;
   const paidTotals = new Map<string, number>();
+  const paidEstimates = new Map<string, number>();
+  let paidMissingActual = 0;
   for (const commission of commissions.filter((entry) => label(entry) === "Paid")) {
-    const currency = commission.currency ?? commission.premiumCurrency ?? "PHP";
-    paidTotals.set(currency, (paidTotals.get(currency) ?? 0) + (commission.amount ?? commission.estimatedAmount ?? 0));
+    if (commission.amount != null) {
+      const currency = commission.currency ?? commission.premiumCurrency ?? "PHP";
+      paidTotals.set(currency, (paidTotals.get(currency) ?? 0) + commission.amount);
+    } else {
+      paidMissingActual += 1;
+      if (commission.estimatedAmount != null) {
+        const currency = commission.currency ?? commission.premiumCurrency ?? "PHP";
+        paidEstimates.set(currency, (paidEstimates.get(currency) ?? 0) + commission.estimatedAmount);
+      }
+    }
   }
   const canSeeAmounts = persona.role !== "agent";
 
-  const updateStep = (commission: Commission, step: "follow-up" | "received" | "paid") =>
+  const updateStep = async (commission: CommissionTrackerRow, step: "follow-up" | "paid") => {
+    if (!commission.canUpdateCommission) return;
+    if (step === "paid" && !await overlays.confirm({
+      title: "Record commission payment",
+      message: "Record this commission as paid. This does not file a carrier voucher or turn an estimate into an actual amount.",
+      confirmLabel: "Record payment",
+    })) return;
     startTransition(async () => {
       const result = await updateCommissionAction(commission.id, step);
       if (result.ok) {
-        overlays.toast(
-          step === "paid"
-            ? "Commission paid"
-            : step === "received"
-              ? "Commission received"
-              : "Follow-up logged",
-          `${commission.clientName ?? "Client"} · OR ${commission.orNumber ?? "—"}.`,
-        );
+        overlays.toast(step === "paid" ? "Commission payment recorded" : "Follow-up logged",
+          `${commission.clientName ?? "Client"} · OR ${commission.orNumber ?? "—"}.`);
+        router.refresh();
       } else {
         overlays.toast("Couldn’t update commission", result.error);
       }
-      router.refresh();
     });
+  };
 
-  const requestVoucher = (commission: Commission) => {
-    if (!commission.clientId || !commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail) return;
+  const requestVoucher = (commission: CommissionTrackerRow) => {
+    if (!commission.canUpdateCommission || !commission.clientId || !commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail) return;
     overlays.openEngage(
       "Request Commission Voucher",
       {
@@ -94,25 +107,33 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
     );
   };
 
-  const assignContact = (commission: Commission, contactId: string) => startTransition(async () => {
-    const result = await assignCommissionContactAction(commission.id, contactId || null);
-    if (!result.ok) overlays.toast("Couldn’t assign contact", result.error);
-    router.refresh();
-  });
+  const assignContact = (commission: CommissionTrackerRow, contactId: string) => {
+    if (!commission.canUpdateCommission) return;
+    startTransition(async () => {
+      const result = await assignCommissionContactAction(commission.id, contactId || null);
+      if (!result.ok) overlays.toast("Couldn’t assign contact", result.error);
+      router.refresh();
+    });
+  };
 
   return (
     <ListScreen
       title="Commissions"
-      sub="Commission tracking · OR number → voucher requested → follow-up → received → paid"
+      sub="Commission payments and carrier voucher filing"
       icon={I.peso}
       stats={[
         { val: count("Requested"), label: "Requested", color: "var(--violet)" },
         { val: count("Follow-up"), label: "Follow-up pending", color: "var(--amber)" },
-        { val: count("Received"), label: "Received", color: "var(--blue)" },
+        { val: commissions.filter((commission) => commission.voucherDocumentId && commission.canReadVoucher).length, label: "Originals filed · visible", color: "var(--blue)" },
         {
-          val: `${moneyTotals(paidTotals)} · ${count("Paid")}`,
-          label: "Paid · Commission YTD",
+          val: canSeeAmounts ? moneyTotals(paidTotals) : "Restricted",
+          label: `Paid actual amounts · ${count("Paid")} paid`,
           color: "var(--brand)",
+        },
+        {
+          val: canSeeAmounts ? moneyTotals(paidEstimates) : "Restricted",
+          label: `Estimates only · ${paidMissingActual} paid without actual`,
+          color: "var(--amber)",
         },
       ]}
       filters={["Requested", "Follow-up", "Received", "Paid"]}
@@ -130,7 +151,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
         { k: "status", label: "Status" },
         { k: "clientId", label: "Commission contact" },
         { k: "followUpDate", label: "Last follow-up" },
-        { k: "paidDate", label: "Voucher" },
+        { k: "voucherReference", label: "Carrier voucher" },
         { k: "id", label: "" },
       ]}
       renderRow={(commission) => {
@@ -155,10 +176,13 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
             <Td className="text-right font-mono font-semibold tabular-nums">
               {canSeeAmounts ? (
                 commission.amount != null ? (
-                  money(commission.amount, commission.currency ?? commission.premiumCurrency)
+                  <span>
+                    {money(commission.amount, commission.currency ?? commission.premiumCurrency)}
+                    <span className="block text-[11px] font-normal text-subtle">Actual amount</span>
+                  </span>
                 ) : commission.estimatedAmount != null ? (
                   <span className="text-muted-foreground">
-                    ~{money(commission.estimatedAmount, commission.premiumCurrency)}
+                    Estimate · {money(commission.estimatedAmount, commission.currency ?? commission.premiumCurrency)}
                     {commission.ratePct != null && (
                       <span className="block text-[11px] font-normal text-subtle">
                         {commission.ratePct}% · net of VAT and WHT
@@ -190,61 +214,47 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
               />
             </Td>
             <Td>
-              <span onClick={(event) => event.stopPropagation()}>
-                <select className="h-8 max-w-[190px] rounded-md border border-border-strong bg-card px-2 text-[11.5px]" value={commission.pacificCrossContactId ?? ""} onChange={(event) => assignContact(commission, event.target.value)}>
-                  <option value="">Assign contact…</option>
-                  {commission.pacificCrossContactId && !commissionContacts.some((contact) => contact.id === commission.pacificCrossContactId) && <option value={commission.pacificCrossContactId}>{commission.pacificCrossContactName ?? "Inactive contact"} (inactive)</option>}
-                  {commissionContacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
-                </select>
-              </span>
+              {commission.canUpdateCommission ? (
+                <span onClick={(event) => event.stopPropagation()}>
+                  <select aria-label={`Commission contact for ${commission.clientName ?? commission.orNumber ?? "commission"}`} className="h-8 max-w-[190px] rounded-md border border-border-strong bg-card px-2 text-[11.5px]" value={commission.pacificCrossContactId ?? ""} onChange={(event) => assignContact(commission, event.target.value)}>
+                    <option value="">Assign contact…</option>
+                    {commission.pacificCrossContactId && !commissionContacts.some((contact) => contact.id === commission.pacificCrossContactId) && <option value={commission.pacificCrossContactId}>{commission.pacificCrossContactName ?? "Inactive contact"} (inactive)</option>}
+                    {commissionContacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
+                  </select>
+                </span>
+              ) : <span className="text-muted-foreground">{commission.pacificCrossContactName ?? "Not assigned"}</span>}
             </Td>
             <Td className="text-muted-foreground">{fmtDate(commission.followUpDate)}</Td>
             <Td>
-              {(displayLabel === "Received" || displayLabel === "Paid") &&
-              commission.orNumber ? (
-                <span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-muted-foreground">
-                  <I.doc2 size={12} /> CV-
-                  {commission.orNumber.replace(/[^0-9]/g, "") || commission.orNumber}
-                </span>
-              ) : (
-                <span className="text-subtle">—</span>
-              )}
+              <VoucherOriginal commission={commission} />
             </Td>
             <Td>
               <span
                 className="flex flex-wrap justify-end gap-1.5"
                 onClick={(event) => event.stopPropagation()}
               >
-                {(displayLabel === "Requested" ||
-                  displayLabel === "Follow-up" ||
-                  displayLabel === "Not started" ||
-                  displayLabel === "Waiting for OR") && (
+                {commission.canFileVoucher && <VoucherFilingControl commission={commission} />}
+                {commission.canUpdateCommission && !commission.clientId && (
+                  <span className="max-w-[240px] whitespace-normal text-[12px] text-red">This commission has no client; voucher cannot be filed.</span>
+                )}
+                {commission.canUpdateCommission && !commission.voucherDocumentId && (
                   <>
-                    {displayLabel !== "Follow-up" && (
-                      <Btn size="sm" disabled={!commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail} onClick={() => requestVoucher(commission)}>
-                        Request Voucher
-                      </Btn>
-                    )}
+                    <Btn size="sm" disabled={!commission.clientId || !commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail} onClick={() => requestVoucher(commission)}>
+                      Request Voucher
+                    </Btn>
                     <Btn size="sm" onClick={() => updateStep(commission, "follow-up")}>
                       Log Follow-up
                     </Btn>
-                    <Btn size="sm" onClick={() => updateStep(commission, "received")}>
-                      Mark Received
-                    </Btn>
                   </>
                 )}
-                {displayLabel === "Received" && (
-                  <Btn
-                    size="sm"
-                    variant="primary"
-                    onClick={() => updateStep(commission, "paid")}
-                  >
+                {commission.canUpdateCommission && displayLabel !== "Paid" && (
+                  <Btn size="sm" variant="primary" onClick={() => updateStep(commission, "paid")}>
                     Mark Paid
                   </Btn>
                 )}
                 {displayLabel === "Paid" && (
                   <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
-                    <I.check size={13} /> Paid
+                    <I.check size={13} /> Paid · {fmtDate(commission.paidDate)}
                   </span>
                 )}
               </span>
@@ -256,12 +266,135 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
   );
 }
 
+function VoucherOriginal({ commission }: { commission: CommissionTrackerRow }) {
+  if (!commission.canReadVoucher) return <span className="text-subtle">Restricted</span>;
+  if (!commission.voucherDocumentId) return <span className="text-subtle">Original not filed</span>;
+  return (
+    <div className="max-w-[220px] text-[11.5px]">
+      <a
+        href={`/api/documents/${commission.voucherDocumentId}/download`}
+        onClick={(event) => event.stopPropagation()}
+        className="inline-flex items-center gap-1 break-all font-semibold text-brand-hover hover:underline"
+      >
+        <I.doc2 size={12} className="shrink-0" />
+        {commission.voucherReference || "Voucher PDF"}
+      </a>
+      <span className="mt-0.5 block text-muted-foreground">Original filed · {fmtDate(commission.voucherReceivedAt)}</span>
+    </div>
+  );
+}
+
+/** Each row keeps its reference draft and opening pointer until filing succeeds. */
+function VoucherFilingControl({ commission }: { commission: CommissionTrackerRow }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const [open, setOpen] = useState(false);
+  const [reference, setReference] = useState(commission.voucherReference ?? "");
+  const [expectedDocumentId, setExpectedDocumentId] = useState(commission.voucherDocumentId);
+  const [saving, setSaving] = useState(false);
+  const replacing = Boolean(commission.voucherDocumentId);
+
+  return (
+    <>
+      <Btn size="sm" onClick={() => {
+        setExpectedDocumentId(commission.voucherDocumentId);
+        setOpen(true);
+      }}>
+        {replacing ? "Replace voucher" : "File voucher"}
+      </Btn>
+      {open && (
+        <Modal
+          maxWidth={520}
+          onClose={() => { if (!saving) setOpen(false); }}
+          footer={<Btn disabled={saving} onClick={() => setOpen(false)}>Close</Btn>}
+        >
+          <h3 className="text-[16px] font-bold">{replacing ? "Replace voucher" : "File voucher"}</h3>
+          <p className="mt-1 text-[12.5px] text-muted-foreground">
+            File the original carrier PDF. Remove its password before uploading. Filing does not record a commission payment or change financial amounts.
+          </p>
+          <dl className="my-4 grid grid-cols-1 gap-3 rounded-md border border-border-soft bg-surface-2 p-3 text-[12px] sm:grid-cols-2">
+            {([
+              ["Client", commission.clientName ?? "Not recorded"],
+              ["Assigned agent", commission.assignedUserName ?? "Not recorded"],
+              ["Product", commission.productName ?? "Not recorded"],
+              ["Plan", commission.planName ?? "Not recorded"],
+              ["Premium", commission.premiumAmount != null ? money(commission.premiumAmount, commission.premiumCurrency) : "Not recorded"],
+              ["Currency", commission.premiumCurrency ?? "Not recorded"],
+            ] as const).map(([name, value]) => (
+              <div key={name} className="min-w-0">
+                <dt className="text-subtle">{name}</dt>
+                <dd className="mt-0.5 break-words font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mb-4 text-[12px]">
+            <span className="font-semibold">Commission estimate</span>
+            <span className="ml-2 font-mono">{commission.estimatedAmount != null ? money(commission.estimatedAmount, commission.currency ?? commission.premiumCurrency) : "Not recorded"}</span>
+            <CommissionBreakdownToggle commission={commission} />
+          </div>
+          <div className="mb-4 rounded-md border border-border-soft p-3">
+            <p className="mb-1 text-[12px] font-semibold">Current original</p>
+            <VoucherOriginal commission={commission} />
+            {commission.voucherDocumentId && (
+              <p className="mt-1 break-all text-[11.5px] text-muted-foreground">{commission.voucherFileName ?? "Voucher PDF"}</p>
+            )}
+            {replacing && <p className="mt-2 text-[11.5px] text-muted-foreground">The previous original stays in the filing history when replaced.</p>}
+          </div>
+          <label className="mb-4 block text-[12px] font-semibold">
+            Carrier voucher number <span className="font-normal text-subtle">(optional)</span>
+            <input
+              value={reference}
+              disabled={saving}
+              maxLength={200}
+              onChange={(event) => setReference(event.target.value)}
+              className="mt-1.5 h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
+            />
+          </label>
+          {!commission.clientId ? (
+            <p role="alert" className="text-[12px] text-red">This commission has no client; voucher cannot be filed.</p>
+          ) : (
+            <PdfUpload
+              clientId={commission.clientId}
+              prompt={replacing ? "Upload replacement voucher PDF" : "Upload carrier voucher PDF"}
+              disabled={saving || !commission.canFileVoucher}
+              onUploaded={async (path, fileName) => {
+                setSaving(true);
+                try {
+                  const result = await fileCommissionVoucherAction({
+                    commissionId: commission.id,
+                    path,
+                    fileName,
+                    voucherReference: reference,
+                    expectedDocumentId,
+                  });
+                  if (result.ok) {
+                    setReference(result.data.voucherReference ?? "");
+                    setOpen(false);
+                    overlays.toast("Voucher filed", fileName);
+                    router.refresh();
+                  }
+                  return result;
+                } catch (cause) {
+                  const message = cause instanceof Error ? cause.message : "Couldn’t file voucher. Try again.";
+                  return { ok: false, error: message };
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            />
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}
+
 
 /**
  * H9c — the commission computation, shown step by step. Recomputed with the same
  * `computeCommission` the payment action stored the estimate with, so the two always agree.
  */
-function CommissionBreakdownToggle({ commission }: { commission: Commission }) {
+function CommissionBreakdownToggle({ commission }: { commission: CommissionTrackerRow }) {
   const [open, setOpen] = useState(false);
   if (commission.premiumAmount == null || commission.ratePct == null) return null;
   const b = computeCommission(commission.premiumAmount, commission.ratePct);

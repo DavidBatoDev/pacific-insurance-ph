@@ -7,6 +7,7 @@ import { outboundEmailErrorMessage, outboundEmailService, requireEmailSender } f
 import type { EmailDocumentOption, EmailDraftSeed, EmailSendView, PrepareEmailInput } from "@/lib/communications/outbound-email.types";
 import { getReplyDraft } from "@/lib/gmail/reply";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
+import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
 /**
  * Staff-reviewed Gmail sending. Every action re-derives the active sender from the session
@@ -64,7 +65,7 @@ export async function listEmailDocumentsAction(clientId: string): Promise<Action
     return {
       ok: true,
       data: documents
-        .filter((document) => document.clientId === clientId && document.filePath && document.status !== "Replaced")
+        .filter((document) => !isCommissionVoucher(document) && document.clientId === clientId && document.filePath && document.status !== "Replaced")
         .map((document) => ({ id: document.id, name: document.name, documentType: document.documentType, uploadedAt: document.uploadedAt, recordLabel: document.documentType })),
     };
   } catch (error) { return { ok: false, error: outboundEmailErrorMessage(error) }; }

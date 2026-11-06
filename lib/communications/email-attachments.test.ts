@@ -58,4 +58,18 @@ describe("email attachments", () => {
     store.documents.set(D2, { ...store.documents.get(D2), clientId: "c1", status: "Replaced" });
     await expect(resolveEmailAttachments(draft, { client })).rejects.toThrow("stored for this client");
   });
+
+  it.each([
+    { documentType: "Commission Voucher", commissionId: null },
+    { documentType: null, commissionId: "commission-1" },
+  ])("rejects a forged voucher attachment ID with marker %j", async (marker) => {
+    store.documents.set(D2, { ...store.documents.get(D2), ...marker });
+    await expect(resolveEmailAttachments(draft, { client })).rejects.toThrow("stored for this client");
+  });
+
+  it("rejects a reviewed document that becomes a commission voucher before sending", async () => {
+    const manifest = persisted((await resolveEmailAttachments(draft, { client })).map(({ entry }) => entry));
+    store.documents.set(D2, { ...store.documents.get(D2), documentType: "Commission Voucher" });
+    await expect(loadReviewedAttachments(manifest, draft, { client })).rejects.toThrow("stored for this client");
+  });
 });

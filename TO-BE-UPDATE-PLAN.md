@@ -1885,11 +1885,16 @@ Payment details are not currently connected to the commission.
   app for each commission row: premium → less VAT → base → × rate → gross → less WHT → net, plus
   the rate's source (product, business type, effective date).
 
-- [ ] **H9d. Commission voucher.** The meeting discussed voucher generation with these fields:
-  assigned agent, product, plan, premium amount and computed commission.
-  - **Current state:** "Request Voucher" only opens an email to the Pacific Cross commission
-    contact and sets `voucher_status = requested` (`commissions-live.tsx:75-92`).
-  - **⚠️ Decision:** DH17.
+- [x] **H9d. File carrier commission vouchers.** Done 2026-11-06: user selected receive-and-upload
+  only (DH17), not internal statement/voucher generation. Both tracker entry points file/replace
+  actual PDFs with optional carrier reference, original filename/date, assigned agent, actual source
+  product/plan/premium and the unchanged estimate breakdown. Payment may be recorded first;
+  filing never changes money/rate snapshots or regresses Paid. Legacy rows remain `Original not filed`.
+  - Migrations `0062`–`0064` applied; locked receipt/transition RPCs, retained originals and role-scoped
+    payload/download/email/deletion gates verified. 399 tests and TypeScript pass; desktop/narrow
+    browser, byte hashes, concurrent replacement/payment, stale/storage/network failures exercised
+    using synthetic QA only. Exact evidence: `docs/development-alignment.md`.
+  - DH16 tax confirmation and DH19 Travel netting remain unresolved and financially unchanged.
 
 - [x] **H9e. Tests for H9b.** ✅ *Done 2026-10-06 (`004fe44`): Vitest 4 with `npm test`; `lib/commissions/compute.test.ts` (7 tests: both client examples step by step, 22.5%, centavo rounding, 0%, the constants, error cases). Installed with `--legacy-peer-deps` because npm 10.9's peer resolver crashed; Vitest 5 needs `@types/node` ≥ 22.* The repo has no test runner (no `test` script, no Vitest or Jest).
   - **⚠️ Decision:** DH18.
@@ -1966,7 +1971,7 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
 | **DH14** | Claims policy lock when a client has more than one policy | Travel + health is possible | ✅ **Decided 2026-10-06: lock when exactly one eligible policy fits the claim type**, otherwise a carrier-number dropdown |
 | **DH15** | USD handling: keep the original currency, or convert? | No FX source exists | Keep the original currency; never sum PHP and USD (same rule as Reports) |
 | **DH16** | VAT: the client's `× 0.88`, or VAT-inclusive `÷ 1.12` (250,000 → 223,214.29 → 40,178.57)? | The examples imply `× 0.88` | ⚠️ **Assumption, not a decision (logged 2026-10-06):** "Commission base computed as premium × 0.88 per Eman's examples. Not verified against actual payout statements. Strict VAT method (÷1.12) would yield ₱40,178.57 vs ₱39,600 on a ₱250,000 premium. To be confirmed by finance before go-live." |
-| **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | Ask Eman; default to receive-and-upload, reusing the upload-back pattern |
+| **DH17** | Voucher: does the app *generate* it, or *receive and upload* Pacific Cross's voucher email? | The notes support both readings | **Decided by user for H9d, 2026-11-06: file carrier originals only.** Reuse PDF upload; no generated internal statement or official-looking voucher. |
 | **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | ✅ **Decided 2026-10-06: Vitest** (v4, `npm test`) |
 | **DH19** | Travel commission: tracked as receivable, or already deducted at the portal? | The portal shows Net of Commission | Ask Eman before building H9a for Travel |
 | **DH20** | JC's draft mentions a "₱150,000 threshold rule" for VAT | Not in the notes; origin unknown | Drop unless JC can source it |
@@ -1978,7 +1983,7 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
   - archived-client flags and the updated sheet (includes new client Faye Kang);
   - Schedule 2 pages after the NDA, with passwords removed;
   - HMO commission %;
-  - answers to DH13, DH17 and DH19.
+  - answers to DH13 and DH19.
 - **Matt:** the new applications and brochures.
 - **Eman & Matt:** the final renewal timeframes.
 - **JC:**

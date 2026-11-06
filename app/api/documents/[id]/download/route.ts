@@ -6,6 +6,7 @@ import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { createSignedUrl } from "@/lib/supabase/storage";
 import { toAppRole } from "@/lib/auth/permissions";
 import { getClientsRepository } from "@/lib/repositories/clients";
+import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
 
 /**
  * Authenticated document download: verifies the staff session, logs the download
@@ -19,6 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const doc = await getDocumentsRepository().findById(id);
   if (!doc?.filePath) return new NextResponse("Not found", { status: 404 });
+  if (!(await filterCommissionVoucherDocuments([doc], user)).length) return new NextResponse("Not found", { status: 404 });
   if (toAppRole(user.role) === "agent") {
     const client = doc.clientId ? await getClientsRepository().findById(doc.clientId) : null;
     if (!client || client.assignedUserId !== user.id) return new NextResponse("Not found", { status: 404 });
