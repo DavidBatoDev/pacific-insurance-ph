@@ -144,14 +144,14 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             <option value="">Choose Plus or Standard…</option>
             {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
           </select>
-          <p className="mt-1 text-[12px] text-muted">{f.selectVariant ? selectLimitBasis(f.selectVariant) : "Choose a variant before choosing a plan; room preference never chooses the variant."}</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">{f.selectVariant ? selectLimitBasis(f.selectVariant) : "Choose a variant before choosing a plan; room preference never chooses the variant."}</p>
         </Field>}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Plan option" required>
             <select className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
               <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
-            <p className="mt-1 text-[12px] text-muted">{planLimitDescription(selectedPlan)}</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{planLimitDescription(selectedPlan)}</p>
           </Field>
           <Field label="Coverage type" required>
             <select className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>

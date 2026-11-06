@@ -129,7 +129,7 @@ function LogCallFields({
               <option value="">Choose Plus or Standard…</option>
               {SELECT_VARIANTS.map((value) => <option key={value}>{value}</option>)}
             </select>
-            <p className="mt-1 text-[12px] text-muted">{variant ? selectLimitBasis(variant) : "Required before qualification; an incomplete call can still be saved."}</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{variant ? selectLimitBasis(variant) : "Required before qualification; an incomplete call can still be saved."}</p>
           </Field>}
         </>
       )}

@@ -691,6 +691,7 @@ export type Database = {
           proposal_decision: string | null
           proposal_status: string | null
           reference_no: string | null
+          select_variant: string | null
           status: string
           updated_at: string
           vip_status: boolean
@@ -725,6 +726,7 @@ export type Database = {
           proposal_decision?: string | null
           proposal_status?: string | null
           reference_no?: string | null
+          select_variant?: string | null
           status?: string
           updated_at?: string
           vip_status?: boolean
@@ -759,6 +761,7 @@ export type Database = {
           proposal_decision?: string | null
           proposal_status?: string | null
           reference_no?: string | null
+          select_variant?: string | null
           status?: string
           updated_at?: string
           vip_status?: boolean
@@ -2636,6 +2639,7 @@ export type Database = {
           created_at: string
           deductible_range: string | null
           id: string
+          limit_basis: string | null
           maximum_coverage: number | null
           plan_family: string | null
           plan_name: string
@@ -2651,6 +2655,7 @@ export type Database = {
           created_at?: string
           deductible_range?: string | null
           id?: string
+          limit_basis?: string | null
           maximum_coverage?: number | null
           plan_family?: string | null
           plan_name: string
@@ -2666,6 +2671,7 @@ export type Database = {
           created_at?: string
           deductible_range?: string | null
           id?: string
+          limit_basis?: string | null
           maximum_coverage?: number | null
           plan_family?: string | null
           plan_name?: string
