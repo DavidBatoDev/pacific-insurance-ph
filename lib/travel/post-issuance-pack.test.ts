@@ -75,6 +75,23 @@ describe("resolveTravelPackReferences", () => {
     expect(resolveTravelPackReferences(rejected, TODAY)[0].documents).toEqual([]);
   });
 
+  it("requires the exact reference type, slot marker and all-ages scope for both missing assets", () => {
+    const references = resolveTravelPackReferences([
+      libraryDocument({ id: "emergency", documentType: "Reference Document", variant: "Travel pack: emergency-numbers" }),
+      libraryDocument({ id: "covid", documentType: "Reference Document", variant: "Travel pack: covid-coverage" }),
+      libraryDocument({ id: "wrong-marker", documentName: "Travel emergency numbers", documentType: "Reference Document", variant: "emergency-numbers" }),
+      libraryDocument({ id: "wrong-type", documentType: "Application Form", variant: "Travel pack: covid-coverage" }),
+      libraryDocument({ id: "wrong-age", documentType: "Reference Document", variant: "Travel pack: covid-coverage", ageBand: "18–65" }),
+      libraryDocument({ id: "mislabelled-questionnaire", documentName: "COVID-19 coverage", documentType: "Medical Questionnaire", variant: "Travel pack: covid-coverage" }),
+    ], TODAY);
+
+    expect(references.map(({ documents }) => documents.map(({ id }) => id))).toEqual([
+      ["emergency"],
+      ["covid"],
+      [],
+    ]);
+  });
+
   it("includes exact effective and expiry boundaries and keeps matching versions downloadable in deterministic order", () => {
     const references = resolveTravelPackReferences([
       libraryDocument({ id: "null-date", documentType: "Reference Document", variant: "Travel pack: emergency-numbers", effectiveDate: null, createdAt: "2026-01-01T00:00:00.000Z" }),

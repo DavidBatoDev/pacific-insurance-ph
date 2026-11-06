@@ -5,6 +5,9 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
+import { getClientsRepository } from "@/lib/repositories/clients";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { PDF_UPLOAD_MAX_BYTES, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
@@ -31,8 +34,14 @@ export async function beginPdfUploadAction(input: {
   size: number;
 }): Promise<ActionResult<{ path: string; token: string }>> {
   try {
-    await getActor();
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, error: "Not authenticated." };
+    if (user.status !== "Active") return { ok: false, error: "Your account is inactive." };
     if (!input.clientId) return { ok: false, error: "Missing client." };
+    if (toAppRole(user.role) === "agent") {
+      const client = await getClientsRepository().findById(input.clientId);
+      if (!client || client.assignedUserId !== user.id) return { ok: false, error: "Client not found." };
+    }
     if (input.size <= 0) return { ok: false, error: "Choose a file to upload." };
     if (input.size > PDF_UPLOAD_MAX_BYTES) return { ok: false, error: "PDFs must be 25 MB or smaller." };
     const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");

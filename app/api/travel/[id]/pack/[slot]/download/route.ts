@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { recordAudit } from "@/lib/audit/log";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
+import { getClientsRepository } from "@/lib/repositories/clients";
 import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
 import { getTravelRepository } from "@/lib/repositories/travel";
 import { createSignedUrl } from "@/lib/supabase/storage";
@@ -13,6 +15,7 @@ export async function GET(
 ) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", request.url));
+  if (user.status !== "Active") return new NextResponse("Forbidden", { status: 403 });
 
   const { id, slot } = await params;
   const documentId = new URL(request.url).searchParams.get("documentId");
@@ -22,6 +25,10 @@ export async function GET(
   try {
     const travel = await getTravelRepository().findById(id);
     if (!travel) return new NextResponse("Not found", { status: 404 });
+    if (toAppRole(user.role) === "agent") {
+      const client = await getClientsRepository().findById(travel.clientId);
+      if (!client || client.assignedUserId !== user.id) return new NextResponse("Not found", { status: 404 });
+    }
 
     const today = new Date().toISOString().slice(0, 10);
     const libraryDocuments = await getDocumentLibraryRepository().listEligible({

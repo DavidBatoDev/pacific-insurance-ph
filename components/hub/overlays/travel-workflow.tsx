@@ -146,10 +146,11 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       </div>
       <div className="mt-4 rounded-md border border-border-soft p-3">
         <div className="text-[11px] font-bold uppercase text-subtle">Post-issuance pack</div>
+        {!payload.canFilePostIssuance && <p className="mt-2 text-[11px] text-muted-foreground">Read-only. Admin or Staff file the issued policy and carrier application copy.</p>}
         <div className="mt-3 space-y-4">
           <div>
             <div className="text-[12.5px] font-semibold">Issued policy</div>
-            <div className="mt-2">
+            {payload.canFilePostIssuance && <div className="mt-2">
               <PdfUpload clientId={payload.travel.clientId} prompt={policyDocuments.length ? "Policy PDF attached — upload another…" : "Upload the issued policy PDF…"} onUploaded={async (path, fileName) => {
                 const result = await recordTravelPolicyAction(travelRequestId, path, fileName);
                 if (result.ok) {
@@ -165,14 +166,14 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
                 }
                 return result;
               }} />
-            </div>
+            </div>}
             <div className="mt-2"><PersonalPackDocuments documents={policyDocuments} /></div>
           </div>
 
           <div className="border-t border-border-soft pt-3">
             <div className="text-[12.5px] font-semibold">Carrier application copy</div>
             <p className="mt-1 text-[11px] text-muted-foreground">Returned after purchase; this is separate from the signed intake form.</p>
-            <div className="mt-2">
+            {payload.canFilePostIssuance && <div className="mt-2">
               <PdfUpload clientId={payload.travel.clientId} prompt={applicationCopyDocuments.length ? "Carrier application copy attached — upload another…" : "Upload the carrier's completed application PDF…"} onUploaded={async (path, fileName) => {
                 const result = await recordTravelApplicationCopyAction(travelRequestId, path, fileName);
                 if (result.ok) {
@@ -185,7 +186,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
                 }
                 return result;
               }} />
-            </div>
+            </div>}
             <div className="mt-2"><PersonalPackDocuments documents={applicationCopyDocuments} /></div>
           </div>
 

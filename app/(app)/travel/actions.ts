@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
+import { getClientsRepository } from "@/lib/repositories/clients";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import {
   getTravelRepository,
@@ -19,6 +22,14 @@ import { getPaymentsRepository, type Payment } from "@/lib/repositories/payments
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { resolveTravelPackReferences, type ResolvedTravelPackReference } from "@/lib/travel/post-issuance-pack";
 import type { Json } from "@/lib/supabase/types";
+
+async function requireTravelPackStaff() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Not authenticated.");
+  if (user.status !== "Active" || toAppRole(user.role) === "agent")
+    throw new Error("Only active Admin or Staff can file the post-issuance Travel pack.");
+  return user;
+}
 
 /** New Travel Quote (modals.md §7) — creates a per-trip travel request. */
 export async function createTravelQuoteAction(
@@ -62,14 +73,21 @@ export interface TravelWorkflowPayload {
   payments: Payment[];
   documents: DocumentRecord[];
   referenceDocuments: ResolvedTravelPackReference[];
+  canFilePostIssuance: boolean;
   portalUrl: string | null;
 }
 
 export async function getTravelWorkflowAction(id: string): Promise<ActionResult<TravelWorkflowPayload>> {
-  await getActor();
   try {
+    const user = await getCurrentUser();
+    if (!user || user.status !== "Active") return { ok: false, error: "Travel request not found." };
     const travel = await getTravelRepository().findById(id);
     if (!travel) return { ok: false, error: "Travel request not found." };
+    if (toAppRole(user.role) === "agent") {
+      const client = await getClientsRepository().findById(travel.clientId);
+      if (!client || client.assignedUserId !== user.id)
+        return { ok: false, error: "Travel request not found." };
+    }
     const workflows = getCarrierWorkflowsRepository();
     const today = new Date().toISOString().slice(0, 10);
     const [travelers, requirements, payments, documents, libraryDocuments, portal] = await Promise.all([
@@ -94,6 +112,7 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
         payments,
         documents,
         referenceDocuments: resolveTravelPackReferences(libraryDocuments, today),
+        canFilePostIssuance: toAppRole(user.role) !== "agent",
         portalUrl: portal?.portalUrl ?? null,
       },
     };
@@ -126,8 +145,8 @@ export async function recordTravelPolicyAction(
   path: string,
   fileName: string,
 ): Promise<ActionResult<{ documentId: string; document: DocumentRecord; requirementId: string | null }>> {
-  const actor = await getActor();
   try {
+    const actor = await requireTravelPackStaff();
     const travel = await getTravelRepository().findById(travelRequestId);
     if (!travel) return { ok: false, error: "Travel request not found." };
     const workflows = getCarrierWorkflowsRepository();
@@ -165,8 +184,8 @@ export async function recordTravelApplicationCopyAction(
   path: string,
   fileName: string,
 ): Promise<ActionResult<DocumentRecord>> {
-  const actor = await getActor();
   try {
+    const actor = await requireTravelPackStaff();
     const travel = await getTravelRepository().findById(travelRequestId);
     if (!travel) return { ok: false, error: "Travel request not found." };
     const doc = await registerUploadedPdf({
