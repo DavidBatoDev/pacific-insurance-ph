@@ -1,8 +1,9 @@
 import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { medicalReviewStatus } from "@/lib/applications/medical-review";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Application, ApplicationRequirementProgress, NewApplication, ApplicationUpdate } from "./application.entity";
 import type { ApplicationsRepository } from "./applications.repository";
 
@@ -15,12 +16,14 @@ type JoinedRow = ApplicationRow & {
   clients: { first_name: string; last_name: string } | null;
   product_versions: { product: { name: string } | null } | null;
   application_requirements: Array<{ is_required: boolean; status: string }> | null;
+  application_dependents: Array<{ pre_existing_status: string | null }> | null;
 };
 
 const SELECT = `*,
   clients (first_name, last_name),
   product_versions (product:products (name)),
-  application_requirements (is_required, status)`;
+  application_requirements (is_required, status),
+  application_dependents (pre_existing_status)`;
 
 function requirementProgress(row: JoinedRow): ApplicationRequirementProgress {
   const all = row.application_requirements ?? [];
@@ -68,6 +71,17 @@ function toDomain(row: JoinedRow): Application {
     beneficiaryContact: row.beneficiary_contact,
     preExistingStatus: row.pre_existing_status,
     medicalNotes: row.medical_notes,
+    medicalClass: row.medical_class,
+    medicalReviewClearedAt: row.medical_review_cleared_at,
+    medicalReviewClearedBy: row.medical_review_cleared_by,
+    medicalReviewStatus: medicalReviewStatus({
+      productName: row.product_versions?.product?.name ?? null,
+      principalPreExistingStatus: row.pre_existing_status,
+      dependents: (row.application_dependents ?? []).map((person) => ({ preExistingStatus: person.pre_existing_status })),
+      medicalClass: row.medical_class,
+      clearedAt: row.medical_review_cleared_at,
+      clearedBy: row.medical_review_cleared_by,
+    }),
     notes: row.notes,
     wizardState: row.wizard_state,
     requirementProgress: requirementProgress(row),
@@ -188,6 +202,47 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
 
     if (error) throw toRepositoryError("ApplicationsRepository.update", error);
     return toDomain(data);
+  }
+
+  async medicalReviewProblem(applicationId: string): Promise<string | null> {
+    const { data, error } = await getSupabaseAdmin().rpc("application_medical_review_problem", { p_application_id: applicationId });
+    if (error) throw toRepositoryError("ApplicationsRepository.medicalReviewProblem", error);
+    return data;
+  }
+
+  async addMedicalQuestionnaire(applicationId: string, input: { actorId: string; subjectKey: string }): Promise<Application> {
+    const { error } = await getSupabaseAdmin().rpc("add_application_medical_questionnaire", {
+      p_actor_id: input.actorId, p_application_id: applicationId, p_subject_key: input.subjectKey,
+    });
+    if (error) {
+      const code = /^medical_review_[a-z_]+$/.test(error.message) ? error.message : "medical_review_failed";
+      throw new RepositoryError("The questionnaire checklist item could not be added.", { code });
+    }
+    const application = await this.findById(applicationId);
+    if (!application) throw new RepositoryError("The application is no longer available.", { code: "medical_review_unavailable" });
+    return application;
+  }
+
+  async clearMedicalReview(applicationId: string, input: {
+    actorId: string;
+    medicalClass: string;
+    expectedUpdatedAt: string;
+    questionnaireRequirements: Record<string, string>;
+  }): Promise<Application> {
+    const { error } = await getSupabaseAdmin().rpc("clear_application_medical_review", {
+      p_actor_id: input.actorId,
+      p_application_id: applicationId,
+      p_medical_class: input.medicalClass,
+      p_expected_updated_at: input.expectedUpdatedAt,
+      p_questionnaire_requirements: input.questionnaireRequirements,
+    });
+    if (error) {
+      const code = /^medical_review_[a-z_]+$/.test(error.message) ? error.message : "medical_review_failed";
+      throw new RepositoryError("The medical review could not be saved.", { code });
+    }
+    const application = await this.findById(applicationId);
+    if (!application) throw new RepositoryError("The application is no longer available.", { code: "medical_review_unavailable" });
+    return application;
   }
 
   async delete(id: string): Promise<void> {

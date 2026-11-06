@@ -6,4 +6,4 @@ export function getCarrierWorkflowsRepository(): CarrierWorkflowsRepository {
   return instance ??= new SupabaseCarrierWorkflowsRepository();
 }
 
-export type { ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";
+export type { ApplicationDependent, ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";

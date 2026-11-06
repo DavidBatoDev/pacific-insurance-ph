@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { medicalReviewRequired, type ApplicationMedicalReview } from "@/lib/applications/medical-review";
+import { isMedicalQuestionnaireName, requirementSection } from "@/lib/applications/requirement-sections";
+import { RepositoryError } from "@/lib/repositories/types";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { BILLING_SUMMARY_PREFIX, outboundEmailErrorMessage, requireEmailSender } from "@/lib/communications/outbound-email";
@@ -44,6 +48,8 @@ export interface ApplicationRequirementsPayload {
   billingHistory: SubmissionRecord[];
   /** Active payment channels, for the billing message to the client. */
   paymentChannels: string[];
+  medicalReview: ApplicationMedicalReview;
+  medicalReviewDocuments: Pick<DocumentRecord, "id" | "applicationRequirementId" | "name" | "filePath" | "status">[];
 }
 
 /** Summary prefixes that let the workflow find its own communications again (never proof of sending). */
@@ -64,13 +70,17 @@ const refresh = (clientId: string) => {
 };
 
 export async function getApplicationRequirementsAction(applicationId: string): Promise<ActionResult<ApplicationRequirementsPayload>> {
-  await getActor();
+  const actor = await getCurrentUser();
+  if (!actor || actor.status !== "Active") return { ok: false, error: "An active account is required." };
   try {
     const application = await getApplicationsRepository().findById(applicationId);
-    if (!application || application.status === "Lead") return { ok: false, error: "This application does not have a persisted requirements checklist." };
+    if (!application) return { ok: false, error: "This application is not available." };
     const client = await getClientsRepository().findById(application.clientId);
-    if (!client) return { ok: false, error: "The linked contact could not be found." };
-    const [requirements, carrierForms, submissions, payments, policy, proposal, replies, billing, channels] = await Promise.all([
+    if (!client || (actor.role === "Agent" && client.assignedUserId !== actor.id)) {
+      return { ok: false, error: "This application is not available." };
+    }
+    if (application.status === "Lead") return { ok: false, error: "This application does not have a persisted requirements checklist." };
+    const [requirements, carrierForms, submissions, payments, policy, proposal, replies, billing, channels, dependents, documents] = await Promise.all([
       getApplicationRequirementsRepository().listByApplication(applicationId),
       getCarrierWorkflowsRepository().listApplicationCarrierForms(applicationId),
       listSubmissionRecords("application", applicationId),
@@ -80,11 +90,44 @@ export async function getApplicationRequirementsAction(applicationId: string): P
       listCommunicationRecords({ kind: "application", id: applicationId, summaryPrefix: REPLY_PREFIX, direction: "Inbound" }),
       listCommunicationRecords({ kind: "application", id: applicationId, summaryPrefix: BILLING_SUMMARY_PREFIX, direction: "Outbound" }),
       getPaymentChannelsRepository().list(),
+      getCarrierWorkflowsRepository().listApplicationDependents(applicationId),
+      getDocumentsRepository().listByClient(application.clientId),
     ]);
+    const medicalRequirements = requirements.filter((item) => requirementSection(item) === "Medical requirements");
+    const medicalIds = new Set(medicalRequirements.map((item) => item.id));
+    const medicalReviewDocuments = documents.filter((doc) => doc.applicationId === applicationId
+      && doc.applicationRequirementId !== null && medicalIds.has(doc.applicationRequirementId))
+      .map(({ id, applicationRequirementId, name, filePath, status }) => ({ id, applicationRequirementId, name, filePath, status }));
+    const hasOriginal = (id: string) => medicalReviewDocuments.some((doc) => doc.applicationRequirementId === id
+      && Boolean(doc.filePath?.trim()) && !["Draft", "Archived", "Replaced"].includes(doc.status));
+    const required = medicalReviewRequired({
+      productName: application.productName, principalPreExistingStatus: application.preExistingStatus, dependents,
+    });
+    const subjects: ApplicationMedicalReview["subjects"] = required ? [
+      ...(application.preExistingStatus === "Yes" ? [{ key: "principal", name: client.fullName, medicalNotes: application.medicalNotes }] : []),
+      ...dependents.filter((person) => person.preExistingStatus === "Yes")
+        .map((person) => ({ key: `dependent:${person.id}`, name: person.fullName, medicalNotes: person.medicalNotes })),
+    ].map((subject) => {
+      const candidates = medicalRequirements.filter((item) => isMedicalQuestionnaireName(item.documentName) && item.medicalReviewSubject === subject.key);
+      return { ...subject, questionnaireRequirementId: candidates.length === 1 ? candidates[0].id : null };
+    }) : [];
+    const blockers = required ? [
+      ...medicalRequirements.filter((item) => (item.isRequired || subjects.some((subject) => subject.questionnaireRequirementId === item.id))
+        && (item.status !== "Verified" || !hasOriginal(item.id)))
+        .map((item) => `${item.documentName}${item.appliesTo ? ` — ${item.appliesTo}` : ""}: verify the checklist item and link its original document.`),
+      ...subjects.filter((subject) => !subject.questionnaireRequirementId)
+        .map((subject) => `${subject.name}: associate the correct existing medical questionnaire or supporting records item.`),
+    ] : [];
+    const medicalReview: ApplicationMedicalReview = {
+      status: application.medicalReviewStatus, subjects, medicalClass: application.medicalClass,
+      clearedAt: application.medicalReviewClearedAt, clearedBy: application.medicalReviewClearedBy,
+      canClear: ["Owner", "Admin", "Assistant"].includes(actor.role), blockers,
+    };
     return {
       ok: true,
       data: {
         application, clientName: client.fullName, clientEmail: client.email, requirements, carrierForms,
+        medicalReview, medicalReviewDocuments,
         submissions, payment: payments.at(-1) ?? null, policy,
         proposal: proposal && { id: proposal.id, name: proposal.name, uploadedAt: proposal.uploadedAt },
         replies, billingSent: billing.find((record) => record.deliveryStatus === "sent") ?? null, billingHistory: billing,
@@ -93,6 +136,71 @@ export async function getApplicationRequirementsAction(applicationId: string): P
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to load application requirements." };
+  }
+}
+
+const MEDICAL_REVIEW_ERRORS: Record<string, string> = {
+  medical_review_forbidden: "Only active Admin and Staff accounts can clear medical review.",
+  medical_review_unavailable: "This application is not available for medical review.",
+  medical_review_not_required: "Medical review is not required for this application.",
+  medical_review_stale: "This application changed. Reload it before clearing medical review.",
+  medical_review_class_invalid: "Enter a medical class assessment of 1–500 characters.",
+  medical_review_mapping_invalid: "Associate a distinct existing medical questionnaire or supporting records item with each affected insured.",
+  medical_review_originals_required: "Every required medical item and selected questionnaire must be Verified with a linked original document.",
+};
+
+/** Adds only a Pending checklist row; an original and staff verification remain mandatory. */
+export async function addApplicationMedicalQuestionnaireAction(
+  applicationId: string,
+  subjectKey: string,
+): Promise<ActionResult<ApplicationRequirementsPayload>> {
+  try {
+    const actor = await getCurrentUser();
+    if (!actor || actor.status !== "Active" || !["Owner", "Admin", "Assistant"].includes(actor.role)) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_forbidden };
+    }
+    if (typeof subjectKey !== "string" || !/^(principal|dependent:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.test(subjectKey)) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_mapping_invalid };
+    }
+    const application = await getApplicationsRepository().addMedicalQuestionnaire(applicationId, { actorId: actor.id, subjectKey });
+    refresh(application.clientId);
+    return getApplicationRequirementsAction(applicationId);
+  } catch (error) {
+    return { ok: false, error: error instanceof RepositoryError && error.code && MEDICAL_REVIEW_ERRORS[error.code]
+      ? MEDICAL_REVIEW_ERRORS[error.code] : "The questionnaire checklist item could not be added. Reload and try again." };
+  }
+}
+
+export async function clearApplicationMedicalReviewAction(
+  applicationId: string,
+  input: { medicalClass: string; expectedUpdatedAt: string; questionnaireRequirements: Record<string, string> },
+): Promise<ActionResult<ApplicationRequirementsPayload>> {
+  try {
+    const actor = await getCurrentUser();
+    if (!actor || actor.status !== "Active" || !["Owner", "Admin", "Assistant"].includes(actor.role)) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_forbidden };
+    }
+    if (typeof input?.medicalClass !== "string" || !input.medicalClass.trim() || input.medicalClass.trim().length > 500) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_class_invalid };
+    }
+    if (typeof input.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(input.expectedUpdatedAt))) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_stale };
+    }
+    const mapping = input.questionnaireRequirements;
+    if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)
+      || Object.entries(mapping).some(([key, value]) => !/^(principal|dependent:[0-9a-f-]{36})$/i.test(key)
+        || typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))) {
+      return { ok: false, error: MEDICAL_REVIEW_ERRORS.medical_review_mapping_invalid };
+    }
+    const application = await getApplicationsRepository().clearMedicalReview(applicationId, {
+      actorId: actor.id, medicalClass: input.medicalClass.trim(),
+      expectedUpdatedAt: input.expectedUpdatedAt, questionnaireRequirements: mapping,
+    });
+    refresh(application.clientId);
+    return getApplicationRequirementsAction(applicationId);
+  } catch (error) {
+    return { ok: false, error: error instanceof RepositoryError && error.code && MEDICAL_REVIEW_ERRORS[error.code]
+      ? MEDICAL_REVIEW_ERRORS[error.code] : "The medical review could not be saved. Reload and try again." };
   }
 }
 
@@ -333,7 +441,7 @@ export async function logPacificCrossReplyAction(
     if (items.length) {
       const nextOrder = Math.max(0, ...existing.map((item) => item.sortOrder)) + 10;
       const created = await repo.createMany(items.map((name, index) => ({
-        applicationId, documentName: name, isRequired: true, status: "Pending" as const,
+        applicationId, documentName: name, section: "Application documents" as const, isRequired: true, status: "Pending" as const,
         appliesTo: "Requested by Pacific Cross", sortOrder: nextOrder + index * 10,
       })));
       touched.push(...created.map((item) => item.id));

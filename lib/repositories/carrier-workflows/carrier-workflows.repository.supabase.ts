@@ -2,10 +2,22 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { toRepositoryError } from "../types";
-import type { ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";
+import type { ApplicationDependent, ApplicationDependentInput, CarrierFormAssignmentInput, CarrierFormAssignmentRecord, TravelerInput, TravelerRecord, TravelRequirementInput, TravelRequirementRecord } from "./carrier-workflow.entity";
 import type { CarrierWorkflowsRepository } from "./carrier-workflows.repository";
 
 export class SupabaseCarrierWorkflowsRepository implements CarrierWorkflowsRepository {
+  async listApplicationDependents(applicationId: string): Promise<ApplicationDependent[]> {
+    const { data, error } = await getSupabaseAdmin().from("application_dependents")
+      .select("application_id, dependent_id, pre_existing_status, medical_notes, smoker_status, height_inches, weight_lbs, dependent:dependents!inner(full_name)")
+      .eq("application_id", applicationId).order("created_at").order("dependent_id");
+    if (error) throw toRepositoryError("CarrierWorkflows.listApplicationDependents", error);
+    return (data ?? []).map((row) => ({
+      id: row.dependent_id, applicationId: row.application_id, fullName: row.dependent.full_name,
+      preExistingStatus: row.pre_existing_status, medicalNotes: row.medical_notes,
+      smokerStatus: row.smoker_status, heightInches: row.height_inches, weightLbs: row.weight_lbs,
+    }));
+  }
+
   async listApplicationCarrierForms(applicationId: string): Promise<CarrierFormAssignmentRecord[]> {
     const { data, error } = await getSupabaseAdmin().from("application_carrier_forms").select("*").eq("application_id", applicationId).order("created_at");
     if (error) throw toRepositoryError("CarrierWorkflows.listApplicationCarrierForms", error);
@@ -35,11 +47,12 @@ export class SupabaseCarrierWorkflowsRepository implements CarrierWorkflowsRepos
     for (const person of people.filter((item) => item.name.trim())) {
       let id = person.id ?? null;
       if (id) {
-        const { error } = await db.from("dependents").update({
+        const { data, error } = await db.from("dependents").update({
           full_name: person.name.trim(), relationship: person.relationship ?? null,
           date_of_birth: person.dateOfBirth ?? null, email: person.email ?? null,
-        }).eq("id", id).eq("primary_client_id", clientId);
+        }).eq("id", id).eq("primary_client_id", clientId).select("id").maybeSingle();
         if (error) throw toRepositoryError("CarrierWorkflows.saveApplicationDependents.update", error);
+        if (!data) throw new Error("That dependent does not belong to the linked contact.");
       } else {
         const { data, error } = await db.from("dependents").insert({
           primary_client_id: clientId, full_name: person.name.trim(),

@@ -64,6 +64,7 @@ const REPOSITORY_MESSAGES: Record<string, string> = {
   outbound_no_outstanding: "There are no outstanding required documents to request.",
   outbound_billing_unavailable: "Record the billed amount first.",
   outbound_submission_outstanding: "Required checklist items are still outstanding.",
+  outbound_medical_review_required: "Complete the medical review before submitting this application.",
   outbound_contact_invalid: "Choose an active Pacific Cross contact with an email address for this department.",
   outbound_proposal_not_received: "The proposal must be Received before it can be sent.",
   outbound_proposal_document_required: "Attach the current Illustrative Proposal stored for this client.",
@@ -178,6 +179,9 @@ async function resolveOrigin(draft: EmailDraftSeed): Promise<ResolvedOrigin> {
       if (origin.kind !== "application" && origin.kind !== "claim") throw new OutboundEmailError("Unknown submission type.");
       const source = await loadSubmissionSource(origin.kind, origin.id);
       if (!source) throw new OutboundEmailError(`This ${origin.kind} could not be found.`, 404);
+      if (origin.kind === "application" && await getApplicationsRepository().medicalReviewProblem(origin.id)) {
+        throw new OutboundEmailError(REPOSITORY_MESSAGES.outbound_medical_review_required);
+      }
       const outstanding = outstandingItems(source.items);
       if (outstanding.length) {
         throw new OutboundEmailError(`Still outstanding: ${outstanding.map((item) => item.documentName).join(", ")}.`);

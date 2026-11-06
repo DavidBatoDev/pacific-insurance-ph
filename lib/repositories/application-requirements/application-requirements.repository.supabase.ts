@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError } from "../types";
-import type { ApplicationRequirement, ApplicationRequirementStatus, NewApplicationRequirement, RequirementPhase } from "./application-requirement.entity";
+import type { ApplicationRequirement, ApplicationRequirementStatus, NewApplicationRequirement, RequirementPhase, RequirementSection } from "./application-requirement.entity";
 import type { ApplicationRequirementsRepository } from "./application-requirements.repository";
 
 type Row = Database["public"]["Tables"]["application_requirements"]["Row"];
@@ -19,6 +19,8 @@ const toDomain = (row: Row): ApplicationRequirement => ({
   status: row.status as ApplicationRequirementStatus,
   sortOrder: row.sort_order,
   phase: row.phase as RequirementPhase | null,
+  section: row.section as RequirementSection | null,
+  medicalReviewSubject: row.medical_review_subject,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -49,6 +51,8 @@ export class SupabaseApplicationRequirementsRepository implements ApplicationReq
         status: item.status ?? "Pending",
         sort_order: item.sortOrder ?? 0,
         phase: item.phase ?? null,
+        section: item.section ?? null,
+        medical_review_subject: item.medicalReviewSubject ?? null,
       })),
     ).select("*");
     if (error) throw toRepositoryError("ApplicationRequirementsRepository.createMany", error);
