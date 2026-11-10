@@ -9,6 +9,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getClientsRepository } from "@/lib/repositories/clients";
 import { getTasksRepository } from "@/lib/repositories/tasks";
 import { getExternalContactsRepository, type ExternalContact } from "@/lib/repositories/external-contacts";
+import { checkProductInterest, listActiveProductNames } from "@/lib/products/active-products";
 import type { Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
 import { requireEmailSender, outboundEmailErrorMessage } from "@/lib/communications/outbound-email";
@@ -54,6 +55,17 @@ export async function getDiscoveryValuesAction(clientId: string): Promise<Action
     productInterest: client.productInterest, selectVariant: client.selectVariant,
     coverageTier: client.coverageTier, estPremium: client.estPremium, familySize: client.familySize,
   } };
+}
+
+/** Product-interest choices: the names of active catalog products, so every form offers the same list. */
+export async function listProductInterestOptionsAction(): Promise<ActionResult<string[]>> {
+  const actor = await getCurrentUser();
+  if (!actor || actor.status !== "Active") return { ok: false, error: "An active account is required." };
+  try {
+    return { ok: true, data: await listActiveProductNames() };
+  } catch {
+    return { ok: false, error: "Products could not be loaded." };
+  }
 }
 
 async function updateLeadStatus(
@@ -194,15 +206,21 @@ export async function logCallAction(input: {
   if (d?.selectVariant != null && !isSelectVariant(d.selectVariant)) {
     return { ok: false, error: "Choose Select Plus or Select Standard." };
   }
-  const effectiveInterest = d?.productInterest === undefined ? client.productInterest : d.productInterest;
+  let interest: string | null | undefined;
+  if (d?.productInterest !== undefined) {
+    const checked = await checkProductInterest(d.productInterest, client.productInterest);
+    if (!checked.ok) return { ok: false, error: checked.error };
+    interest = checked.value;
+  }
+  const effectiveInterest = interest === undefined ? client.productInterest : interest;
   const variant = isSelectProduct(effectiveInterest)
     ? d?.selectVariant === undefined ? client.selectVariant ?? selectVariantFromInterest(effectiveInterest) : d.selectVariant
     : null;
-  const discoveryAfter = { ...client, ...d, selectVariant: variant };
+  const discoveryAfter = { ...client, ...d, ...(interest !== undefined ? { productInterest: interest } : {}), selectVariant: variant };
   const bits = [
     d?.estPremium != null ? `Budget ₱${d.estPremium.toLocaleString("en-PH")}` : null,
     d?.familySize != null ? `${d.familySize} ${d.familySize === 1 ? "person" : "people"} to cover` : null,
-    d?.productInterest,
+    interest,
     d?.coverageTier,
     variant,
   ].filter(Boolean);
@@ -225,7 +243,7 @@ export async function logCallAction(input: {
     await getClientsRepository().update(input.clientId, {
       ...(d.estPremium != null ? { estPremium: d.estPremium } : {}),
       ...(d.familySize != null ? { familySize: d.familySize } : {}),
-      ...(d.productInterest !== undefined ? { productInterest: d.productInterest && isSelectProduct(d.productInterest) ? "Select" : d.productInterest } : {}),
+      ...(interest !== undefined ? { productInterest: interest } : {}),
       selectVariant: variant,
       ...(d.coverageTier ? { coverageTier: d.coverageTier } : {}),
     });

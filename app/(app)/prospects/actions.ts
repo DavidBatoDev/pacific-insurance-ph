@@ -31,6 +31,7 @@ import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
 import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import type { Json } from "@/lib/supabase/types";
+import { checkProductInterest } from "@/lib/products/active-products";
 
 const INDIVIDUAL_PROPOSAL_PRODUCTS = new Set(["select", "blue royale"]);
 
@@ -325,6 +326,8 @@ export async function createLeadAction(input: NewLeadInput): Promise<ActionResul
   const dateOfBirth = input.dateOfBirth?.trim();
   if (!dateOfBirth)
     return { ok: false, error: "Date of birth is required to create a lead." };
+  const interest = await checkProductInterest(input.productInterest);
+  if (!interest.ok) return { ok: false, error: interest.error };
 
   try {
     const created = await getClientsRepository().create({
@@ -339,7 +342,7 @@ export async function createLeadAction(input: NewLeadInput): Promise<ActionResul
       leadStage: input.startingStage ?? "New Lead",
       leadStatus: input.startingStatus ?? "New",
       dateOfBirth,
-      productInterest: input.productInterest ?? null,
+      productInterest: interest.value,
       estPremium: input.estPremium ?? null,
       nextFollowUpDate: input.nextFollowUpDate ?? null,
       notes: input.notes ?? null,

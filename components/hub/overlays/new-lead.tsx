@@ -5,10 +5,11 @@ import { useState, useTransition } from "react";
 
 import { createLeadAction } from "@/app/(app)/prospects/actions";
 import { I } from "../icons";
-import { LEAD_BOARD_STAGES, LEAD_STATUSES, PRODUCT_COLORS } from "../lead-config";
+import { LEAD_BOARD_STAGES, LEAD_STATUSES } from "../lead-config";
 import { Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
 import { useOverlays } from "./overlay-provider";
+import { ProductInterestSelect } from "./product-interest-select";
 
 /**
  * New Lead drawer (modals.md §1). Creates a unified contact record at
@@ -119,12 +120,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
       <FieldGroup title="Lead context">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Product interest">
-            <select className={INPUT} value={product} onChange={(e) => setProduct(e.target.value)}>
-              <option value="">Choose a product…</option>
-              {Object.keys(PRODUCT_COLORS).map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
+            <ProductInterestSelect className={INPUT} value={product} onChange={setProduct} />
           </Field>
           <Field label="Estimated premium (₱)">
             <input

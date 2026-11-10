@@ -11,6 +11,7 @@ import type { DiscoveryValues } from "../lead-config";
 import { AREA, Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { CoverageTierSelect } from "./coverage-tier-select";
+import { ProductInterestSelect } from "./product-interest-select";
 import { Modal } from "./modal";
 import { useOverlays } from "./overlay-provider";
 import { isSelectProduct, SELECT_VARIANTS, selectLimitBasis, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
@@ -118,7 +119,7 @@ function LogCallFields({
           </div>
           <div className="mt-3.5 grid grid-cols-2 gap-3.5">
             <Field label="Product interest">
-              <input className={INPUT} value={interest} onChange={(e) => { setInterest(e.target.value); setInterestEdited(true); if (!isSelectProduct(e.target.value)) setVariant(""); }} placeholder="e.g. Blue Royale" />
+              <ProductInterestSelect className={INPUT} value={interest} onChange={(next) => { setInterest(next); setInterestEdited(true); if (!isSelectProduct(next)) setVariant(""); }} />
             </Field>
             <Field label="Coverage tier / room">
               <CoverageTierSelect className={INPUT} value={tier} onChange={setTier} productInterest={interest} />

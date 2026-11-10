@@ -9,8 +9,8 @@ import {
   type ClientFormState,
 } from "@/app/(app)/clients/actions";
 import { WIZ_OPTS } from "@/components/hub/overlays/wizard/wizard-data";
-import { PRODUCT_COLORS } from "@/components/hub/lead-config";
 import { CoverageTierSelect } from "@/components/hub/overlays/coverage-tier-select";
+import { ProductInterestSelect } from "@/components/hub/overlays/product-interest-select";
 import type { Client } from "@/lib/repositories/clients";
 import { CLIENT_STATUSES, CLIENT_TYPES, PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { cn } from "@/lib/utils";
@@ -245,19 +245,12 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
           <div className="mb-4 text-[13px] font-bold">Discovery details</div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Product interest">
-              <select
+              <ProductInterestSelect
                 name="productInterest"
                 value={v.productInterest}
-                onChange={(e) => setV((prev) => ({ ...prev, productInterest: e.target.value, selectVariant: isSelectProduct(e.target.value) ? prev.selectVariant : "" }))}
+                onChange={(product) => setV((prev) => ({ ...prev, productInterest: product, selectVariant: isSelectProduct(product) ? prev.selectVariant : "" }))}
                 className={inputCls}
-              >
-                <option value="">Choose a product…</option>
-                {Object.keys(PRODUCT_COLORS).map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+              />
             </Field>
             {isSelectProduct(v.productInterest) && <Field label="Select variant">
               <select name="selectVariant" value={v.selectVariant} onChange={(e) => set("selectVariant", e.target.value as SelectVariant | "")} className={inputCls}>

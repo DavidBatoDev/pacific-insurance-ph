@@ -19,6 +19,7 @@ import { getDependentsRepository } from "@/lib/repositories/dependents";
 import { RepositoryError } from "@/lib/repositories/types";
 import type { Json } from "@/lib/supabase/types";
 import { isSelectProduct, isSelectVariant } from "@/lib/products/select-variant";
+import { checkProductInterest } from "@/lib/products/active-products";
 
 export interface ClientFormState {
   error?: string;
@@ -66,6 +67,8 @@ export async function createClientAction(
   if (!input.firstName || !input.lastName) {
     return { error: "First name and last name are required." };
   }
+  const interest = await checkProductInterest(input.productInterest);
+  if (!interest.ok) return { error: interest.error };
 
   const repo = getClientsRepository();
   let createdId: string;
@@ -103,7 +106,7 @@ export async function createClientAction(
       vipStatus: input.vipStatus,
       status: input.status,
       notes: input.notes,
-      productInterest: input.productInterest,
+      productInterest: interest.value,
       selectVariant: input.selectVariant,
       estPremium: input.estPremium,
       familySize: input.familySize,
@@ -150,6 +153,8 @@ export async function updateClientAction(
   const repo = getClientsRepository();
   try {
     const before = await repo.findById(id);
+    const interest = await checkProductInterest(input.productInterest, before?.productInterest);
+    if (!interest.ok) return { error: interest.error };
     const patch: ClientUpdate = {
       firstName: input.firstName,
       lastName: input.lastName,
@@ -164,7 +169,7 @@ export async function updateClientAction(
       vipStatus: input.vipStatus,
       status: input.status,
       notes: input.notes,
-      productInterest: input.productInterest,
+      productInterest: interest.value,
       selectVariant: input.selectVariant,
       estPremium: input.estPremium,
       familySize: input.familySize,

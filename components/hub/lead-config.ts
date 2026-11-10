@@ -313,23 +313,17 @@ export const proposalChipLabel = (
 ) => (status === "Decision" && decision ? decision : status);
 
 /**
- * Product-interest colour coding (board card dots, interest widget).
- *
- * The keys double as the selectable product-interest list — `new-lead.tsx` and
- * `client-form.tsx` both render `Object.keys(PRODUCT_COLORS)` — so a name here is a
- * name a lead can carry, and `categoryForProduct()` routes on it. `BC Flexi HMO`
- * used to sit beside `BC Flexi`: only the former matched the `hmo` regex, so the
- * same product reached a different wizard branch depending on which string the lead
- * happened to hold. One name only.
+ * Product-interest colour coding (board card dots, interest widget). Display only: the selectable
+ * list comes from the active catalog via `ProductInterestSelect`. Unknown names fall back to slate.
+ * "Travel Insurance" is the deactivated legacy Travel product, kept so older values still colour.
  */
 export const PRODUCT_COLORS: Record<string, string> = {
   "Blue Royale": "#059669",
   Select: "#2563eb",
+  TravelSafe: "#d97706",
   "Travel Insurance": "#d97706",
   "BC Flexi": "#7c3aed",
   FlexiShield: "#0891b2",
-  "Premier Health": "#db2777",
-  "Family Shield": "#0d9488",
 };
 
 export const nextStage = (stage: string | null): LeadStage => {
