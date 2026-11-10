@@ -2,8 +2,11 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import type { Json } from "@/lib/supabase/types";
+import type { TravelPackReferenceKey } from "@/lib/travel/post-issuance-pack";
 import type { TravelRequest, NewTravelRequest, TravelRequestUpdate } from "./travel-request.entity";
+import type { SetTravelReferenceInput, TravelReferenceAttachment, TravelReferenceCandidatePage } from "./travel-reference.entity";
 import type { TravelRepository } from "./travel.repository";
 
 type TravelRequestRow = Database["public"]["Tables"]["travel_requests"]["Row"];
@@ -54,6 +57,20 @@ function toDomain(row: JoinedRow): TravelRequest {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Safe, fixed messages only: never expose PostgreSQL details, rows or correspondence. */
+function referenceError(code?: string, message?: string): RepositoryError {
+  const text = message === "travel_reference_confirmation_required"
+    ? "Confirm that this client-level email belongs to this trip."
+    : code === "P0001"
+      ? "This reference changed while you were editing. Refresh the Travel workflow and try again."
+      : code === "42501"
+        ? "This email attachment or Travel request is not available to your account."
+        : code === "22023"
+          ? "Choose a valid reference category and email attachment."
+          : "The Travel reference could not be saved. Refresh the workflow and try again.";
+  return new RepositoryError(text, { code: code && /^[a-zA-Z0-9_-]{1,64}$/.test(code) ? code : "travel_reference_failed" });
 }
 
 /** supabase-js (service role) implementation of {@link TravelRepository}. */
@@ -165,5 +182,37 @@ export class SupabaseTravelRepository implements TravelRepository {
 
     if (error) throw toRepositoryError("TravelRepository.update", error);
     return toDomain(data);
+  }
+
+  async listReferenceCandidates(actorId: string, travelRequestId: string, search: string, offset: number): Promise<TravelReferenceCandidatePage> {
+    const { data, error } = await getSupabaseAdmin().rpc("list_travel_reference_candidates", {
+      p_actor_id: actorId, p_travel_request_id: travelRequestId, p_search: search, p_offset: offset,
+    });
+    if (error || !data) throw referenceError(error?.code, error?.message);
+    return data as unknown as TravelReferenceCandidatePage;
+  }
+
+  async listReferenceAttachments(actorId: string, travelRequestId: string): Promise<TravelReferenceAttachment[]> {
+    const { data, error } = await getSupabaseAdmin().rpc("list_travel_reference_attachments", {
+      p_actor_id: actorId, p_travel_request_id: travelRequestId,
+    });
+    if (error || !Array.isArray(data)) throw referenceError(error?.code, error?.message);
+    return data as unknown as TravelReferenceAttachment[];
+  }
+
+  async setReferenceAttachment(actorId: string, input: SetTravelReferenceInput): Promise<{ changed: boolean }> {
+    const { data, error } = await getSupabaseAdmin().rpc("set_travel_reference_attachment", {
+      p_actor_id: actorId, p_input: { ...input } as unknown as Json,
+    });
+    if (error || !data) throw referenceError(error?.code, error?.message);
+    return data as unknown as { changed: boolean };
+  }
+
+  async unlinkReferenceAttachment(actorId: string, travelRequestId: string, slot: TravelPackReferenceKey): Promise<{ changed: boolean }> {
+    const { data, error } = await getSupabaseAdmin().rpc("unlink_travel_reference_attachment", {
+      p_actor_id: actorId, p_travel_request_id: travelRequestId, p_slot: slot,
+    });
+    if (error || !data) throw referenceError(error?.code, error?.message);
+    return data as unknown as { changed: boolean };
   }
 }

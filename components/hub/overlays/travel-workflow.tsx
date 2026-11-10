@@ -13,6 +13,7 @@ import { TRAVEL_PAYMENT_METHODS } from "@/lib/db-enums";
 import { Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { I } from "../icons";
 import { useOverlays } from "./overlay-provider";
+import { TravelReferenceAttachments } from "./travel-reference-attachments";
 import type { DocumentRecord } from "@/lib/repositories/documents";
 
 function postIssuanceDocuments(documents: DocumentRecord[], documentType: string) {
@@ -190,20 +191,14 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
             <div className="mt-2"><PersonalPackDocuments documents={applicationCopyDocuments} /></div>
           </div>
 
-          <div className="border-t border-border-soft pt-3">
-            <div className="text-[12.5px] font-semibold">Shared TravelSafe references</div>
-            <div className="mt-2 space-y-2">
-              {payload.referenceDocuments.map((reference) => <div key={reference.key} className="rounded-sm border border-border-soft px-2.5 py-2">
-                <div className="text-[11.5px] font-semibold">{reference.label}</div>
-                {reference.documents.length ? <div className="mt-1 space-y-1">{reference.documents.map((document) => (
-                  <a key={document.id} href={`/api/travel/${travelRequestId}/pack/${reference.key}/download?documentId=${document.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-sm px-1 py-1 text-[11px] font-semibold text-brand-hover hover:bg-hover hover:underline">
-                    <span className="min-w-0 truncate">{document.documentName}</span><span className="shrink-0 text-muted-foreground">{document.versionLabel}</span><span className="shrink-0">Download</span>
-                  </a>
-                ))}</div> : <p className="mt-1 text-[11px] text-muted-foreground">Not available in the carrier library</p>}
-              </div>)}
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">Shared documents are linked from the library and are not copied per client.</p>
-          </div>
+          <TravelReferenceAttachments
+            travelRequestId={travelRequestId}
+            travelLabel={`${payload.travel.referenceNo ?? "Travel request"} · ${payload.travel.clientName ?? "client"}`}
+            canEdit={payload.canFilePostIssuance}
+            attachments={payload.referenceAttachments}
+            libraryReferences={payload.referenceDocuments}
+            onChange={(referenceAttachments) => setPayload((current) => current ? { ...current, referenceAttachments } : current)}
+          />
         </div>
       </div>
 

@@ -55,3 +55,29 @@ export function resolveTravelPackReferences(
       .sort(compareVersions),
   }));
 }
+
+function normalizedFileName(fileName: string) {
+  return ` ${fileName.toLowerCase().replace(/\.[a-z0-9]{1,8}$/, "").replace(/[^a-z0-9]+/g, " ").trim()} `;
+}
+
+const SLOT_PATTERNS: Record<TravelPackReferenceKey, (name: string) => boolean> = {
+  "emergency-numbers": (name) => / emergency /.test(name) && / (number|numbers|hotline|hotlines|contact|contacts|assistance) /.test(name),
+  // A COVID recovery or medical questionnaire is client health information, not Travel coverage.
+  "covid-coverage": (name) => / (covid|covid 19|covid19|coronavirus) /.test(name)
+    && / (coverage|benefit|benefits|cover|endorsement|rider) /.test(name)
+    && !/ (questionnaire|recovery|vaccine|vaccination|vaccinated|test|result|results|medical|declaration) /.test(name),
+  // Pacific Cross also has a medical NOC; require Travel context.
+  "notification-of-claim": (name) => (/ noc /.test(name) || / notification of claim /.test(name))
+    && / (travel|travelsafe) /.test(name)
+    && !/ application /.test(name),
+};
+
+/**
+ * Suggests a reference category from an attachment's file name. A suggestion is not a saved link
+ * and says nothing about the file's contents; ambiguous names produce no suggestion.
+ */
+export function suggestTravelReferenceSlot(fileName: string): TravelPackReferenceKey | null {
+  const name = normalizedFileName(fileName);
+  const matches = TRAVEL_PACK_REFERENCE_SLOTS.filter((slot) => SLOT_PATTERNS[slot.key](name));
+  return matches.length === 1 ? matches[0].key : null;
+}

@@ -12,15 +12,20 @@ import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import {
   getTravelRepository,
   type NewTravelRequest,
+  type TravelReferenceAttachment,
+  type TravelReferenceCandidatePage,
   type TravelRequest,
   type TravelRequestUpdate,
 } from "@/lib/repositories/travel";
+import { RepositoryError } from "@/lib/repositories/types";
+import { getRequirementAttachmentOriginal } from "@/lib/documents/requirement-attachments";
+import { InboxReviewError } from "@/lib/gmail/review";
 import { getCarrierWorkflowsRepository, type TravelerRecord, type TravelRequirementRecord } from "@/lib/repositories/carrier-workflows";
 import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
 import { getDocumentsRepository, type DocumentRecord } from "@/lib/repositories/documents";
 import { getPaymentsRepository, type Payment } from "@/lib/repositories/payments";
 import { getIntegrationSettingsRepository } from "@/lib/repositories/integration-settings";
-import { resolveTravelPackReferences, type ResolvedTravelPackReference } from "@/lib/travel/post-issuance-pack";
+import { resolveTravelPackReferences, TRAVEL_PACK_REFERENCE_SLOTS, type ResolvedTravelPackReference, type TravelPackReferenceKey } from "@/lib/travel/post-issuance-pack";
 import type { Json } from "@/lib/supabase/types";
 
 async function requireTravelPackStaff() {
@@ -29,6 +34,29 @@ async function requireTravelPackStaff() {
   if (user.status !== "Active" || toAppRole(user.role) === "agent")
     throw new Error("Only active Admin or Staff can file the post-issuance Travel pack.");
   return user;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PART_ID = /^(?:\d+(?:\.\d+)*)?$/;
+
+class TravelReferenceInputError extends Error {}
+
+function referenceSlot(value: unknown): TravelPackReferenceKey {
+  const slot = TRAVEL_PACK_REFERENCE_SLOTS.find((candidate) => candidate.key === value);
+  if (!slot) throw new TravelReferenceInputError("Choose a valid reference category.");
+  return slot.key;
+}
+
+function referenceId(value: unknown, message: string): string {
+  if (typeof value !== "string" || !UUID.test(value)) throw new TravelReferenceInputError(message);
+  return value;
+}
+
+/** Only fixed, reviewed messages reach the browser. */
+function referenceActionError(error: unknown, fallback: string): string {
+  return error instanceof TravelReferenceInputError || error instanceof RepositoryError || error instanceof InboxReviewError
+    ? error.message
+    : error instanceof Error && error.message.startsWith("Only active Admin or Staff") ? error.message : fallback;
 }
 
 /** New Travel Quote (modals.md §7) — creates a per-trip travel request. */
@@ -73,6 +101,8 @@ export interface TravelWorkflowPayload {
   payments: Payment[];
   documents: DocumentRecord[];
   referenceDocuments: ResolvedTravelPackReference[];
+  /** Supplementary references recorded from actual Inbox attachments, keyed by slot. */
+  referenceAttachments: TravelReferenceAttachment[];
   canFilePostIssuance: boolean;
   portalUrl: string | null;
 }
@@ -90,7 +120,7 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
     }
     const workflows = getCarrierWorkflowsRepository();
     const today = new Date().toISOString().slice(0, 10);
-    const [travelers, requirements, payments, documents, libraryDocuments, portal] = await Promise.all([
+    const [travelers, requirements, payments, documents, libraryDocuments, portal, referenceAttachments] = await Promise.all([
       workflows.listTravelers(id),
       workflows.listTravelRequirements(id),
       getPaymentsRepository().listByTravelRequest(id),
@@ -102,6 +132,7 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
         onDate: today,
       }),
       getIntegrationSettingsRepository().getTravelPortal(),
+      getTravelRepository().listReferenceAttachments(user.id, id),
     ]);
     return {
       ok: true,
@@ -112,6 +143,7 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
         payments,
         documents,
         referenceDocuments: resolveTravelPackReferences(libraryDocuments, today),
+        referenceAttachments,
         canFilePostIssuance: toAppRole(user.role) !== "agent",
         portalUrl: portal?.portalUrl ?? null,
       },
@@ -223,5 +255,74 @@ export async function updateTravelRequirementAction(travelRequestId: string, req
     return { ok: true, data: null };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to update Travel requirement." };
+  }
+}
+
+export async function listTravelReferenceCandidatesAction(
+  travelRequestId: string,
+  options?: { search?: string; offset?: number },
+): Promise<ActionResult<TravelReferenceCandidatePage>> {
+  try {
+    const actor = await requireTravelPackStaff();
+    const id = referenceId(travelRequestId, "Travel request not found.");
+    const search = typeof options?.search === "string" ? options.search.trim() : "";
+    const offset = options?.offset ?? 0;
+    if (search.length > 200 || !Number.isSafeInteger(offset) || offset < 0 || offset > 2_147_483_600)
+      throw new TravelReferenceInputError("Choose a valid search or page.");
+    return { ok: true, data: await getTravelRepository().listReferenceCandidates(actor.id, id, search, offset) };
+  } catch (error) {
+    return { ok: false, error: referenceActionError(error, "Email attachments could not be loaded. Retry to check available files.") };
+  }
+}
+
+/**
+ * Links an existing Inbox attachment part to one reference slot. Nothing is uploaded or copied,
+ * and no checklist, payment, policy number or portal status changes.
+ */
+export async function recordTravelReferenceAttachmentAction(input: {
+  travelRequestId: string;
+  slot: TravelPackReferenceKey;
+  messageId: string;
+  partId: string;
+  confirmClientLevel: boolean;
+}): Promise<ActionResult<TravelReferenceAttachment[]>> {
+  try {
+    const actor = await requireTravelPackStaff();
+    const travelRequestId = referenceId(input?.travelRequestId, "Travel request not found.");
+    const messageId = referenceId(input?.messageId, "Choose a valid email attachment.");
+    const slot = referenceSlot(input?.slot);
+    if (typeof input.partId !== "string" || input.partId.length > 255 || !PART_ID.test(input.partId) || typeof input.confirmClientLevel !== "boolean")
+      throw new TravelReferenceInputError("Choose a valid email attachment.");
+    // Prove the actual original can be retrieved (stored copy first, otherwise Gmail) before
+    // recording a link to it. The bytes are not stored again.
+    try {
+      await getRequirementAttachmentOriginal(messageId, input.partId);
+    } catch (error) {
+      return { ok: false, error: error instanceof InboxReviewError ? error.message : "The original attachment could not be retrieved. Check the Gmail connection and retry; the current reference is unchanged." };
+    }
+    const repository = getTravelRepository();
+    await repository.setReferenceAttachment(actor.id, { travelRequestId, slot, messageId, partId: input.partId, confirmClientLevel: input.confirmClientLevel });
+    const travel = await repository.findById(travelRequestId);
+    revalidatePath("/travel");
+    if (travel) revalidatePath(`/clients/${travel.clientId}`);
+    return { ok: true, data: await repository.listReferenceAttachments(actor.id, travelRequestId) };
+  } catch (error) {
+    return { ok: false, error: referenceActionError(error, "The Travel reference could not be saved. Refresh the workflow and try again.") };
+  }
+}
+
+/** Removes only the association; the email, its original and the checklist are untouched. */
+export async function unlinkTravelReferenceAttachmentAction(travelRequestId: string, slot: TravelPackReferenceKey): Promise<ActionResult<TravelReferenceAttachment[]>> {
+  try {
+    const actor = await requireTravelPackStaff();
+    const id = referenceId(travelRequestId, "Travel request not found.");
+    const repository = getTravelRepository();
+    await repository.unlinkReferenceAttachment(actor.id, id, referenceSlot(slot));
+    const travel = await repository.findById(id);
+    revalidatePath("/travel");
+    if (travel) revalidatePath(`/clients/${travel.clientId}`);
+    return { ok: true, data: await repository.listReferenceAttachments(actor.id, id) };
+  } catch (error) {
+    return { ok: false, error: referenceActionError(error, "The Travel reference could not be unlinked. Refresh the workflow and try again.") };
   }
 }

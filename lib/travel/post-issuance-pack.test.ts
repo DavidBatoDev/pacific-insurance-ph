@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LibraryDocument } from "@/lib/repositories/document-library";
-import { resolveTravelPackReferences } from "./post-issuance-pack";
+import { resolveTravelPackReferences, suggestTravelReferenceSlot } from "./post-issuance-pack";
 
 const TODAY = "2026-10-13";
 
@@ -102,5 +102,31 @@ describe("resolveTravelPackReferences", () => {
     ], TODAY);
 
     expect(references[0].documents.map(({ id }) => id)).toEqual(["same-date-a", "same-date-b", "boundary", "old", "null-date"]);
+  });
+});
+
+describe("suggestTravelReferenceSlot", () => {
+  it("suggests each category only from clear Travel reference file names", () => {
+    expect(suggestTravelReferenceSlot("Travel Emergency Numbers 2026.pdf")).toBe("emergency-numbers");
+    expect(suggestTravelReferenceSlot("EMERGENCY_ASSISTANCE_HOTLINE.PDF")).toBe("emergency-numbers");
+    expect(suggestTravelReferenceSlot("TravelSafe COVID-19 Coverage.pdf")).toBe("covid-coverage");
+    expect(suggestTravelReferenceSlot("covid19_benefit_endorsement.PDF")).toBe("covid-coverage");
+    expect(suggestTravelReferenceSlot("NOC Travelsafe Insurance_2026-02 (February 02)[67].pdf")).toBe("notification-of-claim");
+    expect(suggestTravelReferenceSlot("TravelSafe Notification of Claim.pdf")).toBe("notification-of-claim");
+  });
+
+  it("never treats health questionnaires, the medical NOC or application forms as references", () => {
+    expect(suggestTravelReferenceSlot("COVID Recovery Questionnaire.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("COVID-19 vaccination coverage card.jpg")).toBeNull();
+    expect(suggestTravelReferenceSlot("covid test result.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("NOC.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("Travel Application Form NOC.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("Travel Application Form (A4)_2026-01.pdf")).toBeNull();
+  });
+
+  it("does not match words inside other words or guess between categories", () => {
+    expect(suggestTravelReferenceSlot("knockout emergency.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("passport.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("Travel emergency numbers and COVID coverage.pdf")).toBeNull();
   });
 });

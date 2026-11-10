@@ -13,3 +13,4 @@ export function getTravelRepository(): TravelRepository {
 
 export type { TravelRepository } from "./travel.repository";
 export type { TravelRequest, NewTravelRequest, TravelRequestUpdate } from "./travel-request.entity";
+export type { SetTravelReferenceInput, TravelReferenceAttachment, TravelReferenceCandidate, TravelReferenceCandidatePage } from "./travel-reference.entity";
