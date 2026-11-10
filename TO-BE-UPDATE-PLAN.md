@@ -1464,6 +1464,10 @@ here has been decided on anyone's behalf.
     gap (age, gender, birth date) after the policy-number corrections.
   - **Gated on:** the **NDA being signed**, then Eman sharing the Schedule 2 pages with the
     passwords removed. Never commit extracted data or source PDFs to either repo (R4).
+  - **Proposed change (2026-11-09, awaiting Matt):** under
+    `../docs/sensitive-data-handling-proposal.md`, Eman uploads the PDFs and confirms the extracted
+    fields in the app on the live system; developers build and test the extractor on fake PDFs only.
+    The same applies to the D1 workbook import.
 
 ### H2 — Proposals
 
@@ -1705,18 +1709,168 @@ The meeting's synthesis applies here most: **the app must not make Eman type cli
     returns it signed with a passport copy. Some signed forms are hard to read, which is why
     reading them automatically is out of scope.
 
-- [ ] **H6e. File the full post-issuance pack, not just the policy.** After payment, Pacific Cross
-  emails the policy within about 5 minutes. The email contains:
-  1. the insurance policy;
-  2. the completed application form;
-  3. three reference documents ("Travel Insurance Complete Numbers", "Covid-19 Coverage…", "NOC
-     TravelSafe Insurance").
+- [x] **H6e. File the primary Travel originals; record supplementary attachments from Inbox.**
+  ✅ *Done 2026-11-09: migration `0067_travel_reference_inbox_links` (`20261109080122`), Travel
+  workflow `Supplementary references (optional)` with `Record from Inbox` / `Change attachment` /
+  `Unlink`, and the Inbox correction blocker. Verified with tagged synthetic QA records; see
+  `docs/development-alignment.md`. Not deployed.*
+  **Scope clarified by the user on 2026-11-07.** Implement in the existing Travel workflow's
+  policy-issuance/post-issuance area, not a new creation step. This supersedes the earlier
+  manual-filename-field proposal; do not implement its three text columns or `Save filename`.
+  - **Primary originals:** keep actual PDFs for the issued Travel policy and carrier-completed
+    application copy. The latter contains the portal-encoded details and remains separate from
+    the client's signed intake. Supplementary links or filename text cannot replace these originals.
+  - **Supplementary references:** emergency/contact information, COVID-19 coverage and TravelSafe NOC
+    are optional associations to real Inbox attachments. Filename matching suggests categories and
+    candidates; the recorded identity is the message ID plus attachment part ID, not text alone.
+    No second upload or duplicate stored copy is needed. The two unavailable reference PDFs are
+    no longer external blockers or items to request separately from Eman.
+  - **Truthful states:** a saved link shows `Recorded from Inbox`, its source filename/email/date
+    and authorized original access; no link shows `Not linked` neutrally. `Recorded` means the
+    actual Inbox source is linked, not that another copy is stored locally. Known stale/unavailable
+    sources must remain explicit errors, not silently replaced by a similar filename.
+  - **Source boundaries:** use correspondence released to the same trip, or client-level
+    correspondence explicitly confirmed for that trip. Reject foreign clients and other-trip
+    sources. Never infer ownership from filenames or sender text, auto-release unassigned mail,
+    or confuse a COVID recovery questionnaire with Travel COVID coverage.
+  - **Current implementation:** policy/application originals and guarded library downloads exist;
+    original uploads, hashes and permission/isolation checks were verified 2026-11-06. Inbox also
+    already exposes authorized message/part metadata and stored/Gmail original retrieval.
+    **Implemented 2026-11-09:** trip/reference Inbox associations, eligibility-first candidate
+    selection with filename suggestions, record/change/unlink controls, Agent read-only view and
+    separate `Library copy` downloads.
+  - **Invariants:** preserve the `Issued` policy-number gate and all payment/checklist state.
+    No fake `documents` rows, filename-derived paths, new reference-PDF prerequisite, outbound
+    send or automatic historical-mail backfill.
+  - **Canonical contract:** `../docs/web/pages.md` §8, `../docs/web/modals.md` §7 and
+    `../docs/web/data-model.md` Travel supplementary-reference links.
 
-  - Eman sends it to their own address rather than straight to the client, because the
-    attachments are password-protected and some clients can't open them.
-  - **Implemented in this worktree:** the Travel workflow files issued-policy and carrier-completed-application uploads as independent trip documents, reloads them from the trip, and renders the three fixed shared-reference slots through an authenticated pack-only download route. The signed intake application and its requirement status remain independent.
-  - **Carrier catalog state:** the active approved `TravelSafe Notification of Claim` is linked when eligible. Emergency-numbers and COVID-19 coverage remain explicit unavailable states until Admin uploads and approves the two actual carrier PDFs as TravelSafe / All Ages / `Reference Document` with variants `Travel pack: emergency-numbers` and `Travel pack: covid-coverage`; no substitute assets or dates were fabricated.
-  - **Verification:** resolver boundary tests, full unit suite and TypeScript check pass. Authenticated browser, upload/download, client-isolation and permission smoke checks remain unrun because local Playwright test credentials are not configured.
+  **Implementation plan — policy issuance step (revised 2026-11-09, executed 2026-11-09):**
+
+  *Changes since the 2026-11-07 draft:* Inbox link corrections (`0065`) now exist and can move an
+  email to another record, so a reference link is a correction dependency (step 2). Candidate listing
+  is a dedicated eligibility-first RPC rather than a client-wide filter (step 1). QA follows
+  `../docs/sensitive-data-handling-proposal.md` (step 5).
+
+  1. **Reuse source identities and category suggestions, not manual filename fields.**
+     - Reuse `TravelPackReferenceKey` / `TRAVEL_PACK_REFERENCE_SLOTS` from
+       `lib/travel/post-issuance-pack.ts` and Inbox's `(messageId, partId)` attachment identity.
+       Add named source/link DTOs; derive display filenames from server-read Inbox metadata.
+     - Add conservative case-insensitive filename-based candidate suggestions to the existing
+       pure pack module. Suggestions are not saved links or content verification. Show the
+       source email and preview; multiple plausible matches require staff selection.
+     - Add service-role-only `list_travel_reference_candidates(p_actor_id, p_travel_request_id,
+       p_search, p_offset)`. It returns only parts of messages the actor can read, owned by the
+       trip's client and linked either to this trip or at client level, and applies that filter
+       **before** pagination (25 per page, as in the existing picker). Each item carries
+       `messageId`, `partId`, filename, MIME type, size, subject, sender, received date, stored-
+       original flag and `clientLevel` (needs confirmation). Other trips, other clients and
+       unassigned mail never appear. Reuse the existing picker's email-list and preview UI patterns,
+       not its checklist-receipt finalizer.
+
+  2. **Persist one source association per trip/category, with atomic audit.**
+     - Inspect actual tables and both migration ledgers before choosing the next source number.
+       `0065`/`0066` are now used by Inbox corrections; use `0067_travel_reference_inbox_links.sql`
+       or the next free number. The superseded filename-column migration was never created or applied.
+     - Add `travel_pack_reference_attachments` with primary key `(travel_request_id, slot)`,
+       foreign keys to `travel_requests` and `gmail_inbox_messages`, `part_id`, a server-captured
+       `file_name_snapshot`, and `linked_by` / `linked_at`. Index FK lookups. Limit slots to the
+       existing three keys. Require real source identities; do not create empty placeholder rows.
+       Part metadata is stored in Inbox JSON, so validate actual part existence explicitly.
+     - Keep RLS enabled and browser roles denied direct table writes/reads. Add a narrow
+       service-role-only link/unlink RPC with `SECURITY INVOKER`, empty search path, qualified
+       names and EXECUTE revoked from PUBLIC/anon/authenticated. Recheck active real Admin/Staff,
+       trip/client/source ownership, existing Inbox visibility and valid part metadata under
+       locks following existing Inbox lock order/helpers. Client-level sources need explicit
+       trip confirmation; foreign-client/other-trip sources always fail closed.
+     - The link RPC locks the source message row first (`FOR UPDATE`), matching the first lock
+       taken by Inbox filing and `correct_gmail_inbox_message`, then the trip, then the slot row.
+       This serializes linking with Inbox corrections.
+     - **Inbox correction dependency:** in the same migration, `create or replace`
+       `preview_gmail_inbox_correction` with its `0065` body plus one blocker: "This email is
+       recorded as a Travel supplementary reference on TRV-…. Unlink it in the Travel workflow before
+       correcting this email." Commit already re-runs preview under the message lock, so a link
+       saved after the review also blocks the correction. Signature and types are unchanged.
+     - Save/change one slot at a time; removing it deletes only the association. Same-source
+       replay is a no-op; different-slot edits preserve both. Atomically audit previous/new
+       source IDs and filenames, slot, trip and actor, with an internal
+       `travel.reference_attachment_linked` or `travel.reference_attachment_unlinked` event.
+       No upload/Received/Verified evidence is fabricated. Use non-retryable validation errors,
+       not custom SQLSTATE 40001. Unlink never deletes email, stored originals or shared usages.
+     - Apply hosted DDL through the repository's migration workflow, genuinely regenerate
+       `lib/supabase/types.ts`, and verify table/FK/RPC permissions and advisors.
+
+  3. **Wire authorized source selection, persistence and original retrieval.**
+     - Extend `lib/repositories/travel/travel.repository.ts`,
+       `travel.repository.supabase.ts` and named type exports for listing/set/unlink of reference
+       associations. Keep them outside generic `TravelRequestUpdate` financial/status patches.
+       No `TravelRequest.referenceFileNames` field or three free-text columns are needed.
+     - In `app/(app)/travel/actions.ts`, add paginated candidate listing plus
+       `recordTravelReferenceAttachmentAction({ travelRequestId, slot, messageId, partId,
+       confirmClientLevel })` and `unlinkTravelReferenceAttachmentAction({ travelRequestId, slot })`.
+       Validate real active Admin/Staff and trip access inside every directly callable mutation;
+       validate UUIDs, slot and actual part ID, including the valid empty root part.
+       Never accept actor, ownership, filename or storage path as trusted browser input.
+     - Use `getScopedInboxMessage` from `lib/gmail/review.ts` for source visibility and
+       `getRequirementAttachmentOriginal` from `lib/documents/requirement-attachments.ts` to
+       confirm the original can actually be retrieved before saving a new/replacement link.
+       This reuses existing Storage bytes when present, otherwise Gmail; no re-upload/copy or
+       checklist receipt call. Source/permission failures preserve the previous association.
+       The write RPC rechecks current source metadata and authorization after external retrieval.
+     - Extend `TravelWorkflowPayload` with a batch-loaded `referenceAttachments` projection,
+       keyed by slot. Recheck both current trip access and source visibility before serializing
+       source descriptors; do not leak an inaccessible filename snapshot. Preserve assigned-client
+       Agent read-only scope and real `canFilePostIssuance`. Do not refetch all attachment bytes
+       on every workflow load or silently substitute another part when the source disappears.
+     - Reuse `/api/requirement-attachments/[id]/[part]/preview` and `/download`, and the Inbox
+       original download route, with their current independent authorization, 25 MiB limit,
+       signature-safe rendering and private/no-store response behavior. URLs use saved source IDs,
+       never filenames; the empty part becomes `__root__` only in the URL. Keep optional library
+       downloads on the existing guarded Travel pack route. Revalidate `/travel` and linked client
+       after successful association changes; recording a reference does not dispatch an email.
+
+  4. **Integrate Inbox-linked rows in the existing issuance area.**
+     - Edit `components/hub/overlays/travel-workflow.tsx` beside the two primary PDF controls.
+       Render `Supplementary references (optional)` with `Record from Inbox`, `Change attachment`
+       and `Unlink`, using the existing device/email picker's email-selection/preview patterns.
+       Reuse/refactor its source-list UI only as needed; do not invoke `attachRequirementSelection`
+       or its document-copy/requirement-receipt finalizer for these optional references.
+     - Show `Recorded from Inbox` plus original filename, source email/date, `View email`,
+       supported `Preview` and `Download original`; show `Not linked` for empty slots.
+       Surface known original-unavailable errors honestly. Keep genuine `Library copy` links
+       separate, without claiming they are the same version as the selected email attachment.
+     - Save each association independently of `Save workflow`. Retain selection, prior link,
+       other slot drafts and unsaved portal/payment inputs on validation/access/network failure.
+       Unlink affects no original or checklist; allow corrections after issuance. Agent remains
+       read-only, including under a forged persona preview. Support long filenames at 390px.
+
+  5. **Prove source identity, access and workflow invariants.**
+     - Extend `lib/travel/post-issuance-pack.test.ts` with candidate/ambiguity boundaries:
+       COVID coverage versus recovery questionnaire, NOC versus application form, case/extension
+       variations, duplicate filenames with different message/part IDs, and unrelated trips.
+       Retain real library product/approval/date/age and NOC eligibility coverage; remove
+       wording/default-slot-only assertions rather than repinning obsolete UI labels.
+     - Rollback SQL/direct actions: browser RPC denial; inactive/Agent/foreign-client/other-trip
+       rejection; client-level confirmation; valid root part; forged/stale part rejection;
+       no-op replay audits once; concurrent different-slot updates; unlink preserves all sources.
+       Snapshot money/currency/status/policy/checklist/originals before and after association edits.
+     - **QA environment:** if the separate development project from
+       `../docs/sensitive-data-handling-proposal.md` exists, run all QA there. Otherwise use newly
+       tagged disposable QA users, trips, synthetic Inbox correspondence and clearly synthetic PDFs
+       on the shared project, as for the Inbox correction work. Never use real-client files.
+       Verify stored-original reuse with matching hashes; exercise the Gmail-original path only
+       with an explicitly authorized QA provider message, or report that limit.
+     - Correction interaction: a linked email shows the Travel-reference blocker in `Correct link`;
+       after `Unlink` the correction proceeds; a link saved between review and commit blocks commit.
+     - File policy/application originals; select and record two Inbox reference attachments without
+       a second upload; leave one unlinked. Close/reopen, change and unlink; verify exact source
+       identity, neutral optional state, genuine original access, no duplicate Storage/Documents,
+       no cross-trip carry-over, and independent signed intake. Exercise missing original,
+       unavailable provider, stale/ambiguous matches, error retention and forged direct URLs.
+     - Check desktop/390px/error surfaces; run `npm test` and `npx tsc --noEmit`. Record migration,
+       actual exercised paths and advisors; remove only tagged QA fixtures and private scripts.
+       Never modify Joshua Mistal/other real clients, send emails, backfill a mailbox, create a
+       paid branch, change financial rules or deploy as part of this slice.
 
 - [x] **H6f. Travel payment tracking: mostly already done.** ✅ *Done 2026-10-06 (`ff1e088`): a Payment method select (Card / GCash / Over the counter, column `travel_requests.portal_payment_method`, migration `0046`) in the workflow's Portal processing, also shown under the premium on the Travel list. Playwright-verified.*
   - **Current state:** the portal modal records portal reference, amount and status
