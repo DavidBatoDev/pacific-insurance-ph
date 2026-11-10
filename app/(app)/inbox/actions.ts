@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/actions/context";
 import { fileInboxAttachment } from "@/lib/gmail/filing";
+import { correctInboxMessage, previewInboxCorrection } from "@/lib/gmail/correction";
 import { getScopedInboxMessage, InboxReviewError, linkInboxMessage, requireInboxActor } from "@/lib/gmail/review";
-import type { FilingPurpose, InboxTargetKind } from "@/lib/repositories/inbox/inbox.entity";
+import type { FilingPurpose, InboxCorrectionImpact, InboxCorrectionInput, InboxCorrectionTarget, InboxTargetKind } from "@/lib/repositories/inbox/inbox.entity";
 
 export async function linkInboxMessageAction(messageId: string, target: { kind: InboxTargetKind; id: string }): Promise<ActionResult<string>> {
   try {
@@ -36,5 +37,33 @@ export async function fileInboxAttachmentAction(
     return { ok: true, data: documentId };
   } catch (error) {
     return { ok: false, error: error instanceof InboxReviewError ? error.message : "The PDF could not be filed. Check the Gmail connection, linked record's current workflow state, and checklist selection, then retry. An existing filing cannot be changed to a different purpose." };
+  }
+}
+
+export async function previewInboxCorrectionAction(
+  messageId: string,
+  target: InboxCorrectionTarget,
+): Promise<ActionResult<InboxCorrectionImpact>> {
+  try {
+    return { ok: true, data: await previewInboxCorrection(messageId, target) };
+  } catch (error) {
+    return { ok: false, error: error instanceof InboxReviewError ? error.message : "The correction impact could not be loaded. Refresh and review the current email association." };
+  }
+}
+
+export async function correctInboxMessageAction(input: InboxCorrectionInput): Promise<ActionResult<string>> {
+  try {
+    const actor = await requireInboxActor();
+    if (actor.appRole !== "admin") throw new InboxReviewError("Only an active Admin can correct an email association.", 403);
+    const before = await getScopedInboxMessage(input.messageId, actor.id);
+    const communicationId = await correctInboxMessage(input);
+    revalidatePath("/inbox");
+    revalidatePath("/documents");
+    revalidatePath("/clients", "layout");
+    if (before.clientId) revalidatePath(`/clients/${before.clientId}`);
+    for (const path of ["/prospects", "/applications", "/claims", "/travel", "/policies", "/renewals"]) revalidatePath(path);
+    return { ok: true, data: communicationId };
+  } catch (error) {
+    return { ok: false, error: error instanceof InboxReviewError ? error.message : "The correction result could not be loaded. Refresh the email and review its current association before retrying." };
   }
 }

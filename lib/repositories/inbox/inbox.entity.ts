@@ -6,6 +6,7 @@ export interface InboxTarget {
   id: string;
   clientId: string;
   label: string;
+  status: string;
   participants: string[];
 }
 
@@ -98,4 +99,54 @@ export interface FileInboxAttachmentInput {
   fileName: string;
   purpose: FilingPurpose;
   requirementId: string | null;
+}
+
+export interface InboxCorrectionTarget {
+  kind: InboxTargetKind;
+  id: string;
+}
+
+export interface InboxCorrectionUsage {
+  id: string;
+  documentId: string;
+  kind: "application" | "claim" | "travel";
+  recordId: string;
+  requirementId: string;
+  label: string;
+  status: string;
+  hasOtherEvidence: boolean;
+  canDetach: boolean;
+  blockers: string[];
+}
+
+export interface InboxCorrectionFiling {
+  partId: string;
+  fileName: string;
+  documentId: string;
+  purpose: FilingPurpose;
+  target: InboxTarget | null;
+  usages: InboxCorrectionUsage[];
+  canMove: boolean;
+  blockers: string[];
+}
+
+export interface InboxCorrectionImpact {
+  messageId: string;
+  revision: string;
+  currentTarget: InboxTarget;
+  target: InboxTarget;
+  crossClient: boolean;
+  filings: InboxCorrectionFiling[];
+  targetRequirements: { id: string; label: string; status: string }[];
+  blockers: string[];
+}
+
+export interface InboxCorrectionInput {
+  messageId: string;
+  target: InboxCorrectionTarget;
+  revision: string;
+  reason: string;
+  confirmCrossClient: boolean;
+  filings: { partId: string; action: "keep" | "move"; requirementId: string | null }[];
+  receipts: { usageId: string; action: "keep" | "detach"; remainingStatus: "Pending" | "Incomplete" | null }[];
 }

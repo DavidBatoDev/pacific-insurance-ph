@@ -3,7 +3,7 @@ import { extractCrmReferences, suggestInboxTargets } from "./matching";
 import type { InboxTarget } from "@/lib/repositories/inbox/inbox.entity";
 
 const target = (id: string, clientId = "client-a", kind: InboxTarget["kind"] = "application"): InboxTarget => ({
-  id, clientId, kind, label: `Application APP-2026-${id} · Ada Santos`, participants: ["ada@example.com"],
+  id, clientId, kind, label: `Application APP-2026-${id} · Ada Santos`, status: "Pending", participants: ["ada@example.com"],
 });
 const message = {
   subject: "Re: APP-2026-00001", bodyText: "Attached for review.", fromAddress: "ada@example.com",

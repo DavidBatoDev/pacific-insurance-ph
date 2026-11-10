@@ -24,4 +24,9 @@ export type {
   CommitInboxSyncInput,
   InboxNotificationInput,
   FileInboxAttachmentInput,
+  InboxCorrectionTarget,
+  InboxCorrectionUsage,
+  InboxCorrectionFiling,
+  InboxCorrectionImpact,
+  InboxCorrectionInput,
 } from "./inbox.entity";

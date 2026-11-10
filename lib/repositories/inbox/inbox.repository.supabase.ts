@@ -7,6 +7,11 @@ import type {
   CommitInboxSyncInput,
   EnableInboxSyncInput,
   FileInboxAttachmentInput,
+  InboxCorrectionImpact,
+  InboxCorrectionInput,
+  InboxCorrectionTarget,
+  InboxCorrectionUsage,
+  FilingPurpose,
   InboxAttachment,
   InboxMessage,
   InboxNotificationInput,
@@ -53,10 +58,10 @@ function targetKind(value: string): InboxTargetKind {
 }
 
 function toTarget(row: TargetRow): InboxTarget {
-  return { kind: targetKind(row.kind), id: row.id, clientId: row.client_id, label: row.label, participants: row.participants };
+  return { kind: targetKind(row.kind), id: row.id, clientId: row.client_id, label: row.label, status: row.status, participants: row.participants };
 }
 
-function object(value: Json): { [key: string]: Json | undefined } {
+function object(value: Json | undefined): { [key: string]: Json | undefined } {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw persistenceError("decodeMessage", "inbox_invalid_data");
   }
@@ -109,6 +114,72 @@ function toMessage(row: MessageRow): InboxMessage {
     linkedAt: row.linked_at,
     createdAt: row.created_at,
     filedParts: filedParts(row.filed_parts),
+  };
+}
+
+function text(value: Json | undefined): string {
+  if (typeof value !== "string") throw persistenceError("decodeCorrection", "inbox_invalid_data");
+  return value;
+}
+
+function boolean(value: Json | undefined): boolean {
+  if (typeof value !== "boolean") throw persistenceError("decodeCorrection", "inbox_invalid_data");
+  return value;
+}
+
+function array(value: Json | undefined): Json[] {
+  if (!Array.isArray(value)) throw persistenceError("decodeCorrection", "inbox_invalid_data");
+  return value;
+}
+
+function correctionTarget(value: Json | undefined): InboxTarget {
+  const row = object(value);
+  return {
+    kind: targetKind(text(row.kind)), id: text(row.id), clientId: text(row.clientId),
+    label: text(row.label), status: text(row.status), participants: array(row.participants).map(text),
+  };
+}
+
+function filingPurpose(value: Json | undefined): FilingPurpose {
+  switch (value) {
+    case "document": case "proposal": case "application_requirement": case "claim_requirement":
+    case "travel_requirement": case "travel_policy": case "travel_application_copy": return value;
+    default: throw persistenceError("decodeCorrection", "inbox_invalid_data");
+  }
+}
+
+function correctionUsage(value: Json): InboxCorrectionUsage {
+  const row = object(value);
+  const kind = targetKind(text(row.kind));
+  if (kind !== "application" && kind !== "claim" && kind !== "travel")
+    throw persistenceError("decodeCorrection", "inbox_invalid_data");
+  return {
+    id: text(row.id), documentId: text(row.documentId), kind, recordId: text(row.recordId),
+    requirementId: text(row.requirementId), label: text(row.label), status: text(row.status),
+    hasOtherEvidence: boolean(row.hasOtherEvidence), canDetach: boolean(row.canDetach),
+    blockers: array(row.blockers).map(text),
+  };
+}
+
+function correctionImpact(value: Json): InboxCorrectionImpact {
+  const row = object(value);
+  return {
+    messageId: text(row.messageId), revision: text(row.revision),
+    currentTarget: correctionTarget(row.currentTarget), target: correctionTarget(row.target),
+    crossClient: boolean(row.crossClient), blockers: array(row.blockers).map(text),
+    targetRequirements: array(row.targetRequirements).map((value) => {
+      const item = object(value);
+      return { id: text(item.id), label: text(item.label), status: text(item.status) };
+    }),
+    filings: array(row.filings).map((value) => {
+      const item = object(value);
+      return {
+        partId: text(item.partId), fileName: text(item.fileName), documentId: text(item.documentId),
+        purpose: filingPurpose(item.purpose), canMove: boolean(item.canMove),
+        blockers: array(item.blockers).map(text), usages: array(item.usages).map(correctionUsage),
+        target: item.target === null ? null : correctionTarget(item.target),
+      };
+    }),
   };
 }
 
@@ -206,6 +277,27 @@ export class SupabaseInboxRepository implements InboxRepository {
   async fileAttachment(input: FileInboxAttachmentInput): Promise<string> {
     const { data, error } = await getSupabaseAdmin().rpc("file_gmail_inbox_attachment", { p_input: { ...input } });
     if (error) throw persistenceError("fileAttachment", error.code);
+    return data;
+  }
+
+  async previewCorrection(messageId: string, target: InboxCorrectionTarget, actorId: string): Promise<InboxCorrectionImpact> {
+    const { data, error } = await getSupabaseAdmin().rpc("preview_gmail_inbox_correction", {
+      p_actor_id: actorId, p_message_id: messageId, p_kind: target.kind, p_target_id: target.id,
+    });
+    if (error) throw persistenceError("previewCorrection", error.code);
+    return correctionImpact(data);
+  }
+
+  async correctMessage(input: InboxCorrectionInput, actorId: string): Promise<string> {
+    const { data, error } = await getSupabaseAdmin().rpc("correct_gmail_inbox_message", {
+      p_actor_id: actorId,
+      p_input: {
+        ...input, target: { ...input.target },
+        filings: input.filings.map((filing) => ({ ...filing })),
+        receipts: input.receipts.map((receipt) => ({ ...receipt })),
+      },
+    });
+    if (error) throw persistenceError("correctMessage", error.code);
     return data;
   }
 }

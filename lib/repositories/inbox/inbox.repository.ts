@@ -2,6 +2,9 @@ import type {
   CommitInboxSyncInput,
   EnableInboxSyncInput,
   FileInboxAttachmentInput,
+  InboxCorrectionImpact,
+  InboxCorrectionInput,
+  InboxCorrectionTarget,
   InboxMessage,
   InboxNotificationInput,
   InboxSyncState,
@@ -25,4 +28,6 @@ export interface InboxRepository {
   linkMessage(messageId: string, target: { kind: InboxTargetKind; id: string }, actorId: string): Promise<string>;
   getThreadTarget(googleSubject: string, gmailThreadId: string): Promise<InboxTarget | null>;
   fileAttachment(input: FileInboxAttachmentInput): Promise<string>;
+  previewCorrection(messageId: string, target: InboxCorrectionTarget, actorId: string): Promise<InboxCorrectionImpact>;
+  correctMessage(input: InboxCorrectionInput, actorId: string): Promise<string>;
 }

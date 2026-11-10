@@ -1776,6 +1776,60 @@ export type Database = {
           },
         ]
       }
+      gmail_inbox_corrections: {
+        Row: {
+          actor_id: string
+          after_state: Json | null
+          before_state: Json
+          created_at: string
+          dispositions: Json
+          id: string
+          message_id: string
+          reason: string
+          revision: string
+          transaction_id: number
+        }
+        Insert: {
+          actor_id: string
+          after_state?: Json | null
+          before_state: Json
+          created_at?: string
+          dispositions: Json
+          id?: string
+          message_id: string
+          reason: string
+          revision: string
+          transaction_id?: number
+        }
+        Update: {
+          actor_id?: string
+          after_state?: Json | null
+          before_state?: Json
+          created_at?: string
+          dispositions?: Json
+          id?: string
+          message_id?: string
+          reason?: string
+          revision?: string
+          transaction_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_inbox_corrections_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_inbox_corrections_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_inbox_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gmail_inbox_filings: {
         Row: {
           document_id: string
@@ -3914,6 +3968,61 @@ export type Database = {
           },
         ]
       }
+      travel_pack_reference_attachments: {
+        Row: {
+          client_level: boolean
+          file_name_snapshot: string
+          linked_at: string
+          linked_by: string
+          message_id: string
+          part_id: string
+          slot: string
+          travel_request_id: string
+        }
+        Insert: {
+          client_level: boolean
+          file_name_snapshot: string
+          linked_at?: string
+          linked_by: string
+          message_id: string
+          part_id: string
+          slot: string
+          travel_request_id: string
+        }
+        Update: {
+          client_level?: boolean
+          file_name_snapshot?: string
+          linked_at?: string
+          linked_by?: string
+          message_id?: string
+          part_id?: string
+          slot?: string
+          travel_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travel_pack_reference_attachments_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travel_pack_reference_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travel_pack_reference_attachments_travel_request_id_fkey"
+            columns: ["travel_request_id"]
+            isOneToOne: false
+            referencedRelation: "travel_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       travel_request_requirements: {
         Row: {
           applies_to: string | null
@@ -4715,6 +4824,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      correct_gmail_inbox_message: {
+        Args: { p_actor_id: string; p_input: Json }
+        Returns: string
+      }
       delete_document_safely: {
         Args: { p_actor_id: string; p_document_id: string }
         Returns: Json
@@ -4875,6 +4988,7 @@ export type Database = {
           kind: string
           label: string
           participants: string[]
+          status: string
         }[]
       }
       get_gmail_outbound_email: {
@@ -4933,6 +5047,141 @@ export type Database = {
       gmail_inbox_actor_can_read: {
         Args: { p_actor_id: string; p_client_id: string }
         Returns: boolean
+      }
+      gmail_inbox_correction_document_target: {
+        Args: { p_document_id: string }
+        Returns: Json
+      }
+      gmail_inbox_correction_documents: {
+        Args: { p_message_id: string }
+        Returns: {
+          application_id: string | null
+          application_requirement_id: string | null
+          claim_id: string | null
+          claim_requirement_id: string | null
+          client_id: string | null
+          commission_id: string | null
+          created_at: string
+          document_type: string | null
+          file_path: string | null
+          id: string
+          name: string
+          notes: string | null
+          policy_id: string | null
+          reference_no: string | null
+          renewal_id: string | null
+          source_library_document_id: string | null
+          status: string
+          travel_request_id: string | null
+          travel_requirement_id: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+          version: number
+          visibility: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "documents"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      gmail_inbox_correction_file_blockers: {
+        Args: { p_message_id: string; p_path: string }
+        Returns: string[]
+      }
+      gmail_inbox_correction_outbound: {
+        Args: { p_message_id: string }
+        Returns: {
+          acceptance_metadata: Json
+          accepted_at: string | null
+          actor_id: string
+          attachments: Json
+          body: string
+          client_id: string
+          communication_id: string
+          created_at: string
+          dispatch_started_at: string | null
+          dispatch_token: string | null
+          effects_applied_at: string | null
+          error_code: string | null
+          external_contact_id: string | null
+          generation: number
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          google_subject: string
+          id: string
+          in_reply_to: string | null
+          message_references: string[]
+          oauth_client_id: string
+          origin: Json
+          payload_hash: string
+          prepared_by: string
+          provider_http_status: number | null
+          recipient_email: string
+          repeat_of: string | null
+          reply_to_message_id: string | null
+          requested_thread_id: string | null
+          rfc_message_id: string
+          sender_email: string
+          source_key: string
+          state: string
+          subject: string
+          target_id: string
+          target_kind: string
+          template_name: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gmail_outbound_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      gmail_inbox_correction_record_state: {
+        Args: { p_id: string; p_kind: string }
+        Returns: Json
+      }
+      gmail_inbox_correction_requirements: {
+        Args: never
+        Returns: {
+          client_id: string
+          kind: string
+          label: string
+          record_id: string
+          requirement_id: string
+          state: Json
+          status: string
+        }[]
+      }
+      gmail_inbox_correction_snapshot: {
+        Args: { p_kind: string; p_message_id: string; p_target_id: string }
+        Returns: Json
+      }
+      gmail_inbox_correction_usage_blockers: {
+        Args: { p_message_id: string; p_usage_id: string }
+        Returns: string[]
+      }
+      gmail_inbox_correction_usages: {
+        Args: { p_message_id: string }
+        Returns: {
+          client_id: string
+          document_id: string
+          has_other_evidence: boolean
+          id: string
+          kind: string
+          label: string
+          part_id: string
+          record_id: string
+          requirement_id: string
+          status: string
+        }[]
+      }
+      gmail_inbox_record_status: {
+        Args: { p_id: string; p_kind: string }
+        Returns: string
       }
       gmail_inbox_record_targets: {
         Args: never
@@ -5039,6 +5288,7 @@ export type Database = {
           kind: string
           label: string
           participants: string[]
+          status: string
         }[]
       }
       list_gmail_outbound_email: {
@@ -5103,6 +5353,19 @@ export type Database = {
         }
         Returns: Json
       }
+      list_travel_reference_attachments: {
+        Args: { p_actor_id: string; p_travel_request_id: string }
+        Returns: Json
+      }
+      list_travel_reference_candidates: {
+        Args: {
+          p_actor_id: string
+          p_offset?: number
+          p_search?: string
+          p_travel_request_id: string
+        }
+        Returns: Json
+      }
       lock_gmail_inbox_target: {
         Args: { p_client_id: string; p_kind: string; p_target_id: string }
         Returns: boolean
@@ -5156,6 +5419,24 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      preview_gmail_inbox_correction: {
+        Args: {
+          p_actor_id: string
+          p_kind: string
+          p_message_id: string
+          p_target_id: string
+        }
+        Returns: Json
+      }
+      preview_gmail_inbox_correction_core: {
+        Args: {
+          p_actor_id: string
+          p_kind: string
+          p_message_id: string
+          p_target_id: string
+        }
+        Returns: Json
       }
       queue_due_renewal_emails: {
         Args: { p_renewal_id?: string }
@@ -5216,6 +5497,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_travel_reference_attachment: {
+        Args: { p_actor_id: string; p_input: Json }
+        Returns: Json
+      }
       sync_policy_renewal: {
         Args: { p_policy_id: string }
         Returns: {
@@ -5234,6 +5519,21 @@ export type Database = {
       transition_commission: {
         Args: { p_actor_id: string; p_commission_id: string; p_step: string }
         Returns: string
+      }
+      travel_reference_source_eligible: {
+        Args: {
+          p_message: Database["public"]["Tables"]["gmail_inbox_messages"]["Row"]
+          p_travel: Database["public"]["Tables"]["travel_requests"]["Row"]
+        }
+        Returns: boolean
+      }
+      unlink_travel_reference_attachment: {
+        Args: {
+          p_actor_id: string
+          p_slot: string
+          p_travel_request_id: string
+        }
+        Returns: Json
       }
       update_gmail_inbox_watch: {
         Args: { p_expires_at: string; p_google_subject: string }

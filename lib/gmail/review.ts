@@ -5,6 +5,7 @@ import { toAppRole } from "@/lib/auth/permissions";
 import { getApplicationRequirementsRepository } from "@/lib/repositories/application-requirements";
 import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
 import { getClaimRequirementsRepository } from "@/lib/repositories/claim-requirements";
+import { getUsersRepository } from "@/lib/repositories/users";
 import { getInboxRepository } from "@/lib/repositories/inbox";
 import type { FilingPurpose, InboxMessage, InboxTarget, InboxTargetKind } from "@/lib/repositories/inbox/inbox.entity";
 import { suggestInboxTargets, type MatchSuggestion } from "./matching";
@@ -77,11 +78,13 @@ export interface InboxReviewData {
   selected: InboxMessage | null;
   targets: InboxTarget[];
   linkedTarget: InboxTarget | null;
+  linkedByName: string | null;
   suggestions: MatchSuggestion[];
   requirements: InboxRequirementOption[];
   purposes: InboxPurposeOption[];
   canLink: boolean;
   canFile: boolean;
+  canCorrect: boolean;
   /** Real active Owner/Admin/Assistant and linked correspondence; persona preview never grants it. */
   canReply: boolean;
   replyBlockedReason: string | null;
@@ -102,6 +105,7 @@ export async function getInboxReviewData(actorId: string, selectedId?: string, p
   const selected = selectedId ? await getScopedInboxMessage(selectedId, actor.id) : rows[0] ?? null;
   const targets = await repository.listTargets(actor.id);
   const linkedTarget = selected?.targetId ? targets.find((target) => target.kind === selected.targetKind && target.id === selected.targetId) ?? null : null;
+  const linkedBy = selected?.linkedBy ? await getUsersRepository().findById(selected.linkedBy) : null;
   let suggestions: MatchSuggestion[] = [];
   if (actor.appRole === "admin" && selected && !selected.targetId) {
     const threadTarget = await repository.getThreadTarget(selected.googleSubject, selected.gmailThreadId);
@@ -116,11 +120,11 @@ export async function getInboxReviewData(actorId: string, selectedId?: string, p
     : !canSend ? "Only active Admin and Staff accounts can reply from admin@pacificinsuranceph.com."
     : "Link this correspondence before replying.";
   return {
-    revision, messages, selected, linkedTarget, suggestions, page, mayHaveNextPage: rows.length === 100,
+    revision, messages, selected, linkedTarget, linkedByName: linkedBy?.fullName ?? null, suggestions, page, mayHaveNextPage: rows.length === 100,
     targets: actor.appRole === "admin" ? targets : [],
     requirements: selected && canFile ? await getInboxRequirements(selected) : [],
     purposes: selected?.targetKind && canFile ? inboxPurposeOptions(selected.targetKind) : [],
-    canLink: actor.appRole === "admin", canFile, canReply, replyBlockedReason,
+    canLink: actor.appRole === "admin", canCorrect: actor.appRole === "admin" && !!selected?.targetId, canFile, canReply, replyBlockedReason,
   };
 }
 
