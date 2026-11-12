@@ -4305,10 +4305,13 @@ export type Database = {
       }
       users: {
         Row: {
+          activated_at: string | null
           created_at: string
           email: string
           full_name: string
           id: string
+          invited_at: string | null
+          invited_by: string | null
           last_login_at: string | null
           reference_no: string | null
           role: string
@@ -4316,10 +4319,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activated_at?: string | null
           created_at?: string
           email: string
           full_name: string
           id: string
+          invited_at?: string | null
+          invited_by?: string | null
           last_login_at?: string | null
           reference_no?: string | null
           role?: string
@@ -4327,17 +4333,28 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activated_at?: string | null
           created_at?: string
           email?: string
           full_name?: string
           id?: string
+          invited_at?: string | null
+          invited_by?: string | null
           last_login_at?: string | null
           reference_no?: string | null
           role?: string
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workflow_instances: {
         Row: {

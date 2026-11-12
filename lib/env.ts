@@ -31,4 +31,16 @@ export const env = {
   get SUPABASE_SERVICE_ROLE_KEY(): string {
     return required("SUPABASE_SERVICE_ROLE_KEY");
   },
+  /**
+   * Public origin of this deployment, used to build links that leave the app (staff
+   * invitations). Explicit `APP_URL` wins; Vercel's production hostname is the fallback;
+   * local development defaults to the dev server.
+   */
+  get APP_URL(): string {
+    const explicit = process.env.APP_URL?.trim();
+    if (explicit) return explicit.replace(/\/+$/, "");
+    const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+    if (vercel) return `https://${vercel}`;
+    return "http://localhost:3000";
+  },
 } as const;

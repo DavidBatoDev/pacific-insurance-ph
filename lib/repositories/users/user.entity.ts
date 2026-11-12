@@ -5,6 +5,8 @@
  * record requires an existing auth user. camelCase, decoupled from the row shape.
  */
 
+export type UserStatus = "Active" | "Inactive" | "Invited";
+
 export interface User {
   id: string;
   referenceNo: string | null;
@@ -13,6 +15,9 @@ export interface User {
   role: string;
   status: string;
   lastLoginAt: string | null;
+  invitedBy: string | null;
+  invitedAt: string | null;
+  activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,7 +28,9 @@ export interface NewUser {
   fullName: string;
   email: string;
   role?: string;
-  status?: string;
+  status?: UserStatus;
+  invitedBy?: string;
+  invitedAt?: string;
 }
 
 /** Fields accepted when updating a User (all optional). */
@@ -31,6 +38,8 @@ export interface UserUpdate {
   fullName?: string;
   email?: string;
   role?: string;
-  status?: string;
+  status?: UserStatus;
   lastLoginAt?: string | null;
+  invitedAt?: string | null;
+  activatedAt?: string | null;
 }

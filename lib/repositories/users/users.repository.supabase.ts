@@ -18,6 +18,9 @@ function toDomain(row: UserRow): User {
     role: row.role,
     status: row.status,
     lastLoginAt: row.last_login_at,
+    invitedBy: row.invited_by,
+    invitedAt: row.invited_at,
+    activatedAt: row.activated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -85,6 +88,8 @@ export class SupabaseUsersRepository implements UsersRepository {
         email: input.email,
         ...(input.role !== undefined ? { role: input.role } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.invitedBy !== undefined ? { invited_by: input.invitedBy } : {}),
+        ...(input.invitedAt !== undefined ? { invited_at: input.invitedAt } : {}),
       })
       .select("*")
       .single();
@@ -100,6 +105,8 @@ export class SupabaseUsersRepository implements UsersRepository {
     if (input.role !== undefined) patch.role = input.role;
     if (input.status !== undefined) patch.status = input.status;
     if (input.lastLoginAt !== undefined) patch.last_login_at = input.lastLoginAt;
+    if (input.invitedAt !== undefined) patch.invited_at = input.invitedAt;
+    if (input.activatedAt !== undefined) patch.activated_at = input.activatedAt;
 
     const { data, error } = await getSupabaseAdmin()
       .from("users")

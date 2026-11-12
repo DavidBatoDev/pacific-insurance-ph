@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordAudit } from "@/lib/audit/log";
 import { can, toAppRole } from "@/lib/auth/permissions";
+import { createInvitation, resendInvitation, revokeInvitation, type InvitationResult } from "@/lib/auth/invitations";
+import { INVITABLE_ROLES, normalizeStaffEmail, STAFF_EMAIL_DOMAINS, type InvitableRole } from "@/lib/auth/staff-email";
 import { getExternalContactsRepository, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts";
 import {
   getIntegrationSettingsRepository,
@@ -38,6 +40,13 @@ import type { Json } from "@/lib/supabase/types";
 async function requireAdmin() {
   const actor = await getActor();
   if (toAppRole(actor.role) !== "admin") throw new Error("Settings changes are Admin-only.");
+  return actor;
+}
+
+/** Inviting staff is reserved for the Owner (DI1) — a narrower gate than Admin. */
+async function requireOwner() {
+  const actor = await getActor();
+  if (actor.role !== "Owner") throw new Error("Only the Owner can manage invitations.");
   return actor;
 }
 
@@ -285,6 +294,7 @@ export async function toggleUserStatusAction(userId: string): Promise<ActionResu
     const repo = getUsersRepository();
     const user = await repo.findById(userId);
     if (!user) return { ok: false, error: "User not found." };
+    if (user.status === "Invited") return { ok: false, error: "This invitation is still pending — resend or revoke it instead." };
     const updated = await repo.update(userId, {
       status: user.status === "Active" ? "Inactive" : "Active",
     });
@@ -292,6 +302,75 @@ export async function toggleUserStatusAction(userId: string): Promise<ActionResu
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update user." };
+  }
+}
+
+/* ------------------------------ Invitations ------------------------------ */
+
+export interface InviteUserInput {
+  email: string;
+  fullName: string;
+  role: string;
+}
+
+/** Invite a staff member by agency email (Settings → Team; Owner-only). */
+export async function inviteUserAction(input: InviteUserInput): Promise<ActionResult<InvitationResult>> {
+  try {
+    const actor = await requireOwner();
+    const email = normalizeStaffEmail(input.email ?? "");
+    if (!email) return { ok: false, error: `Enter an agency email address (${STAFF_EMAIL_DOMAINS.map((d) => `@${d}`).join(" or ")}).` };
+    const fullName = (input.fullName ?? "").trim().replace(/\s+/g, " ");
+    if (fullName.length < 2 || fullName.length > 120) return { ok: false, error: "Enter the person's full name." };
+    if (!(INVITABLE_ROLES as readonly string[]).includes(input.role)) return { ok: false, error: "Choose Admin, Staff or Agent." };
+
+    const result = await createInvitation({ email, fullName, role: input.role as InvitableRole, invitedBy: actor });
+    await recordAudit({
+      actorId: actor.id,
+      action: "invite",
+      tableName: "users",
+      recordId: result.user.id,
+      newValue: { email, full_name: fullName, role: input.role, emailed: result.emailed } as Json,
+    });
+    revalidatePath("/settings");
+    return { ok: true, data: result };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to send the invitation." };
+  }
+}
+
+/** Re-issue a pending invitation link (Owner-only). */
+export async function resendInviteAction(userId: string): Promise<ActionResult<InvitationResult>> {
+  try {
+    const actor = await requireOwner();
+    const user = await getUsersRepository().findById(userId);
+    if (!user) return { ok: false, error: "User not found." };
+    const result = await resendInvitation(user, actor);
+    await recordAudit({ actorId: actor.id, action: "invite_resend", tableName: "users", recordId: userId, newValue: { emailed: result.emailed } as Json });
+    revalidatePath("/settings");
+    return { ok: true, data: result };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to resend the invitation." };
+  }
+}
+
+/** Withdraw a pending invitation; the never-activated account is removed (Owner-only). */
+export async function revokeInviteAction(userId: string): Promise<ActionResult<null>> {
+  try {
+    const actor = await requireOwner();
+    const user = await getUsersRepository().findById(userId);
+    if (!user) return { ok: false, error: "User not found." };
+    await revokeInvitation(user);
+    await recordAudit({
+      actorId: actor.id,
+      action: "invite_revoke",
+      tableName: "users",
+      recordId: userId,
+      previousValue: { email: user.email, full_name: user.fullName, role: user.role } as Json,
+    });
+    revalidatePath("/settings");
+    return { ok: true, data: null };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to revoke the invitation." };
   }
 }
 

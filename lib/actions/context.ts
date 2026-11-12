@@ -15,13 +15,16 @@ export interface Actor {
 
 /**
  * Resolve the acting staff user for a mutating Server Action. Throws if the
- * request is not authenticated — callers run inside the auth-gated app, so this
- * should only happen on a genuinely missing session.
+ * request is not authenticated or the account is not Active (invited accounts
+ * have not finished activation; deactivated ones keep no write access).
  */
 export async function getActor(): Promise<Actor> {
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("Not authenticated");
+  }
+  if (user.status !== "Active") {
+    throw new Error("An active account is required.");
   }
   return { id: user.id, fullName: user.fullName, role: user.role };
 }

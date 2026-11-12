@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
+  inviteUserAction,
   removeCarrierPortalAction,
+  resendInviteAction,
+  revokeInviteAction,
   saveCarrierPortalAction,
   savePaymentChannelAction,
   togglePaymentChannelAction,
@@ -12,6 +15,8 @@ import {
   updateUserRoleAction,
   saveExternalContactAction,
 } from "@/app/(app)/settings/actions";
+import type { InvitationResult } from "@/lib/auth/invitations";
+import { INVITABLE_ROLES, STAFF_EMAIL_DOMAINS } from "@/lib/auth/staff-email";
 import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { IntegrationProvider, PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
@@ -62,6 +67,7 @@ export function SettingsLive({
   canViewRenewalRules,
   gmailConnection,
   canManageGmail,
+  canInvite,
   initialTab,
   gmailResult,
 }: {
@@ -79,6 +85,7 @@ export function SettingsLive({
   canViewRenewalRules: boolean;
   gmailConnection: GmailConnectionStatus | null;
   canManageGmail: boolean;
+  canInvite: boolean;
   initialTab: string | null;
   gmailResult: string | null;
 }) {
@@ -128,7 +135,7 @@ export function SettingsLive({
 
       <Card className="p-6">
         {active === "General" && <GeneralTab canEdit={isAdmin} />}
-        {active === "Team" && <TeamTab users={users} />}
+        {active === "Team" && <TeamTab users={users} canInvite={canInvite} />}
         {active === "Notifications" && canViewRenewalRules && persona.role !== "agent" && <RenewalEmailRulesTab rules={renewalRules} templates={renewalTemplates} contacts={contacts} canEdit={isAdmin} />}
         {active === "Payment Channels" && <PaymentChannelsTab channels={channels} canEdit={isAdmin} />}
         {active === "Pacific Cross Contacts" && <PacificCrossContactsTab contacts={contacts} canEdit={persona.role !== "agent"} />}
@@ -191,11 +198,17 @@ const ROLE_LABEL: Record<string, string> = {
   Viewer: "Agent",
 };
 
-function TeamTab({ users }: { users: User[] }) {
+const EMPTY_INVITE = { email: "", fullName: "", role: "Assistant" };
+
+function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
   const router = useRouter();
   const overlays = useOverlays();
   const persona = usePersona();
   const [, startTransition] = useTransition();
+  const [inviting, setInviting] = useState(false);
+  const [invitePending, startInvite] = useTransition();
+  const [invite, setInvite] = useState(EMPTY_INVITE);
+  const [issued, setIssued] = useState<InvitationResult | null>(null);
 
   const changeRole = (u: User, role: string) =>
     startTransition(async () => {
@@ -212,14 +225,52 @@ function TeamTab({ users }: { users: User[] }) {
       router.refresh();
     });
 
+  const closeInvite = () => { setInviting(false); setInvite(EMPTY_INVITE); setIssued(null); };
+
+  const sendInvite = () =>
+    startInvite(async () => {
+      const res = await inviteUserAction(invite);
+      if (!res.ok) { overlays.toast("Couldn’t invite", res.error); return; }
+      setIssued(res.data);
+      overlays.toast("Invitation created", res.data.emailed ? `Emailed to ${res.data.user.email}.` : "Copy the link and share it with them.");
+      router.refresh();
+    });
+
+  const resend = (u: User) =>
+    startInvite(async () => {
+      const res = await resendInviteAction(u.id);
+      if (!res.ok) { overlays.toast("Couldn’t resend", res.error); return; }
+      setInviting(true); setInvite({ email: u.email, fullName: u.fullName, role: u.role }); setIssued(res.data);
+      router.refresh();
+    });
+
+  const revoke = (u: User) =>
+    startTransition(async () => {
+      const res = await revokeInviteAction(u.id);
+      if (res.ok) overlays.toast("Invitation revoked", `${u.email} can no longer use its link.`);
+      else overlays.toast("Couldn’t revoke", res.error);
+      router.refresh();
+    });
+
+  const copyLink = (url: string) =>
+    void navigator.clipboard.writeText(url)
+      .then(() => overlays.toast("Invite link copied", "Share it with the invitee; it expires in 24 hours."))
+      .catch(() => overlays.toast("Couldn’t copy", "Select the link and copy it instead."));
+
   return (
     <div>
-      <div className="mb-4">
-        <h3 className="text-[15px] font-bold">Users &amp; roles</h3>
-        <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-          {users.filter((u) => u.status === "Active").length} active · soft-deactivate preserves
-          history. Role changes preview through the topbar &ldquo;View as&rdquo; switcher.
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[15px] font-bold">Users &amp; roles</h3>
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+            {`${users.filter((u) => u.status === "Active").length} active · ${users.filter((u) => u.status === "Invited").length} invited · soft-deactivate preserves history. Role changes preview through the topbar “View as” switcher.`}
+          </p>
+        </div>
+        {canInvite && (
+          <button className="rounded-md bg-brand px-3 py-2 text-[12.5px] font-semibold text-white" onClick={() => setInviting(true)}>
+            Invite user
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto rounded-md border border-border-soft">
         <table className="w-full min-w-[640px] text-left text-[13px]">
@@ -232,7 +283,7 @@ function TeamTab({ users }: { users: User[] }) {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className={cn("border-b border-border-soft last:border-0", u.status !== "Active" && "opacity-60")}>
+              <tr key={u.id} className={cn("border-b border-border-soft last:border-0", u.status === "Inactive" && "opacity-60")}>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <Avatar name={u.fullName} size={30} />
@@ -244,7 +295,7 @@ function TeamTab({ users }: { users: User[] }) {
                   <select
                     className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12.5px] outline-none focus:border-brand disabled:opacity-60"
                     value={u.role}
-                    disabled={u.status !== "Active"}
+                    disabled={u.status === "Inactive"}
                     onChange={(e) => changeRole(u, e.target.value)}
                   >
                     {Object.entries(ROLE_LABEL).map(([value, label]) => (
@@ -255,17 +306,26 @@ function TeamTab({ users }: { users: User[] }) {
                   </select>
                 </td>
                 <td className="px-4 py-2.5">
-                  <Pill tone={u.status === "Active" ? "green" : "red"} dot>
+                  <Pill tone={u.status === "Active" ? "green" : u.status === "Invited" ? "amber" : "red"} dot>
                     {u.status}
                   </Pill>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <button
-                    onClick={() => toggleStatus(u)}
-                    className="text-[12px] font-semibold text-brand-hover hover:text-brand"
-                  >
-                    {u.status === "Active" ? "Deactivate" : "Reactivate"}
-                  </button>
+                  {u.status === "Invited" ? (
+                    canInvite && (
+                      <span className="flex justify-end gap-3">
+                        <button onClick={() => resend(u)} className="text-[12px] font-semibold text-brand-hover hover:text-brand">Resend</button>
+                        <button onClick={() => revoke(u)} className="text-[12px] font-semibold text-red hover:opacity-80">Revoke</button>
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => toggleStatus(u)}
+                      className="text-[12px] font-semibold text-brand-hover hover:text-brand"
+                    >
+                      {u.status === "Active" ? "Deactivate" : "Reactivate"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -273,9 +333,52 @@ function TeamTab({ users }: { users: User[] }) {
         </table>
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-[12px] text-faint">
-        <I.shield size={13} /> Signed in as {persona.userName} — invitations & real auth enrolment
-        land in a later release.
+        <I.shield size={13} /> Signed in as {persona.userName} — {canInvite ? "only the Owner can invite; invitees choose their own password." : "invitations are issued by the Owner."}
       </p>
+
+      {inviting && canInvite && <Modal onClose={closeInvite} maxWidth={520}>
+        <h3 className="mb-1 text-[16px] font-bold">{issued ? "Invitation ready" : "Invite a team member"}</h3>
+        {issued ? (
+          <div>
+            <p className="text-[13px] text-muted-foreground">
+              {issued.emailed
+                ? <>Sent to <b>{issued.user.email}</b> from the agency mailbox. The link also works if you share it directly.</>
+                : issued.emailProblem}
+            </p>
+            <label className="mt-4 block text-[11.5px] font-bold uppercase text-subtle">Invite link
+              <input readOnly className={`${INPUT} mt-1.5 font-mono text-[11.5px] normal-case font-normal`} value={issued.inviteUrl} onFocus={(e) => e.currentTarget.select()} />
+            </label>
+            <p className="mt-2 text-[12px] text-faint">Single use, expires in 24 hours. {issued.user.fullName} will be <b>Invited</b> until they set a password.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="rounded-md border px-3 py-2 text-[13px]" onClick={closeInvite}>Done</button>
+              <button className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white" onClick={() => copyLink(issued.inviteUrl)}>Copy link</button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="mb-4 text-[12.5px] text-muted-foreground">
+              Agency addresses only ({STAFF_EMAIL_DOMAINS.map((d) => `@${d}`).join(", ")}). The invitee sets their own password; no password is sent.
+            </p>
+            <label className="block text-[11.5px] font-bold uppercase text-subtle">Email
+              <input type="email" autoFocus className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.email} onChange={(e) => setInvite((c) => ({ ...c, email: e.target.value }))} placeholder="name@pacificinsuranceph.com" />
+            </label>
+            <label className="mt-3 block text-[11.5px] font-bold uppercase text-subtle">Full name
+              <input className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.fullName} onChange={(e) => setInvite((c) => ({ ...c, fullName: e.target.value }))} />
+            </label>
+            <label className="mt-3 block text-[11.5px] font-bold uppercase text-subtle">Role
+              <select className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.role} onChange={(e) => setInvite((c) => ({ ...c, role: e.target.value }))}>
+                {INVITABLE_ROLES.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
+              </select>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="rounded-md border px-3 py-2 text-[13px]" onClick={closeInvite}>Cancel</button>
+              <button disabled={invitePending || !invite.email.trim() || !invite.fullName.trim()} className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50" onClick={sendInvite}>
+                {invitePending ? "Inviting…" : "Send invitation"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>}
     </div>
   );
 }

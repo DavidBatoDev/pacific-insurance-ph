@@ -26,6 +26,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     const canManageLibrary = role === "admin";
     const canViewRenewalRules = role !== "agent";
     const canManageGmail = actor?.status === "Active" && role === "admin";
+    // Invitations read the raw DB role: Owner only, never the Admin fold or the persona preview.
+    const canInvite = actor?.status === "Active" && actor.role === "Owner";
     const [libraryDocuments, productVersions, renewalRules, renewalTemplates] = await Promise.all([
       canManageLibrary ? getDocumentLibraryRepository().list() : [],
       canManageLibrary ? getProductsRepository().listVersions() : [],
@@ -36,7 +38,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     const visibleTemplates = renewalTemplates.filter((template) =>
       template.channel === "Email" || renewalRules.some((rule) => rule.templateId === template.id),
     );
-    return { canManageLibrary, libraryDocuments, productVersions, canViewRenewalRules, renewalRules, renewalTemplates: visibleTemplates, canManageGmail };
+    return { canManageLibrary, libraryDocuments, productVersions, canViewRenewalRules, renewalRules, renewalTemplates: visibleTemplates, canManageGmail, canInvite };
   });
   const [{ rows }, channels, proposalPortal, travelPortal, contacts, commissionRates, roleScoped, gmailConnection] = await Promise.all([
     getUsersRepository().list({ limit: 50 }),

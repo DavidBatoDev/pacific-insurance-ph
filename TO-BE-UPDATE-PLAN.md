@@ -2165,6 +2165,204 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
 
 ---
 
+## Phase I — Invite-only staff accounts (Owner-initiated) (planned 2026-11-12)
+
+**Audit result (2026-11-12): nothing exists.** There is no in-app way to create a staff account.
+Accounts are created only by one-off service-role scripts (`scripts/seed-staff.mjs`,
+`scripts/create-user.mjs`, `scripts/playwright-auth.mjs`: `auth.admin.createUser` with a shared
+password + `email_confirm: true`, then `public.users` upsert). The Settings → Team tab
+(`components/hub/screens/settings-live.tsx` `TeamTab`) only changes role / toggles status and
+literally says "invitations & real auth enrolment land in a later release". `login/actions.ts` has
+sign-in/out only; no sign-up, password-set, or reset surface exists. Spec `../docs/web/pages.md`
+§15 Tab 2 already asks for `Invite user` + an `Invited` status; `../docs/web/permissions.md` makes
+Team Admin-only. Live DB: 7 `users` rows, all Owner/Admin (`matt@` = Owner, `eman@` = Admin), all
+provider `email`, none ever invited.
+
+**Known gaps this phase also closes:** `getActor` / `getCurrentUser` / `(app)/layout.tsx` never
+check `users.status`, so "Deactivate" does **not** block sign-in today. The same check gates
+`Invited` accounts, so it ships here.
+
+**Decisions — all five ✅ confirmed by Joshua 2026-11-12** (DI1 Owner-only · DI2 both domains,
+server rejects anything else · DI3 `generateLink` + Gmail API + copy-link, no new infra · DI4
+invitee sets own password · DI5 defer SSO, ship password activation first — see Phase J).
+
+| ID | Decision | Why |
+| :--- | :--- | :--- |
+| DI1 | Invite authority = `users.role === 'Owner'` (Matt), new `requireOwner()` beside `requireAdmin()` in `settings/actions.ts`. Eman (`Admin`) keeps role/status edits but cannot invite. | "Only Matt". `toAppRole` folds Owner+Admin into `admin`, so the gate must read the raw DB role. Note the DB also holds 3 other Owner rows (`admin@pacificinsuranceph.com` + 2 Playwright accounts); they can invite too until cleaned up (D1). |
+| DI2 | Invitee email must be on an allow-listed agency domain: `pacificinsurance.ph` (today's staff logins) **and** `pacificinsuranceph.com` (the real Workspace domain, where the final mailboxes will live). One constant `STAFF_EMAIL_DOMAINS` in `lib/auth/staff-email.ts`, enforced server-side and shown as a hint in the form. | Matches the TBD Workspace-only direction without blocking the current `.ph` logins. |
+| DI3 | Build the invite with `auth.admin.generateLink({ type: "invite" })` on the service-role client and **deliver it ourselves**: send via the already-connected Gmail API sender (`lib/gmail/send-api.ts` `sendGmailMessage`, `admin@pacificinsuranceph.com`) when the mailbox is connected, and **always** show a copyable link to the inviter. Do not use `inviteUserByEmail`. | Supabase's built-in SMTP is dev-only (rate-limited, delivers only to Supabase-org member addresses) and no custom SMTP is configured. The `@pacificinsurance.ph` addresses have no real mailbox yet, so Matt must be able to hand the link over out-of-band. Alternative, rejected for now: configure Supabase Auth custom SMTP against Workspace — needs an app password / relay and a second email path next to Gmail OAuth. |
+| DI4 | Invitee sets their own password on a dedicated `/set-password` page; the account becomes `Active` only after that. Role is chosen by the inviter (Admin / Assistant / Viewer; never Owner). | Required behavior. Invite link = `token_hash` flow verified server-side, so no password ever travels by email. |
+| DI5 | Google Workspace SSO is **deferred** (see "Later" below); no code now. | Workspace accounts on `pacificinsuranceph.com` for Matt/Eman do not exist yet; only `admin@` does. |
+
+**Tasks**
+
+- [x] **I1. Schema.** ✅ *Done 2026-11-12: hosted migration `user_invitations` applied, `0068_user_invitations.sql` committed, types regenerated.* Migration `0068_user_invitations.sql`: widen `users.status` check to
+  `('Active','Inactive','Invited')`; add `invited_by uuid references public.users(id)`,
+  `invited_at timestamptz`, `activated_at timestamptz`. Regenerate `lib/supabase/types.ts`. Extend
+  `User`/`NewUser`/`UserUpdate` + `toDomain()` in `lib/repositories/users/`. Add
+  `UsersRepository.findByEmail` already exists — reuse for duplicate checks.
+- [x] **I2. Invite action.** ✅ *Done 2026-11-12 — lives in `lib/auth/invitations.ts` (`createInvitation`), action in `settings/actions.ts`.* `inviteUserAction({ email, fullName, role })` in
+  `app/(app)/settings/actions.ts`: `requireOwner()` → normalize + domain check (DI2) → reject if
+  `users.email` or `auth.users` already has it → `getSupabaseAdmin().auth.admin.generateLink({ type:
+  "invite", email, options: { data: { full_name }, redirectTo: APP_URL + "/auth/confirm" } })` →
+  `users.create({ id: link.user.id, status: "Invited", role, invitedBy, invitedAt })` → build
+  `${APP_URL}/auth/confirm?token_hash=${hashed_token}&type=invite` → try Gmail send (DI3; failure is
+  non-fatal, reported in the result) → `recordAudit({ action: "invite", tableName: "users" })` →
+  return `{ user, inviteUrl, emailed: boolean }`. Needs `APP_URL` in `lib/env.ts` (+ `.env.example`,
+  Vercel). `generateLink` must live behind the repository boundary (`users.repository.supabase.ts`
+  or a new `lib/auth/invitations.ts` server module) — `getSupabaseAdmin` is not imported from
+  actions (CLAUDE.md rule).
+- [x] **I3. Resend / revoke.** ✅ *Done 2026-11-12. Smoke proved `generateLink invite` re-issues for an unconfirmed user (old link dies, new one works) — no magiclink fallback needed.* `resendInviteAction(userId)` (Owner; only while `status = 'Invited'`;
+  regenerate link — verify in smoke whether `generateLink invite` re-issues for an unconfirmed
+  existing auth user; if it errors, use `type: "magiclink"` with the same `/auth/confirm` handler) and
+  `revokeInviteAction(userId)` (Owner; only while `Invited`; `auth.admin.deleteUser` — the
+  `public.users` FK is `on delete cascade`, so the row disappears; this is the one permitted hard
+  delete because nothing has ever referenced the account).
+- [x] **I4. Accept flow.** ✅ *Done 2026-11-12. `"use server"` files may only export functions, so the 12-char minimum lives in `set-password/password-policy.ts`.* `app/(auth)/auth/confirm/route.ts` (GET): read `token_hash` + `type`,
+  `createSupabaseServerClient().auth.verifyOtp({ type, token_hash })`, on success redirect
+  `/set-password`, on failure `/login?error=…`. `app/(auth)/set-password/page.tsx` + `actions.ts`
+  `setPasswordAction(formData)`: require session, password ≥ 12 chars + confirm match,
+  `supabase.auth.updateUser({ password })`, then `users.update(id, { status: "Active",
+  activatedAt })` via the repository, audit `activate`, redirect `/dashboard`. The same page serves
+  a later "reset password" link; not built now.
+- [x] **I5. Gating.** ✅ *Done 2026-11-12. Server Components cannot clear cookies, so the layout redirects deactivated sessions to `app/(auth)/auth/signout/route.ts`, which signs out and lands on `/login?error=…`.* `proxy.ts`: let `/auth/confirm` through unauthenticated (add to the exact-path
+  list); `/set-password` stays behind auth. `(app)/layout.tsx` (or `getCurrentUser`): `status ===
+  'Invited'` → redirect `/set-password`; `status === 'Inactive'` → sign out + `/login?error=…`.
+  `getActor` throws for anything but `Active`. Sign-in action: after `signInWithPassword`, the same
+  status check so a deactivated user never lands on the dashboard.
+- [x] **I6. Team tab UI.** ✅ *Done 2026-11-12 (Modal, not Drawer — matches the Pacific Cross contacts editor).* `settings/page.tsx` passes `canInvite = currentUser.role === 'Owner'`
+  (real role, never the persona preview). `TeamTab`: `Invite user` button → drawer (existing
+  `Drawer`/overlay pattern) with Email (domain hint), Full name, Role select (Admin / Assistant /
+  Viewer); success toast + a "Copy invite link" panel showing `inviteUrl` and whether it was
+  emailed. Status pill gains `Invited` (amber); invited rows show `Resend` / `Revoke` instead of
+  `Deactivate`, and the role select stays enabled. Remove the "land in a later release" footnote.
+- [ ] **I7. Supabase Auth config (dashboard, not code).** *Pending — needs dashboard access.* Auth →
+  URL Configuration → Redirect URLs must include `https://pacific-insurance-ph-ten.vercel.app/auth/confirm`
+  (plus preview origins if invites are tested there) and `http://localhost:3000/auth/confirm`;
+  Vercel env `APP_URL=https://pacific-insurance-ph-ten.vercel.app` (optional: the code falls
+  back to `VERCEL_PROJECT_PRODUCTION_URL`). The invite link itself is first-party (`/auth/confirm`
+  + `verifyOtp`), so the allow-list only matters for Supabase's own `redirectTo` echo. Invite link
+  expiry: default 24 h. Enable leaked-password protection while there (long-standing advisor
+  warning, see `docs/development-alignment.md`).
+- [x] **I8. Docs + scripts.** ✅ *Done 2026-11-12 (`pages.md` §15 Tab 2, `permissions.md` §1/§3, `.env.example` `APP_URL`).* `../docs/web/pages.md` §15 Tab 2: statuses are Active / **Invited** /
+  Inactive (not "Disabled"), `Invite user` is Owner-only. `../docs/web/permissions.md` §1/§3: add the
+  Owner-vs-Admin split for Team invites. `app/AGENTS.md` staff-session note unchanged. Leave
+  `scripts/seed-staff.mjs` for bootstrap only.
+- [x] **I9. Verification.** ✅ *Browser smoke 2026-11-12 on a clean dev server as the QA Owner
+  account: `someone@gmail.com` refused; `qa-invite@pacificinsurance.ph` (Assistant) invited → row
+  `Invited` with Resend/Revoke, Gmail accepted the send from `admin@`, link shown; Resend issued a
+  new link and the first link then failed with the readable error; new link → `/set-password`
+  (mismatch and <12 chars refused) → activated → `/dashboard`; DB row `Active` with
+  `invited_by`/`activated_at`, audit `invite → invite_resend → activate`. Assistant sees no Team
+  tab; promoted to Admin sees Team but no `Invite user`. Deactivated: password sign-in refused
+  with the deactivation message; a live session hitting `/dashboard` was signed out to `/login`.
+  `QA.Two@PacificInsurancePH.com` (.com domain, Viewer) invited and normalized to lowercase;
+  duplicate invite refused; Revoke removed the row and `auth.users`, its link then failed. QA rows
+  deleted afterwards (an activated QA user needed its `audit_logs.actor_id` detached first — the FK
+  is exactly why revoke is limited to never-activated rows).* Playwright/browser smoke as Matt: invite `qa-invite@pacificinsurance.ph`
+
+**Later (DI5) — Google Workspace sign-in:** detailed as **Phase J** below. Phase I ships password
+activation first because no `@pacificinsuranceph.com` staff mailboxes exist yet.
+
+**Risks**
+- Gmail send path (`lib/communications/outbound-email.ts`) is built around client-record
+  `origin`s; the invite uses `sendGmailMessage` directly and logs nothing to `communications`
+  (staff mail is not client correspondence). If the mailbox is disconnected, the copy-link fallback
+  is the only delivery — acceptable for 2–3 staff.
+- `generateLink` returns both `action_link` (Supabase-hosted verify URL, implicit flow) and
+  `hashed_token`; use only the latter with our own `/auth/confirm` so sessions are set server-side
+  via cookies, consistent with `proxy.ts` `getClaims`.
+
+## Phase J — Google Workspace accounts, invite delivery and SSO (after Phase I)
+
+Runs once Phase I is live. Goal: every staff login (Matt, Admin, Eman, future agents) is a real
+Google Workspace account on **`pacificinsuranceph.com`**, invites land in a real inbox, and sign-in
+is "Sign in with Google" with the invite as the only door. Today only `admin@pacificinsuranceph.com`
+exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
+`pacific-insurane-ph` — keep that spelling — see `docs/development-alignment.md` "Gmail connection").
+`matt@pacificinsurance.ph` / `eman@pacificinsurance.ph` are CRM-only logins with no mailbox.
+
+**Decisions**
+
+| ID | Decision | Why |
+| :--- | :--- | :--- |
+| DJ1 | Sequence for every person, including future agents: **Workspace account first → CRM invite to that address (Phase I) → first Google sign-in activates.** The CRM never creates Workspace accounts and Workspace never creates CRM accounts. | Keeps Matt's invite authority (DI1) as the single authorization step; Workspace admin only provisions mail/identity. |
+| DJ2 | Separate GCP OAuth client ("CRM sign-in", scopes `openid email profile` only) from the existing Gmail mailbox client (`GOOGLE_CLIENT_ID`, sensitive Gmail scopes). | Gmail client carries restricted scopes and a reconnect consent flow; mixing sign-in into it widens its blast radius and complicates Google's scope verification. |
+| DJ3 | Supabase Auth: Google provider on, **"Allow new users to sign up" off**, automatic identity linking (default) on. | Signups-off makes an OAuth login for an unknown email fail at GoTrue, so SSO cannot create accounts — invite-only holds without app code. Admin-API user creation (`generateLink`, Phase I) is unaffected by the toggle. Verified-email auto-linking attaches the Google identity to the existing password user. |
+| DJ4 | Domain enforced three times: OAuth consent screen **Internal** (if the GCP project sits inside the Workspace org — unverified; if not, this option is unavailable and the other two carry it), `hd=pacificinsuranceph.com` on the authorize request, and a server-side check of the identity's `hd` / email domain in `/auth/callback`. `STAFF_EMAIL_DOMAINS` (DI2) shrinks to the single `.com` domain after J2. | `hd` as a query param is a UI hint only; the claim check is the real gate. |
+| DJ5 | An `Invited` user who signs in with Google is activated immediately (`status → Active`, `activated_at`) without `/set-password`. The password path from Phase I stays as the fallback for the same invite. | Google is the credential; forcing a password would create a second, weaker secret. |
+| DJ6 | Supabase **custom SMTP** via Workspace (`smtp-relay.gmail.com` or `smtp.gmail.com` + app password on `admin@`) for GoTrue-native mail (password reset, email-change confirmations). Invites keep the Phase I Gmail-API path. | Phase I deliberately avoided GoTrue mail; once the Workspace exists, the two GoTrue emails Phase I never covered (reset / email change) need a sender. |
+| DJ7 | Password sign-in stays enabled for `admin@pacificinsuranceph.com` and the Playwright/QA accounts; retire it for Matt/Eman only by not telling them the password. Disabling the email provider globally is a later decision. | The pre-authenticated Playwright session (`scripts/playwright-auth.mjs`) and seed scripts depend on password auth. |
+
+**Tasks**
+
+- [ ] **J1. Workspace provisioning (Matt / Workspace admin, not code).** Create
+  `matt@pacificinsuranceph.com` and `eman@pacificinsuranceph.com`; put CRM staff in one
+  organizational unit; enforce 2-Step Verification on that OU; confirm `admin@` remains the
+  shared agency mailbox (Gmail integration + invite sender). Future agents: same OU, created by
+  the Workspace admin **before** Matt invites them (DJ1). Eman's Outlook history migration is the
+  meeting item in `../docs/Demo Validation Meeting - Notes.md` (lines 119–123); not CRM work.
+- [ ] **J2. Move the existing CRM identities to the Workspace addresses.** Script
+  `scripts/migrate-staff-emails.mjs` (service role, idempotent, dry-run flag): for each mapping
+  `old → new`, `auth.admin.updateUserById(id, { email: new, email_confirm: true })` then
+  `public.users.email = new`. Run after J1, before J5. Then drop `pacificinsurance.ph` from
+  `STAFF_EMAIL_DOMAINS` and update `scripts/seed-staff.mjs`. Audit row per change. Check
+  `communications` / timeline "from" identity rendering uses `users.full_name`, not the email,
+  so history stays readable (verify with `grep` on `users.email` consumers).
+- [ ] **J3. Invite delivery becomes real.** No code: with J1 done, the Phase I Gmail-API send
+  reaches a real inbox. Add an invite email template (`lib/gmail/templates/staff-invite.ts` or
+  inline MIME in the Phase I module): subject "You're invited to the Pacific Insurance PH
+  Operations Hub", inviter name, role, link, 24 h expiry note, "contact Matt if this wasn't
+  expected". Keep the copy-link fallback (DI3).
+- [ ] **J4. GCP: sign-in OAuth client (console, not code).** In `pacific-insurane-ph`: new OAuth
+  2.0 Client ID (Web), name "CRM sign-in"; authorized redirect URI
+  `https://lihekcuksskwipkajjyv.supabase.co/auth/v1/callback`; authorized JS origins = production
+  Vercel origin + `http://localhost:3000`. Consent screen: Internal if available (DJ4), app name
+  "Pacific Insurance PH Operations Hub", support email `admin@`. Store client id/secret only in
+  Supabase (J5) — not in Vercel env.
+- [ ] **J5. Supabase Auth config (dashboard).** Providers → Google: enable, paste J4 credentials.
+  Auth settings: signups **off** (DJ3). URL configuration: Site URL = production origin;
+  Redirect URLs add `/auth/callback` for production, preview, and localhost (Phase I already added
+  `/auth/confirm`). SMTP (DJ6): sender `admin@pacificinsuranceph.com`, name "Pacific Insurance PH";
+  customize the Reset Password / Change Email templates with the agency name. Leave the Invite
+  template untouched (unused).
+- [ ] **J6. Login + callback code.** `app/(auth)/login/page.tsx`: "Sign in with Google" button →
+  `signInWithGoogleAction` (`supabase.auth.signInWithOAuth({ provider: "google", options: {
+  redirectTo: APP_URL + "/auth/callback?redirectTo=…", queryParams: { hd: "pacificinsuranceph.com",
+  prompt: "select_account" } } })`, then `redirect(data.url)`). New
+  `app/(auth)/auth/callback/route.ts`: `exchangeCodeForSession(code)` → `getUser()` → reject
+  unless the Google identity's `hd` (`user.identities[].identity_data.hd`) or email domain is in
+  `STAFF_EMAIL_DOMAINS` **and** a `users` row exists → status `Inactive` → sign out + `/login?error`;
+  `Invited` → activate (DJ5) via the repository + audit; `Active` → redirect to `redirectTo`.
+  `proxy.ts`: allow `/auth/callback` unauthenticated. Password form stays below the Google button
+  (DJ7). `lib/env.ts`: no new vars (client id/secret live in Supabase); `APP_URL` from Phase I.
+- [ ] **J7. Agent onboarding runbook (docs).** New `../docs/staff-onboarding.md` and a pointer
+  from `../docs/INDEX.md`: (1) Workspace admin creates `firstname@pacificinsuranceph.com` in the
+  CRM OU, 2SV on; (2) Matt → Settings → Team → Invite user, role **Viewer** for sales agents
+  (`toAppRole` → `agent`), Assistant for staff, Admin for Eman; (3) agent opens the invite or just
+  clicks Sign in with Google → activated; (4) Matt assigns clients (`assigned_user_id`) — the
+  agent sees only those. Offboarding: Deactivate in CRM **and** suspend in Workspace. Record the
+  open agent-scoping gap from `docs/development-alignment.md` (dashboard page/export are not
+  row-scoped for `agent`) as a prerequisite before the first real agent is invited.
+- [ ] **J8. Verification.** Matt signs in with Google on production → lands on `/dashboard` as
+  the same `users` row (identity linked, no duplicate). Eman same. Negative: a personal
+  `@gmail.com` Google account → blocked (signups off + callback check), readable error; a
+  Workspace account that was never invited → blocked; deactivated Workspace-linked user → blocked;
+  invited-but-not-activated agent via Google → row flips to `Active`. Password reset email from
+  `/login` (if J5 SMTP is on) arrives from `admin@`. Playwright pre-auth session still works.
+
+**Risks**
+- If `pacific-insurane-ph` is not under the Workspace organization, "Internal" consent is
+  unavailable and an **External** app with sensitive Gmail scopes is already subject to Google
+  verification; the new sign-in client with basic scopes does not add scopes, but the consent
+  screen is shared per project. Creating the sign-in client in a second GCP project inside the
+  Workspace org is the clean alternative.
+- Changing Matt's/Eman's auth email (J2) invalidates nothing server-side (ids are stable) but
+  their browser sessions survive with the old email in the JWT until refresh; log them out after
+  the migration.
+- `hd` is absent for consumer Google accounts and present for Workspace; the callback must treat
+  "missing `hd`" as reject, never as "unknown".
+
 ## Dependency-gated domain completion (not blocking C1–C7)
 
 - **Claims source pack received.** The medical NOC supplies in-patient/out-patient requirements and

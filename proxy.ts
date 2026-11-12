@@ -16,6 +16,8 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/api/integrations/gmail/callback") return NextResponse.next();
   // Freshness resolves the active CRM account itself; expired sessions need JSON, not login HTML.
   if (request.nextUrl.pathname === "/api/inbox/freshness") return NextResponse.next();
+  // Invitation links arrive without a session; the route verifies the token and sets the cookie itself.
+  if (request.nextUrl.pathname === "/auth/confirm") return NextResponse.next();
 
   let response = NextResponse.next({ request });
 
