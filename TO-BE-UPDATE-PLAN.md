@@ -2129,6 +2129,7 @@ Found while Joshua and Matt tested the step 4 flows on the live app.
 | **DH18** | Test harness for H9b: add Vitest, or an assertion script under `scripts/`? | No runner exists | ✅ **Decided 2026-10-06: Vitest** (v4, `npm test`) |
 | **DH19** | Travel commission: tracked as receivable, or already deducted at the portal? | The portal shows Net of Commission | Ask Eman before building H9a for Travel |
 | **DH20** | JC's draft mentions a "₱150,000 threshold rule" for VAT | Not in the notes; origin unknown | Drop unless JC can source it |
+| **DH21** | Standalone **Log policy copy** creates two Awaiting payments: the drawer's "Premium due for logged policy copy" and the `0050` renewal trigger's "Renewal installment 1 of 1" (dated next renewal). Awaiting totals double for a fresh policy. Keep the drawer's, keep the installment, or both with a "next cycle" label? | Found by the Oct-2 recorded QA run (`qa-oct2/REPORT.md` M4); either fix is a migration | Ask Eman/Matt; until decided nothing changes (deferred 2026-11-13) |
 
 ### Waiting on client / team (Phase H)
 
@@ -2362,6 +2363,57 @@ exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
   the migration.
 - `hd` is absent for consumer Google accounts and present for Workspace; the callback must treat
   "missing `hd`" as reject, never as "unknown".
+
+## Phase K — Oct-2 QA fixes (recorded Playwright run, 2026-11-12/13)
+
+Sections 2–9 of `TESTING-OCT2.md` were driven as recorded Playwright sessions (harness, scripts,
+videos and per-section reports under `qa-oct2/`; consolidated findings in `qa-oct2/REPORT.md`).
+Everything below was fixed on 2026-11-13 and re-verified with throwaway scripts
+(`qa-oct2/fix-*.mjs`, screenshots under `qa-oct2/videos/fix-*/`). `npx tsc`, `npm run lint`
+(one pre-existing error in `components/inbox/correction-control.tsx`) and the full Vitest suite
+pass.
+
+- [x] **K1. Money rendering keeps the recorded currency everywhere (M1–M3, L15, L17–L19).**
+  `money()` prints cents when present (`₱21,225.60`) and exports `currencySymbol()`. Verify
+  payment drawer, Log payment links drawer, /policies and /renewals premium cells render
+  `money(amount, currency)`; stats use `moneyTotals` per currency. `lib/queries/dashboard.ts`
+  revenue is per currency (`totals: Record<currency, number>`, rows likewise); the dashboard widget
+  and `lib/exports/dashboard-export.ts` show PHP and USD separately. Both drawers show
+  "Renewal installment n/m". /payments no longer clips its action column at 1440 px. The
+  `Renewal` entity gained `currency` (joined from `policies.currency`). Completes H8c/DH15.
+- [x] **K2. Client search matches full names (M9).** `ClientsRepository.search()` tokenises the
+  term and chains one `.or()` per token (AND across tokens, OR across first/last/email/mobile/
+  reference); helpers in `lib/repositories/clients/search.ts` + test. Fixes every ClientPicker and
+  the ⌘K palette.
+- [x] **K3. "View as" narrows the Renewals and Travel surfaces (M5, M6).** `Sync policies` needs
+  `canSyncPolicies && persona.role === "admin"`. The Travel workflow uses `usePersona()`:
+  non-editors see a read-only banner and no portal/requirement/pack mutations; the post-issuance
+  pack is hidden for an Agent preview (server rule unchanged).
+- [x] **K4. Claims workflow (M7, L12–L14).** A claim with no requirement rows opens on Step 2
+  "Generate checklist" (`claimWorkflowProgress` gained `checklistAvailable`; test added). File
+  claim preselects the Active / most recent effective policy when several match. "Change claim
+  type" starts on a placeholder. Email step: Received-without-file items are listed "(to follow)"
+  and no longer block sending — only Pending/Incomplete required items do (UI and
+  `lib/communications/outbound-email.ts` share `toFollowItems()`); applies to application
+  submissions too (same shared step).
+- [x] **K5. Commissions (M8, L21).** Pending-rate rows show "Commission rate pending for <product>
+  — set it in Settings → Commission Rates" with a link to the tab. Agent preview hides
+  File/Replace voucher, Request Voucher, Log Follow-up, Mark Paid and the contact select. L20
+  (missing Verify toast) was a QA-script artifact, not a bug.
+- [x] **K7. Papercuts (L1, L3–L6, L8).** Proposal card tracks the proposal by `proposal_status`
+  at any stage. New Application wizard: `role="dialog"`, named Close button, `Field` gained an
+  optional `htmlFor`, Step 4 and workflow Step 6 show loading states instead of empty-state text.
+  Policies card PDF opens in a new tab. Travel wizard: leaving the auto-filled client drops
+  Traveler 1/passport in the same `set()` update; "Use applicant" fills a blank Traveler 1.
+- [ ] **K6. Double Awaiting payment on standalone Log policy copy (M4).** Deferred — **DH21**.
+- [ ] **K8. Not fixed, logged:** L7 rule-name wording (DB seed "Carrier premium breakdown
+  request" — guide updated instead), L9 open-trip warning fires for any open trip, L10
+  "Travel Insurance Complete Numbers" never suggested for the emergency-numbers slot, L11 claim
+  type order, L16 "installment 1/1" label on Annual (trigger `0050`), L6 `email_templates` row
+  "Policy issued" (data, not code), stale picker rows while a search is pending.
+- Open from the run: real Staff/Agent logins were never exercised (persona preview only); cron
+  steps of §5.3 not run against the live project; filing a voucher (9.2) or recording an Inbox
+  attachment (6.5) creates rows only SQL can delete — run those on a development branch.
 
 ## Dependency-gated domain completion (not blocking C1–C7)
 
