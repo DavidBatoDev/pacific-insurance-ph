@@ -74,16 +74,19 @@ export function Field({
   hint,
   children,
   className,
+  htmlFor,
 }: {
   label: string;
   required?: boolean;
   hint?: string;
   children: ReactNode;
   className?: string;
+  /** Id of the control this label names (makes it reachable by accessible name). */
+  htmlFor?: string;
 }) {
   return (
     <div className={className}>
-      <label className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+      <label htmlFor={htmlFor} className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
         {label} {required && <span className="text-red">*</span>}
       </label>
       {children}

@@ -21,7 +21,11 @@ import { openPortalWindow } from "../../overlays/portal-window";
 import { Btn, Card, CardHead } from "../../primitives";
 import type { Doc } from "./records-cards";
 
-/** Lead-only proposal tracking card (stage-gated actions per proposal status). */
+/**
+ * Lead-only proposal tracking card. Actions follow `proposal_status`, not `lead_stage`: Generate
+ * Proposal is offered at every stage (header menu), so a Requested/Received proposal on a
+ * Product Selected lead must still be trackable here.
+ */
 export function ProposalCard({
   client,
   pacificCrossPortalUrl,
@@ -118,12 +122,12 @@ export function ProposalCard({
                       {isIndividualProposalProduct(client.productInterest) ? "Generate proposal" : "Request proposal"}
                     </Btn>
                   )}
-                  {client.leadStage === "Proposal" && status === "Requested" && (
+                  {status === "Requested" && (
                     <Btn size="sm" disabled={pending} onClick={() => markProposal("Received")}>
                       {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received without PDF"}
                     </Btn>
                   )}
-                  {client.leadStage === "Proposal" && status === "Received" && (
+                  {status === "Received" && (
                     <>
                       <Btn size="sm" variant="primary" onClick={onEmailProposal}>
                         Email proposal
@@ -134,19 +138,19 @@ export function ProposalCard({
                       </Btn>
                     </>
                   )}
-                  {client.leadStage === "Proposal" && status === "Sent" && (
+                  {status === "Sent" && (
                     <Btn size="sm" onClick={onRecordDecision}>
                       Record decision
                     </Btn>
                   )}
                   {/* Already decided, but still negotiable — let staff correct or move it on. */}
-                  {client.leadStage === "Proposal" && status === "Decision" && (
+                  {status === "Decision" && (
                     <Btn size="sm" onClick={onRecordDecision}>
                       Update decision
                     </Btn>
                   )}
                 </div>
-                {client.leadStage === "Proposal" && status === "Requested" && (
+                {status === "Requested" && (
                   <div className="mt-3">
                     <PdfUpload
                       clientId={client.id}
@@ -218,10 +222,11 @@ export function ProposalCard({
                 )}
                 {client.leadStage !== "Proposal" && status && (
                   <p className="mt-2 text-[11.5px] text-faint">
-                    Proposal actions are available once this lead reaches the <b>Proposal</b> stage.
+                    This lead is at the <b>{client.leadStage ?? "New Lead"}</b> stage — the proposal is tracked here
+                    independently of the stage.
                   </p>
                 )}
-                {client.leadStage === "Proposal" && status === "Received" && (
+                {status === "Received" && (
                   <p className="mt-2 text-[11.5px] text-faint">
                     <b>Email proposal</b> sends the current PDF from admin@pacificinsuranceph.com after review; the status
                     becomes Sent only when Gmail accepts it. Use <b>Mark sent manually</b> only for a proposal you sent

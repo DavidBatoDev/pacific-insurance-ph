@@ -136,8 +136,8 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
   return (
     <div>
       <Section title="Plan & coverage" state={sectionStatus(f, "plan")}>
-        {isSelectProduct(f.productName) && <Field label="Select variant" required className="mb-4">
-          <select className={INPUT} value={f.selectVariant} onChange={(e) => {
+        {isSelectProduct(f.productName) && <Field label="Select variant" required className="mb-4" htmlFor="wiz-select-variant">
+          <select id="wiz-select-variant" className={INPUT} value={f.selectVariant} onChange={(e) => {
             const variant = e.target.value as SelectVariant | "";
             const compatible = plansForSelectVariant(allPlans, f.productName, variant);
             set({ selectVariant: variant, planOptionId: compatible.some((plan) => plan.id === f.planOptionId) ? f.planOptionId : "" });
@@ -148,28 +148,28 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <p className="mt-1 text-[12px] text-muted-foreground">{f.selectVariant ? selectLimitBasis(f.selectVariant) : "Choose a variant before choosing a plan; room preference never chooses the variant."}</p>
         </Field>}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Plan option" required>
-            <select className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
+          <Field label="Plan option" required htmlFor="wiz-plan-option">
+            <select id="wiz-plan-option" className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
               <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
             <p className="mt-1 text-[12px] text-muted-foreground">{planLimitDescription(selectedPlan)}</p>
           </Field>
-          <Field label="Coverage type" required>
-            <select className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
+          <Field label="Coverage type" required htmlFor="wiz-coverage">
+            <select id="wiz-coverage" className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.coverage.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
           </Field>
-          <Field label="Desired coverage start date">
-            <input className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+          <Field label="Desired coverage start date" htmlFor="wiz-start-date">
+            <input id="wiz-start-date" className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </Field>
-          <Field label="Family size / people to cover" hint="Includes the principal applicant.">
-            <input className={INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
+          <Field label="Family size / people to cover" hint="Includes the principal applicant." htmlFor="wiz-family-size">
+            <input id="wiz-family-size" className={INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
           </Field>
-          <Field label="Coverage tier / room preference">
-            <select className={INPUT} value={f.coverageTier} onChange={(e) => chooseTier(e.target.value)}>
+          <Field label="Coverage tier / room preference" htmlFor="wiz-coverage-tier">
+            <select id="wiz-coverage-tier" className={INPUT} value={f.coverageTier} onChange={(e) => chooseTier(e.target.value)}>
               <option value="">{tiers.length ? "Select…" : "Choose a product first"}</option>
               {tiers.map((tier) => <option key={tier} value={tier}>{tier}</option>)}
               {f.coverageTier && !tiers.includes(f.coverageTier) && <option value={f.coverageTier}>{f.coverageTier} (old value)</option>}
@@ -512,7 +512,13 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
 function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" | "set" | "products" | "paymentChannels">) {
   const days = daysBetween(f.departure, f.returnDate);
   const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
-  const addApplicant = () => set({ travelers: [...f.travelers, { name: f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" "), dob: f.dob, nationality: f.nationality, gender: f.gender, contact: f.mobile, idType: "Passport", idNumber: f.passport, planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] });
+  // The applicant takes an empty leading row (e.g. left behind by a cleared client) instead of
+  // becoming Traveler 2 under a blank Traveler 1.
+  const addApplicant = () => {
+    const applicant = { name: f.displayName || [f.firstName, f.lastName].filter(Boolean).join(" "), dob: f.dob, nationality: f.nationality, gender: f.gender, contact: f.mobile, idType: "Passport", idNumber: f.passport, planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" };
+    const blankFirst = f.travelers.length === 1 && !f.travelers[0].name.trim();
+    set({ travelers: blankFirst ? [applicant] : [...f.travelers, applicant] });
+  };
   return (
     <div>
       <div className="mb-5 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
@@ -573,11 +579,13 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
 }
 
 /* ------------------------------- Step 4 ------------------------------- */
-export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps & {
+export function Step4({ f, clientId, selections, onSelect, disabled, loading }: StepProps & {
   clientId?: string;
   selections: Record<string, RequirementAttachmentSelection>;
   onSelect: (key: string, selection: RequirementAttachmentSelection | null) => void;
   disabled?: boolean;
+  /** The product's requirement template is still being fetched. */
+  loading?: boolean;
 }) {
   const list = f.checklist;
   const inquiryOnly = isInquiryAppType(f.appType);
@@ -636,7 +644,12 @@ export function Step4({ f, clientId, selections, onSelect, disabled }: StepProps
             ))}
           </Fragment>
         ))}
-        {list.length === 0 && (
+        {list.length === 0 && loading && (
+          <div className="rounded-md bg-surface-2 px-4 py-6 text-center text-[13px] text-subtle" aria-busy="true">
+            Loading the requirement checklist for {f.productName || "this product"}…
+          </div>
+        )}
+        {list.length === 0 && !loading && (
           <div className="rounded-md bg-surface-2 px-4 py-6 text-center text-[13px] text-subtle">
             Select a product in Step 1 to generate the checklist.
           </div>

@@ -59,23 +59,39 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   const [expiry, setExpiry] = useState("");
   // Uploaded to storage under the picked client; registered against the policy on save.
   const [pdf, setPdf] = useState<UploadedPolicyPdf | null>(null);
+  // Until the catalog arrives the Select variant / plan selects are legitimately empty; the
+  // section must read as loading, not as "2 needed" with a disabled Log button. Loading is
+  // derived from which application key the catalog was last fetched for.
+  const catalogKey = `${fromApplication?.productVersionId ?? ""}|${fromApplication?.planOptionId ?? ""}`;
+  const [loadedCatalogKey, setLoadedCatalogKey] = useState<string | null>(null);
+  const optionsLoading = loadedCatalogKey !== catalogKey;
 
   useEffect(() => {
+    let cancelled = false;
     listProductOptionsAction()
       .then((options) => {
+        if (cancelled) return;
         const initialPlan = options.find((option) => option.productVersionId === fromApplication?.productVersionId)
           ?.planOptions.find((plan) => plan.id === fromApplication?.planOptionId);
         if (initialPlan && isSelectVariant(initialPlan.planFamily)) setSelectVariant(initialPlan.planFamily);
         setProducts(options);
       })
-      .catch(() => setProducts([]));
-  }, [fromApplication?.productVersionId, fromApplication?.planOptionId]);
+      .catch(() => {
+        if (!cancelled) setProducts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedCatalogKey(catalogKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogKey, fromApplication?.productVersionId, fromApplication?.planOptionId]);
 
   const product = products.find((p) => p.productVersionId === productVersionId);
   const plans = plansForSelectVariant(product?.planOptions ?? [], product?.productName, selectVariant);
   const selectedPlan = plans.find((plan) => plan.id === planOptionId);
   const select = isSelectProduct(product?.productName);
-  const canSave = client && product && !pending && (!select || (!!selectVariant && !!selectedPlan));
+  const canSave = client && product && !pending && !optionsLoading && (!select || (!!selectVariant && !!selectedPlan));
 
   const save = () => {
     if (!client) return;
@@ -108,11 +124,15 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   const submitLabel = pending ? "Saving…" : fromApplication ? "Log policy & convert" : "Log policy copy";
 
   // Grouped like the New Application wizard: each card's dot says whether it is complete.
-  const missing = [...(client ? [] : ["client"]), ...(productVersionId ? [] : ["product"]), ...(select && !selectVariant ? ["Select variant"] : []), ...(select && !selectedPlan ? ["matching active plan"] : [])];
+  const missing = optionsLoading
+    ? []
+    : [...(client ? [] : ["client"]), ...(productVersionId ? [] : ["product"]), ...(select && !selectVariant ? ["Select variant"] : []), ...(select && !selectedPlan ? ["matching active plan"] : [])];
   const recommended = [policyNumber.trim(), premium, effective, expiry].filter(Boolean).length;
-  const clientState: SectionState = missing.length
-    ? { status: "todo", label: `${missing.length} needed` }
-    : { status: "done", label: "Complete" };
+  const clientState: SectionState = optionsLoading
+    ? { status: "todo", label: "Loading product options…" }
+    : missing.length
+      ? { status: "todo", label: `${missing.length} needed` }
+      : { status: "done", label: "Complete" };
   const detailsState: SectionState = recommended === 4
     ? { status: "done", label: "Complete" }
     : { status: "todo", label: `${recommended} of 4 filled` };
@@ -166,19 +186,19 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
               setSelectVariant(variant);
               if (!product?.planOptions.some((plan) => plan.id === planOptionId && plan.planFamily === variant)) setPlanOptionId("");
             }}>
-              <option value="">Choose Plus or Standard…</option>
+              <option value="">{optionsLoading ? "Loading…" : "Choose Plus or Standard…"}</option>
               {SELECT_VARIANTS.map((variant) => <option key={variant}>{variant}</option>)}
             </select>
-            <p className="mt-1 text-[12px] text-muted-foreground">{selectVariant ? selectLimitBasis(selectVariant) : "Choose the variant recorded on the carrier policy."}</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{optionsLoading ? "Loading plan options…" : selectVariant ? selectLimitBasis(selectVariant) : "Choose the variant recorded on the carrier policy."}</p>
           </Field>}
           <Field label="Plan option" required={select}>
             <select
               className={INPUT}
               value={planOptionId}
               onChange={(e) => setPlanOptionId(e.target.value)}
-              disabled={!plans.length}
+              disabled={optionsLoading || !plans.length}
             >
-              <option value="">Select…</option>
+              <option value="">{optionsLoading ? "Loading…" : "Select…"}</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -249,7 +269,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
     </>
   );
 
-  return { fields, missing, canSave: !!canSave, pending, save, submitLabel };
+  return { fields, missing, canSave: !!canSave, pending, optionsLoading, save, submitLabel };
 }
 
 /**

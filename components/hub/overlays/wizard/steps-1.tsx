@@ -36,16 +36,16 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
     <div>
       <Section title="Workflow" state={sectionStatus(f, "workflow")}>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Application type" required>
-            <select className={INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
+          <Field label="Application type" required htmlFor="wiz-app-type">
+            <select id="wiz-app-type" className={INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.appType.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>
           </Field>
-          <Field label="Source" required>
-            <select className={INPUT} value={f.source} onChange={(e) => set({ source: e.target.value })}>
+          <Field label="Source" required htmlFor="wiz-source">
+            <select id="wiz-source" className={INPUT} value={f.source} onChange={(e) => set({ source: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.sources.map((s) => (
                 <option key={s}>{s}</option>
@@ -56,8 +56,9 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       </Section>
 
       <Section title="Product" state={sectionStatus(f, "product")}>
-        <Field label="Product" required>
+        <Field label="Product" required htmlFor="wiz-product">
           <select
+            id="wiz-product"
             className={INPUT}
             value={f.productVersionId}
             onChange={(e) => {
@@ -181,8 +182,8 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
 
       <Section title="Ownership" last>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Assigned agent" required>
-            <select className={INPUT} value={f.assignedUserId} onChange={(e) => set({ assignedUserId: e.target.value })}>
+          <Field label="Assigned agent" required htmlFor="wiz-assigned-agent">
+            <select id="wiz-assigned-agent" className={INPUT} value={f.assignedUserId} onChange={(e) => set({ assignedUserId: e.target.value })}>
               <option value="">Me</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -191,8 +192,8 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
               ))}
             </select>
           </Field>
-          <Field label="Application priority">
-            <select className={INPUT} value={f.priority} onChange={(e) => set({ priority: e.target.value })}>
+          <Field label="Application priority" htmlFor="wiz-priority">
+            <select id="wiz-priority" className={INPUT} value={f.priority} onChange={(e) => set({ priority: e.target.value })}>
               {WIZ_OPTS.priority.map((p) => (
                 <option key={p}>{p}</option>
               ))}
@@ -328,15 +329,15 @@ export function Step2({
       {!lockIdentity && (
         <Section title="Name" state={sectionStatus(f, "name")}>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="First name" required>
-              <input autoComplete="off"
+            <Field label="First name" required htmlFor="wiz-first-name">
+              <input id="wiz-first-name" autoComplete="off"
                 className={INPUT}
                 value={f.firstName}
                 onChange={(e) => set({ firstName: e.target.value, displayName: (e.target.value + " " + f.lastName).trim() })}
               />
             </Field>
-            <Field label="Last name" required>
-              <input autoComplete="off"
+            <Field label="Last name" required htmlFor="wiz-last-name">
+              <input id="wiz-last-name" autoComplete="off"
                 className={INPUT}
                 value={f.lastName}
                 onChange={(e) => set({ lastName: e.target.value, displayName: (f.firstName + " " + e.target.value).trim() })}
@@ -349,11 +350,11 @@ export function Step2({
       <Section title="Contact" state={sectionStatus(f, "contact")}>
         {!lockIdentity && (
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Email address">
-              <input autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
+            <Field label="Email address" htmlFor="wiz-email">
+              <input id="wiz-email" autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
             </Field>
-            <Field label="Mobile number" required>
-              <input autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+            <Field label="Mobile number" required htmlFor="wiz-mobile">
+              <input id="wiz-mobile" autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
           </div>
         )}

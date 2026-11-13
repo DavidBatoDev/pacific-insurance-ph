@@ -62,6 +62,8 @@ export function PoliciesCard({ policies, documents }: { policies: Policy[]; docu
               {pdf ? (
                 <a
                   href={`/api/documents/${pdf.id}/download`}
+                  target="_blank"
+                  rel="noopener"
                   title={pdf.name}
                   className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-brand-hover hover:bg-hover"
                 >

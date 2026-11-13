@@ -260,10 +260,30 @@ export function NewApplicationWizard({
     return () => { current = false; };
   }, [overlays, prefill?.draftApplicationId, setF]);
 
+  const [travelFilledFrom, setTravelFilledFrom] = useState<{ clientId: string; name: string; idNumber: string; fromPastTrip: boolean } | null>(null);
   const set = (patch: Partial<WizardForm>) => {
     const keys = Object.keys(patch);
     if (!keys.every((k) => k === "checklist")) dirtyRef.current = true;
-    setF((s) => ({ ...s, ...patch }));
+    // The travel auto-fill is tied to the picked client: switching to "New client", clearing the
+    // picker or picking someone else drops Traveler 1 (and the passport) in the same update, and
+    // only if they are still that person's values.
+    const filled = travelFilledFrom;
+    const leavesFilledClient = !!filled && "existingClientId" in patch && patch.existingClientId !== filled.clientId;
+    if (leavesFilledClient) setTravelFilledFrom(null);
+    setF((s) => {
+      const next = { ...s, ...patch };
+      if (!leavesFilledClient || !filled) return next;
+      const filledName = filled.name.trim().toLowerCase();
+      const first = next.travelers[0];
+      const dropFirst = !!first && first.name.trim().toLowerCase() === filledName;
+      return {
+        ...next,
+        travelers: dropFirst ? next.travelers.slice(1) : next.travelers,
+        applicantIsTraveler: dropFirst ? false : next.applicantIsTraveler,
+        passport: filled.idNumber && next.passport === filled.idNumber ? "" : next.passport,
+        displayName: next.displayName.trim().toLowerCase() === filledName && !next.firstName && !next.lastName ? "" : next.displayName,
+      };
+    });
   };
 
   // Form changes clear incompatible choices atomically in setF, not after a render.
@@ -280,7 +300,6 @@ export function NewApplicationWizard({
       return { ...current, selections };
     });
   };
-  const [travelFilledFrom, setTravelFilledFrom] = useState<{ clientId: string; name: string; fromPastTrip: boolean } | null>(null);
   const isTravel = f.category === "travel";
   useEffect(() => {
     const clientId = f.existingClientId;
@@ -289,7 +308,7 @@ export function NewApplicationWizard({
     getTravelClientFillAction(clientId).then((res) => {
       if (cancelled || !res.ok) return;
       const fill = res.data;
-      setTravelFilledFrom({ clientId, name: fill.clientName, fromPastTrip: fill.fromPastTrip });
+      setTravelFilledFrom({ clientId, name: fill.clientName, idNumber: fill.traveler.idNumber, fromPastTrip: fill.fromPastTrip });
       setF((s) => {
         // Visible, editable fill of the first traveler row (DH12: no silent autofill). A row the
         // user already typed someone else into is left alone.
@@ -338,11 +357,22 @@ export function NewApplicationWizard({
       .then((items) => {
         if (!cancelled) setTemplatePreview({ key, items });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setTemplatePreview({ key, items: [] });
+      });
     return () => {
       cancelled = true;
     };
   }, [f.productVersionId, f.category, f.remoteSale]);
+  // Step 4 reads as loading (not "pick a product") while the template preview for the current
+  // product/remote-sale combination is still in flight.
+  const checklistLoading =
+    !canonicalPreview &&
+    !!f.productVersionId &&
+    !!f.category &&
+    f.category !== "health" &&
+    f.category !== "travel" &&
+    templatePreview?.key !== `${f.productVersionId}:${f.remoteSale}`;
 
   // Escape / backdrop close with dirty confirm (design requestClose).
   const requestClose = () => {
@@ -552,10 +582,15 @@ export function NewApplicationWizard({
   return createPortal(
     <div className="fixed inset-0 z-[75] grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onMouseDown={requestClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isTravel ? "New Travel Insurance Request" : "New Client Application"}
         className="relative grid h-[min(720px,94vh)] w-full max-w-[980px] grid-cols-[260px_1fr] grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-xl border border-border bg-card shadow-pop max-[800px]:grid-cols-1"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <button
+          type="button"
+          aria-label="Close"
           onClick={requestClose}
           className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
@@ -711,7 +746,7 @@ export function NewApplicationWizard({
                 />
               )}
               {step === 3 && <Step3 {...stepProps} />}
-              {step === 4 && <Step4 key={selectionScope} {...stepProps} clientId={attachmentClientId} selections={selections} onSelect={selectRequirement} disabled={pending} />}
+              {step === 4 && <Step4 key={selectionScope} {...stepProps} clientId={attachmentClientId} selections={selections} onSelect={selectRequirement} disabled={pending} loading={checklistLoading} />}
               {step === 5 && <Step5 {...stepProps} templates={templates} agentName={persona.userName} />}
               {step === 6 && <Step6 {...stepProps} />}
               </>
