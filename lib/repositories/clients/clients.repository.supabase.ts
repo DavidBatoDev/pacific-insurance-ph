@@ -5,6 +5,7 @@ import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError, type Paginated } from "../types";
 import type { Client, ClientUpdate, NewClient } from "./client.entity";
 import type { ClientsRepository, DuplicateProbe, ListClientsParams } from "./clients.repository";
+import { searchTokenFilter, searchTokens } from "./search";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 type ClientInsert = Database["public"]["Tables"]["clients"]["Insert"];
@@ -193,17 +194,13 @@ export class SupabaseClientsRepository implements ClientsRepository {
     opts: { includeArchived?: boolean } = {},
   ): Promise<Client[]> {
     const { includeArchived = true } = opts;
-    // Strip characters that would break the PostgREST `or` filter grammar.
-    const term = query.replace(/[,()%*]/g, " ").trim();
-    if (!term) return [];
-    const like = `%${term}%`;
+    const tokens = searchTokens(query);
+    if (!tokens.length) return [];
 
-    let q = getSupabaseAdmin()
-      .from("clients")
-      .select("*")
-      .or(
-        `first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},mobile_number.ilike.${like},reference_no.ilike.${like}`,
-      );
+    let q = getSupabaseAdmin().from("clients").select("*");
+    // Chained `.or()` calls AND together, so every token must match at least
+    // one column — "QA OCT2 Applicant" matches first_name + last_name.
+    for (const token of tokens) q = q.or(searchTokenFilter(token));
     if (!includeArchived) q = q.eq("status", "Active");
     const { data, error } = await q
       .order("created_at", { ascending: false })
