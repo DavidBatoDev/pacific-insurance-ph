@@ -26,7 +26,7 @@ import { getPaymentsRepository } from "@/lib/repositories/payments";
 import { getRenewalAutomationRepository } from "@/lib/repositories/renewal-automation";
 import { RepositoryError } from "@/lib/repositories/types";
 import type { User } from "@/lib/repositories/users";
-import { SUBMISSION_SUMMARY_PREFIX, submittedItems, zipEntryNames } from "@/lib/submissions/submission-email";
+import { SUBMISSION_SUMMARY_PREFIX, zipEntryNames } from "@/lib/submissions/submission-email";
 import { listSubmissionContacts, loadSubmissionSource, outstandingItems } from "@/lib/submissions/submission-files";
 import {
   EmailAttachmentError, loadReviewedAttachments, resolveEmailAttachments,
@@ -182,14 +182,10 @@ async function resolveOrigin(draft: EmailDraftSeed): Promise<ResolvedOrigin> {
       if (origin.kind === "application" && await getApplicationsRepository().medicalReviewProblem(origin.id)) {
         throw new OutboundEmailError(REPOSITORY_MESSAGES.outbound_medical_review_required);
       }
+      // Only Pending/Incomplete required rows block; Received items without a file go "(to follow)".
       const outstanding = outstandingItems(source.items);
       if (outstanding.length) {
         throw new OutboundEmailError(`Still outstanding: ${outstanding.map((item) => item.documentName).join(", ")}.`);
-      }
-      const items = submittedItems(source.items);
-      const withoutFile = items.filter((item) => item.isRequired && item.documents.length === 0);
-      if (withoutFile.length) {
-        throw new OutboundEmailError(`Upload the file for: ${withoutFile.map((item) => item.documentName).join(", ")}. Every required item must be attached.`);
       }
       const contact = (await listSubmissionContacts(origin.kind)).find((candidate) => candidate.id === origin.contactId);
       if (!contact) throw new OutboundEmailError("Pick a Pacific Cross contact to send to.");

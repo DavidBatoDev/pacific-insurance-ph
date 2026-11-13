@@ -48,9 +48,8 @@ export function ClaimRequirementsPanel({
   const router = useRouter();
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
-  const [nextType, setNextType] = useState<string>(
-    (CLAIM_TYPES as readonly string[]).includes(claimType ?? "") ? (claimType as string) : CLAIM_TYPES[0],
-  );
+  // Starts empty so "Change claim type" only enables once a different type is actually chosen.
+  const [nextType, setNextType] = useState("");
 
   const required = requirements.filter((item) => item.isRequired);
   const complete = required.filter((item) => item.status === "Verified").length;
@@ -88,6 +87,7 @@ export function ClaimRequirementsPanel({
 
   const changeType = () =>
     startTransition(async () => {
+      if (!nextType) return;
       const result = await changeClaimTypeAction(claimId, nextType);
       if (!result.ok) return overlays.toast("Couldn’t change the claim type", result.error);
       onChange(result.data.requirements, result.data.claim.claimType ?? nextType);
@@ -158,11 +158,12 @@ export function ClaimRequirementsPanel({
               disabled={pending}
               onChange={(e) => setNextType(e.target.value)}
             >
+              <option value="">Pick a type…</option>
               {CLAIM_TYPES.map((t) => (
                 <option key={t} value={t}>{t}{INTERIM_CHECKLIST_TYPES.includes(t) ? " (interim checklist)" : ""}</option>
               ))}
             </select>
-            <Btn variant="ghost" disabled={pending || nextType === claimType} onClick={changeType}>Change claim type</Btn>
+            <Btn variant="ghost" disabled={pending || !nextType || nextType === claimType} onClick={changeType}>Change claim type</Btn>
           </div>
         )}
       </div>

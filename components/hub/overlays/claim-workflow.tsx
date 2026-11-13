@@ -94,7 +94,13 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
         setPayload(result.data);
         setSent(submissions);
         const outstandingCount = result.data.requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete")).length;
-        const opening = claimWorkflowProgress({ claimExists: true, outstanding: outstandingCount, submitted: hasSubmitted(result.data.claim, submissions) });
+        const opening = claimWorkflowProgress({
+          claimExists: true,
+          requirementCount: result.data.requirements.length,
+          checklistAvailable: !!checklistForClaimType(result.data.claim.claimType ?? null),
+          outstanding: outstandingCount,
+          submitted: hasSubmitted(result.data.claim, submissions),
+        });
         setStep(Math.min(opening.current, 3) as ClaimStepNumber);
       }
       setLoading(false);
@@ -107,7 +113,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
   const checklistType = checklistForClaimType(claim?.claimType ?? null);
   const outstanding = requirements.filter((item) => item.isRequired && (item.status === "Pending" || item.status === "Incomplete"));
   const submitted = !!claim && hasSubmitted(claim, sent);
-  const flow = claimWorkflowProgress({ claimExists: !!claim, outstanding: outstanding.length, submitted });
+  const flow = claimWorkflowProgress({ claimExists: !!claim, requirementCount: requirements.length, checklistAvailable: !!checklistType, outstanding: outstanding.length, submitted });
   const go = (n: ClaimStepNumber) => { setComposing(false); setStep(n); };
   const lockedReason: Record<ClaimStepNumber, string> = { 1: "", 2: "File the claim first", 3: "Collect the required documents first" };
 

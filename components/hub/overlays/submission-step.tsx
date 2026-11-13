@@ -70,13 +70,12 @@ export function SubmissionStep({
 
   const contact = draft.contacts.find((candidate) => candidate.id === contactId) ?? null;
   const fileCount = draft.items.reduce((count, item) => count + item.documents.length, 0);
+  // Mirrors the server gate in outbound-email.ts: only Pending/Incomplete required rows block.
   const blockedReason = draft.outstanding.length
     ? `Still outstanding on the checklist: ${draft.outstanding.join(", ")}.`
-    : draft.withoutFile.length
-      ? `Upload the file for: ${draft.withoutFile.join(", ")}. Every required item is sent as an attachment.`
-      : !contact
-        ? "Pick a Pacific Cross contact to send to."
-        : null;
+    : !contact
+      ? "Pick a Pacific Cross contact to send to."
+      : null;
   const emailDraft: EmailDraftSeed = {
     origin: { type: "submission", kind, id, contactId },
     recipient: contact?.email ?? "",
@@ -121,9 +120,9 @@ export function SubmissionStep({
           Still outstanding — go back to the checklist first: {draft.outstanding.join(", ")}.
         </div>
       )}
-      {!draft.outstanding.length && draft.withoutFile.length > 0 && (
-        <div role="alert" className="mt-3 rounded-md border border-red-border bg-red-soft/50 px-3 py-2 text-[12px]">
-          Required items without an uploaded file: {draft.withoutFile.join(", ")}. Upload each file on the checklist before sending.
+      {!draft.outstanding.length && draft.toFollow.length > 0 && (
+        <div className="mt-3 rounded-md border border-blue-border bg-blue-soft/50 px-3 py-2 text-[12px]">
+          Listed as “to follow” (received, no file uploaded): {draft.toFollow.join(", ")}. Upload the file on the checklist to attach it instead.
         </div>
       )}
 
@@ -180,7 +179,7 @@ export function SubmissionStep({
                   {item.documents.length ? (
                     <div className="truncate text-[11.5px] text-muted-foreground">{item.documents.map((document) => document.name).join(", ")}</div>
                   ) : (
-                    <div className="text-[11.5px] text-red">No file uploaded — required before sending</div>
+                    <div className="text-[11.5px] text-muted-foreground">No file uploaded — listed as “to follow”</div>
                   )}
                 </div>
               </li>

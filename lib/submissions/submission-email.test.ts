@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSubmissionEmail, defaultSubmissionContact, zipEntryNames, type SubmissionItem } from "./submission-email";
+import { buildSubmissionEmail, defaultSubmissionContact, toFollowItems, zipEntryNames, type SubmissionItem } from "./submission-email";
 
 const item = (over: Partial<SubmissionItem>): SubmissionItem => ({
   requirementId: "r1", documentName: "Application form", appliesTo: null, status: "Verified",
@@ -30,6 +30,18 @@ describe("buildSubmissionEmail", () => {
     });
     expect(subject).toBe("Claim submission — Ana Cruz — CLM-2026-00001 — OP");
     expect(body.startsWith("Hi Claims team,")).toBe(true);
+  });
+});
+
+describe("toFollowItems", () => {
+  it("lists required received items without a file, never optional or pending ones", () => {
+    const items = [
+      item({ documents: [{ id: "d1", name: "form.pdf" }] }),
+      item({ requirementId: "r2", documentName: "Valid ID", status: "Received" }),
+      item({ requirementId: "r3", documentName: "Medical exam", isRequired: false }),
+      item({ requirementId: "r4", documentName: "Billing", status: "Pending" }),
+    ];
+    expect(toFollowItems(items).map((entry) => entry.documentName)).toEqual(["Valid ID"]);
   });
 });
 

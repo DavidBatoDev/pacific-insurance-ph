@@ -45,6 +45,16 @@ function eligiblePolicies(policies: ClaimPolicyOption[], claimType: string) {
 }
 
 /**
+ * Default for the picker when several policies fit: the only Active one, else the most recent by
+ * effective date (then list order, newest first). Staff can still switch or unlink.
+ */
+function defaultPolicy(eligible: ClaimPolicyOption[]): ClaimPolicyOption | undefined {
+  const active = eligible.filter((p) => p.status === "Active");
+  if (active.length === 1) return active[0];
+  return [...eligible].sort((a, b) => (b.effectiveDate ?? "").localeCompare(a.effectiveDate ?? ""))[0];
+}
+
+/**
  * File Claim form (modals.md §6, H7a-c), step 1 of the claim workflow. Grouped like the New
  * Application wizard; the claim type decides the requirements checklist, previewed before filing.
  */
@@ -88,9 +98,12 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
   }, [claimType]);
 
   const eligible = useMemo(() => eligiblePolicies(policies, claimType), [policies, claimType]);
-  // Exactly one fit -> locked to it (DH14); several -> the staff pick (if still eligible); none -> unlinked.
+  // Exactly one fit -> locked to it (DH14); several -> the staff pick (if still eligible), defaulting
+  // to the most recent (L12) until they choose, including "None"; none -> unlinked.
   const policyId =
-    eligible.length === 1 ? eligible[0].id : eligible.some((p) => p.id === chosenPolicyId) ? chosenPolicyId : "";
+    eligible.length === 1 ? eligible[0].id
+      : chosenPolicyId === "" ? (defaultPolicy(eligible)?.id ?? "")
+        : eligible.some((p) => p.id === chosenPolicyId) ? chosenPolicyId : "";
 
   const isInterim = INTERIM_CHECKLIST_TYPES.includes(claimType as ClaimType);
   const currentPreview = preview?.type === claimType ? preview.data : null;
@@ -148,7 +161,7 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
               {eligible[0].productName ? ` · ${eligible[0].productName}` : ""}
             </div>
           ) : eligible.length > 1 ? (
-            <select className={INPUT} value={policyId} onChange={(e) => setChosenPolicyId(e.target.value)}>
+            <select aria-label="Policy" className={INPUT} value={policyId} onChange={(e) => setChosenPolicyId(e.target.value || "none")}>
               <option value="">None / not linked</option>
               {eligible.map((p) => (
                 <option key={p.id} value={p.id}>

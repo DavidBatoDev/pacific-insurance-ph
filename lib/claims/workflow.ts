@@ -14,6 +14,10 @@ export type ClaimStepNumber = 1 | 2 | 3;
 export interface ClaimWorkflowFacts {
   /** The claim has been filed (a record exists). */
   claimExists: boolean;
+  /** Checklist rows on the claim; zero means the checklist was never generated. */
+  requirementCount: number;
+  /** The claim type has a checklist template (Travel and unknown legacy types have none). */
+  checklistAvailable: boolean;
   /** Required checklist items still Pending or Incomplete. */
   outstanding: number;
   /** At least one submission email has been logged to Pacific Cross. */
@@ -27,9 +31,12 @@ export interface ClaimWorkflowProgress {
 }
 
 export function claimWorkflowProgress(facts: ClaimWorkflowFacts): ClaimWorkflowProgress {
+  // A checklist that was never generated is not "all documents in": the step still has work
+  // (Generate checklist). Types without a template have nothing to generate, so they pass.
+  const checklistReady = facts.requirementCount > 0 || !facts.checklistAvailable;
   const done: Record<ClaimStepNumber, boolean> = {
     1: facts.claimExists,
-    2: facts.claimExists && facts.outstanding === 0,
+    2: facts.claimExists && checklistReady && facts.outstanding === 0,
     3: facts.claimExists && facts.submitted,
   };
   // Later steps win, as in the application workflow.

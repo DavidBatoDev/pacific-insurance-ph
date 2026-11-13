@@ -89,6 +89,15 @@ export function submittedItems(items: SubmissionItem[]): SubmissionItem[] {
   return items.filter((item) => item.isRequired || item.documents.length > 0);
 }
 
+/**
+ * Required items in hand (Received/Verified, e.g. a paper or manual receipt) with no uploaded
+ * file. They are listed "(to follow)" in the email and do not block sending — only Pending or
+ * Incomplete required rows do (`outstandingItems`).
+ */
+export function toFollowItems(items: SubmissionItem[]): SubmissionItem[] {
+  return items.filter((item) => item.isRequired && item.status !== "Pending" && item.status !== "Incomplete" && item.documents.length === 0);
+}
+
 const itemLabel = (item: SubmissionItem) => (item.appliesTo ? `${item.documentName} — ${item.appliesTo}` : item.documentName);
 
 export function buildSubmissionEmail(input: {

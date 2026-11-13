@@ -33,6 +33,7 @@ export interface ClaimPolicyOption {
   productName: string | null;
   productCategory: string | null;
   status: string;
+  effectiveDate: string | null;
 }
 
 /** A contact's policies, for the File Claim drawer's policy picker (DH14 eligibility is applied client-side). */
@@ -46,6 +47,7 @@ export async function listClientPoliciesAction(clientId: string): Promise<ClaimP
     productName: p.productName,
     productCategory: p.productCategory,
     status: p.status,
+    effectiveDate: p.effectiveDate,
   }));
 }
 

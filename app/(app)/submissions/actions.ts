@@ -8,6 +8,7 @@ import {
   buildSubmissionEmail,
   defaultSubmissionContact,
   submittedItems,
+  toFollowItems,
   type SubmissionContact,
   type SubmissionItem,
   type SubmissionKind,
@@ -27,8 +28,8 @@ export interface SubmissionDraft {
   items: SubmissionItem[];
   /** Required checklist rows still Pending or Incomplete — they block sending. */
   outstanding: string[];
-  /** Required rows with no uploaded file — every required item must travel as an attachment. */
-  withoutFile: string[];
+  /** Required rows in hand with no uploaded file — listed "(to follow)"; they do not block sending. */
+  toFollow: string[];
   /** Set once Pacific Cross has the package (YYYY-MM-DD, first submission date). */
   submittedDate: string | null;
 }
@@ -66,7 +67,7 @@ export async function getSubmissionDraftAction(kind: SubmissionKind, id: string)
         defaultContactId: defaultSubmissionContact(kind, contacts)?.id ?? null,
         ...email, items,
         outstanding: outstandingItems(source.items).map(itemName),
-        withoutFile: items.filter((item) => item.isRequired && item.documents.length === 0).map(itemName),
+        toFollow: toFollowItems(source.items).map(itemName),
         submittedDate,
       },
     };
