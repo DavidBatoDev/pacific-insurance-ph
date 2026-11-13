@@ -16,6 +16,8 @@ export interface Renewal {
   policyNumber: string | null;
   /** Joined convenience: linked policy's premium amount. */
   premiumAmount: number | null;
+  /** Joined convenience: linked policy's premium currency (ISO code, e.g. PHP / USD). */
+  currency: string | null;
   renewalNoticeDate: string | null;
   /** Date the agency received the carrier's notice; independent of outbound reminders. */
   noticeReceivedDate: string | null;

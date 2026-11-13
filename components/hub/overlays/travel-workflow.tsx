@@ -13,6 +13,7 @@ import { TRAVEL_PAYMENT_METHODS } from "@/lib/db-enums";
 import { Btn, Field, INPUT, StatusBadge } from "../primitives";
 import { I } from "../icons";
 import { useOverlays } from "./overlay-provider";
+import { usePersona } from "../persona";
 import { TravelReferenceAttachments } from "./travel-reference-attachments";
 import type { DocumentRecord } from "@/lib/repositories/documents";
 
@@ -34,8 +35,13 @@ function PersonalPackDocuments({ documents }: { documents: DocumentRecord[] }) {
 export function TravelWorkflowModal({ travelRequestId, onClose }: { travelRequestId: string; onClose: () => void }) {
   const router = useRouter();
   const overlays = useOverlays();
+  const persona = usePersona();
+  // Server rules narrowed by the "View as" persona: the pack is Admin/Staff-only; everything else
+  // follows the permission matrix (Agents edit their own clients; the server enforces assignment).
+  const canEdit = persona.can("travel", "edit");
   const [payload, setPayload] = useState<TravelWorkflowPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canFilePack = canEdit && persona.role !== "agent" && !!payload?.canFilePostIssuance;
   const [pending, startTransition] = useTransition();
   const [portalStatus, setPortalStatus] = useState("Not Started");
   const [paymentStatus, setPaymentStatus] = useState("Not Yet");
@@ -115,6 +121,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
     {!payload ? <div className="grid min-h-52 place-items-center text-[13px] text-muted-foreground">{error ?? "Loading Travel workflow…"}</div> : <div>
       <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-brand-hover"><I.plane size={17} /><span className="text-[11px] font-bold uppercase tracking-[.09em]">Travel workflow</span></div><h3 className="mt-1 text-[17px] font-bold">{payload.travel.referenceNo ?? "Travel request"} · {payload.travel.clientName}</h3><p className="mt-1 text-[12px] text-muted-foreground">{payload.travel.destination} · {payload.travel.departureDate} to {payload.travel.returnDate}</p></div><StatusBadge status={payload.travel.status} /></div>
 
+      {!canEdit && <div className="mt-4 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">Read-only. Viewing as {persona.roleLabel} — this role can’t update Travel requests.</div>}
       {payload.travel.carrierFormMatchStatus === "Unavailable" && <div className="mt-4 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">No active approved Travel application form matches this product.</div>}
 
       <div className="mt-5 grid grid-cols-2 gap-4"><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Travelers</div>{payload.travelers.map((traveler) => <div key={traveler.id} className="border-b border-border-soft py-2 last:border-0"><div className="text-[13px] font-semibold">{traveler.fullName}</div><div className="text-[11.5px] text-muted-foreground">{traveler.dateOfBirth ?? "DOB missing"} · {traveler.idType ?? "ID"} {traveler.idNumber ?? "missing"}</div><div className="text-[11.5px] text-muted-foreground">Beneficiary: {traveler.beneficiaryName ?? "Not recorded"}</div></div>)}</div><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Collection</div>{payload.payments.length ? payload.payments.map((payment) => <div key={payment.id} className="flex items-center justify-between py-1 text-[12.5px]"><span>{payment.referenceNo ?? "Expected payment"}</span><StatusBadge status={payment.status} /></div>) : <div className="text-[12px] text-muted-foreground">No expected payment yet.</div>}<p className="mt-3 text-[11px] text-muted-foreground">Communications are logged/prepared only; the app does not deliver them without an email provider.</p></div></div>
@@ -122,11 +129,11 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       <div className="mt-4 rounded-md border border-border-soft p-3">
         <div className="mb-3 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal processing</div>{payload.portalUrl ? <button type="button" onClick={() => openPortalWindow(payload.portalUrl ?? undefined, "pacific-cross-travel-portal")} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</button> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div>
         <div className="grid grid-cols-5 gap-2">
-          <Field label="Payment status"><select aria-label="Payment status" className={INPUT} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select></Field>
-          <Field label="Payment method"><select aria-label="Payment method" className={INPUT} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">—</option>{TRAVEL_PAYMENT_METHODS.map((method) => <option key={method}>{method}</option>)}</select></Field>
-          <Field label="Portal reference"><input aria-label="Portal reference" className={INPUT} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /></Field>
-          <Field label="Portal amount"><input aria-label="Portal amount" className={INPUT} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /></Field>
-          <Field label="Portal status"><select aria-label="Portal status" className={INPUT} value={portalStatus} onChange={(event) => { const value = event.target.value; setPortalStatus(value); if (value !== "Issued") setPolicyNumberError(null); }}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></Field>
+          <Field label="Payment status"><select aria-label="Payment status" className={INPUT} disabled={!canEdit} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select></Field>
+          <Field label="Payment method"><select aria-label="Payment method" className={INPUT} disabled={!canEdit} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">—</option>{TRAVEL_PAYMENT_METHODS.map((method) => <option key={method}>{method}</option>)}</select></Field>
+          <Field label="Portal reference"><input aria-label="Portal reference" className={INPUT} disabled={!canEdit} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /></Field>
+          <Field label="Portal amount"><input aria-label="Portal amount" className={INPUT} disabled={!canEdit} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /></Field>
+          <Field label="Portal status"><select aria-label="Portal status" className={INPUT} disabled={!canEdit} value={portalStatus} onChange={(event) => { const value = event.target.value; setPortalStatus(value); if (value !== "Issued") setPolicyNumberError(null); }}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></Field>
         </div>
         <div className="mt-2 max-w-md">
           <Field label="Policy number">
@@ -134,6 +141,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
               ref={policyNumberRef}
               aria-label="Policy number"
               className={INPUT}
+              disabled={!canEdit}
               value={policyNumber}
               onChange={(event) => { setPolicyNumber(event.target.value); if (policyNumberError) setPolicyNumberError(null); }}
               placeholder={portalStatus === "Issued" ? "Policy number (required)" : "Policy number"}
@@ -147,11 +155,11 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       </div>
       <div className="mt-4 rounded-md border border-border-soft p-3">
         <div className="text-[11px] font-bold uppercase text-subtle">Post-issuance pack</div>
-        {!payload.canFilePostIssuance && <p className="mt-2 text-[11px] text-muted-foreground">Read-only. Admin or Staff file the issued policy and carrier application copy.</p>}
+        {!canFilePack && <p className="mt-2 text-[11px] text-muted-foreground">Read-only. Admin or Staff file the issued policy and carrier application copy.</p>}
         <div className="mt-3 space-y-4">
           <div>
             <div className="text-[12.5px] font-semibold">Issued policy</div>
-            {payload.canFilePostIssuance && <div className="mt-2">
+            {canFilePack && <div className="mt-2">
               <PdfUpload clientId={payload.travel.clientId} prompt={policyDocuments.length ? "Policy PDF attached — upload another…" : "Upload the issued policy PDF…"} onUploaded={async (path, fileName) => {
                 const result = await recordTravelPolicyAction(travelRequestId, path, fileName);
                 if (result.ok) {
@@ -174,7 +182,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
           <div className="border-t border-border-soft pt-3">
             <div className="text-[12.5px] font-semibold">Carrier application copy</div>
             <p className="mt-1 text-[11px] text-muted-foreground">Returned after purchase; this is separate from the signed intake form.</p>
-            {payload.canFilePostIssuance && <div className="mt-2">
+            {canFilePack && <div className="mt-2">
               <PdfUpload clientId={payload.travel.clientId} prompt={applicationCopyDocuments.length ? "Carrier application copy attached — upload another…" : "Upload the carrier's completed application PDF…"} onUploaded={async (path, fileName) => {
                 const result = await recordTravelApplicationCopyAction(travelRequestId, path, fileName);
                 if (result.ok) {
@@ -194,7 +202,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
           <TravelReferenceAttachments
             travelRequestId={travelRequestId}
             travelLabel={`${payload.travel.referenceNo ?? "Travel request"} · ${payload.travel.clientName ?? "client"}`}
-            canEdit={payload.canFilePostIssuance}
+            canEdit={canFilePack}
             attachments={payload.referenceAttachments}
             libraryReferences={payload.referenceDocuments}
             onChange={(referenceAttachments) => setPayload((current) => current ? { ...current, referenceAttachments } : current)}
@@ -212,11 +220,11 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
               <div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div>
               <div className="text-[11px] text-muted-foreground">{item.appliesTo}</div>
             </div>
-            <select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}>
+            <select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} disabled={!canEdit} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}>
               <option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option>
             </select>
           </div>
-          <div className="mt-2 sm:pl-10">
+          {canEdit && <div className="mt-2 sm:pl-10">
             <DocumentUploadForm
               clientId={payload.travel.clientId}
               travelRequestId={travelRequestId}
@@ -238,10 +246,10 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
                 router.refresh();
               }}
             />
-          </div>
+          </div>}
         </div>)}</div>
       </div>
     </div>}
-    <div className="mt-5 flex justify-end gap-2 border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn><Btn variant="primary" disabled={!payload || pending} onClick={save}>Save workflow</Btn></div>
+    <div className="mt-5 flex justify-end gap-2 border-t border-border-soft pt-4"><Btn onClick={onClose}>Close</Btn>{canEdit && <Btn variant="primary" disabled={!payload || pending} onClick={save}>Save workflow</Btn>}</div>
   </Modal>;
 }

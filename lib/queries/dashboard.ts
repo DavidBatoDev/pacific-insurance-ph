@@ -24,8 +24,13 @@ export interface DashboardStats {
     openTravel: number;
   };
   revenue: {
-    total: number;
-    rows: { source: "Applications" | "Renewals" | "Travel"; amount: number; count: number }[];
+    /** Awaiting amounts per currency (e.g. { PHP: 3099724, USD: 1200 }); never merged (DH15). */
+    totals: Record<string, number>;
+    rows: {
+      source: "Applications" | "Renewals" | "Travel";
+      amounts: Record<string, number>;
+      count: number;
+    }[];
   };
   /** 6-month new-record trend per KPI (sparkline + delta vs previous month). */
   trends: Record<keyof DashboardStats["kpis"], KpiTrend>;
@@ -98,7 +103,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     s.from("claims").select("*", head).not("status", "in", '("Closed","Rejected","Credited")'),
     s.from("renewals").select("*", head).not("status", "in", '("Renewed","Lapsed")'),
     s.from("travel_requests").select("*", head).neq("status", "Policy Issued"),
-    s.from("payments").select("amount, application_id, renewal_id, travel_request_id").in("status", ["Awaiting", "Overdue"]),
+    s.from("payments").select("amount, currency, application_id, renewal_id, travel_request_id").in("status", ["Awaiting", "Overdue"]),
     s.from("activity_timeline")
       .select("id, summary, activity_type, created_at, actor:users (full_name)")
       .order("created_at", { ascending: false })
@@ -111,11 +116,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     trendOf("travel_requests"),
   ]);
 
-  const revenueRows = { Applications: { amount: 0, count: 0 }, Renewals: { amount: 0, count: 0 }, Travel: { amount: 0, count: 0 } };
+  const revenueRows: Record<"Applications" | "Renewals" | "Travel", { amounts: Record<string, number>; count: number }> = {
+    Applications: { amounts: {}, count: 0 },
+    Renewals: { amounts: {}, count: 0 },
+    Travel: { amounts: {}, count: 0 },
+  };
+  const revenueTotals: Record<string, number> = {};
   for (const p of awaitingPayments.data ?? []) {
     const bucket = p.application_id ? "Applications" : p.renewal_id ? "Renewals" : p.travel_request_id ? "Travel" : null;
     if (!bucket) continue;
-    revenueRows[bucket].amount += p.amount ?? 0;
+    const currency = p.currency ?? "PHP";
+    const amount = p.amount ?? 0;
+    revenueRows[bucket].amounts[currency] = (revenueRows[bucket].amounts[currency] ?? 0) + amount;
+    revenueTotals[currency] = (revenueTotals[currency] ?? 0) + amount;
     revenueRows[bucket].count += 1;
   }
 
@@ -135,10 +148,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       openTravel: travel.count ?? 0,
     },
     revenue: {
-      total: Object.values(revenueRows).reduce((a, r) => a + r.amount, 0),
+      totals: revenueTotals,
       rows: (["Applications", "Renewals", "Travel"] as const).map((source) => ({
         source,
-        amount: revenueRows[source].amount,
+        amounts: revenueRows[source].amounts,
         count: revenueRows[source].count,
       })),
     },

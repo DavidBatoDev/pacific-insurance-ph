@@ -125,13 +125,19 @@ export function buildSummaryRows(stats: DashboardStats): [string, string, number
     ...KPI_LABELS.map(
       ({ key, label }) => ["Key metrics", label, stats.kpis[key]] as [string, string, number],
     ),
-    ...stats.revenue.rows.map(
-      (r) => ["Revenue awaiting collection", `${r.source} — amount`, r.amount] as [string, string, number],
+    ...stats.revenue.rows.flatMap((r) =>
+      Object.entries(r.amounts).map(
+        ([currency, amount]) =>
+          ["Revenue awaiting collection", `${r.source} — amount (${currency})`, amount] as [string, string, number],
+      ),
     ),
     ...stats.revenue.rows.map(
       (r) => ["Revenue awaiting collection", `${r.source} — records`, r.count] as [string, string, number],
     ),
-    ["Revenue awaiting collection", "Total awaiting collection", stats.revenue.total],
+    ...Object.entries(stats.revenue.totals).map(
+      ([currency, amount]) =>
+        ["Revenue awaiting collection", `Total awaiting collection (${currency})`, amount] as [string, string, number],
+    ),
   ];
 }
 
@@ -165,13 +171,22 @@ function summarySheet(data: DashboardExportData): XLSX.WorkSheet {
     push([label, stats.kpis[key], stats.trends[key].delta, stats.trends[key].dir]);
   }
 
-  push([], ["REVENUE AWAITING COLLECTION"], ["Source", "Amount", "Records"]);
+  // One line per source × currency: PHP and USD are never summed together (DH15).
+  const moneyFormat = (currency: string) => (currency === "PHP" ? FMT.PESO : `"${currency} "#,##0.00`);
+  push([], ["REVENUE AWAITING COLLECTION"], ["Source", "Amount", "Records", "Currency"]);
   for (const row of stats.revenue.rows) {
-    formats.push({ r: aoa.length, c: 1, z: FMT.PESO }, { r: aoa.length, c: 2, z: FMT.INT });
-    push([row.source, row.amount, row.count]);
+    const currencies = Object.keys(row.amounts);
+    if (currencies.length === 0) currencies.push("PHP");
+    for (const currency of currencies) {
+      formats.push({ r: aoa.length, c: 1, z: moneyFormat(currency) }, { r: aoa.length, c: 2, z: FMT.INT });
+      push([row.source, row.amounts[currency] ?? 0, row.count, currency]);
+    }
   }
-  formats.push({ r: aoa.length, c: 1, z: FMT.PESO }, { r: aoa.length, c: 2, z: FMT.INT });
-  push(["Total", stats.revenue.total, stats.revenue.rows.reduce((a, r) => a + r.count, 0)]);
+  const totalRecords = stats.revenue.rows.reduce((a, r) => a + r.count, 0);
+  for (const [currency, amount] of Object.entries(stats.revenue.totals)) {
+    formats.push({ r: aoa.length, c: 1, z: moneyFormat(currency) }, { r: aoa.length, c: 2, z: FMT.INT });
+    push([`Total (${currency})`, amount, totalRecords, currency]);
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
   for (const { r, c, z } of formats) {

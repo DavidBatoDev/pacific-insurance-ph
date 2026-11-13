@@ -17,12 +17,13 @@ type JoinedRow = RenewalRow & {
     reference_no: string | null;
     policy_number: string | null;
     premium_amount: number | null;
+    currency: string | null;
   } | null;
 };
 
 const SELECT = `*,
   clients (first_name, last_name),
-  policies (reference_no, policy_number, premium_amount)`;
+  policies (reference_no, policy_number, premium_amount, currency)`;
 
 function toDomain(row: JoinedRow): Renewal {
   return {
@@ -36,6 +37,7 @@ function toDomain(row: JoinedRow): Renewal {
     policyRef: row.policies?.reference_no ?? null,
     policyNumber: row.policies?.policy_number ?? null,
     premiumAmount: row.policies?.premium_amount ?? null,
+    currency: row.policies?.currency ?? null,
     renewalNoticeDate: row.renewal_notice_date,
     noticeReceivedDate: row.notice_received_date,
     policyExpiryDate: row.policy_expiry_date,

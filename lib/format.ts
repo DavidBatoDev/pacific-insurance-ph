@@ -9,12 +9,21 @@ export const pesoShort = (n: number) => {
   return "₱" + n;
 };
 
-const currencyPrefix = (currency: string | null | undefined) =>
+/** Display prefix for a recorded currency (₱, US$, otherwise the ISO code). */
+export const currencySymbol = (currency: string | null | undefined) =>
   !currency || currency === "PHP" ? "₱" : currency === "USD" ? "US$" : `${currency} `;
 
-/** Formats an amount in its recorded currency; never converts between currencies. */
+/**
+ * Formats an amount in its recorded currency; never converts between currencies.
+ * Whole amounts stay compact (₱134,000); anything with cents always shows two decimals
+ * (₱21,225.60, never ₱21,225.6) so list columns line up and trailing zeros are kept.
+ */
 export const money = (n: number, currency?: string | null) =>
-  currencyPrefix(currency) + n.toLocaleString("en-PH", { maximumFractionDigits: 2 });
+  currencySymbol(currency) +
+  n.toLocaleString("en-PH", {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 
 /** Separately renders currency totals instead of merging non-convertible amounts. */
 export const moneyTotals = (amounts: Map<string, number>) =>
@@ -25,7 +34,7 @@ export const moneyTotals = (amounts: Map<string, number>) =>
 
 /** Abbreviated native-currency amount for stat strips. */
 export const moneyShort = (n: number, currency?: string | null) => {
-  const prefix = currencyPrefix(currency);
+  const prefix = currencySymbol(currency);
   if (n >= 1_000_000) return prefix + (n / 1_000_000).toFixed(2).replace(/\.00$/, "") + "M";
   if (n >= 1_000) return prefix + (n / 1_000).toFixed(0) + "K";
   return prefix + n;

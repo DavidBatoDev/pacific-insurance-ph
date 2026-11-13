@@ -10,10 +10,11 @@ import type { Policy } from "@/lib/repositories/policies";
 import type { Renewal } from "@/lib/repositories/renewals";
 import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
-import { peso, pesoShort } from "@/lib/format";
+import { money, moneyTotals, peso, pesoShort } from "@/lib/format";
 import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
+import { usePersona } from "../persona";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RenewalNoticeReceivedModal } from "../overlays/renewal-notice-received";
 import { Avatar, Btn, DueCell, StatusBadge } from "../primitives";
@@ -193,6 +194,11 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
     const d = daysUntil(p.expiryDate);
     return p.status === "Active" && d != null && d <= 30;
   }).length;
+  const premiumByCurrency = new Map<string, number>();
+  for (const p of rows) {
+    const currency = p.currency ?? "PHP";
+    premiumByCurrency.set(currency, (premiumByCurrency.get(currency) ?? 0) + (p.premiumAmount ?? 0));
+  }
 
   return (
     <ListScreen
@@ -205,7 +211,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
         { val: rows.filter((p) => p.status === "Active").length, label: "Active policies" },
         { val: rows.filter((p) => p.paymentMode === "Annual").length, label: "Annual mode" },
         { val: lapsing, label: "Lapsing soon", color: "var(--red)" },
-        { val: pesoShort(rows.reduce((a, p) => a + (p.premiumAmount ?? 0), 0)), label: "Premium under management", color: "var(--brand)" },
+        { val: moneyTotals(premiumByCurrency), label: "Premium under management", color: "var(--brand)" },
       ]}
       filters={["Active", "Pending", "Expired", "Lapsed"]}
       filters2={[...groupNames, "Individual"]}
@@ -242,7 +248,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
               </div>}
             </Td>
             <Td className="text-right font-mono font-semibold tabular-nums">
-              {p.premiumAmount != null ? peso(p.premiumAmount) : "—"}
+              {p.premiumAmount != null ? money(p.premiumAmount, p.currency) : "—"}
             </Td>
             <Td className="text-muted-foreground">{p.policyNumber ?? "—"}</Td>
             <Td className="text-muted-foreground">{fmtDate(p.effectiveDate)}</Td>
@@ -259,6 +265,9 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact, prefetchContact } = useRecordNav();
+  const persona = usePersona();
+  // Real admin AND previewing as admin: the persona only narrows (same rule as Settings).
+  const showSync = canSyncPolicies && persona.role === "admin";
   const [, startTransition] = useTransition();
   const [syncPending, startSyncTransition] = useTransition();
   const [receiptRenewal, setReceiptRenewal] = useState<Renewal | null>(null);
@@ -305,7 +314,7 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
       icon={I.refresh}
       primaryAction="Send notices"
       onPrimary={() => overlays.openEngage("Send Renewal Notice")}
-      secondaryActions={canSyncPolicies ? (
+      secondaryActions={showSync ? (
         <Btn disabled={syncPending} onClick={syncPolicies}>
           <I.refresh size={15} /> {syncPending ? "Syncing…" : "Sync policies"}
         </Btn>
@@ -314,7 +323,14 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
         { val: rows.length, label: "Tracked renewals" },
         { val: due30, label: "Due in 30 days", color: "var(--amber)" },
         { val: overdue, label: "Overdue", color: "var(--red)" },
-        { val: pesoShort(rows.filter((r) => r.status === "Awaiting Payment").reduce((a, r) => a + (r.premiumAmount ?? 0), 0)), label: "Awaiting payment", color: "var(--brand)" },
+        {
+          val: moneyTotals(rows.filter((r) => r.status === "Awaiting Payment").reduce((totals, r) => {
+            const currency = r.currency ?? "PHP";
+            return totals.set(currency, (totals.get(currency) ?? 0) + (r.premiumAmount ?? 0));
+          }, new Map<string, number>())),
+          label: "Awaiting payment",
+          color: "var(--brand)",
+        },
       ]}
       filters={["Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Renewed", "Lapsed"]}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
@@ -343,7 +359,7 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           <Td>{fmtDate(r.noticeReceivedDate)}</Td>
           <Td><StatusBadge status={r.status} /></Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
-            {r.premiumAmount != null ? peso(r.premiumAmount) : "—"}
+            {r.premiumAmount != null ? money(r.premiumAmount, r.currency) : "—"}
           </Td>
           <Td>
             <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

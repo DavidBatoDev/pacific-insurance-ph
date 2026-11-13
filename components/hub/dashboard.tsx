@@ -13,7 +13,7 @@ import type { Renewal } from "@/lib/repositories/renewals/renewal.entity";
 import type { Task as RealTask } from "@/lib/repositories/tasks/task.entity";
 import type { TravelRequest } from "@/lib/repositories/travel/travel-request.entity";
 import { cn } from "@/lib/utils";
-import { fmtDate, peso } from "@/lib/format";
+import { fmtDate, money, peso } from "@/lib/format";
 import type { Tone } from "./tone";
 import { I, type IconName } from "./icons";
 import { useOverlays } from "./overlays/overlay-provider";
@@ -155,8 +155,18 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   const overlays = useOverlays();
   const persona = usePersona();
   const rows = stats.revenue.rows;
-  const max = Math.max(...rows.map((r) => r.amount), 1);
+  // Bars compare peso pipelines only; non-PHP amounts are listed beside the figure,
+  // never converted into the bar scale (DH15).
+  const max = Math.max(...rows.map((r) => r.amounts.PHP ?? 0), 1);
   const items = rows.reduce((a, r) => a + r.count, 0);
+  /** One figure per currency, PHP first; never summed across currencies (DH15). */
+  const moneyParts = (amounts: Record<string, number>) => {
+    const parts = Object.entries(amounts)
+      .filter(([, amount]) => amount !== 0)
+      .sort(([a], [b]) => (a === "PHP" ? -1 : b === "PHP" ? 1 : a.localeCompare(b)))
+      .map(([currency, amount]) => money(amount, currency));
+    return parts.length ? parts : [peso(0)];
+  };
   // Theme tokens, not literals: these bars sit on --card and have to re-tint in dark.
   const colors: Record<string, string> = {
     Applications: "var(--green)",
@@ -165,6 +175,8 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   };
   const icons: Record<string, IconName> = { Applications: "fileText", Renewals: "refresh", Travel: "plane" };
   const canSend = persona.role !== "agent"; // Admin & Staff only (§12)
+  // Headline shows the peso figure; other currencies sit beneath it, never added in.
+  const [headline, ...otherTotals] = moneyParts(stats.revenue.totals);
 
   return (
     <div className="mb-4 grid grid-cols-[1.1fr_2.4fr_auto] items-center gap-7 rounded-lg border border-border bg-card p-5 shadow-sm max-[1200px]:grid-cols-1">
@@ -172,9 +184,12 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
         <div className="flex items-center gap-2 text-[12.5px] font-semibold text-muted-foreground">
           <I.wallet size={15} /> Revenue opportunity awaiting collection
         </div>
-        <div className="mt-1.5 text-[33px] font-[780] leading-none tracking-[-0.035em] tabular-nums">
-          {peso(stats.revenue.total)}
-        </div>
+        <div className="mt-1.5 text-[33px] font-[780] leading-none tracking-[-0.035em] tabular-nums">{headline}</div>
+        {otherTotals.length > 0 && (
+          <div className="mt-1 text-[17px] font-[700] leading-none tracking-[-0.02em] tabular-nums text-muted-foreground">
+            {otherTotals.join(" · ")}
+          </div>
+        )}
         <div className="mt-2 flex items-center gap-1.5 text-[12px] text-subtle">
           <I.trendUp size={13} className="text-brand" /> {items} item{items === 1 ? "" : "s"} across{" "}
           {rows.length} pipelines
@@ -196,10 +211,12 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
                 <span className="tabular-nums text-subtle">· {row.count}</span>
               </span>
               <span className="h-[9px] overflow-hidden rounded-full bg-surface-3 max-[1200px]:col-span-2 max-[1200px]:row-start-2">
-                <span className="block h-full rounded-full" style={{ width: `${(row.amount / max) * 100}%`, background: colors[row.source] }} />
+                <span className="block h-full rounded-full" style={{ width: `${((row.amounts.PHP ?? 0) / max) * 100}%`, background: colors[row.source] }} />
               </span>
-              <span className="text-right text-[13.5px] font-bold tabular-nums max-[1200px]:col-start-2 max-[1200px]:row-start-1">
-                {peso(row.amount)}
+              <span className="text-right text-[13.5px] font-bold leading-tight tabular-nums max-[1200px]:col-start-2 max-[1200px]:row-start-1">
+                {moneyParts(row.amounts).map((part) => (
+                  <span key={part} className="block whitespace-nowrap">{part}</span>
+                ))}
               </span>
             </div>
           );

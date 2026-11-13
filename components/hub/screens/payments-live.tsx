@@ -108,15 +108,17 @@ export function PaymentsLive({
           <Td><StatusBadge status={p.status} /></Td>
           <Td>{p.orNumber ? <span className="font-mono text-[12px]">{p.orNumber}</span> : <span className="text-subtle">—</span>}</Td>
           <Td className="text-muted-foreground">{fmtDate(p.paymentDate ?? p.createdAt)}</Td>
-          <Td>
+          {/* Trailing action: no left padding and a short visible label (full name for AT) so all
+              nine columns fit a 1440px viewport without the card clipping the button. */}
+          <Td className="pl-0 pr-3.5">
             <span onClick={(e) => e.stopPropagation()}>
               {p.status === "Verified" ? (
                 <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
                   <I.check size={13} /> Verified
                 </span>
               ) : (
-                <Btn size="sm" onClick={() => setVerify(p)}>
-                  <I.peso size={13} /> Verify Payment
+                <Btn size="sm" aria-label="Verify Payment" title="Verify Payment" onClick={() => setVerify(p)}>
+                  <I.peso size={13} /> Verify
                 </Btn>
               )}
             </span>

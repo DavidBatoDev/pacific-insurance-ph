@@ -14,7 +14,7 @@ import type { Payment } from "@/lib/repositories/payments/payment.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
-import { peso } from "@/lib/format";
+import { money, moneyTotals } from "@/lib/format";
 import { I } from "../icons";
 import { usePersona } from "../persona";
 import { Avatar, Btn, Field, INPUT } from "../primitives";
@@ -75,7 +75,15 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
   }, []);
 
   const selected = payments.filter((p) => checked.has(p.id));
-  const total = selected.reduce((a, p) => a + (p.amount ?? 0), 0);
+  /** Per-currency sums; PHP and USD are never merged (DH15). */
+  const totalsOf = (rows: Payment[]) => {
+    const byCurrency = new Map<string, number>();
+    for (const p of rows) {
+      const currency = p.currency ?? "PHP";
+      byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + (p.amount ?? 0));
+    }
+    return moneyTotals(byCurrency);
+  };
   const bySource = useMemo(() => {
     const groups: Record<string, Payment[]> = {};
     for (const p of payments) (groups[p.source] ??= []).push(p);
@@ -185,7 +193,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 flex items-center justify-between rounded-md border border-border-soft bg-surface-2 px-3.5 py-2.5 text-[13px]">
         <span>
-          <b>{selected.length}</b> of {payments.length} recipients · <b>{peso(total)}</b> selected
+          <b>{selected.length}</b> of {payments.length} recipients · <b>{totalsOf(selected)}</b> selected
         </span>
         <span className="flex gap-3 text-[12px] font-semibold text-brand-hover">
           <button onClick={() => setChecked(new Set(payments.map((p) => p.id)))}>Select all</button>
@@ -207,7 +215,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
             <div className="mb-1.5 flex items-center justify-between text-[11.5px] font-bold uppercase tracking-[0.05em] text-subtle">
               <span>{source}s · template “{QUEUE_TEMPLATE[source] ?? "Payment instruction"}”</span>
               <span>
-                {selRows.length}/{rows.length} · {peso(selRows.reduce((a, r) => a + (r.amount ?? 0), 0))}
+                {selRows.length}/{rows.length} · {totalsOf(selRows)}
               </span>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -229,11 +237,13 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-[600]">{p.clientName ?? "—"}</span>
                       <span className="block text-[11.5px] text-subtle">
-                        {p.sourceRef ?? p.referenceNo} {p.status === "Overdue" && <b className="text-red">· Overdue</b>}
+                        {p.sourceRef ?? p.referenceNo}
+                        {p.installmentNumber && p.installmentCount ? ` · installment ${p.installmentNumber}/${p.installmentCount}` : null}
+                        {p.status === "Overdue" && <b className="text-red"> · Overdue</b>}
                       </span>
                     </span>
                     <span className="font-mono text-[13px] font-semibold tabular-nums">
-                      {p.amount != null ? peso(p.amount) : "—"}
+                      {p.amount != null ? money(p.amount, p.currency) : "—"}
                     </span>
                   </button>
                 );
