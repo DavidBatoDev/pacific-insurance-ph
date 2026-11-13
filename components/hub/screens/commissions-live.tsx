@@ -64,6 +64,8 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
     }
   }
   const canSeeAmounts = persona.role !== "agent";
+  // Server booleans reflect the real role; the "View as" preview narrows them (agents never act on commissions).
+  const canAct = persona.role !== "agent";
 
   const updateStep = async (commission: CommissionTrackerRow, step: "follow-up" | "paid") => {
     if (!commission.canUpdateCommission) return;
@@ -191,7 +193,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
                     <CommissionBreakdownToggle commission={commission} />
                   </span>
                 ) : (
-                  "—"
+                  <CommissionRatePending commission={commission} />
                 )
               ) : (
                 <span
@@ -214,7 +216,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
               />
             </Td>
             <Td>
-              {commission.canUpdateCommission ? (
+              {canAct && commission.canUpdateCommission ? (
                 <span onClick={(event) => event.stopPropagation()}>
                   <select aria-label={`Commission contact for ${commission.clientName ?? commission.orNumber ?? "commission"}`} className="h-8 max-w-[190px] rounded-md border border-border-strong bg-card px-2 text-[11.5px]" value={commission.pacificCrossContactId ?? ""} onChange={(event) => assignContact(commission, event.target.value)}>
                     <option value="">Assign contact…</option>
@@ -233,11 +235,11 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
                 className="flex flex-wrap justify-end gap-1.5"
                 onClick={(event) => event.stopPropagation()}
               >
-                {commission.canFileVoucher && <VoucherFilingControl commission={commission} />}
-                {commission.canUpdateCommission && !commission.clientId && (
+                {canAct && commission.canFileVoucher && <VoucherFilingControl commission={commission} />}
+                {canAct && commission.canUpdateCommission && !commission.clientId && (
                   <span className="max-w-[240px] whitespace-normal text-[12px] text-red">This commission has no client; voucher cannot be filed.</span>
                 )}
-                {commission.canUpdateCommission && !commission.voucherDocumentId && (
+                {canAct && commission.canUpdateCommission && !commission.voucherDocumentId && (
                   <>
                     <Btn size="sm" disabled={!commission.clientId || !commission.pacificCrossContactId || commission.pacificCrossContactStatus !== "Active" || !commission.pacificCrossContactEmail} onClick={() => requestVoucher(commission)}>
                       Request Voucher
@@ -247,7 +249,7 @@ export function CommissionsLive({ commissions, commissionContacts }: { commissio
                     </Btn>
                   </>
                 )}
-                {commission.canUpdateCommission && displayLabel !== "Paid" && (
+                {canAct && commission.canUpdateCommission && displayLabel !== "Paid" && (
                   <Btn size="sm" variant="primary" onClick={() => updateStep(commission, "paid")}>
                     Mark Paid
                   </Btn>
@@ -330,7 +332,7 @@ function VoucherFilingControl({ commission }: { commission: CommissionTrackerRow
           <div className="mb-4 text-[12px]">
             <span className="font-semibold">Commission estimate</span>
             <span className="ml-2 font-mono">{commission.estimatedAmount != null ? money(commission.estimatedAmount, commission.currency ?? commission.premiumCurrency) : "Not recorded"}</span>
-            <CommissionBreakdownToggle commission={commission} />
+            {commission.estimatedAmount != null ? <CommissionBreakdownToggle commission={commission} /> : <CommissionRatePending commission={commission} />}
           </div>
           <div className="mb-4 rounded-md border border-border-soft p-3">
             <p className="mb-1 text-[12px] font-semibold">Current original</p>
@@ -386,6 +388,19 @@ function VoucherFilingControl({ commission }: { commission: CommissionTrackerRow
         </Modal>
       )}
     </>
+  );
+}
+
+/** M8 — no stored estimate means the product's rate was still pending when the payment was verified. */
+function CommissionRatePending({ commission }: { commission: CommissionTrackerRow }) {
+  return (
+    <span className="block max-w-[240px] whitespace-normal font-sans text-[11.5px] font-normal text-amber" onClick={(event) => event.stopPropagation()}>
+      Commission rate pending{commission.productName ? ` for ${commission.productName}` : ""} — set it in{" "}
+      <a href="/settings?tab=Commission%20Rates" className="font-semibold text-brand-hover hover:underline">
+        Settings → Commission Rates
+      </a>
+      .
+    </span>
   );
 }
 
