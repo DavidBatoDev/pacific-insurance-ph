@@ -33,14 +33,12 @@ import {
   type AttachmentContext, type AttachmentManifestEntry, type LoadedAttachment,
 } from "./email-attachments";
 import {
-  EMAIL_SEND_ERROR_MESSAGES, SENDER_MAILBOX,
+  displayedSendState, EMAIL_SEND_ERROR_MESSAGES, SENDER_MAILBOX,
   type EmailDraftSeed, type EmailOrigin, type EmailSendView, type LeadAdvanceSuggestion, type PrepareEmailInput,
 } from "./outbound-email.types";
 
 export const BILLING_SUMMARY_PREFIX = "Billing sent to client";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** A dispatch older than this is treated as an uncertain outcome; it is never re-claimed. */
-export const STALE_SENDING_MS = 120_000;
 const RECONCILE_BUDGET_MS = 45_000;
 /** Sent-mail search window around the dispatch start (Gmail stamps its own send time). */
 const RECONCILE_WINDOW_BEFORE_S = 600;
@@ -267,11 +265,6 @@ export function outboundPayloadHash(input: {
   }), "utf8").digest("hex");
 }
 
-function displayState(row: OutboundEmail, now: number): EmailSendView["state"] {
-  if (row.state === "sending" && row.dispatchStartedAt && now - Date.parse(row.dispatchStartedAt) > STALE_SENDING_MS) return "unknown";
-  return row.state;
-}
-
 function advanceFrom(row: OutboundEmail): LeadAdvanceSuggestion | undefined {
   const value = row.acceptanceMetadata.advance;
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
@@ -288,7 +281,7 @@ function advanceFrom(row: OutboundEmail): LeadAdvanceSuggestion | undefined {
 }
 
 export function toEmailSendView(row: OutboundEmail, now = Date.now(), notice?: string): EmailSendView {
-  const state = displayState(row, now);
+  const state = displayedSendState(row.state, row.dispatchStartedAt, now);
   const accepted = row.state === "accepted";
   return {
     id: row.id,
@@ -558,7 +551,7 @@ export function createOutboundEmailService(overrides: Partial<OutboundEmailDeps>
     const actor = await deps.sender();
     const row = await scopedRow(actor.id, id);
     if (row.state === "accepted") return row.effectsAppliedAt ? toEmailSendView(row, deps.now()) : applyEffects(row);
-    const stale = row.state === "sending" && displayState(row, deps.now()) === "unknown";
+    const stale = row.state === "sending" && displayedSendState(row.state, row.dispatchStartedAt, deps.now()) === "unknown";
     if (row.state !== "unknown" && !stale) return toEmailSendView(row, deps.now());
     if (!row.dispatchToken) return toEmailSendView(row, deps.now());
     let evidence: SentEvidence[] | null = null;

@@ -51,10 +51,43 @@ direct POSTs and cross-client documents/record pairings were rejected. Not exerc
 portal path of the wizard, commission voucher/renewal-notice Engage shortcuts, a real external
 sender's reply, and a production deployment.
 
-QA fixtures kept because sent evidence references them (restrictive FKs): client
-`QA GMAIL OUTBOUND Synthetic Fixture` (CLI-2026-00008) with its applications, claim, policy
-`QA-SYNTHETIC-001`/renewal, synthetic documents, the linked QA inbox fixture, two now-Inactive QA
-external contacts and two now-Inactive QA staff accounts. QA emails remain in the mailbox.
+The November 4 fixtures (CLI-2026-00008 and its records) were later removed with the client
+data; only the QA emails from that run remain in the mailbox.
+
+Live Gmail rerun (2026-11-14, local dev server against the production project, real Owner
+session, all mail to admin@pacificinsuranceph.com):
+
+- Contact email with a PDF, a same-bytes PDF under another name and a native `.xlsx`, sent by a
+  double click: one ledger row, one Gmail copy; From is the fixed mailbox, no Cc/Bcc; every
+  attachment's SHA-256, name and MIME type matched the stored original. New → Attempted happened
+  only on acceptance, with the advance offered as a suggestion.
+- Browser response dropped after the server sent: the UI offered only **Check sending status**,
+  which showed Sent; one Gmail copy.
+- Dev server killed between Gmail acceptance and workflow effects: shown as Sent with "workflow
+  update is pending"; **Check status** applied the effects once (`skipped: not_first_touch`).
+- Dev server killed while Gmail processed the send: the row stayed `sending`, after 120 s showed
+  "Sending outcome unknown. Do not resend", and **Check status** found the one Gmail copy through
+  the `X-PIPH-Outbound-ID` header, recorded acceptance and kept Gmail's original send time as
+  the occurrence. Gmail rewrites Message-ID, so `rfc822msgid:` does not find CRM sends.
+- Inbox: the unassigned fixture showed "Link this correspondence before replying"; the link
+  suggestion came from the accepted outbound send on the same thread. A double-clicked reply
+  (2 attachments) left one reply in the original Gmail thread with correct In-Reply-To/References
+  and an unchanged subject; the bytes matched.
+- Application submission to a temporary QA New Business contact (the picker defaults to the
+  real `newbiz@pacificcross.com.ph`; change it): numbered checklist names, byte-identical
+  attachments, application → Submitted to Pacific Cross with today's date.
+
+Not rerun on 2026-11-14: wizard, billing, missing-documents, claim, proposal and renewal
+origins, role denials. Fixed the same day: after the 120 s mark the composer said "outcome
+unknown" while the contact timeline and submission/billing history still said Sending. All
+three now apply the one `displayedSendState` rule. Verified with a real stale submission send
+(server killed mid-send): both views showed Outcome unknown, and the timeline's **Check status**
+reconciled it to Sent.
+
+Fixtures kept because sent evidence references them: client `QA GMAIL LIVE Fixture 2026-11-14`
+(CLI-2026-00104) with APP-2026-00040, three synthetic documents, the linked QA inbox fixture
+and the now-Inactive contact `QA GMAIL LIVE Contact (synthetic)`. The QA emails remain in the
+mailbox.
 
 ## November 3: non-disruptive Inbox freshness
 

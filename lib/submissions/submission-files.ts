@@ -1,5 +1,6 @@
 import "server-only";
 
+import { displayedSendState } from "@/lib/communications/outbound-email.types";
 import { getApplicationRequirementsRepository } from "@/lib/repositories/application-requirements";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getClaimRequirementsRepository } from "@/lib/repositories/claim-requirements";
@@ -94,10 +95,10 @@ export async function listCommunicationRecords(input: {
   summaryPrefix: string;
   direction?: "Inbound" | "Outbound";
 }): Promise<SubmissionRecord[]> {
-  type LedgerRecipient = { recipient_email: string };
+  type LedgerRecipient = { recipient_email: string; dispatch_started_at: string | null };
   let query = getSupabaseAdmin()
     .from("communications")
-    .select("id, occurred_at, created_at, subject, notes, summary, delivery_status, external_contact_id, external_contacts (name, email), users:related_user_id (full_name), gmail_outbound_messages!gmail_outbound_messages_communication_id_fkey (recipient_email)")
+    .select("id, occurred_at, created_at, subject, notes, summary, delivery_status, external_contact_id, external_contacts (name, email), users:related_user_id (full_name), gmail_outbound_messages!gmail_outbound_messages_communication_id_fkey (recipient_email, dispatch_started_at)")
     .eq(input.kind === "application" ? "application_id" : "claim_id", input.id)
     .like("summary", `${input.summaryPrefix}%`);
   if (input.direction) query = query.eq("direction", input.direction);
@@ -110,15 +111,18 @@ export async function listCommunicationRecords(input: {
       gmail_outbound_messages: LedgerRecipient | LedgerRecipient[] | null;
     }[]>();
   if (error) throw new Error(error.message);
+  const now = Date.now();
   return (data ?? []).map((row) => {
     const ledger = Array.isArray(row.gmail_outbound_messages) ? row.gmail_outbound_messages[0] : row.gmail_outbound_messages;
+    // Same rule as the composer: a dispatch that never finished in time is an uncertain outcome.
+    const stale = row.delivery_status === "sending" && ledger && displayedSendState("sending", ledger.dispatch_started_at, now) === "unknown";
     return {
       id: row.id,
       occurredAt: row.occurred_at ?? row.created_at,
       subject: row.subject,
       body: row.notes,
       summary: row.summary,
-      deliveryStatus: row.delivery_status,
+      deliveryStatus: stale ? "unknown" : row.delivery_status,
       recipient: ledger?.recipient_email ?? null,
       contactId: row.external_contact_id,
       contactName: row.external_contacts?.name ?? null,

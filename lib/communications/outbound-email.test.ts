@@ -12,7 +12,8 @@ import { GmailSendError } from "@/lib/gmail/send-api";
 import type { Client } from "@/lib/repositories/clients";
 import type { User } from "@/lib/repositories/users";
 import { EmailAttachmentError, type AttachmentManifestEntry } from "./email-attachments";
-import { createOutboundEmailService, outboundPayloadHash, STALE_SENDING_MS, type OutboundEmailDeps } from "./outbound-email";
+import { createOutboundEmailService, outboundPayloadHash, type OutboundEmailDeps } from "./outbound-email";
+import { STALE_SENDING_MS } from "./outbound-email.types";
 
 const ID = "11111111-2222-4333-8444-555555555555";
 const NOW = Date.parse("2026-11-04T02:00:00.000Z");

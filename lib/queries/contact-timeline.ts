@@ -1,5 +1,6 @@
 import "server-only";
 
+import { displayedSendState } from "@/lib/communications/outbound-email.types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -82,7 +83,7 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
   const [comms, activity] = await Promise.all([
     supabase
       .from("communications")
-      .select("id, direction, channel, subject, summary, notes, delivery_status, occurred_at, related_user:users (full_name), communication_library_documents (document_name_snapshot, version_label_snapshot), gmail_inbox_messages (id), gmail_outbound_messages (id, attachments, gmail_thread_id, state, effects_applied_at)")
+      .select("id, direction, channel, subject, summary, notes, delivery_status, occurred_at, related_user:users (full_name), communication_library_documents (document_name_snapshot, version_label_snapshot), gmail_inbox_messages (id), gmail_outbound_messages (id, attachments, gmail_thread_id, state, dispatch_started_at, effects_applied_at)")
       .eq("client_id", clientId)
       .order("occurred_at", { ascending: false })
       .limit(limit),
@@ -96,12 +97,15 @@ export async function getContactTimeline(clientId: string, limit = 60): Promise<
   ]);
 
   const entries: TimelineEntry[] = [];
+  const now = Date.now();
 
   for (const c of comms.data ?? []) {
     const kind: TimelineKind =
       c.channel === "Phone" ? "call" : c.channel === "Gmail" ? "email" : "message";
     const outbound = c.gmail_outbound_messages;
-    const status = emailStatus(c.direction, c.delivery_status, kind);
+    const recorded = emailStatus(c.direction, c.delivery_status, kind);
+    // Same rule as the composer: a dispatch that never finished in time is an uncertain outcome.
+    const status = recorded === "sending" && outbound && displayedSendState("sending", outbound.dispatch_started_at, now) === "unknown" ? "unknown" : recorded;
     const attachments = (c.communication_library_documents as Array<{ document_name_snapshot: string; version_label_snapshot: string }> | null) ?? [];
     // CRM sends list the real transmitted manifest; older log-only rows never delivered files.
     const attachmentSummary = outbound

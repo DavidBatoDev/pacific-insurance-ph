@@ -84,6 +84,14 @@ export interface PrepareEmailInput {
 
 export type EmailSendState = "prepared" | "sending" | "accepted" | "failed" | "unknown";
 
+/** A dispatch older than this is treated as an uncertain outcome; it is never re-claimed. */
+export const STALE_SENDING_MS = 120_000;
+
+/** The state staff see: a dispatch that never finished within the window is an uncertain outcome. */
+export function displayedSendState(state: EmailSendState, dispatchStartedAt: string | null, now: number): EmailSendState {
+  return state === "sending" && dispatchStartedAt !== null && now - Date.parse(dispatchStartedAt) > STALE_SENDING_MS ? "unknown" : state;
+}
+
 export interface EmailSendView {
   origin: EmailOrigin;
   id: string;
