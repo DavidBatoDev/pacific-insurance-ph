@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { DEACTIVATED_MESSAGE } from "@/lib/auth/google-sign-in";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const REASONS: Record<string, string> = {
-  deactivated: "This account has been deactivated. Contact the Owner if you need access restored.",
+  deactivated: DEACTIVATED_MESSAGE,
 };
 
 /**
