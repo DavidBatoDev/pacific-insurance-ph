@@ -138,6 +138,8 @@ they are historical references, not active sources of task status. Current prior
   The project still reports [leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
   and informational [unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys),
   including the new nullable reviewer FK. No broad security/settings/index changes were made.
+  Leaked-password protection is a Pro-plan feature; the project is on Free, so this warning is
+  expected until the plan changes (confirmed 2026-11-14 during Phase I7).
 - H9d verified 2026-11-06: `0062_commission_voucher` = `20261106085803`,
   `0063_commission_voucher_conflict` = `20261106090635`, and
   `0064_commission_voucher_scope_indexes` = `20261106091309`. Genuine hosted types include the

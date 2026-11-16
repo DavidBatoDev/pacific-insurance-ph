@@ -2237,14 +2237,15 @@ invitee sets own password · DI5 defer SSO, ship password activation first — s
   Viewer); success toast + a "Copy invite link" panel showing `inviteUrl` and whether it was
   emailed. Status pill gains `Invited` (amber); invited rows show `Resend` / `Revoke` instead of
   `Deactivate`, and the role select stays enabled. Remove the "land in a later release" footnote.
-- [ ] **I7. Supabase Auth config (dashboard, not code).** *Pending — needs dashboard access.* Auth →
-  URL Configuration → Redirect URLs must include `https://pacific-insurance-ph-ten.vercel.app/auth/confirm`
-  (plus preview origins if invites are tested there) and `http://localhost:3000/auth/confirm`;
-  Vercel env `APP_URL=https://pacific-insurance-ph-ten.vercel.app` (optional: the code falls
-  back to `VERCEL_PROJECT_PRODUCTION_URL`). The invite link itself is first-party (`/auth/confirm`
-  + `verifyOtp`), so the allow-list only matters for Supabase's own `redirectTo` echo. Invite link
-  expiry: default 24 h. Enable leaked-password protection while there (long-standing advisor
-  warning, see `docs/development-alignment.md`).
+- [x] **I7. Supabase Auth config (dashboard, not code).** ✅ *Done 2026-11-14 by Joshua:
+  Redirect URLs include production, `localhost:3000` and `localhost:3010` `/auth/confirm`; Email
+  OTP Expiration set to 86400 s (Supabase's default is 1 h, not 24 h, and it governs the
+  `generateLink` invite); Vercel Production `APP_URL=https://pacific-insurance-ph-ten.vercel.app`,
+  redeployed; production invite → `/set-password` checked. A forged `token_hash` on production
+  redirects to `/login` with the readable invalid-link error. **Leaked-password protection is
+  not enabled:** it is a Pro-plan feature and the project is on Free, so the advisor warning
+  stays until the plan changes.* The invite link itself is first-party (`/auth/confirm` +
+  `verifyOtp`), so the allow-list only matters for Supabase's own `redirectTo` echo.
 - [x] **I8. Docs + scripts.** ✅ *Done 2026-11-12 (`pages.md` §15 Tab 2, `permissions.md` §1/§3, `.env.example` `APP_URL`).* `../docs/web/pages.md` §15 Tab 2: statuses are Active / **Invited** /
   Inactive (not "Disabled"), `Invite user` is Owner-only. `../docs/web/permissions.md` §1/§3: add the
   Owner-vs-Admin split for Team invites. `app/AGENTS.md` staff-session note unchanged. Leave
@@ -2278,10 +2279,11 @@ activation first because no `@pacificinsuranceph.com` staff mailboxes exist yet.
 
 Runs once Phase I is live. Goal: every staff login (Matt, Admin, Eman, future agents) is a real
 Google Workspace account on **`pacificinsuranceph.com`**, invites land in a real inbox, and sign-in
-is "Sign in with Google" with the invite as the only door. Today only `admin@pacificinsuranceph.com`
-exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
-`pacific-insurane-ph` — keep that spelling — see `docs/development-alignment.md` "Gmail connection").
-`matt@pacificinsurance.ph` / `eman@pacificinsurance.ph` are CRM-only logins with no mailbox.
+is "Sign in with Google" with the invite as the only door. `admin@pacificinsuranceph.com` is the
+Gmail OAuth mailbox wired through GCP project `pacific-insurane-ph` (keep that spelling; see
+`docs/development-alignment.md` "Gmail connection"), and **since 2026-11-16 it is also Matt's
+personal login (DJ8)**. `matt@pacificinsurance.ph` / `eman@pacificinsurance.ph` are CRM-only
+logins with no mailbox until J2 moves them.
 
 **Decisions**
 
@@ -2290,23 +2292,37 @@ exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
 | DJ1 | Sequence for every person, including future agents: **Workspace account first → CRM invite to that address (Phase I) → first Google sign-in activates.** The CRM never creates Workspace accounts and Workspace never creates CRM accounts. | Keeps Matt's invite authority (DI1) as the single authorization step; Workspace admin only provisions mail/identity. |
 | DJ2 | Separate GCP OAuth client ("CRM sign-in", scopes `openid email profile` only) from the existing Gmail mailbox client (`GOOGLE_CLIENT_ID`, sensitive Gmail scopes). | Gmail client carries restricted scopes and a reconnect consent flow; mixing sign-in into it widens its blast radius and complicates Google's scope verification. |
 | DJ3 | Supabase Auth: Google provider on, **"Allow new users to sign up" off**, automatic identity linking (default) on. | Signups-off makes an OAuth login for an unknown email fail at GoTrue, so SSO cannot create accounts — invite-only holds without app code. Admin-API user creation (`generateLink`, Phase I) is unaffected by the toggle. Verified-email auto-linking attaches the Google identity to the existing password user. |
-| DJ4 | Domain enforced three times: OAuth consent screen **Internal** (if the GCP project sits inside the Workspace org — unverified; if not, this option is unavailable and the other two carry it), `hd=pacificinsuranceph.com` on the authorize request, and a server-side check of the identity's `hd` / email domain in `/auth/callback`. `STAFF_EMAIL_DOMAINS` (DI2) shrinks to the single `.com` domain after J2. | `hd` as a query param is a UI hint only; the claim check is the real gate. |
+| DJ4 | Domain enforced three times: OAuth consent screen **Internal** (✅ confirmed 2026-11-16: `pacific-insurane-ph` sits in the `pacificinsuranceph.com` org and the audience is Internal), `hd=pacificinsuranceph.com` on the authorize request, and a server-side check of the identity's `hd` / email domain in `/auth/callback`. `STAFF_EMAIL_DOMAINS` (DI2) shrinks to the single `.com` domain after J2. | `hd` as a query param is a UI hint only; the claim check is the real gate. |
 | DJ5 | An `Invited` user who signs in with Google is activated immediately (`status → Active`, `activated_at`) without `/set-password`. The password path from Phase I stays as the fallback for the same invite. | Google is the credential; forcing a password would create a second, weaker secret. |
 | DJ6 | Supabase **custom SMTP** via Workspace (`smtp-relay.gmail.com` or `smtp.gmail.com` + app password on `admin@`) for GoTrue-native mail (password reset, email-change confirmations). Invites keep the Phase I Gmail-API path. | Phase I deliberately avoided GoTrue mail; once the Workspace exists, the two GoTrue emails Phase I never covered (reset / email change) need a sender. |
 | DJ7 | Password sign-in stays enabled for `admin@pacificinsuranceph.com` and the Playwright/QA accounts; retire it for Matt/Eman only by not telling them the password. Disabling the email provider globally is a later decision. | The pre-authenticated Playwright session (`scripts/playwright-auth.mjs`) and seed scripts depend on password auth. |
+| DJ8 | ✅ *Joshua, 2026-11-16.* Matt has **no separate Workspace seat**: he signs in as `admin@pacificinsuranceph.com`, and `matt@pacificinsuranceph.com` is a free **alias** on that mailbox (you cannot sign in with an alias; Google reports only the primary address). In the CRM, the `admin@` login moves onto **Matt's existing user** (`73c3e291…`, 82 audit rows, 43 activities, 8 communications, the Gmail `connected_by`), not the near-empty "Admin" user (`87d46a8f…`, 1 audit row), which is renamed to a retired address and deactivated. | Saves a seat while keeping Matt's history and "Matt" attribution. Accepted costs: anyone holding the `admin@` Google credential acts as Matt; a password change on `admin@` disconnects Gmail; mail sent to the alias lands in the CRM Inbox (sync reads the whole mailbox, no recipient filter). |
 
 **Tasks**
 
-- [ ] **J1. Workspace provisioning (Matt / Workspace admin, not code).** Create
-  `matt@pacificinsuranceph.com` and `eman@pacificinsuranceph.com`; put CRM staff in one
-  organizational unit; enforce 2-Step Verification on that OU; confirm `admin@` remains the
-  shared agency mailbox (Gmail integration + invite sender). Future agents: same OU, created by
-  the Workspace admin **before** Matt invites them (DJ1). Eman's Outlook history migration is the
-  meeting item in `../docs/Demo Validation Meeting - Notes.md` (lines 119–123); not CRM work.
-- [ ] **J2. Move the existing CRM identities to the Workspace addresses.** Script
-  `scripts/migrate-staff-emails.mjs` (service role, idempotent, dry-run flag): for each mapping
-  `old → new`, `auth.admin.updateUserById(id, { email: new, email_confirm: true })` then
-  `public.users.email = new`. Run after J1, before J5. Then drop `pacificinsurance.ph` from
+- [x] **J1. Workspace provisioning (Matt / Workspace admin, not code).** ✅ *Done 2026-11-16 by
+  Joshua: `CRM Staff` OU with 2SV enforced; `eman@pacificinsuranceph.com` created there (her
+  first sign-in / 2SV enrollment still to check); `matt@` added as an alias of `admin@` (DJ8)
+  instead of a seat; 2SV enrolled on `admin@` (Matt's phone + backup codes) and enforced on the
+  top-level OU. After any 2SV or password change on `admin@`, run Settings → Gmail connection →
+  Check connection.* Future agents: `CRM Staff` OU, created by the Workspace admin **before** Matt
+  invites them (DJ1). Eman's Outlook history migration is the meeting item in
+  `../docs/Demo Validation Meeting - Notes.md` (lines 119–123); not CRM work.
+- [x] **J2. Move the existing CRM identities to the Workspace addresses.** ✅ *Done 2026-11-16:
+  `scripts/migrate-staff-emails.mjs` (dry run by default, `--apply` to write) applied all three
+  mappings below; a rerun skips every step. Auth email, `public.users.email` and the email
+  identity agree for each; three `staff_email_migrate` audit rows; Gmail still `connected`.
+  `STAFF_EMAIL_DOMAINS` is now `pacificinsuranceph.com` only (invites), `seed-staff.mjs` and
+  `../docs/web/pages.md` §15 updated. Timeline and submission history render `users.full_name`,
+  so history still reads "Matt".* Script
+  `scripts/migrate-staff-emails.mjs` (service role, idempotent, dry-run flag). Mappings (DJ8):
+  (1) retire the "Admin" user `87d46a8f…`: email → a retired address on the same domain (e.g.
+  `retired-admin@pacificinsuranceph.com`; must not be a real mailbox or alias), `status =
+  'Inactive'`; (2) Matt `73c3e291…`: `matt@pacificinsurance.ph → admin@pacificinsuranceph.com`;
+  (3) Eman `22ee6db5…`: `eman@pacificinsurance.ph → eman@pacificinsuranceph.com`. Order matters:
+  (1) frees the unique email before (2). For each, `auth.admin.updateUserById(id, { email: new,
+  email_confirm: true })` then `public.users.email = new`. Run after J1, before J5. Then drop
+  `pacificinsurance.ph` from
   `STAFF_EMAIL_DOMAINS` and update `scripts/seed-staff.mjs`. Audit row per change. Check
   `communications` / timeline "from" identity rendering uses `users.full_name`, not the email,
   so history stays readable (verify with `grep` on `users.email` consumers).
@@ -2315,19 +2331,34 @@ exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
   inline MIME in the Phase I module): subject "You're invited to the Pacific Insurance PH
   Operations Hub", inviter name, role, link, 24 h expiry note, "contact Matt if this wasn't
   expected". Keep the copy-link fallback (DI3).
-- [ ] **J4. GCP: sign-in OAuth client (console, not code).** In `pacific-insurane-ph`: new OAuth
-  2.0 Client ID (Web), name "CRM sign-in"; authorized redirect URI
-  `https://lihekcuksskwipkajjyv.supabase.co/auth/v1/callback`; authorized JS origins = production
-  Vercel origin + `http://localhost:3000`. Consent screen: Internal if available (DJ4), app name
-  "Pacific Insurance PH Operations Hub", support email `admin@`. Store client id/secret only in
-  Supabase (J5) — not in Vercel env.
-- [ ] **J5. Supabase Auth config (dashboard).** Providers → Google: enable, paste J4 credentials.
+- [x] **J4. GCP: sign-in OAuth client (console, not code).** ✅ *Done 2026-11-16 by Joshua: web
+  client "CRM Sign-In" created beside the untouched "Pacific Insurance PH - Gmail" client. Consent
+  screen: project in the Workspace org, audience Internal, so no Branding/Data Access changes.* In `pacific-insurane-ph`: new OAuth 2.0 Client ID (Web), name "CRM
+  sign-in"; authorized redirect URI `https://lihekcuksskwipkajjyv.supabase.co/auth/v1/callback`;
+  authorized JS origins = production Vercel origin + `http://localhost:3000`. Store client
+  id/secret only in Supabase (J5), not in Vercel env.
+- [x] **J5. Supabase Auth config (dashboard).** ✅ *Done 2026-11-16 by Joshua: Google provider on
+  with the CRM Sign-In client, signups off, `/auth/callback` Redirect URLs for production,
+  `localhost:3000` and `localhost:3010`. **SMTP (DJ6) deliberately deferred:** the app has no
+  password-reset page yet, and the app password it needs is a standing key to the agency mailbox;
+  do both together.* Providers → Google: enable, paste J4 credentials.
   Auth settings: signups **off** (DJ3). URL configuration: Site URL = production origin;
   Redirect URLs add `/auth/callback` for production, preview, and localhost (Phase I already added
   `/auth/confirm`). SMTP (DJ6): sender `admin@pacificinsuranceph.com`, name "Pacific Insurance PH";
   customize the Reset Password / Change Email templates with the agency name. Leave the Invite
   template untouched (unused).
-- [ ] **J6. Login + callback code.** `app/(auth)/login/page.tsx`: "Sign in with Google" button →
+- [x] **J6. Login + callback code.** ✅ *Built 2026-11-16 (production sign-in is J8).
+  `lib/auth/google-sign-in.ts` holds the identity rule (Workspace `hd` claim, verified email equal
+  to the CRM address, missing `hd` rejects) and a same-origin `safeRedirectPath`, with tests.
+  Deviations from the sketch below: the post-login path travels in a short-lived httpOnly cookie
+  scoped to `/auth/callback` (the redirect allow-list matches whole URLs, so no query string); the
+  callback origin is the request's own origin (Supabase's allow-list still decides); a rejected
+  session is ended with `signOut({ scope: "local" })` inside the callback so it never reaches the
+  app and the person's other devices stay signed in. Smoke on localhost:3010: the button reaches
+  Google with the CRM Sign-In client (not the Gmail one), `hd=pacificinsuranceph.com`,
+  `prompt=select_account`, scopes `email profile`; signup-refused, missing and forged codes land on
+  `/login` with readable errors. Not yet exercised: a real Google account completing the flow.*
+  `app/(auth)/login/page.tsx`: "Sign in with Google" button →
   `signInWithGoogleAction` (`supabase.auth.signInWithOAuth({ provider: "google", options: {
   redirectTo: APP_URL + "/auth/callback?redirectTo=…", queryParams: { hd: "pacificinsuranceph.com",
   prompt: "select_account" } } })`, then `redirect(data.url)`). New
@@ -2345,19 +2376,19 @@ exists in the Workspace (it is the Gmail OAuth mailbox wired through GCP project
   agent sees only those. Offboarding: Deactivate in CRM **and** suspend in Workspace. Record the
   open agent-scoping gap from `docs/development-alignment.md` (dashboard page/export are not
   row-scoped for `agent`) as a prerequisite before the first real agent is invited.
-- [ ] **J8. Verification.** Matt signs in with Google on production → lands on `/dashboard` as
-  the same `users` row (identity linked, no duplicate). Eman same. Negative: a personal
+- [ ] **J8. Verification.** Matt signs in with Google **as `admin@pacificinsuranceph.com`** on
+  production → lands on `/dashboard` as his existing `users` row, shown as "Matt" (identity linked,
+  no duplicate; the retired "Admin" user cannot sign in). Eman same with `eman@`. Negative: a personal
   `@gmail.com` Google account → blocked (signups off + callback check), readable error; a
   Workspace account that was never invited → blocked; deactivated Workspace-linked user → blocked;
   invited-but-not-activated agent via Google → row flips to `Active`. Password reset email from
   `/login` (if J5 SMTP is on) arrives from `admin@`. Playwright pre-auth session still works.
 
 **Risks**
-- If `pacific-insurane-ph` is not under the Workspace organization, "Internal" consent is
-  unavailable and an **External** app with sensitive Gmail scopes is already subject to Google
-  verification; the new sign-in client with basic scopes does not add scopes, but the consent
-  screen is shared per project. Creating the sign-in client in a second GCP project inside the
-  Workspace org is the clean alternative.
+- Resolved 2026-11-16: the project is in the Workspace org and the consent screen is Internal,
+  so the shared consent screen raises no verification issue for the sign-in client.
+- `admin@` is now both the shared mailbox and Matt's login (DJ8): keep its password stable (a
+  change disconnects Gmail), and Matt's second factor is needed for any Gmail reconnect.
 - Changing Matt's/Eman's auth email (J2) invalidates nothing server-side (ids are stable) but
   their browser sessions survive with the old email in the JWT until refresh; log them out after
   the migration.
