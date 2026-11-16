@@ -1,5 +1,7 @@
 /**
- * One-off: create the staff auth users (Matt, Eman) and their public.users rows.
+ * Bootstrap only: create the staff auth users (Matt, Eman) and their public.users rows on an
+ * empty project. Matt signs in as the agency mailbox `admin@` (Phase J, DJ8); invite everyone
+ * else from Settings → Team.
  *
  * Run from the project root with the service-role credentials loaded:
  *
@@ -33,8 +35,8 @@ const supabase = createClient(url, serviceKey, {
 });
 
 const staff = [
-  { email: "matt@pacificinsurance.ph", fullName: "Matt", role: "Owner" },
-  { email: "eman@pacificinsurance.ph", fullName: "Eman", role: "Admin" },
+  { email: "admin@pacificinsuranceph.com", fullName: "Matt", role: "Owner" },
+  { email: "eman@pacificinsuranceph.com", fullName: "Eman", role: "Admin" },
 ];
 
 for (const s of staff) {

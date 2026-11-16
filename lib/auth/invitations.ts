@@ -13,9 +13,9 @@ import type { InvitableRole } from "./staff-email";
 
 /**
  * Staff invitations (Phase I). The Owner creates the auth user with Supabase's admin API and the
- * CRM delivers the link itself: Supabase's built-in mailer is development-only, and the agency's
- * `@pacificinsurance.ph` addresses have no mailbox yet, so the inviter always receives a copyable
- * link and the Gmail send is best-effort. The invitee never receives a password; the link lands on
+ * CRM delivers the link itself: Supabase's built-in mailer is development-only, so invites go out
+ * through the agency's Gmail sender and the inviter always receives a copyable link as well (the
+ * Gmail send is best-effort). The invitee never receives a password; the link lands on
  * `/auth/confirm`, which verifies the token server-side and sends them to `/set-password`.
  */
 

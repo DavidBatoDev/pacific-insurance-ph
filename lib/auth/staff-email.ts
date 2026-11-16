@@ -1,9 +1,9 @@
 /**
- * Staff sign-in addresses must belong to the agency. Isomorphic: the invite form shows the
- * same rule the server enforces. `pacificinsurance.ph` carries today's logins;
- * `pacificinsuranceph.com` is the Google Workspace domain the agency is moving to.
+ * Staff sign-in addresses must belong to the agency's Google Workspace. Isomorphic: the invite
+ * form shows the same rule the server enforces. The old CRM-only `pacificinsurance.ph` logins were
+ * moved onto Workspace addresses in Phase J2 (`scripts/migrate-staff-emails.mjs`).
  */
-export const STAFF_EMAIL_DOMAINS = ["pacificinsurance.ph", "pacificinsuranceph.com"] as const;
+export const STAFF_EMAIL_DOMAINS = ["pacificinsuranceph.com"] as const;
 
 const LOCAL_PART = /^[a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9])?$/;
 
