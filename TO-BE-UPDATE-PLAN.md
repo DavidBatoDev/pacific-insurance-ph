@@ -2376,7 +2376,13 @@ logins with no mailbox until J2 moves them.
   agent sees only those. Offboarding: Deactivate in CRM **and** suspend in Workspace. Record the
   open agent-scoping gap from `docs/development-alignment.md` (dashboard page/export are not
   row-scoped for `agent`) as a prerequisite before the first real agent is invited.
-- [ ] **J8. Verification.** Matt signs in with Google **as `admin@pacificinsuranceph.com`** on
+- [x] **J8. Verification.** ✅ *Done 2026-11-17: Joshua ran the production checks (Matt via
+  Google as `admin@` and Eman via Google landed as themselves; a personal Google account was
+  refused; password sign-in still works). Database: Matt and Eman each have an `email` and a
+  `google` identity on their existing user (no duplicate; 7 auth users = 7 CRM users, none
+  orphaned, no `@gmail.com` auth user). Supabase stores Google's Workspace domain at
+  `identity_data.custom_claims.hd` = `pacificinsuranceph.com`, the path `googleIdentityProblem`
+  checks first.* Matt signs in with Google **as `admin@pacificinsuranceph.com`** on
   production → lands on `/dashboard` as his existing `users` row, shown as "Matt" (identity linked,
   no duplicate; the retired "Admin" user cannot sign in). Eman same with `eman@`. Negative: a personal
   `@gmail.com` Google account → blocked (signups off + callback check), readable error; a
