@@ -7,6 +7,11 @@ export const STAFF_EMAIL_DOMAINS = ["pacificinsuranceph.com"] as const;
 
 const LOCAL_PART = /^[a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9])?$/;
 
+/** Whether `username` is a valid mailbox name before the fixed agency domain (lower-case). */
+export function isStaffUsername(username: string): boolean {
+  return LOCAL_PART.test(username);
+}
+
 /**
  * Lower-cases and trims an address; returns null unless it is exactly one plain mailbox on an
  * allow-listed domain. Display names, lists, and header-injection characters are rejected.

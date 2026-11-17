@@ -16,7 +16,7 @@ import {
   saveExternalContactAction,
 } from "@/app/(app)/settings/actions";
 import type { InvitationResult } from "@/lib/auth/invitations";
-import { INVITABLE_ROLES, STAFF_EMAIL_DOMAINS, STAFF_ROLE_LABELS } from "@/lib/auth/staff-email";
+import { INVITABLE_ROLES, isStaffUsername, STAFF_EMAIL_DOMAINS, STAFF_ROLE_LABELS } from "@/lib/auth/staff-email";
 import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { IntegrationProvider, PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
@@ -191,7 +191,9 @@ function GeneralTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const EMPTY_INVITE = { email: "", fullName: "", role: "Assistant" };
+const EMPTY_INVITE = { username: "", fullName: "", role: "Assistant" };
+/** Invites are Workspace-only, so the form asks for the username and shows the domain fixed. */
+const INVITE_DOMAIN = STAFF_EMAIL_DOMAINS[0];
 
 function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
   const router = useRouter();
@@ -202,6 +204,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
   const [invitePending, startInvite] = useTransition();
   const [invite, setInvite] = useState(EMPTY_INVITE);
   const [issued, setIssued] = useState<InvitationResult | null>(null);
+  const usernameInvalid = invite.username !== "" && !isStaffUsername(invite.username);
 
   const changeRole = (u: User, role: string) =>
     startTransition(async () => {
@@ -222,7 +225,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
 
   const sendInvite = () =>
     startInvite(async () => {
-      const res = await inviteUserAction(invite);
+      const res = await inviteUserAction({ email: `${invite.username}@${INVITE_DOMAIN}`, fullName: invite.fullName, role: invite.role });
       if (!res.ok) { overlays.toast("Couldn’t invite", res.error); return; }
       setIssued(res.data);
       overlays.toast("Invitation created", res.data.emailed ? `Emailed to ${res.data.user.email}.` : "Copy the link and share it with them.");
@@ -233,7 +236,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
     startInvite(async () => {
       const res = await resendInviteAction(u.id);
       if (!res.ok) { overlays.toast("Couldn’t resend", res.error); return; }
-      setInviting(true); setInvite({ email: u.email, fullName: u.fullName, role: u.role }); setIssued(res.data);
+      setInviting(true); setInvite({ username: u.email.split("@")[0], fullName: u.fullName, role: u.role }); setIssued(res.data);
       router.refresh();
     });
 
@@ -350,10 +353,37 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
         ) : (
           <div>
             <p className="mb-4 text-[12.5px] text-muted-foreground">
-              Agency addresses only ({STAFF_EMAIL_DOMAINS.map((d) => `@${d}`).join(", ")}). The invitee sets their own password; no password is sent.
+              Create their Google Workspace account in admin.google.com first, then invite the same address. The invitee sets their own password; no password is sent.
             </p>
             <label className="block text-[11.5px] font-bold uppercase text-subtle">Email
-              <input type="email" autoFocus className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.email} onChange={(e) => setInvite((c) => ({ ...c, email: e.target.value }))} placeholder="name@pacificinsuranceph.com" />
+              <div className={cn(
+                "mt-1.5 flex h-9 items-center overflow-hidden rounded-md border bg-card text-[13.5px] font-normal normal-case transition-colors focus-within:ring-[3px]",
+                usernameInvalid ? "border-red focus-within:ring-red/20" : "border-border-strong focus-within:border-brand focus-within:ring-brand/20",
+              )}>
+                <input
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={usernameInvalid}
+                  className="h-full min-w-0 flex-1 bg-transparent px-3 outline-none"
+                  value={invite.username}
+                  onChange={(e) => setInvite((c) => ({ ...c, username: e.target.value.replace(/\s/g, "").toLowerCase() }))}
+                  // A pasted full address keeps only its username; the domain is fixed.
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData("text");
+                    if (!text.includes("@")) return;
+                    e.preventDefault();
+                    setInvite((c) => ({ ...c, username: text.split("@")[0].replace(/\s/g, "").toLowerCase() }));
+                  }}
+                  placeholder="firstname"
+                />
+                <span className="flex h-full items-center border-l border-border-strong bg-surface-2 px-3 text-muted-foreground">@{INVITE_DOMAIN}</span>
+              </div>
+              {usernameInvalid && (
+                <span className="mt-1 block text-[12px] font-normal normal-case text-red">
+                  {invite.username.includes("@") ? `Type only the username; @${INVITE_DOMAIN} is added for you.` : "Use letters, numbers, dots, dashes or underscores."}
+                </span>
+              )}
             </label>
             <label className="mt-3 block text-[11.5px] font-bold uppercase text-subtle">Full name
               <input className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.fullName} onChange={(e) => setInvite((c) => ({ ...c, fullName: e.target.value }))} />
@@ -365,7 +395,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
             </label>
             <div className="mt-5 flex justify-end gap-2">
               <button className="rounded-md border px-3 py-2 text-[13px]" onClick={closeInvite}>Cancel</button>
-              <button disabled={invitePending || !invite.email.trim() || !invite.fullName.trim()} className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50" onClick={sendInvite}>
+              <button disabled={invitePending || !invite.username || usernameInvalid || !invite.fullName.trim()} className="rounded-md bg-brand px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50" onClick={sendInvite}>
                 {invitePending ? "Inviting…" : "Send invitation"}
               </button>
             </div>

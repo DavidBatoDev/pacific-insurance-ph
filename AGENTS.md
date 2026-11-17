@@ -53,6 +53,12 @@ sessions skip the login flow. Credentials live in `.env.local` (`PLAYWRIGHT_TEST
 browser session is `.auth/staff.json` (gitignored — it holds a live token), loaded by the MCP via
 `--storage-state` in `.mcp.json`.
 
+**As of 2026-11-17 the test account (`playwright-staff@prodigitality.net`) is Inactive** (test-user
+cleanup), so sign-in and the saved session are refused, and `.auth/staff.json` was removed.
+`npm run auth:playwright` does not reactivate it (it never writes `status`). For an E2E session,
+an Admin reactivates it in Settings → Team, and deactivates it again afterwards. It keeps its
+history, including real QA Gmail sends, so it is deactivated rather than deleted.
+
 (Re)generate the session on first setup, or whenever the MCP browser starts getting redirected to
 `/login` (the saved refresh token expired):
 
