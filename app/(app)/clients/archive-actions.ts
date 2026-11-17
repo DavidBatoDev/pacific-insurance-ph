@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getClientsRepository, type Client } from "@/lib/repositories/clients";
 import type { Json } from "@/lib/supabase/types";
 
@@ -22,6 +23,7 @@ async function setClientStatus(
   const archiving = next === "Archived";
 
   try {
+    await assertRecordAccess("client", id);
     const client = await repo.findById(id);
     if (!client) return { ok: false, error: "Client not found." };
     if (client.status === next)

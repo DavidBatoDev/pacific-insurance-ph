@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import {
@@ -61,6 +62,7 @@ export async function advanceLeadAction(
   const repo = getClientsRepository();
 
   try {
+    await assertRecordAccess("client", input.clientId);
     const lead = await repo.findById(input.clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
     if (lead.lifecycleStage !== "Lead")
@@ -178,6 +180,7 @@ export async function markLostAction(input: MarkLostInput): Promise<ActionResult
   const repo = getClientsRepository();
 
   try {
+    await assertRecordAccess("client", input.clientId);
     const lead = await repo.findById(input.clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
     if (lead.lifecycleStage !== "Lead")
@@ -250,6 +253,7 @@ export async function markNurturingAction(input: {
   const repo = getClientsRepository();
 
   try {
+    await assertRecordAccess("client", input.clientId);
     if (!input.reEngagementDate)
       return { ok: false, error: "A re-engagement date is required to put a lead on hold." };
 
@@ -384,6 +388,7 @@ export async function setProposalStatusAction(
 ): Promise<ActionResult<Client>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const repo = getClientsRepository();
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
@@ -436,6 +441,7 @@ export async function getProposalLeadDefaultsAction(
 ): Promise<ActionResult<{ paymentFrequency: string | null; gender: string | null }>> {
   await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const lead = await getClientsRepository().findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
     return { ok: true, data: { paymentFrequency: lead.paymentFrequency, gender: lead.gender } };
@@ -458,6 +464,7 @@ export async function generateProposalAction(
 ): Promise<ActionResult<{ portalUrl: string; details: ProposalPortalDetail[] }>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     if (!(PAYMENT_FREQUENCIES as readonly string[]).includes(paymentFrequency))
       return { ok: false, error: "Choose a payment frequency: Annual or Semi-annual." };
     const repo = getClientsRepository();
@@ -564,6 +571,7 @@ export async function recordProposalReceivedAction(
 ): Promise<ActionResult<UploadedProposal>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const repo = getClientsRepository();
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
@@ -595,6 +603,7 @@ export async function replaceProposalPdfAction(
 ): Promise<ActionResult<UploadedProposal>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const lead = await getClientsRepository().findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
     if (lead.lifecycleStage !== "Lead")

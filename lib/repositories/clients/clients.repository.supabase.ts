@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { toRepositoryError, type Paginated } from "../types";
 import type { Client, ClientUpdate, NewClient } from "./client.entity";
-import type { ClientsRepository, DuplicateProbe, ListClientsParams } from "./clients.repository";
+import type { ClientsRepository, DuplicateProbe, ListClientsParams, SearchClientsOptions } from "./clients.repository";
 import { searchTokenFilter, searchTokens } from "./search";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
@@ -70,10 +70,12 @@ export class SupabaseClientsRepository implements ClientsRepository {
       orderBy = "created_at",
       ascending = false,
       includeArchived = false,
+      ownerUserId,
     } = params;
 
     let query = getSupabaseAdmin().from("clients").select("*", { count: "exact" });
     if (!includeArchived) query = query.eq("status", "Active");
+    if (ownerUserId) query = query.eq("assigned_user_id", ownerUserId);
     const { data, error, count } = await query
       .order(orderBy, { ascending })
       .range(offset, offset + limit - 1);
@@ -82,13 +84,14 @@ export class SupabaseClientsRepository implements ClientsRepository {
     return { rows: (data ?? []).map(toDomain), total: count ?? 0 };
   }
 
-  async listLeads(): Promise<Client[]> {
-    const { data, error } = await getSupabaseAdmin()
+  async listLeads(opts: { ownerUserId?: string | null } = {}): Promise<Client[]> {
+    let query = getSupabaseAdmin()
       .from("clients")
       .select("*")
       .eq("lifecycle_stage", "Lead")
-      .eq("status", "Active")
-      .order("created_at", { ascending: true });
+      .eq("status", "Active");
+    if (opts.ownerUserId) query = query.eq("assigned_user_id", opts.ownerUserId);
+    const { data, error } = await query.order("created_at", { ascending: true });
 
     if (error) throw toRepositoryError("ClientsRepository.listLeads", error);
     return (data ?? []).map(toDomain);
@@ -191,9 +194,9 @@ export class SupabaseClientsRepository implements ClientsRepository {
   async search(
     query: string,
     limit = 20,
-    opts: { includeArchived?: boolean } = {},
+    opts: SearchClientsOptions = {},
   ): Promise<Client[]> {
-    const { includeArchived = true } = opts;
+    const { includeArchived = true, ownerUserId } = opts;
     const tokens = searchTokens(query);
     if (!tokens.length) return [];
 
@@ -202,6 +205,7 @@ export class SupabaseClientsRepository implements ClientsRepository {
     // one column — "QA OCT2 Applicant" matches first_name + last_name.
     for (const token of tokens) q = q.or(searchTokenFilter(token));
     if (!includeArchived) q = q.eq("status", "Active");
+    if (ownerUserId) q = q.eq("assigned_user_id", ownerUserId);
     const { data, error } = await q
       .order("created_at", { ascending: false })
       .limit(limit);

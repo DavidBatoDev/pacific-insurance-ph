@@ -27,16 +27,18 @@ const dayDiffThisYear = (month: number, day: number): number => {
 
 const whenLabel = (d: number) => (d <= 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`);
 
-export async function getRelationshipTouchpoints(windowDays = 45): Promise<TouchpointRow[]> {
+/** `ownerUserId` (Phase J9 agent scope) keeps only clients assigned to that user; null/undefined = whole book. */
+export async function getRelationshipTouchpoints(windowDays = 45, ownerUserId?: string | null): Promise<TouchpointRow[]> {
   const s = getSupabaseAdmin();
   // Birthday/anniversary windows need month-day math, so filtering stays in JS
   // over a narrow column set — but bounded, so this never becomes a full-table
   // payload as the client base grows.
-  const { data: clients } = await s
+  let query = s
     .from("clients")
     .select("id, first_name, last_name, email, date_of_birth, created_at, lifecycle_stage, lead_status, product_interest")
-    .neq("lifecycle_stage", "Lost")
-    .limit(2000);
+    .neq("lifecycle_stage", "Lost");
+  if (ownerUserId) query = query.eq("assigned_user_id", ownerUserId);
+  const { data: clients } = await query.limit(2000);
 
   const rows: TouchpointRow[] = [];
   for (const c of clients ?? []) {

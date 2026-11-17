@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Renewal, NewRenewal, RenewalUpdate, RenewalSyncResult } from "./renewal.entity";
 import type { RenewalsRepository } from "./renewals.repository";
 
@@ -74,7 +74,7 @@ export class SupabaseRenewalsRepository implements RenewalsRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Renewal[]> {
-    let query = getSupabaseAdmin().from("renewals").select(SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("renewals").select(ownerScopedSelect(SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query

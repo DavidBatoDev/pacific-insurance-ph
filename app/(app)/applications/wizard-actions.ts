@@ -12,7 +12,7 @@ import { getActor, type ActionResult } from "@/lib/actions/context";
 import { PREFERRED_CHANNELS } from "@/lib/db-enums";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
-import { toAppRole } from "@/lib/auth/permissions";
+import { assertRecordAccess, getAgentScope } from "@/lib/auth/agent-scope";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getApplicationRequirementsRepository, type RequirementPhase } from "@/lib/repositories/application-requirements";
 import { getClientsRepository, type Client, type ClientUpdate } from "@/lib/repositories/clients";
@@ -211,6 +211,7 @@ const CLOSED_APPLICATION_STATUSES = new Set(["Approved", "Rejected", "Declined",
 export async function getClientOpenWorkAction(clientId: string, excludeDraftId?: string | null): Promise<ActionResult<ClientOpenWork>> {
   await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const [applications, travel] = await Promise.all([
       getApplicationsRepository().listByClient(clientId),
       getTravelRepository().listByClient(clientId),
@@ -267,6 +268,7 @@ export interface TravelClientFill {
 export async function getTravelClientFillAction(clientId: string): Promise<ActionResult<TravelClientFill>> {
   await getActor();
   try {
+    await assertRecordAccess("client", clientId);
     const client = await getClientsRepository().findById(clientId);
     if (!client) return { ok: false, error: "Client not found." };
     const { data: rows, error } = await getSupabaseAdmin()
@@ -514,12 +516,10 @@ export async function getDraftResumeAction(
 ): Promise<ActionResult<DraftResumePayload>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const draft = await getApplicationsRepository().findById(applicationId);
     if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
       return { ok: false, error: "This application draft is no longer available to continue." };
-    }
-    if (toAppRole(actor.role) === "agent" && draft.assignedUserId !== actor.id) {
-      return { ok: false, error: "This application draft is not assigned to you." };
     }
     const client = await getClientsRepository().findById(draft.clientId);
     if (!client) return { ok: false, error: "The contact for this application draft no longer exists." };
@@ -705,14 +705,13 @@ async function resolveWizardContact(
   let clientName = "";
   let resumingDraft = false;
   let leadAwaitingHandOff: Client | null = null;
+  const agentId = await getAgentScope();
 
     if (form.draftApplicationId) {
+      await assertRecordAccess("application", form.draftApplicationId);
       const draft = await applicationsRepo.findById(form.draftApplicationId);
       if (!draft || draft.status !== "Lead" || !isWizardState(draft.wizardState)) {
         return { ok: false, error: "This application draft is no longer available to continue." };
-      }
-      if (toAppRole(actor.role) === "agent" && draft.assignedUserId !== actor.id) {
-        return { ok: false, error: "This application draft is not assigned to you." };
       }
       if (draft.productVersionId !== (form.productVersionId || null) && (await getApplicationRequirementsRepository().listByApplication(draft.id)).length) {
         return { ok: false, error: "This draft already has a persisted checklist. Keep its original product, or start a new application for a different product; existing documents will not be reassigned." };
@@ -735,7 +734,7 @@ async function resolveWizardContact(
           address: form.address,
           preferredChannel: clientChannel(form.channels[0]),
           leadSource: form.source,
-          assignedUserId: form.assignedUserId,
+          assignedUserId: agentId ?? form.assignedUserId,
           notes: form.notes,
           productInterest: form.productName,
           estPremium: parseAmount(form.premium),
@@ -768,6 +767,7 @@ async function resolveWizardContact(
     if (!resumingDraft && form.convertClientId) {
       // Convert-from-lead: the SAME record is used, but nothing about it changes yet — the flip to
       // Applicant happens in step 1b, and only for a completing save.
+      await assertRecordAccess("client", form.convertClientId);
       const lead = await clientsRepo.findById(form.convertClientId);
       if (!lead) return { ok: false, error: "The lead being converted no longer exists." };
       // Converting is the Product-Selected payoff (docs/lead-stage-status-example.md Step 5). The
@@ -788,6 +788,7 @@ async function resolveWizardContact(
       });
       if (lead.lifecycleStage === "Lead") leadAwaitingHandOff = lead;
     } else if (!resumingDraft && form.clientMode === "existing" && form.existingClientId) {
+      await assertRecordAccess("client", form.existingClientId);
       const existing = await clientsRepo.findById(form.existingClientId);
       if (!existing) return { ok: false, error: "The selected client record no longer exists." };
       clientId = existing.id;
@@ -818,7 +819,7 @@ async function resolveWizardContact(
           ? {}
           : { leadStage: mode === "draft" ? APPLICATION_STARTED_STAGE : "New Lead", leadStatus: "New" }),
         leadSource: form.source || null,
-        assignedUserId: form.assignedUserId || actor.id,
+        assignedUserId: agentId ?? (form.assignedUserId || actor.id),
         address: form.address || null,
         preferredChannel: clientChannel(form.channels[0]),
         notes: form.notes || null,
@@ -857,7 +858,7 @@ async function resolveWizardContact(
         coverageTier: form.coverageTier.trim() || null,
         selectVariant: form.selectVariant || null,
         leadSource: form.source || null,
-        assignedUserId: form.assignedUserId || actor.id,
+        assignedUserId: agentId ?? (form.assignedUserId || actor.id),
         notes: form.notes || null,
       });
       clientId = created.id;
@@ -1059,6 +1060,8 @@ async function createGroupHmoRecord(ctx: WizardCreateContext) {
         primaryContactId: resolvedClientId,
         effectiveDate: form.startDate || null,
         address: form.address || null,
+        // An agent owns the group they create, otherwise it would vanish from their book (J9).
+        assignedUserId: await getAgentScope(),
       });
       const validMembers = form.members.filter((m) => m.name.trim());
       for (const m of validMembers) {

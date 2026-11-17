@@ -1,7 +1,9 @@
 import "server-only";
 
 import { parseAmount } from "@/components/hub/overlays/wizard/wizard-data";
+import { ownerScopedSelect, ownerScopeFilter } from "@/lib/repositories/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/types";
 
 /**
  * Unfinished travel quotes for the Travel page. A quote saved as a draft lives in `applications`
@@ -29,14 +31,27 @@ type DraftState = {
   travelers?: { name?: string }[];
 };
 
-export async function listTravelDrafts(): Promise<TravelDraft[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from("applications")
-    .select("id, reference_no, client_id, updated_at, wizard_state, clients (first_name, last_name)")
+type DraftRow = {
+  id: string;
+  reference_no: string | null;
+  client_id: string;
+  updated_at: string;
+  wizard_state: Json | null;
+  clients: { first_name: string; last_name: string } | null;
+};
+
+/** `ownerUserId` (Phase J9 agent scope) keeps only drafts for clients assigned to that user. */
+export async function listTravelDrafts(ownerUserId?: string | null): Promise<TravelDraft[]> {
+  const select = "id, reference_no, client_id, updated_at, wizard_state, clients (first_name, last_name)";
+  const { data, error } = await ownerScopeFilter(
+    getSupabaseAdmin().from("applications").select(ownerScopedSelect(select, ownerUserId)),
+    ownerUserId,
+  )
     .eq("status", "Lead")
     .eq("wizard_state->>category", "travel")
     .order("updated_at", { ascending: false })
-    .limit(200);
+    .limit(200)
+    .returns<DraftRow[]>();
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => {
     const state = (row.wizard_state ?? {}) as DraftState;

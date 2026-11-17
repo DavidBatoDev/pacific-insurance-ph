@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { recordAudit } from "@/lib/audit/log";
 import { getClaimsRepository, type Claim, type NewClaim } from "@/lib/repositories/claims";
 import {
@@ -39,6 +40,7 @@ export interface ClaimPolicyOption {
 /** A contact's policies, for the File Claim drawer's policy picker (DH14 eligibility is applied client-side). */
 export async function listClientPoliciesAction(clientId: string): Promise<ClaimPolicyOption[]> {
   await getActor();
+  await assertRecordAccess("client", clientId);
   const policies = await getPoliciesRepository().listByClient(clientId);
   return policies.map((p) => ({
     id: p.id,
@@ -63,6 +65,8 @@ export async function fileClaimAction(
   if (!input.clientId) return { ok: false, error: "A claimant is required." };
 
   try {
+    await assertRecordAccess("client", input.clientId);
+    if (input.policyId) await assertRecordAccess("policy", input.policyId);
     const created = await getClaimsRepository().create({
       ...input,
       status: input.status ?? "Documents Pending",
@@ -116,6 +120,7 @@ export async function updateClaimIntakeAction(
     if (input.documentsReceivedDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.documentsReceivedDate)) {
       return { ok: false, error: "Documents received must be a valid date." };
     }
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
 
@@ -164,6 +169,7 @@ const CLAIM_CHECKLIST_TEMPLATE_NAME: Record<ClaimChecklistType, string> = {
 export async function getClaimRequirementsAction(claimId: string): Promise<ActionResult<ClaimRequirementsPayload>> {
   await getActor();
   try {
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
     const requirements = await getClaimRequirementsRepository().listByClaim(claimId);
@@ -248,6 +254,7 @@ export async function generateClaimRequirementsAction(
 ): Promise<ActionResult<ClaimRequirement[]>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
     const result = await generateForClaim(claim, actor.id, checklistType ?? checklistForClaimType(claim.claimType));
@@ -303,6 +310,7 @@ export async function changeClaimTypeAction(
   const actor = await getActor();
   try {
     if (!(CLAIM_TYPES as readonly string[]).includes(claimType)) return { ok: false, error: "Unknown claim type." };
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
 
@@ -363,6 +371,7 @@ export async function updateClaimRequirementStatusAction(
 ): Promise<ActionResult<ClaimRequirement>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
     const repo = getClaimRequirementsRepository();
@@ -393,6 +402,7 @@ export async function updateClaimRequirementRequiredAction(
 ): Promise<ActionResult<ClaimRequirement>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("claim", claimId);
     const claim = await getClaimsRepository().findById(claimId);
     if (!claim) return { ok: false, error: "This claim could not be found." };
     const repo = getClaimRequirementsRepository();

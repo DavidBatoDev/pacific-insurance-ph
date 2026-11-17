@@ -65,19 +65,19 @@ export interface DashboardExportData {
 }
 
 /**
- * Fetch everything the workbook needs. Status filters mirror the dashboard page
- * exactly; only `limit` differs.
+ * Fetch everything the workbook needs. Status filters and the agent scope
+ * (`ownerUserId` from `getAgentScope()`) mirror the dashboard page exactly; only `limit` differs.
  */
-export async function gatherDashboardExportData(): Promise<DashboardExportData> {
+export async function gatherDashboardExportData(ownerUserId: string | null = null): Promise<DashboardExportData> {
   const [stats, applications, renewals, claims, travel, tasks, touchpoints, users] =
     await Promise.all([
-      getDashboardStats(),
-      getApplicationsRepository().list({ statusNotIn: ["Approved", "Lead"], limit: ROW_CAP }),
-      getRenewalsRepository().list({ statusNotIn: ["Renewed", "Lapsed"], limit: ROW_CAP }),
-      getClaimsRepository().list({ statusNotIn: ["Closed", "Rejected", "Credited"], limit: ROW_CAP }),
-      getTravelRepository().list({ statusNotIn: ["Policy Issued"], limit: ROW_CAP }),
-      getTasksRepository().list({ limit: ROW_CAP }),
-      getRelationshipTouchpoints(),
+      getDashboardStats(ownerUserId),
+      getApplicationsRepository().list({ statusNotIn: ["Approved", "Lead"], limit: ROW_CAP, ownerUserId }),
+      getRenewalsRepository().list({ statusNotIn: ["Renewed", "Lapsed"], limit: ROW_CAP, ownerUserId }),
+      getClaimsRepository().list({ statusNotIn: ["Closed", "Rejected", "Credited"], limit: ROW_CAP, ownerUserId }),
+      getTravelRepository().list({ statusNotIn: ["Policy Issued"], limit: ROW_CAP, ownerUserId }),
+      getTasksRepository().list({ limit: ROW_CAP, ownerUserId }),
+      getRelationshipTouchpoints(undefined, ownerUserId),
       getUsersRepository().list({ limit: 200 }),
     ]);
 
@@ -470,8 +470,8 @@ export interface RenderedExport {
  * SheetJS, because `bookType: "csv"` would emit sheet 1 verbatim, merged title
  * rows and spacer rows included, which is the opposite of a simple table.
  */
-export async function renderDashboardExport(format: ExportFormat): Promise<RenderedExport> {
-  const data = await gatherDashboardExportData();
+export async function renderDashboardExport(format: ExportFormat, ownerUserId: string | null = null): Promise<RenderedExport> {
+  const data = await gatherDashboardExportData(ownerUserId);
   const date = data.generatedAt.toISOString().slice(0, 10);
   const filename = `pacific-dashboard-${date}.${format}`;
 

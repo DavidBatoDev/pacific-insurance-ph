@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { IconName } from "@/components/hub/icons";
 import { Avatar, Card, CardHead, PageHead, StatusBadge } from "@/components/hub/primitives";
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { globalSearch, type SearchHit, type SearchKind } from "@/lib/queries/global-search";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export default async function SearchPage({
 }) {
   const { q = "" } = await searchParams;
   const query = q.trim();
-  const groups = query ? await globalSearch(query, 30) : [];
+  const groups = query ? await globalSearch(query, 30, await getAgentScope()) : [];
 
   return (
     <div>

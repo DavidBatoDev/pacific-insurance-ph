@@ -104,6 +104,8 @@ export class SupabaseGroupsRepository implements GroupsRepository {
     let query = getSupabaseAdmin().from("group_accounts").select(GROUP_SELECT);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
+    // Agent scope (Phase J9): a group account is owned through its own assigned user, not a client.
+    if (opts.ownerUserId) query = query.eq("assigned_user_id", opts.ownerUserId);
     const { data, error } = await query
       .order("premium_amount", { ascending: false, nullsFirst: false })
       .limit(opts.limit ?? DEFAULT_LIST_LIMIT)
@@ -126,6 +128,7 @@ export class SupabaseGroupsRepository implements GroupsRepository {
         expiry_date: input.expiryDate ?? null,
         address: input.address ?? null,
         notes: input.notes ?? null,
+        ...(input.assignedUserId !== undefined ? { assigned_user_id: input.assignedUserId } : {}),
       })
       .select(GROUP_SELECT)
       .single<GroupJoined>();

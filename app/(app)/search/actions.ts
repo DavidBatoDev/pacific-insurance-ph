@@ -1,13 +1,14 @@
 "use server";
 
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { globalSearch, type SearchGroup } from "@/lib/queries/global-search";
 import { getClientsRepository } from "@/lib/repositories/clients";
 
-/** Multi-entity search for the topbar dropdown and the ⌘K palette. */
+/** Multi-entity search for the topbar dropdown and the ⌘K palette (an Agent's own book only). */
 export async function globalSearchAction(query: string): Promise<SearchGroup[]> {
   const term = query.trim();
   if (!term) return [];
-  return globalSearch(term, 5);
+  return globalSearch(term, 5, await getAgentScope());
 }
 
 export interface PaletteClientHit {
@@ -19,11 +20,11 @@ export interface PaletteClientHit {
   status: string;
 }
 
-/** Lightweight client search for the ⌘K command palette. */
+/** Lightweight client search for the ⌘K command palette (an Agent's own book only). */
 export async function searchClientsForPalette(query: string): Promise<PaletteClientHit[]> {
   const term = query.trim();
   if (!term) return [];
-  const clients = await getClientsRepository().search(term, 8, { includeArchived: false });
+  const clients = await getClientsRepository().search(term, 8, { includeArchived: false, ownerUserId: await getAgentScope() });
   return clients.map((c) => ({
     id: c.id,
     name: c.fullName,

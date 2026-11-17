@@ -1,4 +1,5 @@
 import { ProspectsLive } from "@/components/hub/screens/prospects-live";
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { leadExitCounts, recentLeadActivity } from "@/lib/queries/lead-activity";
 import { candidateLeadCommunications, withInferredLeadStatusesFrom } from "@/lib/queries/lead-status-inference";
 import { getClientsRepository } from "@/lib/repositories/clients";
@@ -8,11 +9,13 @@ export const dynamic = "force-dynamic";
 
 /** Lead Lifecycle — Board / List / Forecast over real lead records (wired). */
 export default async function Page() {
+  const ownerUserId = await getAgentScope();
   const [rawLeads, users, activity, exits, communications] = await Promise.all([
-    getClientsRepository().listLeads(),
+    getClientsRepository().listLeads({ ownerUserId }),
     getUsersRepository().list({ limit: 50 }),
-    recentLeadActivity(),
-    leadExitCounts(),
+    recentLeadActivity(undefined, ownerUserId),
+    leadExitCounts(ownerUserId),
+    // Only joined onto the (already scoped) leads above to infer their status; never rendered alone.
     candidateLeadCommunications(),
   ]);
   const leads = withInferredLeadStatusesFrom(rawLeads, communications);

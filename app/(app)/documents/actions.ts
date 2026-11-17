@@ -5,9 +5,8 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { toAppRole } from "@/lib/auth/permissions";
-import { getClientsRepository } from "@/lib/repositories/clients";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
 import { PDF_UPLOAD_MAX_BYTES, pdfUploadPath } from "@/lib/documents/uploaded-pdf";
@@ -39,10 +38,7 @@ export async function beginPdfUploadAction(input: {
     if (!user) return { ok: false, error: "Not authenticated." };
     if (user.status !== "Active") return { ok: false, error: "Your account is inactive." };
     if (!input.clientId) return { ok: false, error: "Missing client." };
-    if (toAppRole(user.role) === "agent") {
-      const client = await getClientsRepository().findById(input.clientId);
-      if (!client || client.assignedUserId !== user.id) return { ok: false, error: "Client not found." };
-    }
+    await assertRecordAccess("client", input.clientId);
     if (input.size <= 0) return { ok: false, error: "Choose a file to upload." };
     if (input.size > PDF_UPLOAD_MAX_BYTES) return { ok: false, error: "PDFs must be 25 MB or smaller." };
     const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
@@ -68,6 +64,12 @@ export async function uploadDocumentAction(formData: FormData) {
   const travelRequestId = str(formData, "travelRequestId") ?? null;
   const claimId = str(formData, "claimId") ?? null;
   const sourceLibraryDocumentId = str(formData, "sourceLibraryDocumentId") ?? null;
+  // Agent scope (Phase J9): every record the browser names must be in the signed-in agent's book.
+  // Unconditional: an agent may not file a document outside their book (a missing client is refused).
+  await assertRecordAccess("client", clientId);
+  if (applicationId) await assertRecordAccess("application", applicationId);
+  if (travelRequestId) await assertRecordAccess("travel", travelRequestId);
+  if (claimId) await assertRecordAccess("claim", claimId);
 
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -119,6 +121,7 @@ export async function deleteDocumentAction(formData: FormData) {
   const actor = await getActor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  await assertRecordAccess("document", id);
 
   const repo = getDocumentsRepository();
   const doc = await repo.findById(id);

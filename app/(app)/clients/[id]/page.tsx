@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { toAppRole } from "@/lib/auth/permissions";
 import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
 import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
@@ -32,9 +32,10 @@ export default async function ContactProfilePage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  // Linked incoming correspondence inherits the client's real server-side ownership boundary.
+  // Agents only open their own book (Phase J9); linked incoming correspondence inherits this boundary.
+  await assertRecordAccess("client", id).catch(() => notFound());
   const [actor, rawClient] = await Promise.all([getCurrentUser(), getClientsRepository().findById(id)]);
-  if (!actor || actor.status !== "Active" || !rawClient || (toAppRole(actor.role) === "agent" && rawClient.assignedUserId !== actor.id)) notFound();
+  if (!actor || actor.status !== "Active" || !rawClient) notFound();
   const [inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies] = await Promise.all([
     leadInferenceCommunications(id),
     getClientRelatedCounts(id),

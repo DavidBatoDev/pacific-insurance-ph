@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { recordAudit } from "@/lib/audit/log";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
@@ -75,6 +76,7 @@ export async function issuePolicyAction(
   if (!input.clientId) return { ok: false, error: "A client is required." };
 
   try {
+    await assertRecordAccess("client", input.clientId);
     await validateCatalogSelection({ ...input, completing: true });
     // Logged from the application workflow: the policy closes out that application.
     const application = options?.applicationId ? await getApplicationsRepository().findById(options.applicationId) : null;
@@ -199,6 +201,7 @@ const POLICY_FIELD_LABELS: Partial<Record<keyof PolicyUpdate, string>> = {
 export async function updatePolicyAction(id: string, input: PolicyUpdate & { selectVariant?: string | null }): Promise<ActionResult<Policy>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("policy", id);
     const repo = getPoliciesRepository();
     const before = await repo.findById(id);
     if (!before) return { ok: false, error: "This policy could not be found." };
@@ -251,6 +254,7 @@ export async function updatePolicyAction(id: string, input: PolicyUpdate & { sel
 export async function attachPolicyPdfAction(policyId: string, path: string, fileName: string): Promise<ActionResult<null>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("policy", policyId);
     const policy = await getPoliciesRepository().findById(policyId);
     if (!policy) return { ok: false, error: "This policy could not be found." };
     await registerUploadedPdf({

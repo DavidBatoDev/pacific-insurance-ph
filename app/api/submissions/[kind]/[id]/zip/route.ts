@@ -2,12 +2,11 @@ import { zipSync } from "fflate";
 import { NextResponse } from "next/server";
 
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess, RecordAccessError } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { downloadObject } from "@/lib/supabase/storage";
 import { safeFileName, zipEntryNames, type SubmissionKind } from "@/lib/submissions/submission-email";
 import { loadSubmissionSource } from "@/lib/submissions/submission-files";
-import { toAppRole } from "@/lib/auth/permissions";
-import { getClientsRepository } from "@/lib/repositories/clients";
 
 /**
  * Every file uploaded against an application's or claim's checklist, as one ZIP, so Eman can
@@ -20,12 +19,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
 
   const { kind, id } = await params;
   if (kind !== "application" && kind !== "claim") return new NextResponse("Not found", { status: 404 });
+  try {
+    await assertRecordAccess(kind as SubmissionKind, id);
+  } catch (error) {
+    if (error instanceof RecordAccessError) return new NextResponse("Not found", { status: 404 });
+    throw error;
+  }
   const source = await loadSubmissionSource(kind as SubmissionKind, id);
   if (!source) return new NextResponse("Not found", { status: 404 });
-  if (toAppRole(user.role) === "agent") {
-    const client = await getClientsRepository().findById(source.clientId);
-    if (!client || client.assignedUserId !== user.id) return new NextResponse("Not found", { status: 404 });
-  }
 
   const entries = zipEntryNames(source.items);
   if (!entries.length) return new NextResponse("No documents have been uploaded yet.", { status: 404 });

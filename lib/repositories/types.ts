@@ -46,6 +46,24 @@ export interface ListOptions {
   statusIn?: string[];
   /** Exclude these statuses. */
   statusNotIn?: string[];
+  /**
+   * Agent book scope (Phase J9): keep only rows whose client is assigned to this user. Callers
+   * pass `getAgentScope()`; undefined/null means the whole agency book.
+   */
+  ownerUserId?: string | null;
+}
+
+/** Inner join on the row's client; with `ownerScopeFilter` it drops rows outside the agent's book. */
+const OWNER_EMBED = "owner_scope:clients!inner(assigned_user_id)";
+
+/** The select list, widened with the owner join only when scoping (the join would drop client-less rows). */
+export function ownerScopedSelect(select: string, ownerUserId?: string | null): string {
+  return ownerUserId ? `${select}, ${OWNER_EMBED}` : select;
+}
+
+/** Applies the owner filter to a query built from `ownerScopedSelect`. */
+export function ownerScopeFilter<Q extends { eq(column: string, value: string): Q }>(query: Q, ownerUserId?: string | null): Q {
+  return ownerUserId ? query.eq("owner_scope.assigned_user_id", ownerUserId) : query;
 }
 
 export const DEFAULT_LIST_LIMIT = 200;

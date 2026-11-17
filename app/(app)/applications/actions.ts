@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { toAppRole } from "@/lib/auth/permissions";
 import { medicalReviewRequired, type ApplicationMedicalReview } from "@/lib/applications/medical-review";
 import { isMedicalQuestionnaireName, requirementSection } from "@/lib/applications/requirement-sections";
 import { RepositoryError } from "@/lib/repositories/types";
@@ -74,12 +74,11 @@ export async function getApplicationRequirementsAction(applicationId: string): P
   const actor = await getCurrentUser();
   if (!actor || actor.status !== "Active") return { ok: false, error: "An active account is required." };
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application) return { ok: false, error: "This application is not available." };
     const client = await getClientsRepository().findById(application.clientId);
-    if (!client || (toAppRole(actor.role) === "agent" && client.assignedUserId !== actor.id)) {
-      return { ok: false, error: "This application is not available." };
-    }
+    if (!client) return { ok: false, error: "This application is not available." };
     if (application.status === "Lead") return { ok: false, error: "This application does not have a persisted requirements checklist." };
     const [requirements, carrierForms, submissions, payments, policy, proposal, replies, billing, channels, dependents, documents] = await Promise.all([
       getApplicationRequirementsRepository().listByApplication(applicationId),
@@ -212,6 +211,7 @@ export async function updateApplicationRequirementStatusAction(
 ): Promise<ActionResult<ApplicationRequirement>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const repo = getApplicationRequirementsRepository();
@@ -241,6 +241,7 @@ export async function updateApplicationRequirementRequiredAction(
 ): Promise<ActionResult<ApplicationRequirement>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const repo = getApplicationRequirementsRepository();
@@ -274,6 +275,7 @@ export async function activateRequirementPhaseAction(
 ): Promise<ActionResult<{ activated: number }>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const updated = await getApplicationRequirementsRepository().activatePhase(applicationId, phase);
@@ -359,6 +361,7 @@ export async function createApplicationPaymentAction(
 ): Promise<ActionResult<Payment>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     if (!Number.isFinite(input.amount) || input.amount <= 0) return { ok: false, error: "Enter the premium Pacific Cross billed." };
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application) return { ok: false, error: "This application is not available." };
@@ -416,6 +419,7 @@ export async function logPacificCrossReplyAction(
 ): Promise<ActionResult<{ added: number }>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const conformes = [...new Set(input.conformes ?? [])].filter((kind) => kind in CONFORME_ROWS);
@@ -487,6 +491,7 @@ export async function recordApplicationProposalAction(
 ): Promise<ActionResult<{ id: string; name: string }>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("application", applicationId);
     const application = await getApplicationsRepository().findById(applicationId);
     if (!application || application.status === "Lead") return { ok: false, error: "This application is not available." };
     const doc = await registerUploadedProposalReceipt({

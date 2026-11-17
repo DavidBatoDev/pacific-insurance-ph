@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess, RecordAccessError } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { toAppRole } from "@/lib/auth/permissions";
-import { getClientsRepository } from "@/lib/repositories/clients";
 import { getDocumentLibraryRepository } from "@/lib/repositories/document-library";
 import { getTravelRepository } from "@/lib/repositories/travel";
 import { createSignedUrl } from "@/lib/supabase/storage";
@@ -23,12 +22,9 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
 
   try {
+    await assertRecordAccess("travel", id);
     const travel = await getTravelRepository().findById(id);
     if (!travel) return new NextResponse("Not found", { status: 404 });
-    if (toAppRole(user.role) === "agent") {
-      const client = await getClientsRepository().findById(travel.clientId);
-      if (!client || client.assignedUserId !== user.id) return new NextResponse("Not found", { status: 404 });
-    }
 
     const today = new Date().toISOString().slice(0, 10);
     const libraryDocuments = await getDocumentLibraryRepository().listEligible({
@@ -52,7 +48,8 @@ export async function GET(
     const response = NextResponse.redirect(signedUrl);
     response.headers.set("Cache-Control", "private, no-store");
     return response;
-  } catch {
+  } catch (error) {
+    if (error instanceof RecordAccessError) return new NextResponse("Not found", { status: 404 });
     return new NextResponse("Travel reference unavailable", { status: 502 });
   }
 }

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { toAppRole } from "@/lib/auth/permissions";
 import { commissionOwners, requireCommissionActor } from "@/lib/commissions/access";
 import { commissionCapabilities } from "@/lib/commissions/voucher";
@@ -60,7 +61,8 @@ export async function loadCommissionTracker(): Promise<{
 }> {
   const actor = await requireCommissionActor();
   const [commissions, commissionContacts] = await Promise.all([
-    getCommissionsRepository().list(),
+    // Scope agents in SQL so the bounded list holds their own book, not the agency's newest 200.
+    getCommissionsRepository().list({ ownerUserId: await getAgentScope() }),
     getExternalContactsRepository().list({ status: "Active", contactTypes: ["Commission Contact"] }),
   ]);
   const owners = await commissionOwners(commissions.map((commission) => commission.clientId));

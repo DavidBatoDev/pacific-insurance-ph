@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ClientForm } from "@/components/clients/client-form";
 import { PageHead } from "@/components/hub/primitives";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getClientsRepository } from "@/lib/repositories/clients";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function EditClientPage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
+  await assertRecordAccess("client", id).catch(() => notFound());
   const client = await getClientsRepository().findById(id);
   if (!client) notFound();
 

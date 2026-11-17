@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getActor } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess, getAgentScope, RecordAccessError } from "@/lib/auth/agent-scope";
 import {
   getClientsRepository,
   type ClientUpdate,
@@ -62,6 +63,8 @@ export async function createClientAction(
   formData: FormData,
 ): Promise<ClientFormState> {
   const actor = await getActor();
+  // An Agent's new client is assigned to them, or they would create a record they cannot see.
+  const ownerUserId = await getAgentScope();
   const input = parseClient(formData);
   if (formData.get("selectVariant") && !isSelectVariant(formData.get("selectVariant"))) return { error: "Choose Select Plus or Select Standard." };
   if (!input.firstName || !input.lastName) {
@@ -84,7 +87,10 @@ export async function createClientAction(
         dateOfBirth: input.dateOfBirth,
       });
       if (dupes.length) {
-        const names = dupes.map((d) => `${d.fullName} (${d.referenceNo ?? "—"})`).join(", ");
+        // Agents never see names or references from outside their own book.
+        const names = dupes
+          .map((d) => (ownerUserId && d.assignedUserId !== ownerUserId ? "an existing client outside your book" : `${d.fullName} (${d.referenceNo ?? "—"})`))
+          .join(", ");
         return {
           error: `Possible duplicate of ${names}. Use “Create anyway” to proceed.`,
           duplicate: true,
@@ -111,6 +117,7 @@ export async function createClientAction(
       estPremium: input.estPremium,
       familySize: input.familySize,
       coverageTier: input.coverageTier,
+      ...(ownerUserId ? { assignedUserId: ownerUserId } : {}),
     };
     const created = await repo.create(payload);
     createdId = created.id;
@@ -152,6 +159,7 @@ export async function updateClientAction(
 
   const repo = getClientsRepository();
   try {
+    await assertRecordAccess("client", id);
     const before = await repo.findById(id);
     const interest = await checkProductInterest(input.productInterest, before?.productInterest);
     if (!interest.ok) return { error: interest.error };
@@ -234,6 +242,11 @@ export async function deleteClientAction(
   const actor = await getActor();
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing client id." };
+  try {
+    await assertRecordAccess("client", id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to delete client." };
+  }
 
   const repo = getClientsRepository();
   const appsRepo = getApplicationsRepository();
@@ -274,6 +287,7 @@ export async function addDependentAction(formData: FormData) {
   const clientId = String(formData.get("clientId") ?? "");
   const fullName = str(formData, "fullName");
   if (!clientId || !fullName) return;
+  await assertRecordAccess("client", clientId);
 
   await getDependentsRepository().create({
     primaryClientId: clientId,
@@ -298,6 +312,10 @@ export async function removeDependentAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("clientId") ?? "");
   if (!id || !clientId) return;
+  // The browser sends the parent alongside the dependent: it must really be that dependent's client.
+  const dependent = await getDependentsRepository().findById(id);
+  if (!dependent || dependent.primaryClientId !== clientId) throw new RecordAccessError();
+  await assertRecordAccess("client", clientId);
 
   await getDependentsRepository().delete(id);
   await recordActivity({

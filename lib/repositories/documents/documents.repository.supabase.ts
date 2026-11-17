@@ -2,7 +2,15 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { RepositoryError, toRepositoryError, type ListParams, type Paginated } from "../types";
+import {
+  ownerScopedSelect,
+  ownerScopeFilter,
+  RepositoryError,
+  toRepositoryError,
+  type ListOptions,
+  type ListParams,
+  type Paginated,
+} from "../types";
 import type {
   DocumentRecord,
   DocumentRecordUpdate,
@@ -13,6 +21,7 @@ import type { DocumentsRepository } from "./documents.repository";
 
 type DocRow = Database["public"]["Tables"]["documents"]["Row"];
 type DocPatch = Database["public"]["Tables"]["documents"]["Update"];
+type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 
 function toDomain(row: DocRow): DocumentRecord {
   return {
@@ -45,25 +54,30 @@ function toDomain(row: DocRow): DocumentRecord {
 
 /** supabase-js (service role) implementation of {@link DocumentsRepository}. */
 export class SupabaseDocumentsRepository implements DocumentsRepository {
-  async list(params: ListParams = {}): Promise<Paginated<DocumentRecord>> {
-    const { limit = 50, offset = 0, orderBy = "created_at", ascending = false } = params;
-    const { data, error, count } = await getSupabaseAdmin()
-      .from("documents")
-      .select("*", { count: "exact" })
+  async list(params: ListParams & Pick<ListOptions, "ownerUserId"> = {}): Promise<Paginated<DocumentRecord>> {
+    const { limit = 50, offset = 0, orderBy = "created_at", ascending = false, ownerUserId } = params;
+    const { data, error, count } = await ownerScopeFilter(
+      getSupabaseAdmin().from("documents").select(ownerScopedSelect("*", ownerUserId), { count: "exact" }),
+      ownerUserId,
+    )
       .order(orderBy, { ascending })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      .returns<DocRow[]>();
 
     if (error) throw toRepositoryError("DocumentsRepository.list", error);
     return { rows: (data ?? []).map(toDomain), total: count ?? 0 };
   }
 
-  async listWithClientName(params: ListParams = {}) {
-    const { limit = 50, offset = 0, orderBy = "created_at", ascending = false } = params;
-    const { data, error, count } = await getSupabaseAdmin()
-      .from("documents")
-      .select("*, client:clients!documents_client_id_fkey(first_name, last_name)", { count: "exact" })
+  async listWithClientName(params: ListParams & Pick<ListOptions, "ownerUserId"> = {}) {
+    const { limit = 50, offset = 0, orderBy = "created_at", ascending = false, ownerUserId } = params;
+    const select = ownerScopedSelect("*, client:clients!documents_client_id_fkey(first_name, last_name)", ownerUserId);
+    const { data, error, count } = await ownerScopeFilter(
+      getSupabaseAdmin().from("documents").select(select, { count: "exact" }),
+      ownerUserId,
+    )
       .order(orderBy, { ascending })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      .returns<(DocRow & { client: Pick<ClientRow, "first_name" | "last_name"> | null })[]>();
 
     if (error) throw toRepositoryError("DocumentsRepository.listWithClientName", error);
     return {

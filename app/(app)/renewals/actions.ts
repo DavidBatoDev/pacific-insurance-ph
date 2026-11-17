@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { toAppRole } from "@/lib/auth/permissions";
 import { getRenewalsRepository, type Renewal } from "@/lib/repositories/renewals";
 import { noticeReceiptPatch } from "@/lib/renewals/notice-receipt";
@@ -19,6 +20,7 @@ export async function markRenewalNoticeSentAction(
 ): Promise<ActionResult<Renewal>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("renewal", renewalId);
     const repo = getRenewalsRepository();
     const renewal = await repo.findById(renewalId);
     if (!renewal) return { ok: false, error: "Renewal not found." };
@@ -80,6 +82,7 @@ export async function markRenewalNoticeReceivedAction(
   try {
     // Validate before lookup so malformed dates always get the actionable date error.
     noticeReceiptPatch({ status: "Upcoming", noticeReceivedDate: null }, receivedDate);
+    await assertRecordAccess("renewal", renewalId);
     const repo = getRenewalsRepository();
     const renewal = await repo.findById(renewalId);
     if (!renewal) return { ok: false, error: "Renewal not found." };

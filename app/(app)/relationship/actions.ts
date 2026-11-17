@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivities } from "@/lib/activity/log";
+import { assertRecordAccess, getAgentScope } from "@/lib/auth/agent-scope";
 import { getRelationshipTouchpoints, type TouchpointRow } from "@/lib/queries/relationship";
 import { logOutboundEmails } from "@/lib/communications/log-outbound-email";
 
-/** Audience segments for the New Campaign drawer. */
+/** Audience segments for the New Campaign drawer (an Agent's own book only). */
 export async function listTouchpointsAction(): Promise<TouchpointRow[]> {
-  return getRelationshipTouchpoints();
+  return getRelationshipTouchpoints(undefined, await getAgentScope());
 }
 
 export interface CampaignRecipient {
@@ -34,6 +35,8 @@ export async function sendCampaignAction(input: {
   if (input.recipients.length === 0) return { ok: false, error: "No recipients selected." };
 
   try {
+    // Agents may only target their own clients: one foreign recipient rejects the whole batch.
+    await Promise.all([...new Set(input.recipients.map((r) => r.clientId))].map((id) => assertRecordAccess("client", id)));
     // Batched: one communications insert + one activity insert for the whole
     // audience instead of 2 round-trips per recipient. The insert is a single
     // statement, so a failure logs nothing rather than a partial batch.

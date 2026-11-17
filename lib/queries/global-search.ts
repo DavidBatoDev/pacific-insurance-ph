@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getClientsRepository } from "@/lib/repositories/clients";
+import { ownerScopedSelect, ownerScopeFilter } from "@/lib/repositories/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -40,49 +41,83 @@ export interface SearchGroup {
   more: number;
 }
 
-const clientName = (c: { first_name: string; last_name: string } | null) =>
+type ClientNameRow = { first_name: string; last_name: string } | null;
+type GroupHitRow = { id: string; name: string; reference_no: string | null; status: string; group_members: { count: number }[] | null };
+type PolicyHitRow = { id: string; client_id: string | null; reference_no: string | null; policy_number: string | null; status: string; clients: ClientNameRow };
+type ApplicationHitRow = { id: string; client_id: string | null; reference_no: string | null; status: string; clients: ClientNameRow };
+type ClaimHitRow = ApplicationHitRow & { policies: { reference_no: string | null } | null };
+type RenewalHitRow = ApplicationHitRow & { renewal_due_date: string | null };
+type TravelHitRow = ApplicationHitRow & { destination: string | null };
+
+const clientName = (c: ClientNameRow) =>
   c ? [c.first_name, c.last_name].filter(Boolean).join(" ") : "—";
 
-export async function globalSearch(query: string, cap = 5): Promise<SearchGroup[]> {
+/**
+ * `ownerUserId` (Phase J9 agent scope) keeps only the agent's book: clients assigned to them,
+ * group accounts assigned to them, and operational rows whose client is theirs. null = whole book.
+ */
+export async function globalSearch(query: string, cap = 5, ownerUserId?: string | null): Promise<SearchGroup[]> {
   // Strip characters that would break the PostgREST `or` filter grammar.
   const term = query.replace(/[,()%*]/g, " ").trim();
   if (!term) return [];
   const like = `%${term}%`;
   const db = getSupabaseAdmin();
   const fetch = cap + 1; // one extra row signals "+N more"
+  const groupQuery = db
+    .from("group_accounts")
+    .select("id, name, reference_no, status, group_members (count)")
+    .or(`name.ilike.${like},reference_no.ilike.${like}`);
 
   const [clients, groups, policies, applications, claims, renewals, travel] = await Promise.all([
-    getClientsRepository().search(term, fetch),
-    db
-      .from("group_accounts")
-      .select("id, name, reference_no, status, group_members (count)")
-      .or(`name.ilike.${like},reference_no.ilike.${like}`)
-      .limit(fetch),
-    db
-      .from("policies")
-      .select("id, client_id, reference_no, policy_number, status, clients (first_name, last_name)")
+    getClientsRepository().search(term, fetch, { ownerUserId }),
+    (ownerUserId ? groupQuery.eq("assigned_user_id", ownerUserId) : groupQuery)
+      .limit(fetch)
+      .returns<GroupHitRow[]>(),
+    ownerScopeFilter(
+      db
+        .from("policies")
+        .select(ownerScopedSelect("id, client_id, reference_no, policy_number, status, clients (first_name, last_name)", ownerUserId)),
+      ownerUserId,
+    )
       .or(`reference_no.ilike.${like},policy_number.ilike.${like}`)
-      .limit(fetch),
-    db
-      .from("applications")
-      .select("id, client_id, reference_no, status, clients (first_name, last_name)")
+      .limit(fetch)
+      .returns<PolicyHitRow[]>(),
+    ownerScopeFilter(
+      db
+        .from("applications")
+        .select(ownerScopedSelect("id, client_id, reference_no, status, clients (first_name, last_name)", ownerUserId)),
+      ownerUserId,
+    )
       .ilike("reference_no", like)
-      .limit(fetch),
-    db
-      .from("claims")
-      .select("id, client_id, reference_no, status, clients (first_name, last_name), policies (reference_no)")
+      .limit(fetch)
+      .returns<ApplicationHitRow[]>(),
+    ownerScopeFilter(
+      db
+        .from("claims")
+        .select(ownerScopedSelect("id, client_id, reference_no, status, clients (first_name, last_name), policies (reference_no)", ownerUserId)),
+      ownerUserId,
+    )
       .ilike("reference_no", like)
-      .limit(fetch),
-    db
-      .from("renewals")
-      .select("id, client_id, reference_no, status, renewal_due_date, clients (first_name, last_name)")
+      .limit(fetch)
+      .returns<ClaimHitRow[]>(),
+    ownerScopeFilter(
+      db
+        .from("renewals")
+        .select(ownerScopedSelect("id, client_id, reference_no, status, renewal_due_date, clients (first_name, last_name)", ownerUserId)),
+      ownerUserId,
+    )
       .ilike("reference_no", like)
-      .limit(fetch),
-    db
-      .from("travel_requests")
-      .select("id, client_id, reference_no, destination, status, clients (first_name, last_name)")
+      .limit(fetch)
+      .returns<RenewalHitRow[]>(),
+    ownerScopeFilter(
+      db
+        .from("travel_requests")
+        .select(ownerScopedSelect("id, client_id, reference_no, destination, status, clients (first_name, last_name)", ownerUserId)),
+      ownerUserId,
+    )
       .or(`reference_no.ilike.${like},destination.ilike.${like}`)
-      .limit(fetch),
+      .limit(fetch)
+      .returns<TravelHitRow[]>(),
   ]);
 
   for (const r of [groups, policies, applications, claims, renewals, travel]) {

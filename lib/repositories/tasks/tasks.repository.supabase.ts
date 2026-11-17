@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, toRepositoryError } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, toRepositoryError } from "../types";
 import type { Task, NewTask, TaskUpdate } from "./task.entity";
 import type { TasksRepository } from "./tasks.repository";
 
@@ -83,21 +83,40 @@ export class SupabaseTasksRepository implements TasksRepository {
   }
 
   async list(
-    params: { clientId?: string; includeCompleted?: boolean; limit?: number } = {},
+    params: { clientId?: string; includeCompleted?: boolean; limit?: number; ownerUserId?: string | null } = {},
   ): Promise<Task[]> {
-    let query = getSupabaseAdmin()
-      .from("tasks")
-      .select(SELECT)
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
-    if (params.clientId) query = query.eq("client_id", params.clientId);
-    if (!params.includeCompleted) query = query.neq("status", "Cancelled");
+    const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+    const owner = params.ownerUserId;
+    const fetchRows = async (scope: "all" | "assigned" | "client"): Promise<JoinedRow[]> => {
+      let query = getSupabaseAdmin()
+        .from("tasks")
+        .select(scope === "client" ? ownerScopedSelect(SELECT, owner) : SELECT)
+        .order("due_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false });
+      if (scope === "assigned" && owner) query = query.eq("assigned_user_id", owner);
+      if (scope === "client") query = ownerScopeFilter(query, owner);
+      if (params.clientId) query = query.eq("client_id", params.clientId);
+      if (!params.includeCompleted) query = query.neq("status", "Cancelled");
 
-    const { data, error } = await query
-      .limit(params.limit ?? DEFAULT_LIST_LIMIT)
-      .returns<JoinedRow[]>();
-    if (error) throw toRepositoryError("TasksRepository.list", error);
-    return (data ?? []).map(toDomain);
+      const { data, error } = await query.limit(limit).returns<JoinedRow[]>();
+      if (error) throw toRepositoryError("TasksRepository.list", error);
+      return data ?? [];
+    };
+
+    if (!owner) return (await fetchRows("all")).map(toDomain);
+
+    // Agent book: tasks assigned to the agent OR on the agent's clients. PostgREST cannot OR
+    // across the client embed, so run both scoped reads, dedupe, and restore the list order.
+    const [assigned, onClients] = await Promise.all([fetchRows("assigned"), fetchRows("client")]);
+    const merged = new Map<string, JoinedRow>();
+    for (const row of [...assigned, ...onClients]) merged.set(row.id, row);
+    return [...merged.values()]
+      .sort((a, b) =>
+        a.due_date === b.due_date
+          ? b.created_at.localeCompare(a.created_at)
+          : a.due_date === null ? 1 : b.due_date === null ? -1 : a.due_date.localeCompare(b.due_date))
+      .slice(0, limit)
+      .map(toDomain);
   }
 
   async create(input: NewTask): Promise<Task> {

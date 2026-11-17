@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess, RecordAccessError } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getDocumentsRepository } from "@/lib/repositories/documents";
 import { createSignedUrl } from "@/lib/supabase/storage";
-import { toAppRole } from "@/lib/auth/permissions";
-import { getClientsRepository } from "@/lib/repositories/clients";
 import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
 
 /**
@@ -18,13 +17,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (user.status !== "Active") return new NextResponse("Forbidden", { status: 403 });
 
   const { id } = await params;
+  try {
+    await assertRecordAccess("document", id);
+  } catch (error) {
+    if (error instanceof RecordAccessError) return new NextResponse("Not found", { status: 404 });
+    throw error;
+  }
   const doc = await getDocumentsRepository().findById(id);
   if (!doc?.filePath) return new NextResponse("Not found", { status: 404 });
   if (!(await filterCommissionVoucherDocuments([doc], user)).length) return new NextResponse("Not found", { status: 404 });
-  if (toAppRole(user.role) === "agent") {
-    const client = doc.clientId ? await getClientsRepository().findById(doc.clientId) : null;
-    if (!client || client.assignedUserId !== user.id) return new NextResponse("Not found", { status: 404 });
-  }
 
   const signedUrl = await createSignedUrl(doc.filePath, 60);
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { taskLinkOptionsForClient, type TaskLinkOption } from "@/lib/queries/task-links";
 import { getTasksRepository, type NewTask, type Task } from "@/lib/repositories/tasks";
 import { getUsersRepository } from "@/lib/repositories/users";
@@ -23,6 +24,7 @@ export async function listAssignableUsersAction(): Promise<AssignableUser[]> {
 
 /** Records under a contact the task can attach to. */
 export async function taskLinkOptionsAction(clientId: string): Promise<TaskLinkOption[]> {
+  await assertRecordAccess("client", clientId);
   return taskLinkOptionsForClient(clientId);
 }
 
@@ -32,6 +34,19 @@ export async function createTaskAction(input: NewTask): Promise<ActionResult<Tas
   if (!input.dueDate) return { ok: false, error: "Due date is required." };
 
   try {
+    // Agents may only attach a task to their own client and that book's records.
+    await Promise.all(
+      ([
+        ["client", input.clientId],
+        ["application", input.applicationId],
+        ["policy", input.policyId],
+        ["renewal", input.renewalId],
+        ["claim", input.claimId],
+        ["travel", input.travelRequestId],
+      ] as const)
+        .filter(([, id]) => !!id)
+        .map(([kind, id]) => assertRecordAccess(kind, id)),
+    );
     const created = await getTasksRepository().create({
       ...input,
       title: input.title.trim(),
@@ -56,6 +71,7 @@ export async function createTaskAction(input: NewTask): Promise<ActionResult<Tas
 export async function toggleTaskAction(id: string): Promise<ActionResult<Task>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("task", id);
     const repo = getTasksRepository();
     const existing = await repo.findById(id);
     if (!existing) return { ok: false, error: "Task not found." };

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { GroupLive } from "@/components/hub/screens/group-live";
 import { getActivity } from "@/lib/activity/read";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getGroupsRepository } from "@/lib/repositories/groups";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await assertRecordAccess("group", id).catch(() => notFound());
   const repo = getGroupsRepository();
   const [group, members, activity] = await Promise.all([
     repo.findById(id),

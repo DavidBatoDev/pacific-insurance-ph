@@ -1,12 +1,13 @@
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { Card, PageHead } from "@/components/hub/primitives";
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { listDocumentsWithClient } from "@/lib/queries/documents-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function DocumentsPage() {
-  const { items, total } = await listDocumentsWithClient(200);
+  const { items, total } = await listDocumentsWithClient(200, await getAgentScope());
 
   return (
     <div>

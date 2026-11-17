@@ -1,6 +1,13 @@
 import "server-only";
 
+import { ownerScopedSelect, ownerScopeFilter } from "@/lib/repositories/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import type { Database } from "@/lib/supabase/types";
+
+type AwaitingPaymentRow = Pick<
+  Database["public"]["Tables"]["payments"]["Row"],
+  "amount" | "currency" | "application_id" | "renewal_id" | "travel_request_id"
+>;
 
 /**
  * Dashboard aggregates:
@@ -62,15 +69,40 @@ function monthlyTrend(rows: { created_at: string }[] | null, months = 6): KpiTre
   };
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+/**
+ * `ownerUserId` (from `getAgentScope()`) narrows every count, sum, trend and the activity feed to
+ * that agent's book; null keeps the whole agency.
+ */
+export async function getDashboardStats(ownerUserId: string | null = null): Promise<DashboardStats> {
   const s = getSupabaseAdmin();
   const head = { count: "exact" as const, head: true };
   const in30 = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
 
+  // Agent scope: child rows inner-join their client; clients filter their own owner column.
+  const scoped = (select: string) => ownerScopedSelect(select, ownerUserId);
+  const ownChild = <Q extends { eq(column: string, value: string): Q }>(query: Q) => ownerScopeFilter(query, ownerUserId);
+  const ownClients = <Q extends { eq(column: string, value: string): Q }>(query: Q) =>
+    ownerUserId ? query.eq("assigned_user_id", ownerUserId) : query;
+
   const sixMonthsAgo = new Date(Date.now() - 183 * 86_400_000).toISOString();
-  const trendOf = (table: "clients" | "policies" | "applications" | "claims" | "renewals" | "travel_requests") =>
-    s.from(table).select("created_at").gte("created_at", sixMonthsAgo).limit(2000);
+  const trendOf = (table: "policies" | "applications" | "claims" | "renewals" | "travel_requests") =>
+    ownChild(s.from(table).select(scoped("created_at")).gte("created_at", sixMonthsAgo))
+      .limit(2000)
+      .returns<{ created_at: string }[]>();
+
+  const recentActivity = async () => {
+    let query = s.from("activity_timeline")
+      .select("id, summary, activity_type, created_at, actor:users (full_name)")
+      .order("created_at", { ascending: false })
+      .limit(8);
+    if (ownerUserId) {
+      // Activity rows reference their client by scope_type/scope_id (no FK), so match the agent's client ids.
+      const { data: ownedClients } = await s.from("clients").select("id").eq("assigned_user_id", ownerUserId);
+      query = query.eq("scope_type", "client").in("scope_id", (ownedClients ?? []).map((c) => c.id));
+    }
+    return query;
+  };
 
   const [
     renewalsDue30,
@@ -92,23 +124,21 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     tRenewals,
     tTravel,
   ] = await Promise.all([
-    s.from("renewals").select("*", head).lte("renewal_due_date", in30).gte("renewal_due_date", today)
-      .not("status", "in", '("Renewed","Paid","Lapsed")'),
-    s.from("claims").select("*", head).eq("status", "Documents Pending"),
-    s.from("travel_requests").select("*", head).eq("status", "Awaiting Payment"),
-    s.from("applications").select("*", head).eq("status", "Missing Requirements"),
-    s.from("clients").select("*", head).in("lifecycle_stage", ["Client", "Policyholder", "Renewal"]).eq("status", "Active"),
-    s.from("policies").select("*", head).eq("status", "Active"),
-    s.from("applications").select("*", head).not("status", "in", '("Approved","Lead")'),
-    s.from("claims").select("*", head).not("status", "in", '("Closed","Rejected","Credited")'),
-    s.from("renewals").select("*", head).not("status", "in", '("Renewed","Lapsed")'),
-    s.from("travel_requests").select("*", head).neq("status", "Policy Issued"),
-    s.from("payments").select("amount, currency, application_id, renewal_id, travel_request_id").in("status", ["Awaiting", "Overdue"]),
-    s.from("activity_timeline")
-      .select("id, summary, activity_type, created_at, actor:users (full_name)")
-      .order("created_at", { ascending: false })
-      .limit(8),
-    trendOf("clients"),
+    ownChild(s.from("renewals").select(scoped("*"), head).lte("renewal_due_date", in30).gte("renewal_due_date", today)
+      .not("status", "in", '("Renewed","Paid","Lapsed")')),
+    ownChild(s.from("claims").select(scoped("*"), head).eq("status", "Documents Pending")),
+    ownChild(s.from("travel_requests").select(scoped("*"), head).eq("status", "Awaiting Payment")),
+    ownChild(s.from("applications").select(scoped("*"), head).eq("status", "Missing Requirements")),
+    ownClients(s.from("clients").select("*", head).in("lifecycle_stage", ["Client", "Policyholder", "Renewal"]).eq("status", "Active")),
+    ownChild(s.from("policies").select(scoped("*"), head).eq("status", "Active")),
+    ownChild(s.from("applications").select(scoped("*"), head).not("status", "in", '("Approved","Lead")')),
+    ownChild(s.from("claims").select(scoped("*"), head).not("status", "in", '("Closed","Rejected","Credited")')),
+    ownChild(s.from("renewals").select(scoped("*"), head).not("status", "in", '("Renewed","Lapsed")')),
+    ownChild(s.from("travel_requests").select(scoped("*"), head).neq("status", "Policy Issued")),
+    ownChild(s.from("payments").select(scoped("amount, currency, application_id, renewal_id, travel_request_id"))
+      .in("status", ["Awaiting", "Overdue"])).returns<AwaitingPaymentRow[]>(),
+    recentActivity(),
+    ownClients(s.from("clients").select("created_at").gte("created_at", sixMonthsAgo)).limit(2000),
     trendOf("policies"),
     trendOf("applications"),
     trendOf("claims"),

@@ -1,6 +1,7 @@
 "use server";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { outboundEmailErrorMessage, requireEmailSender } from "@/lib/communications/outbound-email";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import { getClaimsRepository } from "@/lib/repositories/claims";
@@ -81,6 +82,7 @@ export async function listSubmissionRecordsAction(kind: SubmissionKind, id: stri
   await getActor();
   try {
     if (!KINDS.includes(kind)) return { ok: false, error: "Unknown submission type." };
+    await assertRecordAccess(kind, id);
     return { ok: true, data: await listSubmissionRecords(kind, id) };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to load the sent emails." };

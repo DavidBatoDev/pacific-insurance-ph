@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Policy, NewPolicy, PolicyUpdate } from "./policy.entity";
 import type { PoliciesRepository } from "./policies.repository";
 
@@ -74,7 +74,7 @@ export class SupabasePoliciesRepository implements PoliciesRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Policy[]> {
-    let query = getSupabaseAdmin().from("policies").select(SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("policies").select(ownerScopedSelect(SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query

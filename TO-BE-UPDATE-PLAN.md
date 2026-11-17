@@ -2391,7 +2391,7 @@ logins with no mailbox until J2 moves them.
   `proxy.ts`: allow `/auth/callback` unauthenticated. Password form stays below the Google button
   (DJ7). `lib/env.ts`: no new vars (client id/secret live in Supabase); `APP_URL` from Phase I.
 - [x] **J7. Staff onboarding runbook (docs).** ✅ *Done 2026-11-17: `../docs/staff-onboarding.md`
-  + `INDEX.md` row; carries the "no Agent invites until J9" warning, to be removed when J9 ships.*
+  + `INDEX.md` row. Its temporary "no Agent invites until J9" warning was replaced when J9 shipped.*
   *Re-planned 2026-11-17.* New
   `../docs/staff-onboarding.md` + a pointer from `../docs/INDEX.md`. **Onboarding:**
   (1) Workspace admin creates `firstname@pacificinsuranceph.com` in the `CRM Staff` OU (2SV
@@ -2404,7 +2404,53 @@ logins with no mailbox until J2 moves them.
   Matt's second factor is needed to reconnect Gmail; mail to the `matt@` alias lands in the CRM
   Inbox. **Gate:** do not invite anyone with the Agent role until **J9** ships. Say so in the
   runbook, not only here.
-- [ ] **J9. Agent row scoping (blocks the first Agent invite).** *Found while planning J7,
+- [x] **J9. Agent row scoping (blocks the first Agent invite).** ✅ *Done 2026-11-17.
+  **Rule:** a record is an agent's when its client's `assigned_user_id` is the agent (group
+  accounts: their own `assigned_user_id`; tasks: assigned to the agent or on their client). The
+  real DB role decides; the persona preview never does. Reports keep their per-record "who sold
+  it" attribution. **Mechanism:** `lib/auth/agent-scope.ts` (`getAgentScope`,
+  `assertRecordAccess` → "Record not found.", `agentOwnsRecord`) and `ListOptions.ownerUserId` +
+  `ownerScopedSelect`/`ownerScopeFilter` (inner join on the client) in `lib/repositories/types.ts`.
+  **Scope:**
+  - Every list repository honors `ownerUserId`.
+  - Pages: Clients, groups, Prospects, Applications, Policies, Renewals, Claims, Travel (incl.
+    drafts), Payments, Commissions, Documents, Tasks, Relationship, Search and the ⌘K palette.
+  - Dashboard stats, trends and activity, plus the CSV/XLSX export.
+  - Sidebar badges and the "Current workload" note (`lib/queries/shell.ts`). The verification
+    found this leak; no slice had listed it.
+  - Every Server Action, record page and download/zip route taking a record id. Record pages
+    render not-found; routes return 404.
+
+  **Ownership on create:** clients, wizard clients and groups created by an agent are assigned to
+  the agent. Agents cannot reassign clients. An agent's document upload must name one of their
+  clients.
+
+  **Verified** with a real QA Agent session (`qa-agent-j9@pacificinsuranceph.com`, Viewer,
+  owning only CLI-2026-00104), with the Owner session as control:
+  - 16 pages swept: the agent sees no other client's name or reference; the Owner sees everything.
+  - Search for another client: "No results".
+  - Another agent's client page and edit page: not-found screen (HTTP 200 because of the
+    existing `loading.tsx` streaming).
+  - Another agent's document download: 404.
+  - Export counts limited to the agent's book.
+  - Badges: agent 1/1/1/0/0/0 vs Owner 2/3/1/1/1/3.
+  - Replaying the agent's real `getApplicationRequirementsAction` POST with another agent's
+    application id: `{"ok":false,"error":"Record not found."}`. The agent's own application still
+    opens.
+
+  tsc, lint and 423 tests pass. The QA agent is left **Inactive** (its 7 audit rows are the export
+  checks), and CLI-2026-00104 is unassigned again.
+
+  **Known limits:**
+  - Agents can still send relationship campaigns to their own clients. The matrix says "view"; a
+    separate decision.
+  - `candidateLeadCommunications()` on /prospects stays agency-wide. It only feeds status
+    inference for already-scoped leads.
+  - Two agent-only filters build an `in (...)` list of the agent's client ids: recent lead
+    activity and the dashboard/badge task and activity filters. Fine for tens or hundreds of
+    clients; revisit for thousands.
+
+  *Original plan:* *Found while planning J7,
   2026-11-17. `docs/development-alignment.md` understates it as dashboard/export-only.* Every
   module is `own` for `agent` (`lib/auth/permissions.ts` `MATRIX`), but only these filter today:
   the client record page (`clients/[id]/page.tsx` `notFound()` for another agent's client),

@@ -9,14 +9,19 @@ export interface DocumentListItem extends DocumentRecord {
   clientName: string | null;
 }
 
-/** Document list with the related client's name resolved (for the Documents screen). */
+/**
+ * Document list with the related client's name resolved (for the Documents screen).
+ * `ownerUserId` (from `getAgentScope()`) keeps only an agent's own clients' files.
+ */
 export async function listDocumentsWithClient(
   limit = 200,
+  ownerUserId: string | null = null,
 ): Promise<{ items: DocumentListItem[]; total: number }> {
   const { rows, total } = await getDocumentsRepository().listWithClientName({
     limit,
     orderBy: "created_at",
     ascending: false,
+    ownerUserId,
   });
   const allowed = await filterCommissionVoucherDocuments(rows, await getCurrentUser());
   return {

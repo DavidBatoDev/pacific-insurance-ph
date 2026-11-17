@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivities, recordActivity } from "@/lib/activity/log";
+import { assertRecordAccess, getAgentScope } from "@/lib/auth/agent-scope";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
 import {
   getCommissionsRepository,
@@ -85,6 +86,8 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     return { ok: false, error: "An OR number is required to verify." };
 
   try {
+    await assertRecordAccess("payment", input.paymentId);
+    if (input.proofDocumentId) await assertRecordAccess("document", input.proofDocumentId);
     const repo = getPaymentsRepository();
     const payment = await repo.findById(input.paymentId);
     if (!payment) return { ok: false, error: "Payment not found." };
@@ -200,7 +203,7 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
 export async function listAwaitingPaymentsAction(): Promise<Payment[]> {
   // Filter in SQL: the repository caps list() at 200 rows, so filtering the
   // capped page in JS would silently under-report once payments outgrow it.
-  return getPaymentsRepository().list({ statusIn: ["Awaiting", "Overdue"] });
+  return getPaymentsRepository().list({ statusIn: ["Awaiting", "Overdue"], ownerUserId: await getAgentScope() });
 }
 
 /**
@@ -216,6 +219,8 @@ export async function sendPaymentLinksAction(input: {
 }): Promise<ActionResult<number>> {
   const actor = await getActor();
   try {
+    // Agents may only log instructions for their own book; one foreign id rejects the whole batch.
+    await Promise.all(input.paymentIds.map((id) => assertRecordAccess("payment", id)));
     // Batched: one read + one communications insert + one activity insert,
     // instead of 3 round-trips per payment. The communications insert is a
     // single statement, so a failure logs nothing rather than a partial batch.

@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
 import { recordAudit } from "@/lib/audit/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { toAppRole } from "@/lib/auth/permissions";
-import { getClientsRepository } from "@/lib/repositories/clients";
 import { registerUploadedPdf } from "@/lib/documents/uploaded-pdf";
 import {
   getTravelRepository,
@@ -68,6 +68,7 @@ export async function createTravelQuoteAction(
   if (!input.destination?.trim()) return { ok: false, error: "Destination is required." };
 
   try {
+    await assertRecordAccess("client", input.clientId);
     const created = await getTravelRepository().create({
       ...input,
       status: input.status ?? "Awaiting Payment",
@@ -111,13 +112,9 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
   try {
     const user = await getCurrentUser();
     if (!user || user.status !== "Active") return { ok: false, error: "Travel request not found." };
+    await assertRecordAccess("travel", id);
     const travel = await getTravelRepository().findById(id);
     if (!travel) return { ok: false, error: "Travel request not found." };
-    if (toAppRole(user.role) === "agent") {
-      const client = await getClientsRepository().findById(travel.clientId);
-      if (!client || client.assignedUserId !== user.id)
-        return { ok: false, error: "Travel request not found." };
-    }
     const workflows = getCarrierWorkflowsRepository();
     const today = new Date().toISOString().slice(0, 10);
     const [travelers, requirements, payments, documents, libraryDocuments, portal, referenceAttachments] = await Promise.all([
@@ -156,6 +153,7 @@ export async function getTravelWorkflowAction(id: string): Promise<ActionResult<
 export async function updateTravelWorkflowAction(id: string, input: TravelRequestUpdate): Promise<ActionResult<TravelRequest>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("travel", id);
     const previous = await getTravelRepository().findById(id);
     if (!previous) return { ok: false, error: "Travel request not found." };
     const policyNumber = input.policyNumber !== undefined ? input.policyNumber?.trim() : previous.policyNumber;
@@ -247,6 +245,7 @@ export async function recordTravelApplicationCopyAction(
 export async function updateTravelRequirementAction(travelRequestId: string, requirementId: string, status: TravelRequirementRecord["status"]): Promise<ActionResult<null>> {
   await getActor();
   try {
+    await assertRecordAccess("travel", travelRequestId);
     const workflows = getCarrierWorkflowsRepository();
     const belongs = (await workflows.listTravelRequirements(travelRequestId)).some((item) => item.id === requirementId);
     if (!belongs) return { ok: false, error: "Travel requirement not found." };

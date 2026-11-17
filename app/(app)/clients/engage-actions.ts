@@ -23,7 +23,7 @@ import { addBusinessDays, HMO_PROPOSAL_TURNAROUND_BUSINESS_DAYS, nextLeadStage }
 import { discoveryGaps } from "@/components/hub/lead-config";
 import { isSelectProduct, isSelectVariant, selectVariantFromInterest, type SelectVariant } from "@/lib/products/select-variant";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { toAppRole } from "@/lib/auth/permissions";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import type { DiscoveryValues } from "@/components/hub/lead-config";
 
 /**
@@ -47,10 +47,13 @@ export interface EngagementResult {
 export async function getDiscoveryValuesAction(clientId: string): Promise<ActionResult<DiscoveryValues>> {
   const actor = await getCurrentUser();
   if (!actor || actor.status !== "Active") return { ok: false, error: "An active account is required." };
-  const client = await getClientsRepository().findById(clientId);
-  if (!client || (toAppRole(actor.role) === "agent" && client.assignedUserId !== actor.id)) {
-    return { ok: false, error: "Contact not found." };
+  try {
+    await assertRecordAccess("client", clientId);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Contact not found." };
   }
+  const client = await getClientsRepository().findById(clientId);
+  if (!client) return { ok: false, error: "Contact not found." };
   return { ok: true, data: {
     productInterest: client.productInterest, selectVariant: client.selectVariant,
     coverageTier: client.coverageTier, estPremium: client.estPremium, familySize: client.familySize,
@@ -141,6 +144,11 @@ export async function logMessageAction(input: {
 }): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
   if (!input.transcript.trim()) return { ok: false, error: "Message transcript is required." };
+  try {
+    await assertRecordAccess("client", input.clientId);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Contact not found." };
+  }
 
   const client = await getClientsRepository().findById(input.clientId);
   if (!client) return { ok: false, error: "Contact not found." };
@@ -199,6 +207,11 @@ export async function logCallAction(input: {
   followUpDate?: string | null;
 }): Promise<ActionResult<EngagementResult>> {
   const actor = await getActor();
+  try {
+    await assertRecordAccess("client", input.clientId);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Contact not found." };
+  }
   const client = await getClientsRepository().findById(input.clientId);
   if (!client) return { ok: false, error: "Contact not found." };
 
@@ -294,6 +307,11 @@ export async function addNoteAction(input: {
 }): Promise<ActionResult> {
   const actor = await getActor();
   if (!input.note.trim()) return { ok: false, error: "Note is required." };
+  try {
+    await assertRecordAccess("client", input.clientId);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Contact not found." };
+  }
 
   await recordActivity({
     scopeType: "client",
@@ -325,6 +343,7 @@ export async function requestProposalAction(input: {
   if (!note) return { ok: false, error: "A proposal request note is required." };
 
   try {
+    await assertRecordAccess("client", input.clientId);
     const repo = getClientsRepository();
     const client = await repo.findById(input.clientId);
     if (!client) return { ok: false, error: "Contact not found." };
@@ -387,6 +406,7 @@ export async function toggleContactFlagAction(input: {
 }): Promise<ActionResult> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("client", input.clientId);
     await getClientsRepository().update(input.clientId, { [input.flag]: input.value });
     await recordActivity({
       scopeType: "client",

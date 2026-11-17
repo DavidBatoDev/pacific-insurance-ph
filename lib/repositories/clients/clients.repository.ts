@@ -10,8 +10,18 @@ export interface DuplicateProbe {
   dateOfBirth?: string | null;
 }
 
-/** `includeArchived` defaults to false: archived clients are hidden from active lists. */
-export type ListClientsParams = ListParams & { includeArchived?: boolean };
+/**
+ * `includeArchived` defaults to false: archived clients are hidden from active lists.
+ * `ownerUserId` (Phase J9 agent scope) keeps only clients assigned to that user; null/undefined = whole book.
+ */
+export type ListClientsParams = ListParams & { includeArchived?: boolean; ownerUserId?: string | null };
+
+/** Options for {@link ClientsRepository.search}. */
+export interface SearchClientsOptions {
+  includeArchived?: boolean;
+  /** Agent book scope: keep only clients assigned to this user; null/undefined = whole book. */
+  ownerUserId?: string | null;
+}
 
 /**
  * The Clients repository port.
@@ -25,7 +35,7 @@ export interface ClientsRepository {
   findById(id: string): Promise<Client | null>;
   list(params?: ListClientsParams): Promise<Paginated<Client>>;
   /** Active (non-archived) leads — contacts at lifecycle_stage 'Lead' (feeds the Lead Lifecycle board). */
-  listLeads(): Promise<Client[]>;
+  listLeads(opts?: { ownerUserId?: string | null }): Promise<Client[]>;
   create(input: NewClient): Promise<Client>;
   update(id: string, input: ClientUpdate): Promise<Client>;
   delete(id: string): Promise<void>;
@@ -33,7 +43,7 @@ export interface ClientsRepository {
    * Fuzzy search by name, email, mobile, or reference number. Archived clients are included
    * by default (global search must still find them); pickers pass `includeArchived: false`.
    */
-  search(query: string, limit?: number, opts?: { includeArchived?: boolean }): Promise<Client[]>;
+  search(query: string, limit?: number, opts?: SearchClientsOptions): Promise<Client[]>;
   /** Existing clients matching the same email, mobile, or name + date of birth. */
   findPotentialDuplicates(input: DuplicateProbe): Promise<Client[]>;
 }

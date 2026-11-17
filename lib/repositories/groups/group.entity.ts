@@ -71,6 +71,8 @@ export interface NewGroupAccount {
   expiryDate?: string | null;
   address?: string | null;
   notes?: string | null;
+  /** Account manager; an agent who creates the group owns it (Phase J9). */
+  assignedUserId?: string | null;
 }
 
 export interface NewGroupMember {

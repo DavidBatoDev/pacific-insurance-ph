@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { medicalReviewStatus } from "@/lib/applications/medical-review";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Application, ApplicationRequirementProgress, NewApplication, ApplicationUpdate } from "./application.entity";
 import type { ApplicationsRepository } from "./applications.repository";
 
@@ -104,7 +104,7 @@ export class SupabaseApplicationsRepository implements ApplicationsRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Application[]> {
-    let query = getSupabaseAdmin().from("applications").select(SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("applications").select(ownerScopedSelect(SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query

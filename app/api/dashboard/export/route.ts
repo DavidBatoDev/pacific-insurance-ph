@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recordAudit } from "@/lib/audit/log";
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { can, toAppRole } from "@/lib/auth/permissions";
 import {
@@ -38,7 +39,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { body, contentType, filename } = await renderDashboardExport(requested);
+    // An Agent exports only their own book, exactly as their dashboard shows it (Phase J9).
+    const { body, contentType, filename } = await renderDashboardExport(requested, await getAgentScope());
 
     await recordAudit({
       actorId: user.id,

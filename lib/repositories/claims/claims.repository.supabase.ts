@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Claim, NewClaim, ClaimUpdate } from "./claim.entity";
 import type { ClaimsRepository } from "./claims.repository";
 
@@ -65,7 +65,7 @@ export class SupabaseClaimsRepository implements ClaimsRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Claim[]> {
-    let query = getSupabaseAdmin().from("claims").select(SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("claims").select(ownerScopedSelect(SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query

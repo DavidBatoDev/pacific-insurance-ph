@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Commission, CommissionUpdate, FileCommissionVoucherInput, NewCommission } from "./commission.entity";
 import type { NewPayment, Payment, PaymentSource, PaymentUpdate } from "./payment.entity";
 import type { CommissionsRepository, PaymentsRepository } from "./payments.repository";
@@ -94,7 +94,7 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Payment[]> {
-    let query = getSupabaseAdmin().from("payments").select(PAYMENT_SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("payments").select(ownerScopedSelect(PAYMENT_SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query
@@ -257,7 +257,7 @@ export class SupabaseCommissionsRepository implements CommissionsRepository {
   }
 
   async list(opts: ListOptions = {}): Promise<Commission[]> {
-    let query = getSupabaseAdmin().from("commissions").select(COMMISSION_SELECT);
+    let query = ownerScopeFilter(getSupabaseAdmin().from("commissions").select(ownerScopedSelect(COMMISSION_SELECT, opts.ownerUserId)), opts.ownerUserId);
     if (opts.statusIn) query = query.in("status", opts.statusIn);
     if (opts.statusNotIn) query = query.not("status", "in", statusListLiteral(opts.statusNotIn));
     const { data, error } = await query

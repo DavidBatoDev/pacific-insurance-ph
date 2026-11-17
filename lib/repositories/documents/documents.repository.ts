@@ -1,4 +1,4 @@
-import type { ListParams, Paginated } from "../types";
+import type { ListOptions, ListParams, Paginated } from "../types";
 import type {
   DocumentRecord,
   DocumentRecordUpdate,
@@ -8,8 +8,9 @@ import type {
 
 /** The Documents repository port. Follows the canonical repository shape. */
 export interface DocumentsRepository {
-  list(params?: ListParams): Promise<Paginated<DocumentRecord>>;
-  listWithClientName(params?: ListParams): Promise<Paginated<DocumentRecord & { clientName: string | null }>>;
+  /** `ownerUserId` keeps only documents whose client is assigned to that agent (Phase J9). */
+  list(params?: ListParams & Pick<ListOptions, "ownerUserId">): Promise<Paginated<DocumentRecord>>;
+  listWithClientName(params?: ListParams & Pick<ListOptions, "ownerUserId">): Promise<Paginated<DocumentRecord & { clientName: string | null }>>;
   listByClient(clientId: string): Promise<DocumentRecord[]>;
   listByTravelRequest(travelRequestId: string): Promise<DocumentRecord[]>;
   findById(id: string): Promise<DocumentRecord | null>;

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getActor, type ActionResult } from "@/lib/actions/context";
 import { recordActivity } from "@/lib/activity/log";
+import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import {
   getGroupsRepository,
   type GroupMember,
@@ -23,6 +24,9 @@ export async function addGroupMemberAction(
   if (!input.fullName?.trim()) return { ok: false, error: "Member name is required." };
 
   try {
+    await assertRecordAccess("group", input.groupId);
+    // Linking an existing person: an Agent may only enroll a client from their own book.
+    if (input.clientId) await assertRecordAccess("client", input.clientId);
     const member = await getGroupsRepository().addMember({
       ...input,
       fullName: input.fullName.trim(),
@@ -45,6 +49,7 @@ export async function addGroupMemberAction(
 export async function issueGroupEcardsAction(groupId: string): Promise<ActionResult<number>> {
   const actor = await getActor();
   try {
+    await assertRecordAccess("group", groupId);
     const issued = await getGroupsRepository().issuePendingEcards(groupId);
     if (issued > 0) {
       await recordActivity({

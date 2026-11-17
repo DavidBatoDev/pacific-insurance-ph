@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/hub/dashboard";
+import { getAgentScope } from "@/lib/auth/agent-scope";
 import { getDashboardStats } from "@/lib/queries/dashboard";
 import { getRelationshipTouchpoints } from "@/lib/queries/relationship";
 import { getApplicationsRepository } from "@/lib/repositories/applications";
@@ -12,14 +13,16 @@ export const dynamic = "force-dynamic";
 /** Dashboard — alerts, KPIs, revenue widget, queues and rail widgets, all live. */
 export default async function Page() {
   // Queue filters are pushed to SQL and bounded — the cards render ≤6 rows each.
+  // An Agent sees only their own book (Phase J9); Admin/Staff get null and the whole agency.
+  const ownerUserId = await getAgentScope();
   const [stats, tasks, touchpoints, applications, renewals, claims, travel] = await Promise.all([
-    getDashboardStats(),
-    getTasksRepository().list({ limit: 60 }),
-    getRelationshipTouchpoints(),
-    getApplicationsRepository().list({ statusNotIn: ["Approved", "Lead"], limit: 12 }),
-    getRenewalsRepository().list({ statusNotIn: ["Renewed", "Lapsed"], limit: 12 }),
-    getClaimsRepository().list({ statusNotIn: ["Closed", "Rejected", "Credited"], limit: 12 }),
-    getTravelRepository().list({ statusNotIn: ["Policy Issued"], limit: 12 }),
+    getDashboardStats(ownerUserId),
+    getTasksRepository().list({ limit: 60, ownerUserId }),
+    getRelationshipTouchpoints(undefined, ownerUserId),
+    getApplicationsRepository().list({ statusNotIn: ["Approved", "Lead"], limit: 12, ownerUserId }),
+    getRenewalsRepository().list({ statusNotIn: ["Renewed", "Lapsed"], limit: 12, ownerUserId }),
+    getClaimsRepository().list({ statusNotIn: ["Closed", "Rejected", "Credited"], limit: 12, ownerUserId }),
+    getTravelRepository().list({ statusNotIn: ["Policy Issued"], limit: 12, ownerUserId }),
   ]);
 
   return (
