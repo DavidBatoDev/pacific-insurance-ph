@@ -7,7 +7,9 @@ import { searchClientsForPalette, type PaletteClientHit } from "@/app/(app)/sear
 /**
  * Debounced client search shared by the client pickers. The effect only ever
  * writes state from the async callback; an empty query derives an empty list
- * instead of clearing state (react-hooks/set-state-in-effect).
+ * instead of clearing state (react-hooks/set-state-in-effect). Rows are returned
+ * only for the term they answer, so a pending search never shows (and never lets
+ * staff pick from) the previous query's results.
  */
 export function useClientSearch(q: string): PaletteClientHit[] {
   const [result, setResult] = useState<{ term: string; rows: PaletteClientHit[] }>({ term: "", rows: [] });
@@ -29,5 +31,5 @@ export function useClientSearch(q: string): PaletteClientHit[] {
     return () => clearTimeout(t);
   }, [term]);
 
-  return term ? result.rows : [];
+  return term && result.term === term ? result.rows : [];
 }

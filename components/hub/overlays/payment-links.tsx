@@ -10,7 +10,7 @@ import {
   sendPaymentLinksAction,
 } from "@/app/(app)/payments/actions";
 import { listActiveTemplatesAction } from "@/app/(app)/templates/actions";
-import type { Payment } from "@/lib/repositories/payments/payment.entity";
+import { installmentLabel, type Payment } from "@/lib/repositories/payments/payment.entity";
 import type { EmailTemplate } from "@/lib/repositories/templates/email-template.entity";
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
@@ -238,7 +238,7 @@ export function PaymentLinksDrawer({ onClose }: { onClose: () => void }) {
                       <span className="block text-[13px] font-[600]">{p.clientName ?? "—"}</span>
                       <span className="block text-[11.5px] text-subtle">
                         {p.sourceRef ?? p.referenceNo}
-                        {p.installmentNumber && p.installmentCount ? ` · installment ${p.installmentNumber}/${p.installmentCount}` : null}
+                        {installmentLabel(p) ? ` · ${installmentLabel(p)}` : null}
                         {p.status === "Overdue" && <b className="text-red"> · Overdue</b>}
                       </span>
                     </span>

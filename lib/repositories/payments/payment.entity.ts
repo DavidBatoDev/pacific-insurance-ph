@@ -35,6 +35,16 @@ export interface Payment {
   updatedAt: string;
 }
 
+/**
+ * "installment n/m" only when the schedule really has several installments. An Annual renewal is
+ * stored as installment 1 of 1 (trigger `0050`), which says nothing to staff (QA L16).
+ */
+export function installmentLabel(payment: Pick<Payment, "installmentNumber" | "installmentCount">): string | null {
+  return payment.installmentNumber && payment.installmentCount && payment.installmentCount > 1
+    ? `installment ${payment.installmentNumber}/${payment.installmentCount}`
+    : null;
+}
+
 export interface PaymentUpdate {
   status?: string;
   amount?: number | null;

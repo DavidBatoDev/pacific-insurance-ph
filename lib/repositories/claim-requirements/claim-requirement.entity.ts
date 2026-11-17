@@ -12,17 +12,18 @@ export type ClaimChecklistType = (typeof CLAIM_CHECKLIST_TYPES)[number];
 
 /**
  * Claim types (TO-BE-UPDATE-PLAN.md H7a). `claims.claim_type` is free text; this is the
- * canonical list the File Claim drawer offers.
+ * canonical list the File Claim drawer offers, in Eman's order (Oct-2 meeting): Reimbursement,
+ * IP, OP, ER, their Overseas versions, then Travel.
  */
 export const CLAIM_TYPES = [
+  "Reimbursement",
   "IP",
   "OP",
   "ER",
-  "Reimbursement",
+  "Overseas Reimbursement",
   "Overseas IP",
   "Overseas OP",
   "Overseas ER",
-  "Overseas Reimbursement",
   "Travel",
 ] as const;
 export type ClaimType = (typeof CLAIM_TYPES)[number];

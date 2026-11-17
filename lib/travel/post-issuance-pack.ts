@@ -61,7 +61,10 @@ function normalizedFileName(fileName: string) {
 }
 
 const SLOT_PATTERNS: Record<TravelPackReferenceKey, (name: string) => boolean> = {
-  "emergency-numbers": (name) => / emergency /.test(name) && / (number|numbers|hotline|hotlines|contact|contacts|assistance) /.test(name),
+  // Pacific Cross ships this as "Travel Insurance Complete Numbers.pdf" (no "emergency"), so the
+  // carrier's wording counts too, but only with Travel context.
+  "emergency-numbers": (name) => (/ emergency /.test(name) && / (number|numbers|hotline|hotlines|contact|contacts|assistance) /.test(name))
+    || (/ complete (number|numbers) /.test(name) && / (travel|travelsafe) /.test(name)),
   // A COVID recovery or medical questionnaire is client health information, not Travel coverage.
   "covid-coverage": (name) => / (covid|covid 19|covid19|coronavirus) /.test(name)
     && / (coverage|benefit|benefits|cover|endorsement|rider) /.test(name)

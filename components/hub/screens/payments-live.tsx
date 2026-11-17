@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { Payment } from "@/lib/repositories/payments";
+import { installmentLabel } from "@/lib/repositories/payments/payment.entity";
 import type { CommissionTrackerRow } from "@/lib/queries/commission-tracker";
 import type { ExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import { cn } from "@/lib/utils";
@@ -101,7 +102,7 @@ export function PaymentsLive({
       renderRow={(p) => (
         <Row key={p.id} onClick={() => p.clientId && openContact(p.clientId)} onMouseEnter={() => p.clientId && prefetchContact(p.clientId)}>
           <Td><span className="font-mono text-[12px] text-muted-foreground">{p.referenceNo ?? "—"}</span></Td>
-          <Td><ClientCell name={p.clientName ?? "—"} sub={`${p.sourceRef ?? ""}${p.installmentNumber && p.installmentCount ? ` · installment ${p.installmentNumber}/${p.installmentCount}` : ""}` || undefined} /></Td>
+          <Td><ClientCell name={p.clientName ?? "—"} sub={`${p.sourceRef ?? ""}${installmentLabel(p) ? ` · ${installmentLabel(p)}` : ""}` || undefined} /></Td>
           <Td><SourceCell payment={p} /></Td>
           <Td className="text-right font-mono font-semibold tabular-nums">{p.amount != null ? money(p.amount, p.currency) : "—"}</Td>
           <Td className="text-muted-foreground">{p.paymentMethod ?? "—"}</Td>

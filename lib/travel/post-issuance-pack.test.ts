@@ -109,6 +109,8 @@ describe("suggestTravelReferenceSlot", () => {
   it("suggests each category only from clear Travel reference file names", () => {
     expect(suggestTravelReferenceSlot("Travel Emergency Numbers 2026.pdf")).toBe("emergency-numbers");
     expect(suggestTravelReferenceSlot("EMERGENCY_ASSISTANCE_HOTLINE.PDF")).toBe("emergency-numbers");
+    // The carrier's own file name has no "emergency" in it.
+    expect(suggestTravelReferenceSlot("Travel Insurance Complete Numbers.pdf")).toBe("emergency-numbers");
     expect(suggestTravelReferenceSlot("TravelSafe COVID-19 Coverage.pdf")).toBe("covid-coverage");
     expect(suggestTravelReferenceSlot("covid19_benefit_endorsement.PDF")).toBe("covid-coverage");
     expect(suggestTravelReferenceSlot("NOC Travelsafe Insurance_2026-02 (February 02)[67].pdf")).toBe("notification-of-claim");
@@ -127,6 +129,7 @@ describe("suggestTravelReferenceSlot", () => {
   it("does not match words inside other words or guess between categories", () => {
     expect(suggestTravelReferenceSlot("knockout emergency.pdf")).toBeNull();
     expect(suggestTravelReferenceSlot("passport.pdf")).toBeNull();
+    expect(suggestTravelReferenceSlot("Complete Numbers.pdf")).toBeNull();
     expect(suggestTravelReferenceSlot("Travel emergency numbers and COVID coverage.pdf")).toBeNull();
   });
 });

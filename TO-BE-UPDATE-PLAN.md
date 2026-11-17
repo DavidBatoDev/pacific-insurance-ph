@@ -2542,11 +2542,22 @@ pass.
   Policies card PDF opens in a new tab. Travel wizard: leaving the auto-filled client drops
   Traveler 1/passport in the same `set()` update; "Use applicant" fills a blank Traveler 1.
 - [ ] **K6. Double Awaiting payment on standalone Log policy copy (M4).** Deferred — **DH21**.
-- [ ] **K8. Not fixed, logged:** L7 rule-name wording (DB seed "Carrier premium breakdown
-  request" — guide updated instead), L9 open-trip warning fires for any open trip, L10
-  "Travel Insurance Complete Numbers" never suggested for the emergency-numbers slot, L11 claim
-  type order, L16 "installment 1/1" label on Annual (trigger `0050`), L6 `email_templates` row
-  "Policy issued" (data, not code), stale picker rows while a search is pending.
+- [x] **K8. Logged papercuts.** ✅ *Done 2026-11-17, except L6.*
+  - **L7** rule-name wording: guide updated earlier (DB seed "Carrier premium breakdown request").
+  - **L9** open-trip warning: not a code bug. The "already has open work" prompt runs when the
+    client is picked, before any dates exist, so it lists every open trip by design; the real
+    date-overlap note is added after Create. `TESTING-OCT2.md` 6.3 now says so.
+  - **L10:** the carrier's "Travel Insurance Complete Numbers.pdf" is now suggested for the
+    emergency-numbers slot ("complete number(s)" + Travel context; `lib/travel/post-issuance-pack.ts`
+    + tests).
+  - **L11:** `CLAIM_TYPES` follows Eman's order: Reimbursement, IP, OP, ER, the Overseas versions,
+    Travel. File Claim still defaults to IP.
+  - **L16:** one `installmentLabel()` rule in `payment.entity.ts` (+ test), used by the Payments
+    list, Verify payment and Payment links; a 1-of-1 schedule shows no installment label.
+  - **Stale picker rows:** `useClientSearch` returns rows only for the term they answer, so a
+    pending search no longer shows or lets staff pick the previous query's clients.
+  - **Still open, L6:** the `email_templates` row "Policy issued" (data). Renaming it is a wording
+    choice for Eman/Matt; "Log policy copy" replaced "Issue policy" in the app (H4a).
 - Open from the run: real Staff/Agent logins were never exercised (persona preview only); cron
   steps of §5.3 not run against the live project; filing a voucher (9.2) or recording an Inbox
   attachment (6.5) creates rows only SQL can delete — run those on a development branch.
@@ -2643,9 +2654,8 @@ row to Inactive in seconds and the library reads as empty to every consumer.
 (except K6, K8). Real Gmail sending (R1, C6b) shipped 2026-11-04; agent row scoping (J9) shipped
 2026-11-17.
 
-**Actionable now, no external input:**
-- **K8** papercuts from the Oct-2 QA run (L9 open-trip warning, L10 emergency-numbers
-  suggestion, L11 claim-type order, L16 "installment 1/1" label, stale picker rows).
+**Actionable now, no external input:** none. K8 shipped 2026-11-17; L6 (template name) waits on
+a wording choice.
 
 **Waiting on Eman / Matt:**
 

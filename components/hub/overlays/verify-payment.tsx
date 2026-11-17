@@ -7,6 +7,7 @@ import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import { verifyPaymentAction } from "@/app/(app)/payments/actions";
 import { currencySymbol, money } from "@/lib/format";
 import type { Payment } from "@/lib/repositories/payments";
+import { installmentLabel } from "@/lib/repositories/payments/payment.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
@@ -84,10 +85,7 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
 
   const submitLabel = pending ? "Saving…" : status === "Verified" ? "Verify & record invoice" : "Save";
 
-  const installment =
-    payment.installmentNumber && payment.installmentCount
-      ? `${payment.source} installment ${payment.installmentNumber}/${payment.installmentCount}`
-      : null;
+  const installment = installmentLabel(payment) && `${payment.source} ${installmentLabel(payment)}`;
   const summary = (
     <div className="mb-4 rounded-md border border-border-soft bg-surface-2 px-3.5 py-3 text-[12.5px]">
       {(
