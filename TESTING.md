@@ -84,10 +84,15 @@ three now apply the one `displayedSendState` rule. Verified with a real stale su
 (server killed mid-send): both views showed Outcome unknown, and the timeline's **Check status**
 reconciled it to Sent.
 
-Fixtures kept because sent evidence references them: client `QA GMAIL LIVE Fixture 2026-11-14`
-(CLI-2026-00104) with APP-2026-00040, three synthetic documents, the linked QA inbox fixture
-and the now-Inactive contact `QA GMAIL LIVE Contact (synthetic)`. The QA emails remain in the
-mailbox.
+The 2026-11-14 fixtures were removed on 2026-11-17 at the owner's request:
+- client `QA GMAIL LIVE Fixture 2026-11-14` (CLI-2026-00104) with APP-2026-00040 and its 2
+  requirements;
+- three synthetic documents and their Storage files;
+- 8 communications, the 7 Gmail send-ledger rows and the linked QA inbox fixture;
+- the QA external contact.
+
+One `cleanup_qa_fixture` audit row records the removal. Only the QA emails themselves remain in
+the `admin@` mailbox (current grants cannot delete mail).
 
 ## November 3: non-disruptive Inbox freshness
 
