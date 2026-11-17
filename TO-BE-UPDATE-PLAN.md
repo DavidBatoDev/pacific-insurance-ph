@@ -2326,11 +2326,33 @@ logins with no mailbox until J2 moves them.
   `STAFF_EMAIL_DOMAINS` and update `scripts/seed-staff.mjs`. Audit row per change. Check
   `communications` / timeline "from" identity rendering uses `users.full_name`, not the email,
   so history stays readable (verify with `grep` on `users.email` consumers).
-- [ ] **J3. Invite delivery becomes real.** No code: with J1 done, the Phase I Gmail-API send
-  reaches a real inbox. Add an invite email template (`lib/gmail/templates/staff-invite.ts` or
-  inline MIME in the Phase I module): subject "You're invited to the Pacific Insurance PH
-  Operations Hub", inviter name, role, link, 24 h expiry note, "contact Matt if this wasn't
-  expected". Keep the copy-link fallback (DI3).
+- [x] **J3. Invite email copy (small).** ✅ *Done 2026-11-17: `STAFF_ROLE_LABELS` now lives in
+  `lib/auth/staff-email.ts` and is used by the Team tab and the email ("as Agent", not "as
+  Viewer"); the closing line asks the recipient to reply to let Matt know. Google sign-in is
+  deliberately **not** advertised yet (step 4b still unproven). Verified: a real invite to the
+  `matt@` alias was accepted by Gmail and read back from the mailbox with the new wording (Sent
+  label only, so Inbox sync ignores it), then revoked; no user or auth row remains. Also fixed a J6
+  regression found on the way: `scripts/playwright-auth.mjs` and `scripts/test-login.mjs` clicked
+  the page's first submit button, now "Sign in with Google"; both target the password form.*
+  *Re-planned 2026-11-17: the template already exists in
+  `lib/auth/invitations.ts` (`invitationEmailBody`; subject, inviter, role, link, 24 h note,
+  Gmail send from `admin@`, copy-link fallback). Three gaps remain:*
+  1. **Role wording.** The email names the raw DB role ("as Viewer" / "as Assistant") while
+     Settings → Team shows Agent / Staff. Move `ROLE_LABEL` from
+     `components/hub/screens/settings-live.tsx` into isomorphic `lib/auth/staff-email.ts` (e.g.
+     `STAFF_ROLE_LABELS`) and use it in both places. One map, no second convention.
+  2. **Two ways in, after J6.** Say: "Sign in with Google at <APP_URL>/login using this address"
+     *or* open the link to set a password. Advertise the Google route only once step 4 proves it.
+  3. **Unexpected invite.** Replace "ignore this email" with "If you weren't expecting this,
+     tell Matt (admin@pacificinsuranceph.com)."
+  4. **Verify.** (a) Content: invite `matt@pacificinsuranceph.com`. It is DJ8's alias, so it is
+     deliverable, free, on the allowed domain and not an existing CRM user. Read the received email
+     in the `admin@` mailbox, then **Revoke**. Self-sent mail carries the SENT label, so Inbox sync
+     skips it. (b) **Untested so far:** an *Invited* user signing in with Google directly. With
+     signups off, Supabase must link the Google identity to an existing *unconfirmed* auth user;
+     J8 only proved linking for already-active users. Proving it needs a real Workspace login
+     that is not yet a CRM user: either a throwaway Workspace account (a prorated seat; delete it
+     after) or the next real hire. Until proven, the email leads with the link.
 - [x] **J4. GCP: sign-in OAuth client (console, not code).** ✅ *Done 2026-11-16 by Joshua: web
   client "CRM Sign-In" created beside the untouched "Pacific Insurance PH - Gmail" client. Consent
   screen: project in the Workspace org, audience Internal, so no Branding/Data Access changes.* In `pacific-insurane-ph`: new OAuth 2.0 Client ID (Web), name "CRM
@@ -2368,14 +2390,39 @@ logins with no mailbox until J2 moves them.
   `Invited` → activate (DJ5) via the repository + audit; `Active` → redirect to `redirectTo`.
   `proxy.ts`: allow `/auth/callback` unauthenticated. Password form stays below the Google button
   (DJ7). `lib/env.ts`: no new vars (client id/secret live in Supabase); `APP_URL` from Phase I.
-- [ ] **J7. Agent onboarding runbook (docs).** New `../docs/staff-onboarding.md` and a pointer
-  from `../docs/INDEX.md`: (1) Workspace admin creates `firstname@pacificinsuranceph.com` in the
-  CRM OU, 2SV on; (2) Matt → Settings → Team → Invite user, role **Viewer** for sales agents
-  (`toAppRole` → `agent`), Assistant for staff, Admin for Eman; (3) agent opens the invite or just
-  clicks Sign in with Google → activated; (4) Matt assigns clients (`assigned_user_id`) — the
-  agent sees only those. Offboarding: Deactivate in CRM **and** suspend in Workspace. Record the
-  open agent-scoping gap from `docs/development-alignment.md` (dashboard page/export are not
-  row-scoped for `agent`) as a prerequisite before the first real agent is invited.
+- [x] **J7. Staff onboarding runbook (docs).** ✅ *Done 2026-11-17: `../docs/staff-onboarding.md`
+  + `INDEX.md` row; carries the "no Agent invites until J9" warning, to be removed when J9 ships.*
+  *Re-planned 2026-11-17.* New
+  `../docs/staff-onboarding.md` + a pointer from `../docs/INDEX.md`. **Onboarding:**
+  (1) Workspace admin creates `firstname@pacificinsuranceph.com` in the `CRM Staff` OU (2SV
+  enforced, 1-week enrollment window). (2) Matt → Settings → Team → Invite user: **Agent** for
+  sales agents, **Staff** for office staff, **Admin** for managers (UI labels; DB roles Viewer /
+  Assistant / Admin). (3) The new person opens the emailed link, or signs in with Google once J3
+  step 4b is proven. (4) Matt assigns their clients (`assigned_user_id`).
+  **Offboarding:** Deactivate in the CRM **and** suspend in Workspace; Revoke for never-activated
+  invites. **The `admin@` caveats (DJ8):** never change its password (that disconnects Gmail);
+  Matt's second factor is needed to reconnect Gmail; mail to the `matt@` alias lands in the CRM
+  Inbox. **Gate:** do not invite anyone with the Agent role until **J9** ships. Say so in the
+  runbook, not only here.
+- [ ] **J9. Agent row scoping (blocks the first Agent invite).** *Found while planning J7,
+  2026-11-17. `docs/development-alignment.md` understates it as dashboard/export-only.* Every
+  module is `own` for `agent` (`lib/auth/permissions.ts` `MATRIX`), but only these filter today:
+  the client record page (`clients/[id]/page.tsx` `notFound()` for another agent's client),
+  Reports, Commissions, Tasks and Inbox (`gmail_inbox_actor_can_read`). The list pages for
+  Clients, Prospects, Applications, Policies, Renewals, Claims, Travel, Payments and Documents
+  never resolve the actor, so an Agent would see the whole book; Dashboard stats/activity and
+  `/api/dashboard/export` likewise. No active Agent exists (users: 3 Owner, 2 Admin active), so
+  nothing is exposed now. **Approach:**
+  - One server helper returning `null` for admin/staff or the agent's user id.
+  - Repository `list` methods take an `assignedUserId` filter (records via their client).
+  - Every record page uses the client page's `notFound()` rule.
+  - Mutating actions check ownership, since a direct POST must not bypass the list.
+  - Dashboard counts, activity and export are scoped the same way.
+  - Audit the ⌘K search palette.
+  - **Verify** with a real Agent session (not persona preview): their lists, counts and export
+    show only assigned records, and another agent's record URL/action returns not-found.
+  - Correct the `development-alignment.md` gap row.
+  - **Cheap interim guard (optional):** hide the Agent role in the Invite form until J9 lands.
 - [x] **J8. Verification.** ✅ *Done 2026-11-17: Joshua ran the production checks (Matt via
   Google as `admin@` and Eman via Google landed as themselves; a personal Google account was
   refused; password sign-in still works). Database: Matt and Eman each have an `email` and a

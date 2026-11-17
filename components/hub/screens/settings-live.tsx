@@ -16,7 +16,7 @@ import {
   saveExternalContactAction,
 } from "@/app/(app)/settings/actions";
 import type { InvitationResult } from "@/lib/auth/invitations";
-import { INVITABLE_ROLES, STAFF_EMAIL_DOMAINS } from "@/lib/auth/staff-email";
+import { INVITABLE_ROLES, STAFF_EMAIL_DOMAINS, STAFF_ROLE_LABELS } from "@/lib/auth/staff-email";
 import { EXTERNAL_CONTACT_TYPES, type ExternalContact, type NewExternalContact } from "@/lib/repositories/external-contacts/external-contact.entity";
 import type { IntegrationProvider, PacificCrossIntegrationSettings } from "@/lib/repositories/integration-settings";
 import { CHANNEL_TYPES, type PaymentChannel } from "@/lib/repositories/payment-channels/payment-channel.entity";
@@ -191,13 +191,6 @@ function GeneralTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  Owner: "Admin · Owner",
-  Admin: "Admin",
-  Assistant: "Staff",
-  Viewer: "Agent",
-};
-
 const EMPTY_INVITE = { email: "", fullName: "", role: "Assistant" };
 
 function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
@@ -213,7 +206,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
   const changeRole = (u: User, role: string) =>
     startTransition(async () => {
       const res = await updateUserRoleAction(u.id, role);
-      if (res.ok) overlays.toast("Role updated", `${u.fullName} is now ${ROLE_LABEL[role] ?? role}.`);
+      if (res.ok) overlays.toast("Role updated", `${u.fullName} is now ${STAFF_ROLE_LABELS[role] ?? role}.`);
       else overlays.toast("Couldn’t update role", res.error);
       router.refresh();
     });
@@ -298,7 +291,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
                     disabled={u.status === "Inactive"}
                     onChange={(e) => changeRole(u, e.target.value)}
                   >
-                    {Object.entries(ROLE_LABEL).map(([value, label]) => (
+                    {Object.entries(STAFF_ROLE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
@@ -367,7 +360,7 @@ function TeamTab({ users, canInvite }: { users: User[]; canInvite: boolean }) {
             </label>
             <label className="mt-3 block text-[11.5px] font-bold uppercase text-subtle">Role
               <select className={`${INPUT} mt-1.5 normal-case font-normal`} value={invite.role} onChange={(e) => setInvite((c) => ({ ...c, role: e.target.value }))}>
-                {INVITABLE_ROLES.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
+                {INVITABLE_ROLES.map((role) => <option key={role} value={role}>{STAFF_ROLE_LABELS[role]}</option>)}
               </select>
             </label>
             <div className="mt-5 flex justify-end gap-2">

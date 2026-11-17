@@ -25,3 +25,11 @@ export function normalizeStaffEmail(raw: string): string | null {
 /** Roles an invitation may grant; Owner is never delegated. */
 export const INVITABLE_ROLES = ["Admin", "Assistant", "Viewer"] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
+
+/** What staff see for each DB role (`users.role`), on the Team tab and in invitation emails. */
+export const STAFF_ROLE_LABELS: Record<string, string> = {
+  Owner: "Admin · Owner",
+  Admin: "Admin",
+  Assistant: "Staff",
+  Viewer: "Agent",
+};

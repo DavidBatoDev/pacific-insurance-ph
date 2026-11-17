@@ -9,7 +9,7 @@ import { sendGmailMessage } from "@/lib/gmail/send-api";
 import { getUsersRepository, type User } from "@/lib/repositories/users";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-import type { InvitableRole } from "./staff-email";
+import { STAFF_ROLE_LABELS, type InvitableRole } from "./staff-email";
 
 /**
  * Staff invitations (Phase I). The Owner creates the auth user with Supabase's admin API and the
@@ -69,13 +69,13 @@ function invitationEmailBody(input: { fullName: string; inviterName: string; rol
   return [
     `Hi ${input.fullName},`,
     "",
-    `${input.inviterName} invited you to the Pacific Insurance PH Operations Hub as ${input.role}.`,
+    `${input.inviterName} invited you to the Pacific Insurance PH Operations Hub as ${STAFF_ROLE_LABELS[input.role] ?? input.role}.`,
     "",
     "Open the link below to choose your password and activate your account:",
     input.url,
     "",
     "The link works once and expires after 24 hours. If it has expired, ask the inviter to resend it.",
-    "If you were not expecting this invitation, ignore this email.",
+    "If you were not expecting this invitation, reply to this email to let Matt know.",
     "",
     "Pacific Insurance PH",
   ].join("\n");

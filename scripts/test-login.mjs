@@ -27,7 +27,7 @@ try {
   await page.fill('input[name="password"]', PASSWORD);
   await Promise.all([
     page.waitForURL(/\/dashboard/, { timeout: 25000 }),
-    page.click('button[type="submit"]'),
+    page.click('form:has(input[name="password"]) button[type="submit"]'),
   ]);
   results.push(`PASS  signed in → ${new URL(page.url()).pathname}`);
 
