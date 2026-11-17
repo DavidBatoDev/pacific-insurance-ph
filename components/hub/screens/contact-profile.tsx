@@ -24,7 +24,7 @@ import { useOverlays } from "../overlays/overlay-provider";
 import { RecordDecisionModal } from "../overlays/record-decision";
 import { RequestProposalModal } from "../overlays/request-proposal";
 import { ContactComposer, type ComposerTab } from "./contact-profile/composer";
-import { ContactPropertiesCard, DependentsCard, StateFlagsCard, type Dependent } from "./contact-profile/identity-cards";
+import { ContactPropertiesCard, DependentsCard, StateFlagsCard, type AgentOption, type Dependent } from "./contact-profile/identity-cards";
 import { PoliciesCard } from "./contact-profile/policies-card";
 import { ProfileHeader } from "./contact-profile/profile-header";
 import { ProposalCard } from "./contact-profile/proposal-card";
@@ -53,6 +53,8 @@ interface Props {
   timeline: TimelineEntry[];
   templates: EmailTemplate[];
   userNames: Record<string, string>;
+  /** Team members a real Admin may assign this client to; null for everyone else. */
+  agentOptions: AgentOption[] | null;
   pacificCrossPortalUrl: string | null;
   origin: "clients" | "prospects";
   applications: Application[];
@@ -68,6 +70,7 @@ export function ContactProfile({
   timeline,
   templates,
   userNames,
+  agentOptions,
   pacificCrossPortalUrl,
   origin,
   applications,
@@ -216,7 +219,7 @@ export function ContactProfile({
       <div className="grid grid-cols-12 items-start gap-4 max-[1200px]:grid-cols-1">
         {/* ---------- left: identity ---------- */}
         <div className="col-span-3 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ContactPropertiesCard client={client} />
+          <ContactPropertiesCard client={client} ownerName={owner} agentOptions={agentOptions} />
           <StateFlagsCard client={client} />
           <DependentsCard client={client} dependents={dependents} />
         </div>

@@ -2445,6 +2445,17 @@ logins with no mailbox until J2 moves them.
   tsc, lint and 423 tests pass. The QA agent is left **Inactive** (its 7 audit rows are the export
   checks), and CLI-2026-00104 is unassigned again.
 
+  **Follow-up shipped 2026-11-17, client reassignment:**
+  - The gap: there was no control to change an existing client's agent. The wizard's "Assigned
+    agent" only labels the application, and visibility follows the client.
+  - The fix: Contact Profile → Contact properties → **Assigned agent**. It is Admin-only (real DB
+    role), via `assignClientAgentAction` in `app/(app)/clients/assign-actions.ts`; staff and agents
+    see the name read-only.
+  - Each change writes a `client.assigned` timeline entry and a `reassign` audit row. Verified in
+    the browser: reassigning the QA client to Eman updated the header, the timeline, the DB and
+    the audit log.
+  - Not built: bulk "Assign to…" on the Clients list (worth adding before the D1 import).
+
   **Known limits:**
   - ✅ *Decided 2026-11-17 (Joshua): agents may log relationship campaigns to their own clients.*
     Campaigns are log-only (no email leaves the mailbox) and `sendCampaignAction` rejects any

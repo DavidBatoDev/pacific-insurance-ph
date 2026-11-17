@@ -72,7 +72,8 @@ function activityKind(activityType: string): TimelineKind {
     activityType.includes("created") ||
     activityType.includes("lost") ||
     activityType.includes("proposal") ||
-    activityType.includes("flag")
+    activityType.includes("flag") ||
+    activityType === "client.assigned"
   )
     return "status";
   return "note";

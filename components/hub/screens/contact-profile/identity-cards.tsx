@@ -4,12 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { addDependentAction, removeDependentAction } from "@/app/(app)/clients/actions";
+import { assignClientAgentAction } from "@/app/(app)/clients/assign-actions";
 import { toggleContactFlagAction } from "@/app/(app)/clients/engage-actions";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { fmtDate, peso } from "@/lib/format";
 import { I } from "../../icons";
 import { useOverlays } from "../../overlays/overlay-provider";
+import { usePersona } from "../../persona";
 import { Avatar, Card, CardHead, INPUT } from "../../primitives";
 import { CollapsibleListCard } from "./collapsible-list-card";
 import { isSelectProduct, selectLimitBasis } from "@/lib/products/select-variant";
@@ -21,8 +23,53 @@ export interface Dependent {
   dateOfBirth: string | null;
 }
 
+/** A team member an Admin can assign a client to. */
+export interface AgentOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * The client's assigned agent, which decides which Agent sees it (Phase J9). `options` is only
+ * sent to real Admins; the persona preview can hide the control but never grant it.
+ */
+function AssignedAgentField({ client, ownerName, options }: { client: Client; ownerName: string | null; options: AgentOption[] | null }) {
+  const router = useRouter();
+  const overlays = useOverlays();
+  const persona = usePersona();
+  const [pending, startTransition] = useTransition();
+  const ownerId = client.assignedUserId ?? "";
+  const label = <dt className="text-[11px] font-semibold uppercase tracking-[0.03em] text-subtle">Assigned agent</dt>;
+
+  if (!options || persona.role !== "admin") {
+    return <div>{label}<dd className="mt-0.5 text-[13px]">{ownerName ?? "Unassigned"}</dd></div>;
+  }
+  // A deactivated owner stays visible until someone else is chosen.
+  const choices = ownerId && !options.some((o) => o.id === ownerId) ? [...options, { id: ownerId, label: `${ownerName ?? "Former member"} (inactive)` }] : options;
+  const change = (userId: string) =>
+    startTransition(async () => {
+      const res = await assignClientAgentAction(client.id, userId || null);
+      if (!res.ok) return overlays.toast("Couldn’t change the assigned agent", res.error);
+      const name = choices.find((o) => o.id === userId)?.label.split(" · ")[0];
+      overlays.toast("Assigned agent updated", userId ? `${client.fullName} is now assigned to ${name}.` : `${client.fullName} is now unassigned.`);
+      router.refresh();
+    });
+
+  return (
+    <div>
+      {label}
+      <dd className="mt-1">
+        <select aria-label="Assigned agent" className={cn(INPUT, "h-8 text-[13px]")} value={ownerId} disabled={pending} onChange={(e) => change(e.target.value)}>
+          <option value="">Unassigned</option>
+          {choices.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      </dd>
+    </div>
+  );
+}
+
 /** Left column: contact properties, state flags, dependents. */
-export function ContactPropertiesCard({ client }: { client: Client }) {
+export function ContactPropertiesCard({ client, ownerName, agentOptions }: { client: Client; ownerName: string | null; agentOptions: AgentOption[] | null }) {
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   return (
     <Card>
@@ -46,6 +93,7 @@ export function ContactPropertiesCard({ client }: { client: Client }) {
                 !propertiesOpen && "hidden",
               )}
             >
+              <AssignedAgentField client={client} ownerName={ownerName} options={agentOptions} />
               {(
                 [
                   ["Email", client.email],

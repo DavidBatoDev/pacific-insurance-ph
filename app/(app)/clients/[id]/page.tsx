@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { assertRecordAccess } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { toAppRole } from "@/lib/auth/permissions";
+import { STAFF_ROLE_LABELS } from "@/lib/auth/staff-email";
 import { filterCommissionVoucherDocuments } from "@/lib/commissions/access";
 import { isCommissionVoucher } from "@/lib/commissions/voucher";
 
@@ -36,7 +38,7 @@ export default async function ContactProfilePage({
   await assertRecordAccess("client", id).catch(() => notFound());
   const [actor, rawClient] = await Promise.all([getCurrentUser(), getClientsRepository().findById(id)]);
   if (!actor || actor.status !== "Active" || !rawClient) notFound();
-  const [inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies] = await Promise.all([
+  const [inferenceRows, counts, dependents, documents, timeline, templates, owner, pacificCross, applications, policies, team] = await Promise.all([
     leadInferenceCommunications(id),
     getClientRelatedCounts(id),
     getDependentsRepository().listByClient(id),
@@ -47,7 +49,12 @@ export default async function ContactProfilePage({
     getIntegrationSettingsRepository().getProposalPortal(),
     getApplicationsRepository().listByClient(id),
     getPoliciesRepository().listByClient(id),
+    // Only a real Admin may reassign (permissions.md); nobody else receives the team list.
+    toAppRole(actor.role) === "admin" ? getUsersRepository().list({ limit: 200, orderBy: "full_name", ascending: true }) : Promise.resolve(null),
   ]);
+  const agentOptions = team
+    ? team.rows.filter((user) => user.status === "Active").map((user) => ({ id: user.id, label: `${user.fullName} · ${STAFF_ROLE_LABELS[user.role] ?? user.role}` }))
+    : null;
   const client = applyLeadStatusInference(rawClient, inferenceRows);
   const visibleDocuments = (await filterCommissionVoucherDocuments(documents, actor))
     .map((doc) => isCommissionVoucher(doc) ? { ...doc, filePath: null } : doc);
@@ -62,6 +69,7 @@ export default async function ContactProfilePage({
       timeline={timeline}
       templates={templates}
       userNames={owner ? { [owner.id]: owner.fullName } : {}}
+      agentOptions={agentOptions}
       pacificCrossPortalUrl={pacificCross?.portalUrl ?? null}
       origin={from === "prospects" || client.lifecycleStage === "Lead" ? "prospects" : "clients"}
       applications={applications.filter((application) => application.status !== "Lead")}
