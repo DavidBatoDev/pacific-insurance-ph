@@ -53,7 +53,7 @@ const MATRIX: Record<PermModule, Record<AppRole, Cap>> = {
   documents:    { admin: "full", staff: "full", agent: "own" },
   inbox:        { admin: "full", staff: "edit", agent: "own" },
   tasks:        { admin: "full", staff: "full", agent: "own" },
-  relationship: { admin: "full", staff: "full", agent: "view" },
+  relationship: { admin: "full", staff: "full", agent: "own" },
   reports:      { admin: "full", staff: "full", agent: "own" },
   group:        { admin: "full", staff: "full", agent: "own" },
   products:     { admin: "full", staff: "view", agent: "view" },

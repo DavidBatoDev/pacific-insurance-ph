@@ -2442,8 +2442,10 @@ logins with no mailbox until J2 moves them.
   checks), and CLI-2026-00104 is unassigned again.
 
   **Known limits:**
-  - Agents can still send relationship campaigns to their own clients. The matrix says "view"; a
-    separate decision.
+  - ✅ *Decided 2026-11-17 (Joshua): agents may log relationship campaigns to their own clients.*
+    Campaigns are log-only (no email leaves the mailbox) and `sendCampaignAction` rejects any
+    recipient outside the agent's book; the matrix (`relationship.agent = "own"`) and
+    `../docs/web/permissions.md` now say so.
   - `candidateLeadCommunications()` on /prospects stays agency-wide. It only feeds status
     inference for already-scoped leads.
   - Two agent-only filters build an `in (...)` list of the agent's client ids: recent lead
