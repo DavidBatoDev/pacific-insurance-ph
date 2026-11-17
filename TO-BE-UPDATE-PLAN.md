@@ -61,7 +61,7 @@ Audited against current source, Git history, and the connected Supabase migratio
 | C4 | Implemented and deployed | `efea273`; `0024_application_requirements` is in the remote ledger |
 | C5 | Implemented | Applications derives verified-only progress from persisted requirements with completeness filtering and sorting |
 | C6a | Implemented and deployed | `f53e67f`; `0023_document_library_attachments` is in the remote ledger |
-| C6b | Blocked | No outbound email provider exists, so binary files are not transmitted |
+| C6b | Implemented and deployed (2026-11-04) | `69d9614` (migration `0059`): reviewed individual emails send from `admin@` through Gmail with the real stored attachments; live QA 2026-11-14 matched attachment SHA-256s |
 | C7 | Implemented and deployed | `0025_application_workflow_reconciliation` and `0026_application_workflow_indexes` are in the remote ledger; application/Travel workflows now use versioned carrier-form assignments |
 | D1–D2 | D1 data received, processing pending / D2 implemented (2026-08-15) | Workbook received 2026-08-24; profiling, cleaning, mapping, deduplication, approval and import remain. No importer exists. |
 
@@ -100,10 +100,12 @@ issues.
 
 ## Cross-cutting risks / dependencies
 
-- **R1 — Emails don't actually send.** Every "send" only logs a `communications` row. The
-  auto-follow-up-email features (missing-documents, etc.) will *log* an email, not deliver it to the
-  client, until a real provider (Resend/Gmail per roadmap) is wired. Flag to Matt/Eman; decide
-  whether that's in-scope now.
+- **R1 — ~~Emails don't actually send.~~ Resolved 2026-11-04 (`69d9614`).** Reviewed individual
+  emails (contact composer, missing documents, billing, Pacific Cross submission, proposal
+  request/delivery, renewal drafts, wizard post-create email, Inbox reply) now send from
+  `admin@pacificinsuranceph.com` through Gmail with real attachments, and only Gmail acceptance
+  drives "sent" workflow effects. **Still log-only by design:** relationship campaigns, bulk
+  payment links and scheduled renewal processing.
 - **R2 — Remaining external inputs.** The client workbook is received but still needs recency
   confirmation, data engineering and real-client-data clearance before import. Both carrier portal
   URLs are received; credentials must be rotated and kept outside the app. The in-app proposal
@@ -222,8 +224,8 @@ issues.
     2026-08-03 audit the library was empty pending clearance; it was subsequently loaded, as recorded
     in the Carrier-document rules in `docs/development-alignment.md`. The connected Supabase ledger
     confirms `0023_document_library_attachments` is deployed, and generated types contain its schema.
-    **C6b (BLOCKED — R1):** transmit the actual binary attachments when a real email provider is
-    implemented. Until then the UI must state that the action is logged but not delivered.
+    **C6b — resolved 2026-11-04 (`69d9614`):** binary attachments are transmitted with every
+    reviewed Gmail send (see R1).
   - Do not ingest the illustrative proposal, CAC, or TAL samples until they are redacted and approved
     under R4.
 
@@ -1406,7 +1408,9 @@ here has been decided on anyone's behalf.
       Plan A / B / C.
     - **DH4 ✅** The group tiers are left alone for now.
 
-- [ ] **H1b. Select Plus vs Select Standard.** These are one product with the same commission.
+- [x] **H1b. Select Plus vs Select Standard.** ✅ *Done 2026-11-06 (`191fd9b`, migration `0060`):
+  the Select variant and plan limit basis are explicit end to end (`lib/products/select-variant.ts`
+  + test). Ticked retroactively 2026-11-17.* These are one product with the same commission.
   They differ only in how the limit behaves:
   - **Select Plus:** ₱1,000,000 *aggregate* limit that replenishes every year.
   - **Select Standard:** ₱1,000,000 *per illness*, depleted as the client uses it.
@@ -2633,55 +2637,32 @@ row to Inactive in seconds and the library reads as empty to every consumer.
   remain attached documents rather than duplicated legal forms.
 - **D2:** deploy a preview on Vercel and confirm login succeeds end-to-end.
 
-## Remaining execution order (updated 2026-08-20)
+## Remaining execution order (updated 2026-11-17)
 
-**Phase H order (added 2026-10-05).** Decide the DH items each step depends on before starting
-it.
-1. **H0**: clear client and lead data. This gates the rest.
-2. **Quick wins:** H6a (TravelSafe preselect), H7d (claims checklist back bug), H1a (tier
-   vocabulary).
-3. **Data correctness before the import:** H1c (policy edit), H1d (Archived status), H4a (log
-   policy copy + PDF), H9a–c (commission rates, formula, breakdown).
-4. **Flow simplification:** H6b–d (travel), H7a–c (claims), H3a (New Application), H2a–b
-   (proposal encode list).
-5. **After the D1 import:** H5a (renewal rows), then H5b–e once the timeframes are final, then
-   H8a–d.
-6. **Parked:** H2d and H4b. **Gated on the NDA:** H1e.
+**Done:** Phases A–G (except G10), H (except the items below), I, J (except J3 step 4b) and K
+(except K6, K8). Real Gmail sending (R1, C6b) shipped 2026-11-04; agent row scoping (J9) shipped
+2026-11-17.
 
-C2a, C7, D2, and the entire Phase D/F Lead Lifecycle remediation are all complete.
+**Actionable now, no external input:**
+- **K8** papercuts from the Oct-2 QA run (L9 open-trip warning, L10 emergency-numbers
+  suggestion, L11 claim-type order, L16 "installment 1/1" label, stale picker rows).
 
-**Until 2026-08-18 this section read "what's left is exclusively dependency-gated on external
-input."** That is no longer true. Eman's written requirement lists arrived that day, and checking
-them against the code produced **Phase G — nine gaps that are entirely ours to fix.** Phase G is now
-the only actionable work in this plan, and the whole of it is actionable today.
+**Waiting on Eman / Matt:**
 
-**Actionable now — no external dependency:**
+| Item | What is needed |
+| :--- | :--- |
+| **D1** client workbook import | Confirm the Oct-2024 workbook is current; real-client-data clearance; then profiling, mapping, dedup, exception report, dry run, approval |
+| **K6** double Awaiting payment | **DH21**: keep the drawer's row, the renewal installment, or both with a "next cycle" label |
+| **H9f** travel commission netting | **DH19**: is the agency already paid net of commission? |
+| **H2c** updated carrier brochures/forms | The new files from Matt; **DH6** (which Excel) |
+| **G10** pre-approvals | Is a pre-approval its own record or an attachment? |
+| Proposal Information Sheet | Checklist question C3 (see "Received but not loaded") |
+| **C2b** proposal calculator | Deferred for V1; the discount formula is still unavailable |
+| **J3 step 4b** | A throwaway Workspace seat, or the next real hire, to prove an invited user's first Google sign-in |
 
-- **Phase G (G1–G9)** — carrier requirement reconciliation is complete as of 2026-08-24. G9 closed
-  the last wizard-lane gap with BC Flexi's two requirement gates and the fresh Group HMO Application
-  persistence fix. **Remaining: G10 only** (pre-approvals, split out of G8), blocked on Eman.
-  **G10 sits outside that lane** — it touches claims, not the wizard, so it could run alongside them,
-  but it is blocked on Eman confirming whether a pre-approval is a record or an attachment.
+**Parked:** H2d (auto-detect received proposals), H4b (auto-log policies from the agency
+mailbox). **Gated on the NDA:** H1e (Policy Schedule 2 extraction, feeds D1).
 
-**Still externally blocked or dependency-gated:**
-
-- **C2b** — deferred for V1 in favor of the received carrier portal; formula still unavailable
-- **C6b** — actually transmitting attachments (blocked on a real email provider, R1)
-- **D1** — workbook received; import now waits on recency confirmation, cleaning, mapping,
-  deduplication, dry-run approval and real-client-data clearance
-- **D3 core load — DONE 2026-09-07**, **CCAF + Geographical Loading — DONE 2026-09-21**, **CET —
-  DONE 2026-09-25** (see Phase E above; migrations `0039` and `0040`). Distribution clearance was
-  treated as not-a-gate by client decision, not resolved by a signature. One wanted asset remains
-  excluded — the **Proposal Information Sheet**, blocked on a client answer to checklist question
-  C3 (see "Received but not loaded" above).
-- Claims, Travel collateral, Renewals — each waiting on specific client-supplied assets/permissions
-
-**Worth sequencing before D1:** G1 changes BC Flexi's product category and reconciles the
-"BC Flexi" / "BC Flexi HMO" name split. Doing it *after* importing 300 real clients means migrating
-their product references too.
-
-Dashboard export-to-spreadsheet, a WYSIWYG email editor, and the Gmail migration remain noted but
-not requested as tasks (see "Noted, not yet prioritized" above). The fabricated notifications,
-sidebar counts, dated close-out card and Prospects Intake Forms widget were removed or live-backed
-on 2026-08-25. The mock Reports route was replaced on 2026-08-26; lower-priority cleanup findings
-remain documented in the archived [`docs/archive/future-refactor.md`](docs/archive/future-refactor.md).
+Noted but not requested: a WYSIWYG email editor; password-reset page together with Supabase
+custom SMTP (DJ6, deferred in J5). Lower-priority cleanup findings remain in the archived
+[`docs/archive/future-refactor.md`](docs/archive/future-refactor.md).
