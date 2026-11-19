@@ -15,7 +15,7 @@ import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
 import { isIndividualProposalProduct, proposalStatusLine } from "../../lead-config";
-import { ProposalUploadedNotice } from "../../overlays/generate-proposal";
+import { ProposalReceiptUpload, ProposalUploadedNotice } from "../../overlays/generate-proposal";
 import { useOverlays } from "../../overlays/overlay-provider";
 import { openPortalWindow } from "../../overlays/portal-window";
 import { Btn, Card, CardHead } from "../../primitives";
@@ -150,20 +150,18 @@ export function ProposalCard({
                     </Btn>
                   )}
                 </div>
-                {status === "Requested" && (
+                {/* Upload works from no status too, so a proposal can be filed without going through the portal hand-off. */}
+                {(!status || status === "Requested") && !uploaded?.confirming && (
                   <div className="mt-3">
-                    <PdfUpload
+                    <ProposalReceiptUpload
                       clientId={client.id}
-                      prompt="Upload the proposal PDF…"
-                      onUploaded={async (path, fileName) => {
-                        const res = await recordProposalReceivedAction(client.id, path, fileName);
-                        if (res.ok) {
-                          showUploaded(res.data, "Proposal attached and marked Received");
-                          onStatusChange("Received");
-                          overlays.toast("Proposal received", `${client.fullName} — PDF attached and marked Received.`);
-                          router.refresh();
-                        }
-                        return res;
+                      defaultFrequency={client.paymentFrequency}
+                      prompt={status ? "Upload the proposal PDF…" : "Already have the proposal PDF? Upload it…"}
+                      onUploaded={(proposal) => {
+                        showUploaded(proposal, "Proposal attached and marked Received");
+                        onStatusChange("Received");
+                        overlays.toast("Proposal received", `${client.fullName}: PDF attached and marked Received.`);
+                        router.refresh();
                       }}
                     />
                   </div>
@@ -196,6 +194,9 @@ export function ProposalCard({
                       </button>
                     )}
                   </div>
+                )}
+                {!uploaded?.confirming && shownDocument === proposalDocument && proposalDocument?.notes && status && status !== "Requested" && (
+                  <p className="mt-1.5 text-[11.5px] text-muted-foreground">{proposalDocument.notes}</p>
                 )}
                 {replacing && !uploaded?.confirming && shownDocument && status && status !== "Requested" && (
                   <div className="mt-2">

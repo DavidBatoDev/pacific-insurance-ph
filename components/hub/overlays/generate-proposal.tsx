@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import {
   generateProposalAction,
   getProposalLeadDefaultsAction,
   recordProposalReceivedAction,
   type ProposalPortalDetail,
+  type ProposalResultDetails,
   type UploadedProposal,
 } from "@/app/(app)/prospects/actions";
+import type { ActionResult } from "@/lib/actions/context";
 import { PAYMENT_FREQUENCIES } from "@/lib/db-enums";
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { I } from "../icons";
@@ -48,6 +50,26 @@ export function GenerateProposalModal({
   const [needsSettings, setNeedsSettings] = useState(false);
   const [portal, setPortal] = useState<{ url: string; details: ProposalPortalDetail[] } | null>(null);
   const [uploaded, setUploaded] = useState<UploadedProposal | null>(null);
+  // The portal pop-up, watched so the modal can prompt for the PDF once Eman closes it.
+  // Reading `closed` works cross-origin; the portal sends no Cross-Origin-Opener-Policy.
+  const portalWindow = useRef<Window | null>(null);
+  const [portalClosed, setPortalClosed] = useState(false);
+  const [watching, setWatching] = useState(0);
+  useEffect(() => {
+    if (!watching) return;
+    const timer = setInterval(() => {
+      if (portalWindow.current?.closed) {
+        clearInterval(timer);
+        setPortalClosed(true);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [watching]);
+  const watchPortal = (win: Window | null) => {
+    portalWindow.current = win;
+    setPortalClosed(false);
+    if (win) setWatching((current) => current + 1);
+  };
 
   // Prefill the frequency from what the lead already has on file.
   const pickedId = picked?.id;
@@ -76,7 +98,10 @@ export function GenerateProposalModal({
         overlays.toast("Couldn’t generate proposal", res.error);
         return;
       }
-      if (win) win.location.href = res.data.portalUrl;
+      if (win) {
+        win.location.href = res.data.portalUrl;
+        watchPortal(win);
+      }
       else overlays.toast("Pop-up blocked", "Allow pop-ups for this site, then use Reopen portal.");
       setPortal({ url: res.data.portalUrl, details: res.data.details });
       onDone?.("Requested");
@@ -189,7 +214,7 @@ export function GenerateProposalModal({
                         </span>
                         {d.missing ? (
                           <span className="min-w-0 flex-1 font-semibold text-amber">
-                            Missing — add to the lead before encoding
+                            {d.hint ?? "Missing: add it to the lead before encoding"}
                           </span>
                         ) : (
                           <span className={`min-w-0 flex-1 truncate ${d.value ? "font-semibold" : "text-faint"}`}>
@@ -214,25 +239,25 @@ export function GenerateProposalModal({
             </div>
           )}
 
-          <Field label="Generated proposal" className="mb-1">
-            <PdfUpload
-              clientId={picked.id}
-              prompt="Upload the proposal PDF from the portal…"
-              onUploaded={async (path, fileName) => {
-                const res = await recordProposalReceivedAction(picked.id, path, fileName);
-                if (res.ok) {
-                  overlays.toast("Proposal received", `${picked.name} — PDF attached and marked Received.`);
-                  setUploaded(res.data);
-                  onDone?.("Received");
-                  router.refresh();
-                }
-                return res;
-              }}
-            />
-          </Field>
+          {portalClosed && (
+            <div role="status" className="mb-3 rounded-md border border-brand/30 bg-brand-soft px-3.5 py-2.5 text-[12.5px]">
+              Portal closed. Got the proposal PDF? Drop it below to mark the proposal Received.
+            </div>
+          )}
+          <ProposalReceiptUpload
+            clientId={picked.id}
+            defaultFrequency={frequency}
+            prompt="Upload the proposal PDF from the portal…"
+            onUploaded={(proposal) => {
+              overlays.toast("Proposal received", `${picked.name}: PDF attached and marked Received.`);
+              setUploaded(proposal);
+              onDone?.("Received");
+              router.refresh();
+            }}
+          />
 
           <div className="mt-5 flex items-center justify-between gap-2.5">
-            <Btn onClick={() => openPortalWindow(portal.url)}>
+            <Btn onClick={() => watchPortal(openPortalWindow(portal.url))}>
               <I.arrowUpRight size={14} /> Reopen portal
             </Btn>
             <Btn onClick={onClose}>Upload later</Btn>
@@ -240,6 +265,52 @@ export function GenerateProposalModal({
         </>
       )}
     </Modal>
+  );
+}
+
+/**
+ * Upload the carrier's proposal PDF and mark it Received, with the quote read off the portal's
+ * Generate step (all optional): quotation number, payment mode and grand total.
+ */
+export function ProposalReceiptUpload({
+  clientId,
+  defaultFrequency,
+  prompt,
+  onUploaded,
+}: {
+  clientId: string;
+  defaultFrequency?: string | null;
+  prompt: string;
+  onUploaded: (proposal: UploadedProposal) => void;
+}) {
+  const [quotationNo, setQuotationNo] = useState("");
+  const [mode, setMode] = useState(defaultFrequency ?? "");
+  const [total, setTotal] = useState("");
+  const upload = async (path: string, fileName: string): Promise<ActionResult<unknown>> => {
+    const amount = total.trim() ? Number(total.replace(/,/g, "")) : null;
+    const result: ProposalResultDetails = { quotationNo, paymentFrequency: mode || undefined, grandTotal: amount != null && Number.isFinite(amount) ? amount : null };
+    const res = await recordProposalReceivedAction(clientId, path, fileName, result);
+    if (res.ok) onUploaded(res.data);
+    return res;
+  };
+  return (
+    <div>
+      <div className="mb-2.5 grid grid-cols-3 gap-2.5 max-[560px]:grid-cols-1">
+        <Field label="Quotation no.">
+          <input className={INPUT} value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} placeholder="A0201403-…" maxLength={64} />
+        </Field>
+        <Field label="Payment mode">
+          <select className={INPUT} value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="">Not set</option>
+            {PAYMENT_FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </Field>
+        <Field label="Grand total (PHP)">
+          <input className={INPUT} inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="8,613.00" />
+        </Field>
+      </div>
+      <PdfUpload clientId={clientId} prompt={prompt} onUploaded={upload} />
+    </div>
   );
 }
 

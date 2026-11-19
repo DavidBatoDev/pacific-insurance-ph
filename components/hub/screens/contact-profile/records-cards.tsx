@@ -23,6 +23,8 @@ export interface Doc {
   status: string;
   /** Set when the document is a filed policy copy (H4a). */
   policyId?: string | null;
+  /** Free-text note; on an illustrative proposal, the carrier quote recorded at upload. */
+  notes?: string | null;
 }
 
 export function AssociatedRecordsCard({ counts }: { counts: ClientRelatedCounts }) {

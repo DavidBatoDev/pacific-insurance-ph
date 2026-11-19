@@ -33,6 +33,7 @@ import { getIntegrationSettingsRepository } from "@/lib/repositories/integration
 import { withInferredLeadStatus } from "@/lib/queries/lead-status-inference";
 import type { Json } from "@/lib/supabase/types";
 import { checkProductInterest } from "@/lib/products/active-products";
+import { portalPlanFor, splitFullName } from "@/lib/products/proposal-portal";
 
 const INDIVIDUAL_PROPOSAL_PRODUCTS = new Set(["select", "blue royale"]);
 
@@ -510,6 +511,7 @@ export async function generateProposalAction(
     revalidatePath(`/clients/${clientId}`);
 
     const age = lead.dateOfBirth ? ageFromDob(lead.dateOfBirth) : "";
+    const plan = portalPlanFor(lead.productInterest, lead.selectVariant, lead.coverageTier);
     const field = (
       group: ProposalPortalDetail["group"],
       label: string,
@@ -533,15 +535,22 @@ export async function generateProposalAction(
       field("Principal", "Gender", lead.gender, true),
       field("Principal", "Date of birth", lead.dateOfBirth, true),
       field("Principal", "Age", age === "" ? "" : String(age), false),
-      field("Principal", "Plan", lead.coverageTier, false),
+      { ...field("Principal", "Plan", plan.value, true), hint: plan.problem ?? undefined },
       field("Principal", "Optional benefit", "", false, "Choose in portal"),
       field("Principal", "Discount", "", false, "Choose in portal"),
-      ...dependents.flatMap((d, n) => [
-        field("Dependents", `Dependent ${n + 1} — name`, d.fullName, false),
-        field("Dependents", `Dependent ${n + 1} — gender`, d.gender, true),
-        field("Dependents", `Dependent ${n + 1} — date of birth`, d.dateOfBirth, true),
-        field("Dependents", `Dependent ${n + 1} — relationship`, d.relationship, false),
-      ]),
+      ...dependents.flatMap((d, n) => {
+        const name = splitFullName(d.fullName);
+        const dependentAge = d.dateOfBirth ? ageFromDob(d.dateOfBirth) : "";
+        return [
+          field("Dependents", `Dependent ${n + 1} · first name`, name.first, true),
+          field("Dependents", `Dependent ${n + 1} · last name`, name.last, true),
+          field("Dependents", `Dependent ${n + 1} · gender`, d.gender, true),
+          field("Dependents", `Dependent ${n + 1} · date of birth`, d.dateOfBirth, true),
+          field("Dependents", `Dependent ${n + 1} · age`, dependentAge === "" ? "" : String(dependentAge), false),
+          { ...field("Dependents", `Dependent ${n + 1} · plan`, plan.value, true), hint: plan.value ? "Same as the principal" : plan.problem ?? undefined },
+          field("Dependents", `Dependent ${n + 1} · relationship`, d.relationship, false),
+        ];
+      }),
       field("Generate step", "Payment frequency", paymentFrequency, true),
     ];
 
@@ -559,6 +568,13 @@ export interface UploadedProposal {
 const proposalDocumentName = (product: string, fileName: string) =>
   `Illustrative proposal — ${product} (${fileName})`;
 
+/** The carrier's quote as read off the portal's Generate step; every field is optional. */
+export interface ProposalResultDetails {
+  quotationNo?: string;
+  paymentFrequency?: string;
+  grandTotal?: number | null;
+}
+
 /**
  * Attach the carrier's illustrative proposal PDF (uploaded to Storage by the
  * browser) and mark the proposal Received. Covers both the portal-generated
@@ -568,6 +584,7 @@ export async function recordProposalReceivedAction(
   clientId: string,
   path: string,
   fileName: string,
+  result?: ProposalResultDetails,
 ): Promise<ActionResult<UploadedProposal>> {
   const actor = await getActor();
   try {
@@ -576,6 +593,12 @@ export async function recordProposalReceivedAction(
     const lead = await repo.findById(clientId);
     if (!lead) return { ok: false, error: "Lead not found." };
     // The shared receipt transaction rechecks lifecycle/proposal guards while holding the client lock.
+
+    const quotationNo = result?.quotationNo?.trim().slice(0, 64) || null;
+    const frequency = result?.paymentFrequency && (PAYMENT_FREQUENCIES as readonly string[]).includes(result.paymentFrequency)
+      ? result.paymentFrequency : null;
+    const grandTotal = typeof result?.grandTotal === "number" && Number.isFinite(result.grandTotal) && result.grandTotal >= 0
+      ? result.grandTotal : null;
 
     const product = lead.productInterest ?? "carrier";
     const doc = await registerUploadedProposalReceipt({
@@ -586,6 +609,18 @@ export async function recordProposalReceivedAction(
       actorId: actor.id,
     });
 
+    // The carrier's quote, as read off the portal's Generate step. It lives on the proposal
+    // document, not in est_premium, which holds the client's discovery budget.
+    const quote = [
+      quotationNo && `Quotation ${quotationNo}`,
+      frequency,
+      grandTotal != null && `Grand total PHP ${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    ].filter(Boolean).join(" · ");
+    if (quote) {
+      await getDocumentsRepository().update(doc.id, { notes: quote });
+      await recordActivity({ scopeType: "client", scopeId: clientId, activityType: "lead.proposal", summary: `Proposal quote recorded: ${quote}`, actorId: actor.id });
+    }
+    if (frequency && frequency !== lead.paymentFrequency) await repo.update(clientId, { paymentFrequency: frequency });
     revalidatePath("/prospects");
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/documents");
