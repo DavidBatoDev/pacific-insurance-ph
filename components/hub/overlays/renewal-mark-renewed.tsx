@@ -21,11 +21,9 @@ export function RenewalMarkRenewedModal({ renewal, onClose }: { renewal: Renewal
   const [today] = useState(() => manilaTodayIso());
   // A straight annual renewal starts one year after the current expiry; staff change it when the
   // carrier's renewed term differs.
-  const [suggested] = useState(() => suggestedRenewedExpiry(renewal, today));
-  const [date, setDate] = useState(suggested);
+  const [date, setDate] = useState(() => suggestedRenewedExpiry(renewal, today));
   const [serverError, setServerError] = useState<string | null>(null);
   const inputId = useId();
-  const hintId = useId();
   const errorId = useId();
 
   const policyLabel = renewal.policyNumber ?? renewal.policyRef ?? "Policy";
@@ -94,17 +92,13 @@ export function RenewalMarkRenewedModal({ renewal, onClose }: { renewal: Renewal
             value={date}
             disabled={pending}
             aria-invalid={invalid}
-            aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+            aria-describedby={error ? errorId : undefined}
             onChange={(e) => {
               setDate(e.target.value);
               setServerError(null);
             }}
           />
         </Field>
-        <p id={hintId} className="mt-1.5 text-[12px] text-muted-foreground">
-          {suggested && "Prefilled to one year after the current expiry. Change it if the carrier’s renewed term differs. "}
-          Sets the policy to Active with this expiry and opens the next renewal cycle.
-        </p>
         {error && (
           <p id={errorId} role={serverError && !problem ? "alert" : undefined} className="mt-2 text-[13px] text-red">
             {error}
