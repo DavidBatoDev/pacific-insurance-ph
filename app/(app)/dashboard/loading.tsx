@@ -4,8 +4,8 @@ import { Block, CardSkeleton } from "@/components/hub/skeleton";
  * The dashboard is force-dynamic and fans out seven queries, so without a
  * boundary the router sits on the previous screen with no sign it is working.
  * This mirrors the real composition — header, the at-a-glance card, revenue,
- * then the tabbed work queues and activity beside tasks and relationships — so
- * the layout does not jump when data lands.
+ * the full-width work card (tab list beside its panel), then recent activity —
+ * so the layout does not jump when data lands.
  */
 
 export default function Loading() {
@@ -19,15 +19,12 @@ export default function Loading() {
       <Block className="mb-4 h-[116px]" />
       <Block className="mb-4 h-[132px]" />
 
-      <div className="grid grid-cols-12 items-start gap-4 max-[1200px]:grid-cols-1">
-        <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <CardSkeleton rows={6} />
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-[220px_1fr] gap-4 max-[900px]:grid-cols-1">
+          <Block className="h-[244px] max-[900px]:h-11" />
           <CardSkeleton rows={6} />
         </div>
-        <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <CardSkeleton rows={7} />
-          <CardSkeleton rows={4} />
-        </div>
+        <CardSkeleton rows={6} />
       </div>
     </div>
   );

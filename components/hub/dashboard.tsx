@@ -285,10 +285,9 @@ function TravelQueue({ rows }: { rows: TravelRequest[] }) {
   );
 }
 
-/* ---------- Rail widgets ---------- */
-function TasksWidget({ tasks }: { tasks: RealTask[] }) {
+/* ---------- Work panels (bodies of the dashboard's work tabs) ---------- */
+function TasksPanel({ tasks }: { tasks: RealTask[] }) {
   const overlays = useOverlays();
-  const setScreen = useScreenNav();
   const [, startTransition] = useTransition();
   const persona = usePersona();
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -318,25 +317,6 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
       }
     });
 
-  const remaining = shownTasks.filter((t) => !t.done).length;
-
-  const head = (
-    <CardHead
-      icon={I.checkSquare}
-      title="My tasks"
-      count={remaining}
-      action={
-        <div className="flex items-center gap-2">
-          <CardLink onClick={() => overlays.openAddTask()}>
-            <I.plus size={13} /> New
-          </CardLink>
-          <CardLink onClick={() => setScreen("tasks")}>
-            Open board <I.chevRight size={13} />
-          </CardLink>
-        </div>
-      }
-    />
-  );
   /** One list, oldest due first: the title names the work, so no group headings or tag chips. */
   const dueLabel = (t: RealTask) => {
     const d = daysUntil(t.dueDate);
@@ -364,12 +344,11 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
     <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
   ) : null;
   const emptyRow = shownTasks.length === 0 ? (
-    <div className="px-[18px] py-3 text-[12.5px] text-subtle">No tasks yet. Create one with New.</div>
+    <div className="px-[18px] py-3 text-[12.5px] text-subtle">No tasks yet. Add one with New task.</div>
   ) : null;
 
   return (
-    <Card>
-      {head}
+    <div>
       {overdueCount > 0 && <div className="border-b border-border-soft px-[18px] py-2 text-[12px] text-muted-foreground"><span className="font-semibold text-red">{overdueCount} late</span> · oldest first</div>}
       <ul className="divide-y divide-border-soft">
         {emptyRow && <li>{emptyRow}</li>}
@@ -386,7 +365,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
         })}
       </ul>
       {draftModal}
-    </Card>
+    </div>
   );
 }
 
@@ -444,49 +423,41 @@ function ActivityWidget({ stats }: { stats: DashboardStats }) {
   );
 }
 
-function RelationshipWidget({ touchpoints }: { touchpoints: TouchpointRow[] }) {
-  const setScreen = useScreenNav();
+function RelationshipPanel({ touchpoints }: { touchpoints: TouchpointRow[] }) {
   const { openContact } = useRecordNav();
   const tone: Record<string, Tone> = { birthday: "violet", anniversary: "green", renurture: "amber" };
   const ico: Record<string, IconName> = { birthday: "cake", anniversary: "award", renurture: "refresh" };
   const top = touchpoints.slice(0, 6);
   return (
-    <Card>
-      <CardHead
-        icon={I.heart}
-        title="Relationship management"
-        action={<CardLink onClick={() => setScreen("relationship")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <div>
-        {top.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No touchpoints coming up.</div>
-        )}
-        {top.map((r) => {
-          const Ico = I[ico[r.type]];
-          return (
-            <button
-              key={r.clientId + r.type}
-              onClick={() => openContact(r.clientId)}
-              className="flex w-full items-center gap-3 border-b border-border-soft px-[18px] py-[11px] text-left transition-colors last:border-b-0 hover:bg-hover"
-            >
-              <div className={cn("grid size-[34px] shrink-0 place-items-center rounded-[9px]", TONE_SOFT[tone[r.type]])}>
-                <Ico size={17} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold">{r.name}</div>
-                <div className="mt-px text-[11.5px] text-muted-foreground">{r.sub}</div>
-              </div>
-              <span className={cn(
-                "whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-bold",
-                r.daysUntil <= 7 ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
-              )}>
-                {r.when}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
+    <div>
+      {top.length === 0 && (
+        <div className="px-[18px] py-3 text-[12.5px] text-subtle">No touchpoints coming up.</div>
+      )}
+      {top.map((r) => {
+        const Ico = I[ico[r.type]];
+        return (
+          <button
+            key={r.clientId + r.type}
+            onClick={() => openContact(r.clientId)}
+            className="flex w-full items-center gap-3 border-b border-border-soft px-[18px] py-[11px] text-left transition-colors last:border-b-0 hover:bg-hover"
+          >
+            <div className={cn("grid size-[34px] shrink-0 place-items-center rounded-[9px]", TONE_SOFT[tone[r.type]])}>
+              <Ico size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold">{r.name}</div>
+              <div className="mt-px text-[11.5px] text-muted-foreground">{r.sub}</div>
+            </div>
+            <span className={cn(
+              "whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-bold",
+              r.daysUntil <= 7 ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
+            )}>
+              {r.when}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -608,17 +579,38 @@ export function Dashboard({
   const persona = usePersona();
   useExportErrorToast();
   const { greeting, dateStr } = manilaHeading();
-  // One card, four tabs: it opens on the first queue that has rows.
-  const QUEUE_TABS = [
+  const overlays = useOverlays();
+  // One card for everything that needs doing: tasks, the four record queues, then relationships.
+  const WORK_TABS = [
+    { id: "tasks", label: "My tasks", count: tasks.filter((t) => !t.done).length, screen: "tasks" },
     { id: "applications", label: "Applications", count: stats.kpis.applicationsInProgress, screen: "applications" },
     { id: "renewals", label: "Renewals", count: stats.kpis.upcomingRenewals, screen: "renewals" },
     { id: "claims", label: "Claims", count: stats.kpis.openClaims, screen: "claims" },
     { id: "travel", label: "Travel", count: stats.kpis.openTravel, screen: "travel" },
+    { id: "relationship", label: "Relationships", count: touchpoints.length, screen: "relationship" },
   ] as const;
-  const [queueTab, setQueueTab] = useState<(typeof QUEUE_TABS)[number]["id"]>(
-    () => QUEUE_TABS.find((q) => queues[q.id].length > 0)?.id ?? "applications",
+  type WorkTab = (typeof WORK_TABS)[number]["id"];
+  const [workTab, setWorkTab] = useState<WorkTab>("tasks");
+  const activeWork = WORK_TABS.find((w) => w.id === workTab) ?? WORK_TABS[0];
+  const workPanel = (id: WorkTab) =>
+    id === "tasks" ? <TasksPanel tasks={tasks} />
+      : id === "applications" ? <ApplicationsQueue rows={queues.applications} />
+        : id === "renewals" ? <RenewalsQueue rows={queues.renewals} />
+          : id === "claims" ? <ClaimsQueue rows={queues.claims} />
+            : id === "travel" ? <TravelQueue rows={queues.travel} />
+              : <RelationshipPanel touchpoints={touchpoints} />;
+  const workActions = (
+    <span className="flex shrink-0 items-center gap-3 pb-1.5 pr-1">
+      {workTab === "tasks" && (
+        <CardLink onClick={() => overlays.openAddTask()}>
+          <I.plus size={13} /> New task
+        </CardLink>
+      )}
+      <CardLink onClick={() => setScreen(activeWork.screen)}>
+        {workTab === "tasks" ? "Open board" : `View all ${activeWork.label.toLowerCase()}`} <I.chevRight size={13} />
+      </CardLink>
+    </span>
   );
-  const activeQueue = QUEUE_TABS.find((q) => q.id === queueTab) ?? QUEUE_TABS[0];
   return (
     <div>
       <PageHead
@@ -633,34 +625,26 @@ export function Dashboard({
       <GlanceCard setScreen={setScreen} stats={stats} />
       <RevenueWidget setScreen={setScreen} stats={stats} />
 
-      <div className="grid grid-cols-12 items-start gap-4 max-[1200px]:grid-cols-1">
-        <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <Card className="overflow-hidden">
-            <div className="flex items-center gap-1 border-b border-border-soft px-3 pt-2" role="tablist" aria-label="Work queues">
-              {QUEUE_TABS.map((q) => (
-                <button key={q.id} type="button" role="tab" aria-selected={queueTab === q.id} onClick={() => setQueueTab(q.id)}
-                  className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-semibold transition-colors", queueTab === q.id ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                  {q.label}
-                  <span className={cn("rounded-full px-1.5 text-[11px] tabular-nums", q.count ? "bg-surface-3 text-foreground" : "text-subtle")}>{q.count}</span>
-                </button>
-              ))}
-              <span className="ml-auto pb-1.5 pr-1">
-                <CardLink onClick={() => setScreen(activeQueue.screen)}>
-                  View all {activeQueue.label.toLowerCase()} <I.chevRight size={13} />
-                </CardLink>
-              </span>
+      <div className="flex flex-col gap-4">
+        <Card className="grid grid-cols-[220px_1fr] overflow-hidden max-[900px]:grid-cols-1">
+          <div className="flex flex-col border-r border-border-soft bg-surface-2 p-2 max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:border-b max-[900px]:border-r-0" role="tablist" aria-label="Work" aria-orientation="vertical">
+            {WORK_TABS.map((w) => (
+              <button key={w.id} type="button" role="tab" aria-selected={workTab === w.id} onClick={() => setWorkTab(w.id)}
+                className={cn("flex shrink-0 items-center gap-2 rounded-sm px-3 py-2 text-left text-[13px] font-semibold transition-colors", workTab === w.id ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:bg-hover hover:text-foreground")}>
+                <span className="flex-1">{w.label}</span>
+                <span className={cn("text-[12px] tabular-nums", w.count ? "text-foreground" : "text-subtle")}>{w.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] pt-3">
+              <h3 className="pb-2.5 text-[14.5px] font-[650]">{activeWork.label}</h3>
+              {workActions}
             </div>
-            {queueTab === "applications" && <ApplicationsQueue rows={queues.applications} />}
-            {queueTab === "renewals" && <RenewalsQueue rows={queues.renewals} />}
-            {queueTab === "claims" && <ClaimsQueue rows={queues.claims} />}
-            {queueTab === "travel" && <TravelQueue rows={queues.travel} />}
-          </Card>
-          <ActivityWidget stats={stats} />
-        </div>
-        <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <TasksWidget tasks={tasks} />
-          <RelationshipWidget touchpoints={touchpoints} />
-        </div>
+            {workPanel(workTab)}
+          </div>
+        </Card>
+        <ActivityWidget stats={stats} />
       </div>
     </div>
   );
