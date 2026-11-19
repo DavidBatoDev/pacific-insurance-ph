@@ -156,7 +156,7 @@ export function ProposalCard({
                     <ProposalReceiptUpload
                       clientId={client.id}
                       defaultFrequency={client.paymentFrequency}
-                      prompt={status ? "Upload the proposal PDF…" : "Already have the proposal PDF? Upload it…"}
+                      prompt="Upload proposal"
                       onUploaded={(proposal) => {
                         showUploaded(proposal, "Proposal attached and marked Received");
                         onStatusChange("Received");

@@ -15,6 +15,7 @@ import {
 import type { ActionResult } from "@/lib/actions/context";
 import { PAYMENT_FREQUENCIES } from "@/lib/db-enums";
 import { PdfUpload } from "@/components/documents/pdf-upload";
+import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
@@ -286,6 +287,7 @@ export function ProposalReceiptUpload({
   const [quotationNo, setQuotationNo] = useState("");
   const [mode, setMode] = useState(defaultFrequency ?? "");
   const [total, setTotal] = useState("");
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const upload = async (path: string, fileName: string): Promise<ActionResult<unknown>> => {
     const amount = total.trim() ? Number(total.replace(/,/g, "")) : null;
     const result: ProposalResultDetails = { quotationNo, paymentFrequency: mode || undefined, grandTotal: amount != null && Number.isFinite(amount) ? amount : null };
@@ -293,22 +295,31 @@ export function ProposalReceiptUpload({
     if (res.ok) onUploaded(res.data);
     return res;
   };
+  // Payment mode and the optional quote sit above the drop zone because a dropped file uploads at once.
   return (
-    <div>
-      <div className="mb-2.5 grid grid-cols-3 gap-2.5 max-[560px]:grid-cols-1">
-        <Field label="Quotation no.">
-          <input className={INPUT} value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} placeholder="A0201403-…" maxLength={64} />
-        </Field>
-        <Field label="Payment mode">
-          <select className={INPUT} value={mode} onChange={(e) => setMode(e.target.value)}>
+    <div className="@container">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          Payment mode
+          <select className={cn(INPUT, "h-8 w-auto px-2 text-[12.5px] text-foreground")} value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="">Not set</option>
             {PAYMENT_FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
-        </Field>
-        <Field label="Grand total (PHP)">
-          <input className={INPUT} inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="8,613.00" />
-        </Field>
+        </label>
+        <button type="button" aria-expanded={quoteOpen} onClick={() => setQuoteOpen((open) => !open)} className="text-[12px] font-semibold text-brand-hover underline-offset-2 hover:underline">
+          {quoteOpen ? "Hide quote details" : "Add quote details"}
+        </button>
       </div>
+      {quoteOpen && (
+        <div className="mb-2.5 grid gap-2 @sm:grid-cols-2">
+          <Field label="Quotation no.">
+            <input className={INPUT} value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} placeholder="A0201403-…" maxLength={64} />
+          </Field>
+          <Field label="Grand total (PHP)">
+            <input className={INPUT} inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="8,613.00" />
+          </Field>
+        </div>
+      )}
       <PdfUpload clientId={clientId} prompt={prompt} onUploaded={upload} />
     </div>
   );
