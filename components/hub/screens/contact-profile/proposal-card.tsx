@@ -140,19 +140,16 @@ export function ProposalCard({
   ) : null;
   const hasFiledProposal = !uploaded?.confirming && !!shownDocument && !!status && status !== "Requested";
   const documentRow = hasFiledProposal && shownDocument ? (
-    <div>
-      <div className="flex items-stretch rounded-md border border-border-soft">
-        <a href={`/api/documents/${shownDocument.id}/download`} className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-3 py-2 text-[12.5px] font-semibold text-brand-hover transition-colors hover:bg-hover">
-          <I.fileText size={15} className="shrink-0" />
-          <span className="truncate">{shownDocument.name}</span>
-        </a>
-        {!replacing && (
-          <button type="button" onClick={() => setReplacing(true)} className="shrink-0 rounded-r-md border-l border-border-soft px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
-            Replace
-          </button>
-        )}
-      </div>
-      {shownDocument === proposalDocument && proposalDocument?.notes && <p className="mt-1.5 text-[11.5px] text-muted-foreground">{proposalDocument.notes}</p>}
+    <div className="flex items-stretch overflow-hidden rounded-md border border-border-soft">
+      <a href={`/api/documents/${shownDocument.id}/download`} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-[12.5px] font-semibold text-brand-hover transition-colors hover:bg-hover">
+        <I.fileText size={15} className="shrink-0" />
+        <span className="truncate">{shownDocument.name}</span>
+      </a>
+      {!replacing && (
+        <button type="button" onClick={() => setReplacing(true)} className="shrink-0 border-l border-border-soft px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
+          Replace
+        </button>
+      )}
     </div>
   ) : null;
   const replaceUpload = replacing && hasFiledProposal ? (
@@ -176,7 +173,16 @@ export function ProposalCard({
       </div>
     </div>
   ) : null;
-  const stageNote = client.leadStage !== "Proposal" && status ? `Lead stage: ${client.leadStage ?? "New Lead"}` : null;
+  // The quote recorded at upload ("Quotation X · Annual · Grand total PHP Y") and the lead stage,
+  // shown as label / value rows under the PDF.
+  const stageValue = client.leadStage !== "Proposal" && status ? client.leadStage ?? "New Lead" : null;
+  const noteParts = hasFiledProposal && shownDocument === proposalDocument && proposalDocument?.notes ? proposalDocument.notes.split(" · ") : [];
+  const details = [
+    { label: "Payment", value: noteParts.find((p) => p === "Annual" || p === "Semi-annual") },
+    { label: "Grand total", value: noteParts.find((p) => p.startsWith("Grand total "))?.replace("Grand total ", "") },
+    { label: "Quotation", value: noteParts.find((p) => p.startsWith("Quotation "))?.replace("Quotation ", "") },
+    { label: "Lead stage", value: stageValue ?? undefined },
+  ].filter((d): d is { label: string; value: string } => !!d.value);
 
   return (
     <Card>
@@ -216,7 +222,16 @@ export function ProposalCard({
         {uploadedNotice}
         {documentRow}
         {replaceUpload}
-        {stageNote && <p className="text-[11.5px] text-faint">{stageNote}</p>}
+        {details.length > 0 && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12.5px]">
+            {details.map((d) => (
+              <div key={d.label} className="contents">
+                <dt className="text-muted-foreground">{d.label}</dt>
+                <dd className="text-right font-semibold tabular-nums text-foreground">{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
     </Card>
   );
