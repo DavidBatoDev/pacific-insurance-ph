@@ -18,7 +18,8 @@ import { isIndividualProposalProduct, isProposalAccepted, proposalStatusLine } f
 import { ProposalReceiptUpload, ProposalUploadedNotice } from "../../overlays/generate-proposal";
 import { useOverlays } from "../../overlays/overlay-provider";
 import { openPortalWindow } from "../../overlays/portal-window";
-import { Btn, Card, CardHead } from "../../primitives";
+import { Btn, Card, CardHead, TONE_TEXT } from "../../primitives";
+import type { Tone } from "../../tone";
 import type { Doc } from "./records-cards";
 
 /**
@@ -93,6 +94,14 @@ export function ProposalCard({
   const statusText = status
     ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest, accepted)
     : `No proposal ${individual ? "generated" : "requested"} yet.`;
+  // The shared line reads "<state> — <product> quote."; the card shows the state in its tone, then the quote.
+  const [statusHead, statusDetail] = (() => {
+    const [head, ...rest] = statusText.split(" — ");
+    return [head.replace(/\.$/, ""), rest.length ? rest.join(" — ").replace(/\.$/, "") : null] as const;
+  })();
+  const statusTone: Tone = !status ? "slate"
+    : client.proposalDecision === "Declined" && status === "Decision" ? "red"
+      : accepted ? "green" : status === "Received" ? "blue" : "violet";
   const portalSettingsLink = !pacificCrossPortalUrl && individual ? (
     <Link href="/settings" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-border bg-amber-soft px-3 text-[12.5px] font-semibold text-amber transition-colors hover:bg-hover">
       <I.settings size={14} /> Configure portal in Settings
@@ -174,7 +183,10 @@ export function ProposalCard({
       <CardHead iconName="fileText" title="Proposal tracking" />
       <div className="flex flex-col gap-3 px-[18px] py-3.5">
         <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 text-[12.5px] text-muted-foreground">{statusText}</p>
+          <p className="min-w-0 self-center text-[14.5px] font-semibold leading-snug text-foreground">
+            <span className={TONE_TEXT[statusTone]}>{statusHead}</span>
+            {statusDetail && <span className="font-medium text-muted-foreground"> · {statusDetail}</span>}
+          </p>
           {pacificCrossPortalUrl && (
             <button type="button" onClick={() => openPortalWindow(pacificCrossPortalUrl)} title="Open Pacific Cross portal" aria-label="Open Pacific Cross portal"
               className="relative grid size-16 shrink-0 place-items-center content-center gap-1 rounded-md border border-border-strong bg-card text-[11px] font-semibold text-muted-foreground shadow-xs transition-colors hover:border-faint hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
