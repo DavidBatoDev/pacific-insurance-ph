@@ -42,6 +42,8 @@ export interface DashboardQueues {
   renewals: Renewal[];
   claims: Claim[];
   travel: TravelRequest[];
+  /** Wizard drafts: Lead applications with a saved form, newest save first. */
+  drafts: Application[];
 }
 
 const daysUntil = (iso: string | null): number | null => {
@@ -209,6 +211,40 @@ function ActivityDrawer({ stats, onClose }: { stats: DashboardStats; onClose: ()
 }
 
 /* ---------- Queue tables (one shows at a time under the work-queue tabs) ---------- */
+/**
+ * Saved wizard drafts, above the submitted queue. They are stored as Lead applications, which the
+ * queue and its count leave out, so without this list they never reach the dashboard.
+ */
+function UnfinishedApplications({ drafts }: { drafts: Application[] }) {
+  const overlays = useOverlays();
+  if (!drafts.length) return null;
+  return (
+    <section aria-label="Unfinished applications" className="border-b border-border-soft">
+      <div className="px-[18px] pb-1 pt-2.5 text-[11.5px] font-semibold text-muted-foreground">
+        Unfinished <span className="font-normal text-subtle">{drafts.length}</span>
+      </div>
+      <ul className="divide-y divide-border-soft">
+        {drafts.map((a) => {
+          const state = (a.wizardState ?? {}) as { productName?: string; displayName?: string };
+          const product = a.productName || state.productName || a.applicationType || "No product yet";
+          return (
+            <li key={a.id} className="flex items-center gap-3 px-[18px] py-2.5 transition-colors hover:bg-hover">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold">{a.clientName || state.displayName || "Unnamed client"}</span>
+                <span className="block truncate text-[11.5px] text-subtle">{product} · Saved {fmtDate(a.updatedAt)}</span>
+              </span>
+              <Btn size="sm" onClick={() => overlays.openWizard({ draftApplicationId: a.id })}>
+                Continue
+              </Btn>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="px-[18px] pb-1 pt-2.5 text-[11.5px] font-semibold text-muted-foreground">In progress</div>
+    </section>
+  );
+}
+
 function ApplicationsQueue({ rows }: { rows: Application[] }) {
   return (
     <QueueTable
@@ -618,7 +654,7 @@ export function Dashboard({
   const activeWork = WORK_TABS.find((w) => w.id === workTab) ?? WORK_TABS[0];
   const workPanel = (id: WorkTab) =>
     id === "tasks" ? <TasksPanel tasks={tasks} />
-      : id === "applications" ? <ApplicationsQueue rows={queues.applications} />
+      : id === "applications" ? <><UnfinishedApplications drafts={queues.drafts} /><ApplicationsQueue rows={queues.applications} /></>
         : id === "renewals" ? <RenewalsQueue rows={queues.renewals} />
           : id === "claims" ? <ClaimsQueue rows={queues.claims} />
             : id === "travel" ? <TravelQueue rows={queues.travel} />
@@ -643,8 +679,13 @@ export function Dashboard({
           const on = workTab === w.id;
           return (
             <button key={w.id} type="button" role="tab" aria-selected={on} onClick={() => setWorkTab(w.id)}
-              className={cn("mb-px flex h-[37px] shrink-0 items-center gap-[11px] rounded-sm px-[11px] text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30", on ? "bg-brand-soft font-[650] text-brand-hover" : "font-[550] text-muted-foreground hover:bg-hover hover:text-foreground")}>
-              <span className="flex-1">{w.label}</span>
+              className={cn("mb-px flex min-h-[37px] shrink-0 items-center gap-[11px] rounded-sm px-[11px] py-1.5 text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30", on ? "bg-brand-soft font-[650] text-brand-hover" : "font-[550] text-muted-foreground hover:bg-hover hover:text-foreground")}>
+              <span className="flex-1">
+                <span className="block">{w.label}</span>
+                {w.id === "applications" && queues.drafts.length > 0 && (
+                  <span className="block text-[11px] font-normal text-subtle">{queues.drafts.length} unfinished</span>
+                )}
+              </span>
               <span className={cn("grid h-[19px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums", on ? "bg-brand text-white" : w.count ? "bg-surface-3 text-muted-foreground" : "text-subtle")}>{w.count}</span>
             </button>
           );
