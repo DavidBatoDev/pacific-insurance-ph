@@ -45,6 +45,7 @@ const ADVANCE_ACTION_DEFAULTS: Record<string, { note: string; followUpDays: numb
   "First outreach sent": { note: "First outreach sent", followUpDays: 3 },
   "Inbound response logged": { note: "Inbound response logged", followUpDays: 1 },
   "Reached call logged": { note: "Reached call logged", followUpDays: 1 },
+  "Client accepted the proposal": { note: "Client accepted the proposal", followUpDays: 1 },
 };
 
 /** Resolve an action suggestion into editable popup defaults, using local calendar days. */
