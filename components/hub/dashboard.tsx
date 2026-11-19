@@ -604,14 +604,14 @@ export function Dashboard({
   const { greeting, dateStr } = manilaHeading();
   const overlays = useOverlays();
   // One card for everything that needs doing: tasks, the four record queues, then relationships.
-  // The tab list is styled like the sidebar nav, icons included.
+  // `noun` words the "View all …" link, since the queue labels carry the word "queue".
   const WORK_TABS = [
-    { id: "tasks", label: "My tasks", icon: "checkSquare", count: tasks.filter((t) => !t.done).length, screen: "tasks" },
-    { id: "applications", label: "Applications", icon: "fileText", count: stats.kpis.applicationsInProgress, screen: "applications" },
-    { id: "renewals", label: "Renewals", icon: "refresh", count: stats.kpis.upcomingRenewals, screen: "renewals" },
-    { id: "claims", label: "Claims", icon: "clipboard", count: stats.kpis.openClaims, screen: "claims" },
-    { id: "travel", label: "Travel", icon: "plane", count: stats.kpis.openTravel, screen: "travel" },
-    { id: "relationship", label: "Relationships", icon: "heart", count: touchpoints.length, screen: "relationship" },
+    { id: "tasks", label: "My tasks", noun: "tasks", count: tasks.filter((t) => !t.done).length, screen: "tasks" },
+    { id: "applications", label: "Applications queue", noun: "applications", count: stats.kpis.applicationsInProgress, screen: "applications" },
+    { id: "renewals", label: "Renewals queue", noun: "renewals", count: stats.kpis.upcomingRenewals, screen: "renewals" },
+    { id: "claims", label: "Claims queue", noun: "claims", count: stats.kpis.openClaims, screen: "claims" },
+    { id: "travel", label: "Travel queue", noun: "travel requests", count: stats.kpis.openTravel, screen: "travel" },
+    { id: "relationship", label: "Relationships", noun: "relationships", count: touchpoints.length, screen: "relationship" },
   ] as const;
   type WorkTab = (typeof WORK_TABS)[number]["id"];
   const [workTab, setWorkTab] = useState<WorkTab>("tasks");
@@ -631,7 +631,7 @@ export function Dashboard({
         </CardLink>
       )}
       <CardLink onClick={() => setScreen(activeWork.screen)}>
-        {workTab === "tasks" ? "Open board" : `View all ${activeWork.label.toLowerCase()}`} <I.chevRight size={13} />
+        {workTab === "tasks" ? "Open board" : `View all ${activeWork.noun}`} <I.chevRight size={13} />
       </CardLink>
     </span>
   );
@@ -640,12 +640,10 @@ export function Dashboard({
     <Card className="grid grid-cols-[220px_1fr] overflow-hidden max-[900px]:grid-cols-1">
       <div className="flex h-full flex-col border-r border-border-soft bg-card p-2 max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:border-b max-[900px]:border-r-0" role="tablist" aria-label="Work" aria-orientation="vertical">
         {WORK_TABS.map((w) => {
-          const Ico = I[w.icon];
           const on = workTab === w.id;
           return (
             <button key={w.id} type="button" role="tab" aria-selected={on} onClick={() => setWorkTab(w.id)}
-              className={cn("group mb-px flex h-[37px] shrink-0 items-center gap-[11px] rounded-sm px-[11px] text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30", on ? "bg-brand-soft font-[650] text-brand-hover" : "font-[550] text-muted-foreground hover:bg-hover hover:text-foreground")}>
-              <Ico size={17} className={cn("shrink-0", on ? "text-brand" : "text-subtle group-hover:text-muted-foreground")} />
+              className={cn("mb-px flex h-[37px] shrink-0 items-center gap-[11px] rounded-sm px-[11px] text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30", on ? "bg-brand-soft font-[650] text-brand-hover" : "font-[550] text-muted-foreground hover:bg-hover hover:text-foreground")}>
               <span className="flex-1">{w.label}</span>
               <span className={cn("grid h-[19px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums", on ? "bg-brand text-white" : w.count ? "bg-surface-3 text-muted-foreground" : "text-subtle")}>{w.count}</span>
             </button>
