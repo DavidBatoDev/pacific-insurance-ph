@@ -81,3 +81,26 @@ export function renewedExpiryProblem(
   }
   return null;
 }
+
+/** Same calendar day one year later; Feb 29 falls back to Feb 28. Expects a real YYYY-MM-DD date. */
+export function oneYearAfter(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const next = new Date(Date.UTC(year + 1, month - 1, day));
+  if (next.getUTCMonth() !== month - 1) next.setUTCDate(0);
+  return next.toISOString().slice(0, 10);
+}
+
+/**
+ * Prefill for a straight annual renewal: one year after the cycle's expiry (its due date when no
+ * expiry is recorded). Empty when there is no base date or the result would not be accepted, so
+ * staff type the carrier's date instead of starting from an error.
+ */
+export function suggestedRenewedExpiry(
+  renewal: Pick<Renewal, "status" | "renewalDueDate" | "policyExpiryDate">,
+  todayIso: string,
+): string {
+  const base = renewal.policyExpiryDate ?? renewal.renewalDueDate;
+  if (!base || !isRealCalendarDate(base)) return "";
+  const next = oneYearAfter(base);
+  return renewedExpiryProblem(renewal, next, todayIso) ? "" : next;
+}

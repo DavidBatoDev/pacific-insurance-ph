@@ -7,7 +7,9 @@ import {
   currentRenewalPerPolicy,
   isRetainedRenewal,
   manilaTodayIso,
+  oneYearAfter,
   renewedExpiryProblem,
+  suggestedRenewedExpiry,
 } from "./lifecycle";
 
 const TODAY = "2026-11-20";
@@ -95,6 +97,34 @@ describe("canMarkLapsed", () => {
 
   it.each(["Paid", "Renewed", "Lapsed"])("does not allow an overdue %s renewal", (status) => {
     expect(canMarkLapsed({ status, renewalDueDate: "2026-01-01" }, TODAY)).toBe(false);
+  });
+});
+
+describe("oneYearAfter", () => {
+  it.each([
+    ["2029-10-10", "2030-10-10"],
+    ["2026-12-31", "2027-12-31"],
+    ["2028-02-29", "2029-02-28"],
+    ["2027-02-28", "2028-02-28"],
+  ])("moves %s to %s", (from, to) => {
+    expect(oneYearAfter(from)).toBe(to);
+  });
+});
+
+describe("suggestedRenewedExpiry", () => {
+  it("prefills one year after the cycle expiry", () => {
+    expect(suggestedRenewedExpiry({ status: "Paid", policyExpiryDate: "2029-10-10", renewalDueDate: "2029-10-10" }, TODAY)).toBe("2030-10-10");
+  });
+
+  it("uses the due date when no expiry is recorded", () => {
+    expect(suggestedRenewedExpiry({ status: "Paid", policyExpiryDate: null, renewalDueDate: "2026-12-01" }, TODAY)).toBe("2027-12-01");
+  });
+
+  it("leaves the field empty when the suggestion would be rejected or there is no base date", () => {
+    expect(suggestedRenewedExpiry({ status: "Paid", policyExpiryDate: "2025-01-01", renewalDueDate: "2025-01-01" }, TODAY)).toBe("");
+    expect(suggestedRenewedExpiry({ status: "Paid", policyExpiryDate: "2026-01-01", renewalDueDate: "2027-06-01" }, TODAY)).toBe("");
+    expect(suggestedRenewedExpiry({ status: "Paid", policyExpiryDate: null, renewalDueDate: null }, TODAY)).toBe("");
+    expect(suggestedRenewedExpiry({ status: "Awaiting Payment", policyExpiryDate: "2029-10-10", renewalDueDate: "2029-10-10" }, TODAY)).toBe("");
   });
 });
 

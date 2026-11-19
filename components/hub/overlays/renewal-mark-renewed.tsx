@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition, type FormEvent } from "react";
 
 import { markRenewalRenewedAction } from "@/app/(app)/renewals/actions";
-import { manilaTodayIso, renewedExpiryProblem } from "@/lib/renewals/lifecycle";
+import { manilaTodayIso, renewedExpiryProblem, suggestedRenewedExpiry } from "@/lib/renewals/lifecycle";
 import type { Renewal } from "@/lib/repositories/renewals";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
@@ -19,7 +19,10 @@ export function RenewalMarkRenewedModal({ renewal, onClose }: { renewal: Renewal
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
   const [today] = useState(() => manilaTodayIso());
-  const [date, setDate] = useState("");
+  // A straight annual renewal starts one year after the current expiry; staff change it when the
+  // carrier's renewed term differs.
+  const [suggested] = useState(() => suggestedRenewedExpiry(renewal, today));
+  const [date, setDate] = useState(suggested);
   const [serverError, setServerError] = useState<string | null>(null);
   const inputId = useId();
   const hintId = useId();
@@ -99,6 +102,7 @@ export function RenewalMarkRenewedModal({ renewal, onClose }: { renewal: Renewal
           />
         </Field>
         <p id={hintId} className="mt-1.5 text-[12px] text-muted-foreground">
+          {suggested && "Prefilled to one year after the current expiry. Change it if the carrier’s renewed term differs. "}
           Sets the policy to Active with this expiry and opens the next renewal cycle.
         </p>
         {error && (
