@@ -357,7 +357,10 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           color: "var(--brand)",
         },
       ]}
-      filters={["Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Renewed", "Lapsed"]}
+      filters={["Open", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Renewed", "Lapsed"]}
+      // Finished cycles stay as history and in reports; the working queue opens on unfinished ones.
+      defaultFilter="Open"
+      filterMatches={(r, f) => (f === "Open" ? r._filter !== "Renewed" && r._filter !== "Lapsed" : r._filter === f)}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
       defaultSort={{ key: "renewalDueDate", dir: "asc" }}
       emptyText="No renewals tracked yet."
