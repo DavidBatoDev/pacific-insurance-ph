@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import {
   generateProposalAction,
@@ -288,6 +288,7 @@ export function ProposalReceiptUpload({
   const [mode, setMode] = useState(defaultFrequency ?? "");
   const [total, setTotal] = useState("");
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const fieldId = useId();
   const upload = async (path: string, fileName: string): Promise<ActionResult<unknown>> => {
     const amount = total.trim() ? Number(total.replace(/,/g, "")) : null;
     const result: ProposalResultDetails = { quotationNo, paymentFrequency: mode || undefined, grandTotal: amount != null && Number.isFinite(amount) ? amount : null };
@@ -298,28 +299,27 @@ export function ProposalReceiptUpload({
   // Payment mode and the optional quote sit above the drop zone because a dropped file uploads at once.
   return (
     <div className="@container">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          Payment mode
-          <select className={cn(INPUT, "h-8 w-auto px-2 text-[12.5px] text-foreground")} value={mode} onChange={(e) => setMode(e.target.value)}>
+      <div className={cn("mb-2.5 grid gap-2.5", quoteOpen && "@sm:grid-cols-3")}>
+        <Field label="Payment mode" htmlFor={`${fieldId}-mode`}>
+          <select id={`${fieldId}-mode`} className={INPUT} value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="">Not set</option>
             {PAYMENT_FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
-        </label>
-        <button type="button" aria-expanded={quoteOpen} onClick={() => setQuoteOpen((open) => !open)} className="text-[12px] font-semibold text-brand-hover underline-offset-2 hover:underline">
-          {quoteOpen ? "Hide quote details" : "Add quote details"}
-        </button>
+        </Field>
+        {quoteOpen && (
+          <>
+            <Field label="Quotation no." htmlFor={`${fieldId}-quote`}>
+              <input id={`${fieldId}-quote`} className={INPUT} value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} placeholder="A0201403-…" maxLength={64} />
+            </Field>
+            <Field label="Grand total (PHP)" htmlFor={`${fieldId}-total`}>
+              <input id={`${fieldId}-total`} className={INPUT} inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="8,613.00" />
+            </Field>
+          </>
+        )}
       </div>
-      {quoteOpen && (
-        <div className="mb-2.5 grid gap-2 @sm:grid-cols-2">
-          <Field label="Quotation no.">
-            <input className={INPUT} value={quotationNo} onChange={(e) => setQuotationNo(e.target.value)} placeholder="A0201403-…" maxLength={64} />
-          </Field>
-          <Field label="Grand total (PHP)">
-            <input className={INPUT} inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="8,613.00" />
-          </Field>
-        </div>
-      )}
+      <button type="button" aria-expanded={quoteOpen} onClick={() => setQuoteOpen((open) => !open)} className="mb-2.5 text-[12px] font-semibold text-brand-hover underline-offset-2 hover:underline">
+        {quoteOpen ? "Hide quote details" : "Add quote details"}
+      </button>
       <PdfUpload clientId={clientId} prompt={prompt} onUploaded={upload} />
     </div>
   );
