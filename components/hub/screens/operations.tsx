@@ -376,6 +376,20 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
       renderRow={(r) => {
         const busy = lapsingId === r.id;
         const open = r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed";
+        // Every action this row offers, in order; a Paid row's first entry is its completion step.
+        const rowActions: { key: string; label: string; icon: typeof I.send; run: () => void; primary?: boolean; title?: string }[] = [
+          ...(r.status === "Paid" ? [{ key: "renewed", label: "Mark renewed", icon: I.refresh, run: () => setRenewedRenewal(r), primary: true }] : []),
+          ...(open && !r.noticeReceivedDate ? [{ key: "receipt", label: "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
+          ...(open ? [{ key: "send", label: "Send notice", icon: I.send, run: () => sendNotice(r) }] : []),
+          ...(r.status === "Upcoming" || r.status === "Notice Received"
+            ? [{ key: "sent", label: "Mark notice sent", icon: I.check, run: () => markNoticeSent(r), title: "Record that the client was sent the renewal notice. Sending an email does not do this automatically." }]
+            : []),
+          ...(canMarkLapsed(r, todayIso)
+            ? [{ key: "lapsed", label: busy ? "Marking lapsed…" : "Mark lapsed", icon: I.clock, run: () => markLapsed(r), title: "Close this overdue renewal as lapsed. It does not cancel the policy or change recorded payments." }]
+            : []),
+          ...(!open || r.noticeReceivedDate ? [{ key: "receipt", label: r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
+        ];
+        const [nextAction, ...moreActions] = rowActions;
         return (
         <Row key={r.id} onClick={() => openContact(r.clientId)} onMouseEnter={() => prefetchContact(r.clientId)}>
           <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
@@ -398,32 +412,28 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
             {r.premiumAmount != null ? money(r.premiumAmount, r.currency) : "—"}
           </Td>
           <Td>
+            {/* One joined icon toolbar keeps the row narrow; only the completion step keeps its words. */}
             <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Btn size="sm" disabled={busy} onClick={() => setReceiptRenewal(r)}>
-                {r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received"}
-              </Btn>
-              {open && (
-                <Btn size="sm" disabled={busy} onClick={() => sendNotice(r)}>
-                  <I.send size={13} /> Send notice
+              {nextAction?.primary && (
+                <Btn size="sm" variant="primary" disabled={busy} onClick={nextAction.run}>
+                  {nextAction.label}
                 </Btn>
               )}
-              {(r.status === "Upcoming" || r.status === "Notice Received") && (
-                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => markNoticeSent(r)}
-                  title="Record that the client was sent the renewal notice. Sending an email does not do this automatically.">
-                  Mark notice sent
-                </Btn>
-              )}
-              {r.status === "Paid" && (
-                <Btn size="sm" variant="primary" disabled={busy} onClick={() => setRenewedRenewal(r)}>
-                  Mark renewed
-                </Btn>
-              )}
-              {canMarkLapsed(r, todayIso) && (
-                <Btn size="sm" disabled={busy} onClick={() => markLapsed(r)}
-                  title="Close this overdue renewal as lapsed. It does not cancel the policy or change recorded payments.">
-                  {busy ? "Marking lapsed…" : "Mark lapsed"}
-                </Btn>
-              )}
+              <span role="group" aria-label="Renewal actions" className="inline-flex overflow-hidden rounded-sm border border-border-strong bg-card">
+                {(nextAction?.primary ? moreActions : rowActions).map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    disabled={busy}
+                    aria-label={a.label}
+                    title={a.title ?? a.label}
+                    onClick={a.run}
+                    className="grid size-[30px] place-items-center text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-50 [&+&]:border-l [&+&]:border-border-strong"
+                  >
+                    <a.icon size={15} />
+                  </button>
+                ))}
+              </span>
             </span>
           </Td>
         </Row>
