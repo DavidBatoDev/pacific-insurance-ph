@@ -123,8 +123,9 @@
   /* Text */
   --foreground: #14211b;
   --muted-foreground: #5d6a63;
-  --text-subtle: #8a958e;
-  --text-faint: #aab2ad;
+  /* Both clear 4.5:1 on cards and the page background; faint differs from subtle by size, not legibility. */
+  --text-subtle: #66716a;
+  --text-faint: #68736c;
 
   /* Emerald accent */
   --brand: #059669;
@@ -210,8 +211,8 @@
   /* Text */
   --foreground: #e9efea;
   --muted-foreground: #9aa8a0;
-  --text-subtle: #76837b;
-  --text-faint: #5a665e;
+  --text-subtle: #859189;
+  --text-faint: #77877c;
 
   /* Emerald accent */
   --brand: #10b981;
