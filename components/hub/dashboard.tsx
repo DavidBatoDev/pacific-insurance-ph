@@ -142,7 +142,7 @@ function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
                 <DirIco size={12} /> {k.trend.delta.replace(/^[+-]/, "")}
               </span>
             </div>
-            <div className="mt-1.5 text-[10.5px] font-[550] text-faint">new this month vs last</div>
+            <div className="mt-1.5 text-[11px] font-[550] text-faint">new this month vs last</div>
           </button>
         );
       })}
@@ -449,7 +449,7 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
                       {t.title}
                     </span>
                     <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-subtle">
-                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[10.5px] font-[650]", TAG_TONE[t.tag] ?? "text-slate")}>
+                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[11px] font-[650]", TAG_TONE[t.tag] ?? "text-slate")}>
                         {t.tag}
                       </span>
                       {taskBucket(t.dueDate).meta}

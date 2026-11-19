@@ -170,15 +170,16 @@ export function formatGaps(gaps: string[]): string {
   return `${lower.slice(0, -1).join(", ")} and ${lower[lower.length - 1]}`;
 }
 
+// Theme tokens, not hex: they follow dark mode and stay on the DESIGN.md palette.
 export const STAGE_META: Record<string, { color: string; health: "good" | "watch" | "risk" }> = {
-  "New Lead": { color: "#64748b", health: "good" },
-  Contacted: { color: "#2563eb", health: "good" },
-  Discovery: { color: "#0891b2", health: "good" },
-  Proposal: { color: "#7c3aed", health: "watch" },
-  "Product Selected": { color: "#d97706", health: "good" },
-  "Application Started": { color: "#059669", health: "good" },
-  Converted: { color: "#047857", health: "good" },
-  Lost: { color: "#dc2626", health: "risk" },
+  "New Lead": { color: "var(--slate)", health: "good" },
+  Contacted: { color: "var(--blue)", health: "good" },
+  Discovery: { color: "var(--cyan)", health: "good" },
+  Proposal: { color: "var(--violet)", health: "watch" },
+  "Product Selected": { color: "var(--amber)", health: "good" },
+  "Application Started": { color: "var(--brand)", health: "good" },
+  Converted: { color: "var(--green)", health: "good" },
+  Lost: { color: "var(--red)", health: "risk" },
 };
 
 export const STAGE_TONE: Record<string, Tone> = {
@@ -318,12 +319,12 @@ export const proposalChipLabel = (
  * "Travel Insurance" is the deactivated legacy Travel product, kept so older values still colour.
  */
 export const PRODUCT_COLORS: Record<string, string> = {
-  "Blue Royale": "#059669",
-  Select: "#2563eb",
-  TravelSafe: "#d97706",
-  "Travel Insurance": "#d97706",
-  "BC Flexi": "#7c3aed",
-  FlexiShield: "#0891b2",
+  "Blue Royale": "var(--green)",
+  Select: "var(--blue)",
+  TravelSafe: "var(--amber)",
+  "Travel Insurance": "var(--amber)",
+  "BC Flexi": "var(--violet)",
+  FlexiShield: "var(--cyan)",
 };
 
 export const nextStage = (stage: string | null): LeadStage => {

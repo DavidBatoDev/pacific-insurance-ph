@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-19T14:23:59+00:00",
+  "generatedAt": "2026-11-19T14:30:18+00:00",
   "title": "Design System: Pacific Insurance PH",
   "extensions": {
     "colorMeta": {
@@ -292,16 +292,16 @@
       "caution-amber": {
         "role": "status",
         "displayName": "Caution Amber",
-        "canonical": "#c2700a",
+        "canonical": "#a76009",
         "tonalRamp": [
-          "#160700",
-          "#3e1d00",
-          "#6a3600",
-          "#995100",
-          "#bc7732",
-          "#d7a172",
-          "#f1ccad",
-          "#ffe9d5"
+          "#150700",
+          "#3b1e00",
+          "#663801",
+          "#945402",
+          "#b7793f",
+          "#d3a379",
+          "#eecdb2",
+          "#ffead8"
         ]
       },
       "caution-amber-wash": {
@@ -408,6 +408,21 @@
           "#d3d4d6",
           "#edeef0"
         ]
+      },
+      "product-cyan": {
+        "role": "status",
+        "displayName": "Product Cyan",
+        "canonical": "#0e7490",
+        "tonalRamp": [
+          "#010d13",
+          "#052b37",
+          "#0f4c5f",
+          "#1a708a",
+          "#4d94ad",
+          "#84b7ca",
+          "#b9dbe7",
+          "#ddf3fb"
+        ]
       }
     },
     "typographyMeta": {
@@ -434,6 +449,18 @@
       "reference": {
         "displayName": "Reference",
         "purpose": "Reference numbers, policy numbers and amounts in dense tables."
+      },
+      "subhead": {
+        "displayName": "Subhead",
+        "purpose": "Modal and drawer titles."
+      },
+      "ui": {
+        "displayName": "UI",
+        "purpose": "Buttons, tabs, list rows and most interactive text."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Status pills, badges, counts and small meta; the 11px floor."
       }
     },
     "shadows": [
@@ -567,7 +594,12 @@
       },
       {
         "name": "The Readable Grey Rule",
-        "body": "Every grey used for text clears 4.5:1 against cards and the desk. Hierarchy between secondary text levels comes from size and weight, not from fading.",
+        "body": "Every grey and every status colour used for text clears 4.5:1 against cards, the desk and its own wash. Hierarchy between secondary text levels comes from size and weight, not from fading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Not Hex Rule",
+        "body": "Charts, stage dots and category tiles take their colour from the theme variables, never a literal hex, so they follow dark mode and stay on this palette.",
         "section": "colors"
       },
       {

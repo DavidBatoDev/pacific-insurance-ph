@@ -136,7 +136,7 @@ export function OptionalLibraryAttachments({
         <div className="mt-2.5 max-h-[260px] overflow-y-auto rounded-md border border-border bg-card">
           {grouped.map((group) => (
             <div key={group.type}>
-              <div className="sticky top-0 border-b border-border-soft bg-surface px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
+              <div className="sticky top-0 border-b border-border-soft bg-surface px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
                 {group.type}
               </div>
               {group.items.map((doc) => {

@@ -246,7 +246,7 @@ export function Pill({
     <span
       className={cn(
         "inline-flex items-center whitespace-nowrap rounded-full border font-[650]",
-        size === "md" ? "h-[22px] gap-1.5 px-2.5 text-[11.5px]" : "h-[20px] gap-1 px-2 text-[10.5px]",
+        size === "md" ? "h-[22px] gap-1.5 px-2.5 text-[11.5px]" : "h-[20px] gap-1 px-2 text-[11px]",
         TONE_BADGE[tone],
         className,
       )}

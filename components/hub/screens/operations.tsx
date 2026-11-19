@@ -553,7 +553,7 @@ export function TravelLive({ rows, drafts }: { rows: TravelRequest[]; drafts: Tr
           <Td>
             <span className="font-mono text-[12px] text-muted-foreground">{t.referenceNo ?? "—"}</span>
             {t.kind === "draft" && (
-              <span className="ml-1.5 rounded border border-border-strong px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-subtle">
+              <span className="ml-1.5 rounded border border-border-strong px-1 py-px text-[11px] font-semibold uppercase tracking-wide text-subtle">
                 Draft
               </span>
             )}

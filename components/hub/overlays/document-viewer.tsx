@@ -265,7 +265,7 @@ export function DocumentViewer({
           <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2.5 border-t border-border-soft pt-3">
             {meta.map((m) => (
               <div key={m.label}>
-                <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-faint">{m.label}</dt>
+                <dt className="text-[11px] font-bold uppercase tracking-[0.06em] text-faint">{m.label}</dt>
                 <dd className="mt-0.5 text-[12.5px] leading-snug text-foreground">{m.value}</dd>
               </div>
             ))}

@@ -28,7 +28,7 @@ type Editor =
 const money=(value:number|null,currency:string|null)=>value==null?"—":new Intl.NumberFormat("en-PH",{
   style:"currency",currency:currency||"PHP",maximumFractionDigits:2,
 }).format(value);
-const badge=(active:boolean)=><span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold",active?"bg-green-soft text-green":"bg-slate-soft text-slate")}>{active?"Active":"Inactive"}</span>;
+const badge=(active:boolean)=><span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold",active?"bg-green-soft text-green":"bg-slate-soft text-slate")}>{active?"Active":"Inactive"}</span>;
 const editButton=(onClick:()=>void)=><button onClick={onClick} className="rounded-md px-2 py-1 text-[11.5px] font-semibold text-brand hover:bg-hover">Edit</button>;
 
 export function ProductCatalogManager({products,catalog,canEdit}:{products:CatalogProduct[];catalog:CatalogSnapshot;canEdit:boolean}){
@@ -78,7 +78,7 @@ export function ProductCatalogManager({products,catalog,canEdit}:{products:Catal
       </CatalogSection>
       <CatalogSection title="Published rates" count={rates.length} onAdd={canEdit?()=>setEditor({kind:"rate",versionId:vid}):undefined}>
         <input className={INPUT+" mb-2 max-w-[320px]"} placeholder="Search plan, age, trip or source key…" value={rateSearch} onChange={e=>setRateSearch(e.target.value)}/>
-        <CatalogTable heads={["Plan / add-on","Dimensions","Published premium","Source","Status"]}>{visibleRates.map(r=><tr key={r.id} className="border-t border-border-soft"><Cell strong>{plans.find(p=>p.id===r.planOptionId)?.planName??addOns.find(a=>a.id===r.addOnId)?.name??"Version rate"}</Cell><Cell>{[r.ageBand,r.tripType,r.travelDaysMax?`≤ ${r.travelDaysMax} days`:null,r.insuredType].filter(Boolean).join(" · ")||"—"}</Cell><Cell>{money(r.basePremium,r.currency)}<span className="block text-[10.5px] font-normal text-subtle">{r.rateBasis}</span></Cell><Cell>{r.sourceDocument??"—"}{r.sourcePage&&<span className="block text-[10.5px] text-subtle">p. {r.sourcePage}</span>}</Cell><Cell>{badge(r.active)}{canEdit&&editButton(()=>setEditor({kind:"rate",record:r,versionId:vid}))}</Cell></tr>)}</CatalogTable>
+        <CatalogTable heads={["Plan / add-on","Dimensions","Published premium","Source","Status"]}>{visibleRates.map(r=><tr key={r.id} className="border-t border-border-soft"><Cell strong>{plans.find(p=>p.id===r.planOptionId)?.planName??addOns.find(a=>a.id===r.addOnId)?.name??"Version rate"}</Cell><Cell>{[r.ageBand,r.tripType,r.travelDaysMax?`≤ ${r.travelDaysMax} days`:null,r.insuredType].filter(Boolean).join(" · ")||"—"}</Cell><Cell>{money(r.basePremium,r.currency)}<span className="block text-[11px] font-normal text-subtle">{r.rateBasis}</span></Cell><Cell>{r.sourceDocument??"—"}{r.sourcePage&&<span className="block text-[11px] text-subtle">p. {r.sourcePage}</span>}</Cell><Cell>{badge(r.active)}{canEdit&&editButton(()=>setEditor({kind:"rate",record:r,versionId:vid}))}</Cell></tr>)}</CatalogTable>
         {visibleRates.length<rates.length&&<p className="mt-2 text-[11px] text-subtle">Showing the first 100 matching rows. Refine the search to edit a specific rate.</p>}
       </CatalogSection>
     </>}
@@ -87,7 +87,7 @@ export function ProductCatalogManager({products,catalog,canEdit}:{products:Catal
 }
 
 function CatalogSection({title,count,onAdd,children}:{title:string;count:number;onAdd?:()=>void;children:React.ReactNode}){return <section className="border-b border-border-soft px-5 py-4 last:border-0"><div className="mb-2 flex items-center justify-between"><h3 className="text-[12px] font-bold uppercase tracking-[0.05em] text-muted-foreground">{title} <span className="font-mono text-subtle">{count}</span></h3>{onAdd&&<button onClick={onAdd} className="text-[11.5px] font-semibold text-brand hover:text-brand-hover">+ Add</button>}</div>{count?children:<p className="py-3 text-[12px] text-subtle">No {title.toLowerCase()} recorded.</p>}</section>}
-function CatalogTable({heads,children}:{heads:string[];children:React.ReactNode}){return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-[11.5px]"><thead><tr>{heads.map(h=><th key={h} className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-subtle">{h}</th>)}</tr></thead><tbody>{children}</tbody></table></div>}
+function CatalogTable({heads,children}:{heads:string[];children:React.ReactNode}){return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-[11.5px]"><thead><tr>{heads.map(h=><th key={h} className="px-2 py-1.5 text-[11px] uppercase tracking-wide text-subtle">{h}</th>)}</tr></thead><tbody>{children}</tbody></table></div>}
 function Cell({children,strong}:{children:React.ReactNode;strong?:boolean}){return <td className={cn("max-w-[360px] px-2 py-2 align-top text-muted-foreground",strong&&"font-semibold text-foreground")}>{children}</td>}
 
 type Draft=Record<string,string|boolean>;

@@ -21,7 +21,7 @@ colors:
   ink-faint: "#68736c"
   alert-red: "#dc2626"
   alert-red-wash: "#fef2f2"
-  caution-amber: "#c2700a"
+  caution-amber: "#a76009"
   caution-amber-wash: "#fff8eb"
   info-blue: "#2563eb"
   info-blue-wash: "#eff5ff"
@@ -29,6 +29,7 @@ colors:
   stage-violet-wash: "#f6f3ff"
   neutral-slate: "#475569"
   neutral-slate-wash: "#f1f5f9"
+  product-cyan: "#0e7490"
 typography:
   headline:
     fontFamily: "Hanken Grotesk, system-ui, sans-serif"
@@ -43,6 +44,12 @@ typography:
     lineHeight: 1
     letterSpacing: "-0.02em"
     fontFeature: "\"tnum\""
+  subhead:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: "-0.01em"
   title:
     fontFamily: "Hanken Grotesk, system-ui, sans-serif"
     fontSize: "14.5px"
@@ -54,12 +61,22 @@ typography:
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.45
+  ui:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+    lineHeight: 1.4
   label:
     fontFamily: "Hanken Grotesk, system-ui, sans-serif"
     fontSize: "11.5px"
     fontWeight: 700
     lineHeight: 1.3
     letterSpacing: "0.05em"
+  caption:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 650
+    lineHeight: 1.3
   reference:
     fontFamily: "JetBrains Mono, ui-monospace, monospace"
     fontSize: "12px"
@@ -158,14 +175,16 @@ A cool, green-leaning neutral world with a single emerald accent and six tinted 
 - **Ink** (`ink`): primary text. **Ink Muted** (`ink-muted`): secondary text and inactive navigation. **Ink Subtle / Faint** (`ink-subtle`, `ink-faint`): field labels, hints, captions and placeholders.
 
 ### Status families
-Each family is a base colour for text and dots, a wash for the background, and a border between them: **Alert Red** (overdue, missing, rejected), **Caution Amber** (due soon, awaiting, draft), **Info Blue** (received, under review, new), **Stage Violet** (requested, in progress), **Policy Green** doubles as success, and **Neutral Slate** (pending, closed, not started).
+Each family is a base colour for text and dots, a wash for the background, and a border between them: **Alert Red** (overdue, missing, rejected), **Caution Amber** (due soon, awaiting, draft), **Info Blue** (received, under review, new), **Stage Violet** (requested, in progress), **Policy Green Deep** for success, and **Neutral Slate** (pending, closed, not started). **Product Cyan** (`product-cyan`) marks only the Discovery stage and the FlexiShield product in charts and dots. Status text uses the deep green, never the accent green, which is too light to read at small sizes.
 
 ### Named Rules
 **The One Voice Rule.** Policy Green is the only accent. It marks action and the current place; it is never decoration.
 
 **The Status Means Status Rule.** Red, amber, blue and violet appear only to report a record's state. A colour that doesn't map to a status doesn't belong.
 
-**The Readable Grey Rule.** Every grey used for text clears 4.5:1 against cards and the desk. Hierarchy between secondary text levels comes from size and weight, not from fading.
+**The Readable Grey Rule.** Every grey and every status colour used for text clears 4.5:1 against cards, the desk and its own wash. Hierarchy between secondary text levels comes from size and weight, not from fading.
+
+**The Token Not Hex Rule.** Charts, stage dots and category tiles take their colour from the theme variables, never a literal hex, so they follow dark mode and stay on this palette.
 
 ## Typography
 
@@ -177,9 +196,12 @@ Each family is a base colour for text and dots, a wash for the background, and a
 ### Hierarchy
 - **Headline** (700, 23px, 1.2, -0.025em): the screen title in the page header.
 - **Stat** (760, 22px, 1, tabular): headline numbers in the stat strip.
+- **Subhead** (700, 16px, -0.01em): modal and drawer titles.
 - **Title** (650, 14.5px, -0.01em): card and section headings.
 - **Body** (400, 14px, 1.45): base text; most UI text runs at 12.5–13.5px with weights of 550–650 for emphasis.
+- **UI** (600, 13px): buttons, tabs, list rows and most interactive text; 12.5px and 13.5px are its compact and roomy neighbours.
 - **Label** (700, 11.5px, 0.05em, uppercase): form field labels and group headers.
+- **Caption** (650, 11px): status pills, badges, counts and small meta. The floor: no text is set below 11px.
 - **Reference** (JetBrains Mono, 12px): reference numbers, policy numbers, amounts in dense tables.
 
 ### Named Rules

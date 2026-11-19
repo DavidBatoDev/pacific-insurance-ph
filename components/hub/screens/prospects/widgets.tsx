@@ -136,7 +136,7 @@ export function ProductInterest({ leads }: { leads: Client[] }) {
     counts.set(p, (counts.get(p) ?? 0) + 1);
   }
   const rows = [...counts.entries()]
-    .map(([name, n]) => ({ name, pct: Math.round((n / Math.max(leads.length, 1)) * 100), color: PRODUCT_COLORS[name] ?? "#64748b" }))
+    .map(([name, n]) => ({ name, pct: Math.round((n / Math.max(leads.length, 1)) * 100), color: PRODUCT_COLORS[name] ?? "var(--slate)" }))
     .sort((a, b) => b.pct - a.pct);
   return (
     <Card>

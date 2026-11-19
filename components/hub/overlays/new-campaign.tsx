@@ -154,7 +154,7 @@ export function NewCampaignDrawer({
                 step === i + 1 ? "text-brand-hover" : i + 1 < step ? "text-brand" : "text-subtle",
               )}
             >
-              <span className={cn("grid size-5 place-items-center rounded-full text-[10.5px] font-bold", step === i + 1 ? "border-2 border-brand" : i + 1 < step ? "bg-brand text-white" : "border border-border-strong")}>
+              <span className={cn("grid size-5 place-items-center rounded-full text-[11px] font-bold", step === i + 1 ? "border-2 border-brand" : i + 1 < step ? "bg-brand text-white" : "border border-border-strong")}>
                 {i + 1 < step ? <I.check size={11} /> : i + 1}
               </span>
               {label}

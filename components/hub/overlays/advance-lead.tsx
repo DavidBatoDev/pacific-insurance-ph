@@ -76,10 +76,10 @@ function IdentityCard({
           {referenceNo && <span className="ml-1.5 font-mono text-[11px] text-subtle">#{referenceNo}</span>}
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
-          <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STAGE_TONE[stage ?? ""] ?? "slate"])}>
+          <span className={cn("rounded-full border px-2 py-px text-[11px] font-[650]", TONE_BADGE[STAGE_TONE[stage ?? ""] ?? "slate"])}>
             {stage ?? "—"}
           </span>
-          <span className={cn("rounded-full border px-2 py-px text-[10.5px] font-[650]", TONE_BADGE[STATUS_TONE[status ?? ""] ?? "slate"])}>
+          <span className={cn("rounded-full border px-2 py-px text-[11px] font-[650]", TONE_BADGE[STATUS_TONE[status ?? ""] ?? "slate"])}>
             {status ?? "—"}
           </span>
         </div>

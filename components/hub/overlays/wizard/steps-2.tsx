@@ -412,7 +412,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
         <div className="overflow-x-auto rounded-md border border-border-soft">
           <table className="w-full min-w-[560px] text-left text-[12.5px]">
             <thead>
-              <tr className="border-b border-border-soft text-[10.5px] font-bold uppercase tracking-[0.05em] text-subtle">
+              <tr className="border-b border-border-soft text-[11px] font-bold uppercase tracking-[0.05em] text-subtle">
                 <th className="px-3 py-2">Full name</th>
                 <th className="px-3 py-2">Date of birth</th>
                 <th className="px-3 py-2">Age</th>

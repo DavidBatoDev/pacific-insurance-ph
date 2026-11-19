@@ -92,7 +92,7 @@ export function ContactComposer({
                   key={t}
                   onClick={() => (t === "Task" ? overlays.openAddTask({ contact: { id: client.id, name: client.fullName } }) : setTab(t))}
                   className={cn(
-                    "whitespace-nowrap rounded-t-md border-b-2 px-3.5 py-2 text-[13px] font-semibold transition-colors",
+                    "whitespace-nowrap border-b-2 px-3.5 py-2 text-[13px] font-semibold transition-colors",
                     tab === t ? "border-brand text-brand-hover" : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >

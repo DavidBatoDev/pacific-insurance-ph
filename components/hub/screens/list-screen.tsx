@@ -179,14 +179,14 @@ export function ListScreen<T extends FilterableRow>({
                 <Chip active={filterOpen || activeFilter2 !== "All"} onClick={() => setFilterOpen((o) => !o)}>
                   <I.filter size={15} /> Filters
                   {activeFilter2 !== "All" && (
-                    <span className="grid size-[17px] place-items-center rounded-full bg-brand text-[10.5px] font-bold text-white">
+                    <span className="grid size-[17px] place-items-center rounded-full bg-brand text-[11px] font-bold text-white">
                       1
                     </span>
                   )}
                 </Chip>
                 {filterOpen && (
                   <div className="absolute right-0 top-[38px] z-40 w-[280px] rounded-md border border-border bg-card p-3 shadow-pop">
-                    <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                    <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                       {filters2Label ?? "Filter"}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
