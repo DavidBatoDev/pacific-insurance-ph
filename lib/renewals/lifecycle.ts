@@ -26,6 +26,29 @@ export function canMarkLapsed(
   return !CLOSED_STATUSES.includes(renewal.status) && !!renewal.renewalDueDate && renewal.renewalDueDate < todayIso;
 }
 
+/** Calendar date `days` after (negative: before) a YYYY-MM-DD date; null for an unusable input. */
+function addDaysIso(iso: string, days: number): string | null {
+  const date = new Date(`${iso}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime()) || !Number.isFinite(days)) return null;
+  date.setUTCDate(date.getUTCDate() + days);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+}
+
+/**
+ * The carrier's notice is overdue: an unfinished cycle with no recorded notice on or after the
+ * Settings "Carrier notice request" point (renewal due date plus that rule's day offset).
+ */
+export function isNoticeMissing(
+  renewal: Pick<Renewal, "status" | "noticeReceivedDate" | "renewalDueDate">,
+  todayIso: string,
+  requestOffsetDays: number | null | undefined,
+): boolean {
+  if (typeof requestOffsetDays !== "number" || CLOSED_STATUSES.includes(renewal.status)) return false;
+  if (renewal.noticeReceivedDate || !renewal.renewalDueDate) return false;
+  const requestDay = addDaysIso(renewal.renewalDueDate, requestOffsetDays);
+  return requestDay !== null && requestDay <= todayIso;
+}
+
 type QueueCycle = Pick<Renewal, "policyId" | "status" | "renewalDueDate" | "renewalCompletedDate" | "createdAt">;
 export type RenewalQueueRow<T extends QueueCycle = Renewal> = T & { lastRenewedDate: string | null };
 

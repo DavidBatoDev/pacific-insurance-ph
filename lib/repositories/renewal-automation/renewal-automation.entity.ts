@@ -1,5 +1,6 @@
-export type RenewalRuleKey = "notice_received" | "client_reminder" | "missing_notice" | "premium_breakdown";
-export type RenewalDateBasis = "renewal_due_date" | "notice_received_date";
+export type RenewalRuleKey = "notice_received" | "client_reminder" | "missing_notice" | "missing_notice_follow_up" | "premium_breakdown";
+/** `notice_request_sent_date`: the day this cycle's carrier notice request was sent; follow-up only. */
+export type RenewalDateBasis = "renewal_due_date" | "notice_received_date" | "notice_request_sent_date";
 
 export interface RenewalEmailRule {
   id: string;

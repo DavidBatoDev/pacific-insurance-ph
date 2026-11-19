@@ -5,6 +5,7 @@ import {
   RENEWED_STATUS_ERROR,
   canMarkLapsed,
   currentRenewalPerPolicy,
+  isNoticeMissing,
   isRetainedRenewal,
   manilaTodayIso,
   oneYearAfter,
@@ -97,6 +98,28 @@ describe("canMarkLapsed", () => {
 
   it.each(["Paid", "Renewed", "Lapsed"])("does not allow an overdue %s renewal", (status) => {
     expect(canMarkLapsed({ status, renewalDueDate: "2026-01-01" }, TODAY)).toBe(false);
+  });
+});
+
+describe("isNoticeMissing", () => {
+  const open = { status: "Upcoming", noticeReceivedDate: null };
+
+  it("flags from the request day onward (due date plus the Settings offset), crossing month ends", () => {
+    // 2027-01-19 minus 60 days is 2026-11-20 (TODAY).
+    expect(isNoticeMissing({ ...open, renewalDueDate: "2027-01-19" }, TODAY, -60)).toBe(true);
+    expect(isNoticeMissing({ ...open, renewalDueDate: "2027-01-20" }, TODAY, -60)).toBe(false);
+    expect(isNoticeMissing({ ...open, renewalDueDate: "2026-12-01" }, TODAY, -60)).toBe(true);
+  });
+
+  it("does not flag received, closed, undated or unconfigured renewals", () => {
+    expect(isNoticeMissing({ ...open, noticeReceivedDate: "2026-11-01", renewalDueDate: "2026-12-01" }, TODAY, -60)).toBe(false);
+    expect(isNoticeMissing({ ...open, renewalDueDate: null }, TODAY, -60)).toBe(false);
+    expect(isNoticeMissing({ ...open, renewalDueDate: "2026-12-01" }, TODAY, null)).toBe(false);
+    expect(isNoticeMissing({ ...open, renewalDueDate: "2026-12-01" }, TODAY, undefined)).toBe(false);
+    expect(isNoticeMissing({ ...open, renewalDueDate: "not-a-date" }, TODAY, -60)).toBe(false);
+    for (const status of ["Paid", "Renewed", "Lapsed"]) {
+      expect(isNoticeMissing({ status, noticeReceivedDate: null, renewalDueDate: "2026-12-01" }, TODAY, -60)).toBe(false);
+    }
   });
 });
 

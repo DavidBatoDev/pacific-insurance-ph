@@ -13,7 +13,7 @@ import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { money, moneyTotals, peso, pesoShort } from "@/lib/format";
 import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
-import { canMarkLapsed, manilaTodayIso, type RenewalQueueRow } from "@/lib/renewals/lifecycle";
+import { canMarkLapsed, isNoticeMissing, manilaTodayIso, type RenewalQueueRow } from "@/lib/renewals/lifecycle";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { usePersona } from "../persona";
@@ -264,7 +264,12 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
 }
 
 /* --------------------------------- Renewals -------------------------------- */
-export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[]; canSyncPolicies: boolean }) {
+export function RenewalsLive({ rows, noticeRequestOffsetDays, canSyncPolicies }: {
+  rows: RenewalQueueRow[];
+  /** Settings "Carrier notice request" day offset from the due date; null when the rule is absent. */
+  noticeRequestOffsetDays: number | null;
+  canSyncPolicies: boolean;
+}) {
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact, prefetchContact } = useRecordNav();
@@ -277,6 +282,7 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
   const [renewedRenewal, setRenewedRenewal] = useState<Renewal | null>(null);
   const [lapsingId, setLapsingId] = useState<string | null>(null);
   const todayIso = manilaTodayIso();
+  const noticeMissing = (r: RenewalQueueRow) => isNoticeMissing(r, todayIso, noticeRequestOffsetDays);
 
   const syncPolicies = () => startSyncTransition(async () => {
     const result = await backfillPolicyRenewalsAction();
@@ -358,10 +364,13 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
           color: "var(--brand)",
         },
       ]}
-      filters={["Open", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Lapsed"]}
+      filters={["Open", "Notice missing", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Lapsed"]}
       // One row per policy (its current cycle); the queue opens on policies with unfinished work.
       defaultFilter="Open"
-      filterMatches={(r, f) => (f === "Open" ? r._filter !== "Renewed" && r._filter !== "Lapsed" : r._filter === f)}
+      filterMatches={(r, f) =>
+        f === "Open" ? r._filter !== "Renewed" && r._filter !== "Lapsed"
+        : f === "Notice missing" ? noticeMissing(r)
+        : r._filter === f}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
       defaultSort={{ key: "renewalDueDate", dir: "asc" }}
       emptyText="No renewals tracked yet."
@@ -402,7 +411,15 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
               "—"
             )}
           </Td>
-          <Td>{fmtDate(r.noticeReceivedDate)}</Td>
+          <Td>
+            {noticeMissing(r) ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-amber">
+                <I.alertTri size={13} /> Not received
+              </span>
+            ) : (
+              fmtDate(r.noticeReceivedDate)
+            )}
+          </Td>
           <Td>
             <StatusBadge status={r.status} />
             {r.lastRenewedDate && (
