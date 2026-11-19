@@ -93,7 +93,6 @@ export function ProposalCard({
   const statusText = status
     ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest, accepted)
     : `No proposal ${individual ? "generated" : "requested"} yet.`;
-  const portalLogo = <Image src="/pacific-cross-logo.png" alt="" width={16} height={16} className="size-4 shrink-0 rounded-[3px]" />;
   const portalSettingsLink = !pacificCrossPortalUrl && individual ? (
     <Link href="/settings" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-border bg-amber-soft px-3 text-[12.5px] font-semibold text-amber transition-colors hover:bg-hover">
       <I.settings size={14} /> Configure portal in Settings
@@ -177,8 +176,11 @@ export function ProposalCard({
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 text-[12.5px] text-muted-foreground">{statusText}</p>
           {pacificCrossPortalUrl && (
-            <button type="button" onClick={() => openPortalWindow(pacificCrossPortalUrl)} title="Open Pacific Cross portal" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-strong bg-card px-2 py-1 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
-              {portalLogo} Portal <I.arrowUpRight size={12} />
+            <button type="button" onClick={() => openPortalWindow(pacificCrossPortalUrl)} title="Open Pacific Cross portal" aria-label="Open Pacific Cross portal"
+              className="relative grid size-16 shrink-0 place-items-center content-center gap-1 rounded-md border border-border-strong bg-card text-[11px] font-semibold text-muted-foreground shadow-xs transition-colors hover:border-faint hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+              <Image src="/pacific-cross-logo.png" alt="" width={30} height={30} className="size-[30px] rounded-[5px]" />
+              Portal
+              <I.arrowUpRight size={11} className="absolute right-1 top-1 text-subtle" />
             </button>
           )}
         </div>
