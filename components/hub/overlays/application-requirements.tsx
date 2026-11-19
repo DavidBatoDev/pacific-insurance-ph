@@ -638,6 +638,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                         applicationId={applicationId}
                         requirementId={item.id}
                         requirementLabel={`${payload.application.referenceNo ?? "Application"} · ${payload.clientName} · ${requirementLabelText(item)}`}
+                        requirement={item}
                         onAttached={(receipt) => {
                           latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
                           setRowStatus(item.id, receipt.requirementStatus);

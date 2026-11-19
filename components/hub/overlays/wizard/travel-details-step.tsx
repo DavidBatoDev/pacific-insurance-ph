@@ -39,6 +39,7 @@ export function TravelRequirementUploads({
               <RequirementAttachmentPicker
                 clientId={clientId}
                 label={label}
+                requirement={row}
                 value={selections[row.key] ?? null}
                 onSelect={(selection) => onSelect(row.key, selection)}
                 disabled={disabled}

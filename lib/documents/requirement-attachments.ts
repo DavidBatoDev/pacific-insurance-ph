@@ -5,6 +5,7 @@ import { getGmailAttachment } from "@/lib/gmail/api";
 import { safeGmailFileName } from "@/lib/gmail/mime";
 import { getScopedInboxMessage, InboxReviewError, requireInboxActor, validateInboxId } from "@/lib/gmail/review";
 import { getRequirementAttachmentsRepository, type RequirementUploadMetadata } from "@/lib/repositories/requirement-attachments";
+import { getClientsRepository } from "@/lib/repositories/clients";
 import { RepositoryError } from "@/lib/repositories/types";
 import { createSignedUpload, downloadObject, getObjectInfo, uploadObject } from "@/lib/supabase/storage";
 import { PDF_UPLOAD_MAX_BYTES } from "./uploaded-pdf";
@@ -45,7 +46,12 @@ export async function listRequirementEmailAttachments(scope: AttachmentPickerSco
   const offset = options?.offset ?? 0;
   if (search.length > 200 || !Number.isSafeInteger(offset) || offset < 0 || offset > 2_147_483_600)
     throw new InboxReviewError("Choose a valid search or page.");
-  return getRequirementAttachmentsRepository().listEmailAttachments(actor.id, scope, search, offset);
+  const repository = getRequirementAttachmentsRepository();
+  const page = await repository.listEmailAttachments(actor.id, scope, search, offset);
+  if (page.items.length > 0 || search || offset > 0) return page;
+  const clientId = scope.type === "client" ? scope.clientId : (await repository.resolveScope(actor.id, scope)).clientId;
+  const client = await getClientsRepository().findById(clientId);
+  return { ...page, client: { id: clientId, email: client?.email ?? null } };
 }
 
 export async function beginRequirementAttachmentUpload(target: RequirementTarget, input: RequirementUploadMetadata) {

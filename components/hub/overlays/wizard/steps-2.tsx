@@ -638,6 +638,7 @@ export function Step4({ f, clientId, selections, onSelect, disabled, loading }: 
               <RequirementAttachmentPicker
                 clientId={clientId}
                 label={r.name}
+                requirement={r.documentName ? { documentName: r.documentName, appliesTo: r.appliesTo } : undefined}
                 value={selections[r.requirementKey] ?? null}
                 onSelect={(selection) => onSelect(r.requirementKey!, selection)}
                 disabled={disabled || inquiryOnly}

@@ -35,6 +35,8 @@ export interface RequirementAttachmentPage {
   items: RequirementEmailAttachment[];
   nextOffset: number | null;
   canUseEmail: boolean;
+  /** Set only on an empty, unfiltered first page, so the picker can explain where files come from. */
+  client?: { id: string; email: string | null };
 }
 
 /** Browser selections are staged, never interpreted as a receipt until the target exists. */

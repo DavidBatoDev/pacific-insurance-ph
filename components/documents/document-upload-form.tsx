@@ -28,7 +28,7 @@ function SubmitButton({ ready }: { ready: boolean }) {
  * Ordinary uploads keep their compact device form, including name/type/visibility details.
  * `onAttached` updates local checklist state immediately; `onUploaded` can refresh other data.
  */
-export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, requirementLabel, sourceLibraryDocumentId, onUploaded, onAttached }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; requirementLabel?: string; sourceLibraryDocumentId?: string; onUploaded?: () => void; onAttached?: (receipt: RequirementAttachmentReceipt) => void }) {
+export function DocumentUploadForm({ clientId, applicationId, travelRequestId, claimId, requirementId, requirementLabel, requirement, sourceLibraryDocumentId, onUploaded, onAttached }: { clientId?: string; applicationId?: string; travelRequestId?: string; claimId?: string; requirementId?: string; requirementLabel?: string; requirement?: { documentName: string; appliesTo?: string | null }; sourceLibraryDocumentId?: string; onUploaded?: () => void; onAttached?: (receipt: RequirementAttachmentReceipt) => void }) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -48,6 +48,7 @@ export function DocumentUploadForm({ clientId, applicationId, travelRequestId, c
     clientId={clientId}
     target={target}
     label={requirementLabel ?? "This requirement"}
+    requirement={requirement}
     onAttached={(receipt) => { onAttached?.(receipt); onUploaded?.(); }}
   />;
 

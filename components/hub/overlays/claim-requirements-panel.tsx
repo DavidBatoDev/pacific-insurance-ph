@@ -132,6 +132,7 @@ export function ClaimRequirementsPanel({
                   claimId={claimId}
                   requirementId={item.id}
                   requirementLabel={`${recordLabel} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+                  requirement={item}
                   onAttached={(receipt) => {
                     latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
                     onChange((previous) => previous.map((requirement) => requirement.id === item.id ? { ...requirement, status: receipt.requirementStatus } : requirement));
