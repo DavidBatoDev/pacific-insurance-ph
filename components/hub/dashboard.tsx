@@ -3,6 +3,7 @@
 import { Popover } from "@base-ui/react/popover";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
 import type { DashboardStats } from "@/lib/queries/dashboard";
@@ -20,7 +21,7 @@ import { useOverlays } from "./overlays/overlay-provider";
 import { RenewalEmailDraftModal } from "./overlays/renewal-email-draft";
 import { usePersona } from "./persona";
 import {
-  Btn, Card, CardHead, CardLink, DueCell, PageHead, StatusBadge,
+  Btn, Card, CardLink, DueCell, PageHead, StatusBadge,
   TONE_SOFT, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Td } from "./table";
@@ -179,6 +180,31 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
         <Btn onClick={() => setScreen("payments")}>View breakdown</Btn>
       </div>
     </div>
+  );
+}
+
+/* ---------- Recent activity drawer ---------- */
+/** Recent activity outside the page flow, so the dashboard ends at the work card. */
+function ActivityDrawer({ stats, onClose }: { stats: DashboardStats; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="fixed inset-0 z-[80] bg-black/25" onMouseDown={onClose}>
+      <aside role="dialog" aria-modal="true" aria-label="Recent activity" onMouseDown={(e) => e.stopPropagation()}
+        className="absolute inset-y-0 right-0 flex w-[400px] max-w-[92vw] flex-col border-l border-border bg-card shadow-pop">
+        <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] py-3">
+          <h2 className="flex items-center gap-2 text-[14.5px] font-[650]"><I.clock size={16} className="text-muted-foreground" /> Recent activity</h2>
+          <button type="button" onClick={onClose} aria-label="Close recent activity" autoFocus className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+            <I.x size={15} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto"><ActivityFeed stats={stats} /></div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
 
@@ -387,39 +413,36 @@ const ACT_META: Record<string, { icon: IconName; tone: Tone }> = {
   dependent: { icon: "users", tone: "slate" },
 };
 
-function ActivityWidget({ stats }: { stats: DashboardStats }) {
+function ActivityFeed({ stats }: { stats: DashboardStats }) {
   return (
-    <Card>
-      <CardHead icon={I.clock} title="Recent activity" />
-      <div className="py-1.5">
-        {stats.activity.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
-        )}
-        {stats.activity.map((a, idx) => {
-          const meta = ACT_META[a.type.split(".")[0]] ?? { icon: "clock" as IconName, tone: "slate" as Tone };
-          const Ico = I[meta.icon];
-          return (
-          <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
-            <div className="relative flex shrink-0 flex-col items-center">
-              <div className={cn("z-10 grid size-[28px] place-items-center rounded-lg", TONE_SOFT[meta.tone])}>
-                <Ico size={14} />
-              </div>
-              {idx < stats.activity.length - 1 && (
-                <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
-              )}
+    <div className="py-1.5">
+      {stats.activity.length === 0 && (
+        <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
+      )}
+      {stats.activity.map((a, idx) => {
+        const meta = ACT_META[a.type.split(".")[0]] ?? { icon: "clock" as IconName, tone: "slate" as Tone };
+        const Ico = I[meta.icon];
+        return (
+        <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
+          <div className="relative flex shrink-0 flex-col items-center">
+            <div className={cn("z-10 grid size-[28px] place-items-center rounded-lg", TONE_SOFT[meta.tone])}>
+              <Ico size={14} />
             </div>
-            <div className="flex-1 pb-1.5 pt-0.5">
-              <div className="text-[13px] leading-snug">
-                {a.actorName && <b className="font-[650]">{a.actorName} </b>}
-                {a.summary}
-              </div>
-              <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
-            </div>
+            {idx < stats.activity.length - 1 && (
+              <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
+            )}
           </div>
-          );
-        })}
-      </div>
-    </Card>
+          <div className="flex-1 pb-1.5 pt-0.5">
+            <div className="text-[13px] leading-snug">
+              {a.actorName && <b className="font-[650]">{a.actorName} </b>}
+              {a.summary}
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
+          </div>
+        </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -611,6 +634,27 @@ export function Dashboard({
       </CardLink>
     </span>
   );
+  const [activityOpen, setActivityOpen] = useState(false);
+  const workCard = (
+    <Card className="grid grid-cols-[220px_1fr] overflow-hidden max-[900px]:grid-cols-1">
+      <div className="flex flex-col border-r border-border-soft bg-surface-2 p-2 max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:border-b max-[900px]:border-r-0" role="tablist" aria-label="Work" aria-orientation="vertical">
+        {WORK_TABS.map((w) => (
+          <button key={w.id} type="button" role="tab" aria-selected={workTab === w.id} onClick={() => setWorkTab(w.id)}
+            className={cn("flex shrink-0 items-center gap-2 rounded-sm px-3 py-2 text-left text-[13px] font-semibold transition-colors", workTab === w.id ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:bg-hover hover:text-foreground")}>
+            <span className="flex-1">{w.label}</span>
+            <span className={cn("text-[12px] tabular-nums", w.count ? "text-foreground" : "text-subtle")}>{w.count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] pt-3">
+          <h3 className="pb-2.5 text-[14.5px] font-[650]">{activeWork.label}</h3>
+          {workActions}
+        </div>
+        {workPanel(workTab)}
+      </div>
+    </Card>
+  );
   return (
     <div>
       <PageHead
@@ -619,33 +663,20 @@ export function Dashboard({
            drops the leading space of a text node that follows an expression,
            which hydration then rejects. */
         sub={`${dateStr} · Here’s what needs your attention today.`}
-        actions={persona.can("dashboard", "export") ? <ExportMenu /> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <Btn onClick={() => setActivityOpen((v) => !v)} aria-expanded={activityOpen} aria-haspopup="dialog">
+              <I.clock size={15} /> Recent activity
+              {stats.activity.length > 0 && <span className="rounded-full bg-surface-3 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">{stats.activity.length}</span>}
+            </Btn>
+            {persona.can("dashboard", "export") && <ExportMenu />}
+          </div>
+        }
       />
-
       <GlanceCard setScreen={setScreen} stats={stats} />
       <RevenueWidget setScreen={setScreen} stats={stats} />
-
-      <div className="flex flex-col gap-4">
-        <Card className="grid grid-cols-[220px_1fr] overflow-hidden max-[900px]:grid-cols-1">
-          <div className="flex flex-col border-r border-border-soft bg-surface-2 p-2 max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:border-b max-[900px]:border-r-0" role="tablist" aria-label="Work" aria-orientation="vertical">
-            {WORK_TABS.map((w) => (
-              <button key={w.id} type="button" role="tab" aria-selected={workTab === w.id} onClick={() => setWorkTab(w.id)}
-                className={cn("flex shrink-0 items-center gap-2 rounded-sm px-3 py-2 text-left text-[13px] font-semibold transition-colors", workTab === w.id ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:bg-hover hover:text-foreground")}>
-                <span className="flex-1">{w.label}</span>
-                <span className={cn("text-[12px] tabular-nums", w.count ? "text-foreground" : "text-subtle")}>{w.count}</span>
-              </button>
-            ))}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] pt-3">
-              <h3 className="pb-2.5 text-[14.5px] font-[650]">{activeWork.label}</h3>
-              {workActions}
-            </div>
-            {workPanel(workTab)}
-          </div>
-        </Card>
-        <ActivityWidget stats={stats} />
-      </div>
+      {workCard}
+      {activityOpen && <ActivityDrawer stats={stats} onClose={() => setActivityOpen(false)} />}
     </div>
   );
 }
