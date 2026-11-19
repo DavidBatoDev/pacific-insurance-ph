@@ -25,7 +25,7 @@ import {
 } from "./primitives";
 import { ClientCell, Td } from "./table";
 import { QueueCard } from "./dashboard/queue-card";
-import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "./task-buckets";
+import { taskBucket } from "./task-buckets";
 import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
 
@@ -338,88 +338,74 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
       }
     });
 
-  const groups: { key: TaskBucket; overdue: boolean }[] = [
-    { key: "overdue", overdue: true },
-    { key: "today", overdue: false },
-    { key: "week", overdue: false },
-  ];
   const remaining = shownTasks.filter((t) => !t.done).length;
+
+  const head = (
+    <CardHead
+      icon={I.checkSquare}
+      title="My tasks"
+      count={remaining}
+      action={
+        <div className="flex items-center gap-2">
+          <CardLink onClick={() => overlays.openAddTask()}>
+            <I.plus size={13} /> New
+          </CardLink>
+          <CardLink onClick={() => setScreen("tasks")}>
+            Open board <I.chevRight size={13} />
+          </CardLink>
+        </div>
+      }
+    />
+  );
+  /** One list, oldest due first: the title names the work, so no group headings or tag chips. */
+  const dueLabel = (t: RealTask) => {
+    const d = daysUntil(t.dueDate);
+    if (d == null) return { text: "No date", late: false };
+    if (d < 0) return { text: d === -1 ? "1 day late" : `${-d} days late`, late: true };
+    if (d === 0) return { text: "Today", late: false };
+    return { text: taskBucket(t.dueDate).meta, late: false };
+  };
+  const byDue = [...shownTasks].sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  const overdueCount = shownTasks.filter((t) => !t.done && taskBucket(t.dueDate).bucket === "overdue").length;
+  const checkbox = (t: RealTask) => (
+    <span className={cn(
+      "grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
+      t.done ? "border-brand bg-brand text-white" : "border-border-strong text-transparent",
+    )}>
+      {t.done && <I.check size={13} />}
+    </span>
+  );
+  const draftLink = (t: RealTask) => persona.role !== "agent" && t.renewalDraftId ? (
+    <button type="button" onClick={() => setDraftId(t.renewalDraftId)} className="rounded-sm text-[11.5px] font-semibold text-brand-hover underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+      {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
+    </button>
+  ) : null;
+  const draftModal = persona.role !== "agent" && draftId ? (
+    <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
+  ) : null;
+  const emptyRow = shownTasks.length === 0 ? (
+    <div className="px-[18px] py-3 text-[12.5px] text-subtle">No tasks yet. Create one with New.</div>
+  ) : null;
+
   return (
     <Card>
-      <CardHead
-        icon={I.checkSquare}
-        title="My tasks"
-        count={remaining}
-        action={
-          <div className="flex items-center gap-2">
-            <CardLink onClick={() => overlays.openAddTask()}>
-              <I.plus size={13} /> New
-            </CardLink>
-            <CardLink onClick={() => setScreen("tasks")}>
-              Open board <I.chevRight size={13} />
-            </CardLink>
-          </div>
-        }
-      />
-      <div className="py-1">
-        {shownTasks.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">
-            No tasks yet — create one with “+ New”.
-          </div>
-        )}
-        {groups.map((g) => {
-          const items = shownTasks.filter((t) => taskBucket(t.dueDate).bucket === g.key);
-          if (!items.length) return null;
+      {head}
+      {overdueCount > 0 && <div className="border-b border-border-soft px-[18px] py-2 text-[12px] text-muted-foreground"><span className="font-semibold text-red">{overdueCount} late</span> · oldest first</div>}
+      <ul className="divide-y divide-border-soft">
+        {emptyRow && <li>{emptyRow}</li>}
+        {byDue.map((t) => {
+          const due = dueLabel(t);
           return (
-            <div key={g.key} className="py-1">
-              <div className={cn(
-                "flex items-center gap-1.5 px-[18px] pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.04em]",
-                g.overdue ? "text-red" : "text-subtle",
-              )}>
-                {g.overdue && <I.alertTri size={13} />}
-                {BUCKET_LABEL[g.key]}
-                <span className="text-faint">· {items.filter((t) => !t.done).length}</span>
-              </div>
-              {items.map((t) => (
-                <div key={t.id}>
-                <button
-                  onClick={() => toggle(t)}
-                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
-                >
-                  <span className={cn(
-                    "mt-px grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
-                    t.done ? "border-brand bg-brand text-white" : "border-border-strong text-transparent",
-                  )}>
-                    {t.done && <I.check size={13} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block text-[13px] font-[550] leading-snug", t.done && "text-subtle line-through")}>
-                      {t.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-subtle">
-                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[11px] font-[650]", TAG_TONE[t.tag] ?? "text-slate")}>
-                        {t.tag}
-                      </span>
-                      {taskBucket(t.dueDate).meta}
-                    </span>
-                  </span>
-                </button>
-                {persona.role !== "agent" && t.renewalDraftId && (
-                  <div className="px-[18px] pb-2 pl-[47px]">
-                    <Btn size="sm" variant="primary" onClick={() => setDraftId(t.renewalDraftId)}>
-                      {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
-                    </Btn>
-                  </div>
-                )}
-                </div>
-              ))}
-            </div>
+            <li key={t.id} className="flex items-center gap-[11px] px-[18px] py-2.5 transition-colors hover:bg-hover">
+              <button type="button" onClick={() => toggle(t)} aria-label={`${t.done ? "Reopen" : "Complete"} ${t.title}`} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">{checkbox(t)}</button>
+              <span className={cn("min-w-0 flex-1 truncate text-[13px]", t.done && "text-subtle line-through")} title={t.title}>{t.title}</span>
+              {draftLink(t)}
+              <span className={cn("shrink-0 text-[12px] tabular-nums", due.late && !t.done ? "font-semibold text-red" : "text-subtle")}>{due.text}</span>
+            </li>
           );
         })}
-      </div>
-      {persona.role !== "agent" && draftId && (
-        <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
-      )}
+      </ul>
+      {draftModal}
     </Card>
   );
 }
