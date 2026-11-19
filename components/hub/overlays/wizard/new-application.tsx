@@ -113,8 +113,8 @@ export function NewApplicationWizard({
   const [pending, startTransition] = useTransition();
 
   const [step, setStep] = useState(1);
-  // Steps the user has actually opened; jumping ahead via the rail must not mark skipped steps done.
-  const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([1]));
+  // Steps finished with Next. Opening a step from the rail (forward or back) never checks it off.
+  const [completed, setCompleted] = useState<ReadonlySet<number>>(() => new Set());
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
   const [wizard, setWizard] = useState<{ form: WizardForm; selections: Record<string, RequirementAttachmentSelection> }>(() => ({
@@ -248,7 +248,7 @@ export function NewApplicationWizard({
         // so its select renders a matching option instead of going blank on resume.
         setF(withRequirementPersonKeys({ ...res.data.form, appType: normaliseAppType(res.data.form.appType) }));
         setStep(res.data.form.draftStep);
-        setVisited(new Set(Array.from({ length: res.data.form.draftStep }, (_, i) => i + 1)));
+        setCompleted(new Set(Array.from({ length: res.data.form.draftStep - 1 }, (_, i) => i + 1)));
         setAutoFilled(res.data.autoFilled);
         setLinkedClientName(res.data.linkedClientName);
         setPersistedRequirementPreview(res.data.requirementPreview);
@@ -451,11 +451,14 @@ export function NewApplicationWizard({
   const go = (n: number) => {
     const next = Math.max(1, Math.min(lastStep, productChosen ? n : 1));
     setStep(next);
-    setVisited((v) => (v.has(next) ? v : new Set(v).add(next)));
     setF((s) => ({ ...s, draftStep: next }));
   };
+  const advance = () => {
+    setCompleted((c) => (c.has(currentStep) ? c : new Set(c).add(currentStep)));
+    go(currentStep + 1);
+  };
   const blockedSteps = new Set(createBlockers.map((blocker) => blocker.step));
-  const stepDone = (n: number) => n !== currentStep && visited.has(n) && !blockedSteps.has(n);
+  const stepDone = (n: number) => n !== currentStep && completed.has(n) && !blockedSteps.has(n);
 
   const changedAutoFilledFields = () =>
     (Object.keys(autoFilled) as AutoFilledWizardField[]).filter((field) => {
@@ -793,7 +796,7 @@ export function NewApplicationWizard({
             Save draft
           </Btn>
           {currentStep < lastStep ? (
-            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={() => go(currentStep + 1)}>
+            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={advance}>
               Continue <I.chevRight size={15} />
             </Btn>
           ) : (
