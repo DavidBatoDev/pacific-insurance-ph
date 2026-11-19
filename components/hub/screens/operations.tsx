@@ -12,7 +12,7 @@ import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { money, moneyTotals, peso, pesoShort } from "@/lib/format";
 import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
-import { canMarkLapsed, manilaTodayIso } from "@/lib/renewals/lifecycle";
+import { canMarkLapsed, manilaTodayIso, type RenewalQueueRow } from "@/lib/renewals/lifecycle";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { usePersona } from "../persona";
@@ -263,7 +263,7 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
 }
 
 /* --------------------------------- Renewals -------------------------------- */
-export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSyncPolicies: boolean }) {
+export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[]; canSyncPolicies: boolean }) {
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact, prefetchContact } = useRecordNav();
@@ -357,8 +357,8 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           color: "var(--brand)",
         },
       ]}
-      filters={["Open", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Renewed", "Lapsed"]}
-      // Finished cycles stay as history and in reports; the working queue opens on unfinished ones.
+      filters={["Open", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Lapsed"]}
+      // One row per policy (its current cycle); the queue opens on policies with unfinished work.
       defaultFilter="Open"
       filterMatches={(r, f) => (f === "Open" ? r._filter !== "Renewed" && r._filter !== "Lapsed" : r._filter === f)}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
@@ -388,7 +388,12 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
             )}
           </Td>
           <Td>{fmtDate(r.noticeReceivedDate)}</Td>
-          <Td><StatusBadge status={r.status} /></Td>
+          <Td>
+            <StatusBadge status={r.status} />
+            {r.lastRenewedDate && (
+              <div className="mt-1 text-[11.5px] tabular-nums text-subtle">Last renewed {fmtDate(r.lastRenewedDate)}</div>
+            )}
+          </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
             {r.premiumAmount != null ? money(r.premiumAmount, r.currency) : "—"}
           </Td>

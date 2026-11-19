@@ -55,7 +55,7 @@ function renewal(overrides: Partial<Renewal> = {}): Renewal {
   return {
     id: RENEWAL_ID, referenceNo: "REN-1", policyId: POLICY_ID, clientId: CLIENT_ID, clientName: "Ana Cruz",
     policyRef: "POL-1", policyNumber: "PN-1", premiumAmount: 1000, currency: "PHP", renewalNoticeDate: null,
-    noticeReceivedDate: null, policyExpiryDate: "2026-11-01", renewalDueDate: "2026-11-01", status: "Upcoming",
+    noticeReceivedDate: null, policyExpiryDate: "2026-11-01", renewalDueDate: "2026-11-01", renewalCompletedDate: null, status: "Upcoming",
     earlyPaymentFlag: false, notes: null, createdAt: "2026-01-01T00:00:00Z", updatedAt: REVISION, ...overrides,
   };
 }

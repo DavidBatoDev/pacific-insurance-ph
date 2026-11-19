@@ -23,6 +23,8 @@ export interface Renewal {
   noticeReceivedDate: string | null;
   policyExpiryDate: string | null;
   renewalDueDate: string | null;
+  /** Manila date the cycle was marked Renewed; null for other outcomes. */
+  renewalCompletedDate: string | null;
   status: string;
   earlyPaymentFlag: boolean;
   notes: string | null;

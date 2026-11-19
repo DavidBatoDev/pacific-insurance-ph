@@ -4,6 +4,7 @@ import {
   RENEWED_EXPIRY_ERROR,
   RENEWED_STATUS_ERROR,
   canMarkLapsed,
+  currentRenewalPerPolicy,
   isRetainedRenewal,
   manilaTodayIso,
   renewedExpiryProblem,
@@ -29,6 +30,54 @@ describe("manilaTodayIso", () => {
   it("uses the Manila calendar day, not UTC", () => {
     expect(manilaTodayIso(new Date("2026-11-19T16:30:00.000Z"))).toBe("2026-11-20");
     expect(manilaTodayIso(new Date("2026-11-19T15:59:59.000Z"))).toBe("2026-11-19");
+  });
+});
+
+describe("currentRenewalPerPolicy", () => {
+  const cycle = (id: string, policyId: string, status: string, renewalDueDate: string | null, extra: { renewalCompletedDate?: string | null; createdAt?: string } = {}) => ({
+    id, policyId, status, renewalDueDate, renewalCompletedDate: extra.renewalCompletedDate ?? null, createdAt: extra.createdAt ?? "2026-01-01T00:00:00Z",
+  });
+
+  it("shows a renewed policy once, as its open next cycle carrying the completion date", () => {
+    const rows = currentRenewalPerPolicy([
+      cycle("old", "p1", "Renewed", "2029-10-10", { renewalCompletedDate: "2026-11-20" }),
+      cycle("next", "p1", "Upcoming", "2030-10-10"),
+    ]);
+    expect(rows).toEqual([expect.objectContaining({ id: "next", lastRenewedDate: "2026-11-20" })]);
+  });
+
+  it("prefers the open cycle even when a closed cycle has a later due date", () => {
+    const rows = currentRenewalPerPolicy([cycle("open", "p1", "Awaiting Payment", "2026-01-01"), cycle("closed", "p1", "Lapsed", "2027-01-01")]);
+    expect(rows.map((r) => r.id)).toEqual(["open"]);
+  });
+
+  it("shows a Paid cycle awaiting completion when no cycle is open", () => {
+    const rows = currentRenewalPerPolicy([
+      cycle("prior", "p1", "Renewed", "2026-01-01", { renewalCompletedDate: "2025-12-15" }),
+      cycle("paid", "p1", "Paid", "2027-01-01"),
+    ]);
+    expect(rows).toEqual([expect.objectContaining({ id: "paid", lastRenewedDate: "2025-12-15" })]);
+  });
+
+  it("falls back to the latest closed cycle and keeps the most recent earlier renewal date", () => {
+    const rows = currentRenewalPerPolicy([
+      cycle("first", "p1", "Renewed", "2027-01-01", { renewalCompletedDate: "2026-12-01" }),
+      cycle("second", "p1", "Renewed", "2028-01-01", { renewalCompletedDate: "2027-12-01" }),
+      cycle("third", "p1", "Lapsed", "2029-01-01"),
+    ]);
+    expect(rows).toEqual([expect.objectContaining({ id: "third", lastRenewedDate: "2027-12-01" })]);
+  });
+
+  it("breaks equal due dates by creation time and keeps policies separate", () => {
+    const rows = currentRenewalPerPolicy([
+      cycle("older", "p1", "Lapsed", null, { createdAt: "2026-01-01T00:00:00Z" }),
+      cycle("newer", "p1", "Lapsed", null, { createdAt: "2026-02-01T00:00:00Z" }),
+      cycle("solo", "p2", "Upcoming", "2026-12-01"),
+    ]);
+    expect(rows).toEqual([
+      expect.objectContaining({ id: "newer", lastRenewedDate: null }),
+      expect.objectContaining({ id: "solo", lastRenewedDate: null }),
+    ]);
   });
 });
 

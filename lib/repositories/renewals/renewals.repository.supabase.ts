@@ -42,6 +42,7 @@ function toDomain(row: JoinedRow): Renewal {
     noticeReceivedDate: row.notice_received_date,
     policyExpiryDate: row.policy_expiry_date,
     renewalDueDate: row.renewal_due_date,
+    renewalCompletedDate: row.renewal_completed_date,
     status: row.status,
     earlyPaymentFlag: row.early_payment_flag,
     notes: row.notes,

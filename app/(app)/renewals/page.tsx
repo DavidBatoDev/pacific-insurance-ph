@@ -1,5 +1,6 @@
 import { RenewalsLive } from "@/components/hub/screens/operations";
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
+import { currentRenewalPerPolicy } from "@/lib/renewals/lifecycle";
 import { getAgentScope } from "@/lib/auth/agent-scope";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { toAppRole } from "@/lib/auth/permissions";
@@ -12,5 +13,5 @@ export default async function Page() {
     getAgentScope().then((ownerUserId) => getRenewalsRepository().list({ ownerUserId })),
     getCurrentUser(),
   ]);
-  return <RenewalsLive rows={rows} canSyncPolicies={!!actor && toAppRole(actor.role) === "admin"} />;
+  return <RenewalsLive rows={currentRenewalPerPolicy(rows)} canSyncPolicies={!!actor && toAppRole(actor.role) === "admin"} />;
 }
