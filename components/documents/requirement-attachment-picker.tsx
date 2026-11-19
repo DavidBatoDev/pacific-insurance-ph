@@ -126,6 +126,8 @@ export function RequirementAttachmentPicker({ clientId, target, label, requireme
   );
   const heading = requirement ? requirementLabel(requirement) : { title: label, owner: null };
   const hint = requirement ? requirementHint(requirement.documentName) : null;
+  const [hintOpen, setHintOpen] = useState(false);
+  const hintId = useId();
 
   // Client-scoped pickers share one listing, so a whole checklist costs one request. Per-row
   // (requirement) listings prefetch on hover/focus of the trigger instead.
@@ -244,15 +246,18 @@ export function RequirementAttachmentPicker({ clientId, target, label, requireme
     </div>
     {receipt && <p role="status" className="text-[11.5px] text-green">{receipt.alreadyAttached ? "Already attached" : "Attached"} · {receipt.requirementStatus} · <a href={`/api/documents/${receipt.document.id}/download`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{receipt.document.name}</a></p>}
     {open && createPortal(<div className="fixed inset-0 z-[150] grid place-items-center bg-black/35 p-3 backdrop-blur-[2px] sm:p-4" onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget && !busy) setOpen(false); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-pop">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={heading.owner ? descriptionId : undefined} tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-pop">
         <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-[16px] font-bold">Attach requirement document</h2>
-            <div id={descriptionId} className="mt-1.5">
-              <p className="text-[13px] font-semibold">{heading.title}</p>
-              {heading.owner && <p className="text-[12px] text-muted-foreground">{heading.owner}</p>}
-              {hint && <p className="mt-1.5 max-w-[640px] text-[12px]"><span className="font-semibold">What to attach:</span> {hint}</p>}
+            <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">Attach document</p>
+            <div className="mt-1 flex items-center gap-1">
+              <h2 id={titleId} className="text-[17px] font-bold leading-snug">{heading.title}</h2>
+              {hint && <span className="group relative inline-flex shrink-0">
+                <button type="button" aria-label="What to attach" aria-expanded={hintOpen} aria-describedby={hintId} onClick={() => setHintOpen((current) => !current)} onBlur={() => setHintOpen(false)} className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><I.info size={15} /></button>
+                <span id={hintId} role="tooltip" className={cn("pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-border bg-card px-3 py-2 text-[12px] leading-snug text-foreground opacity-0 shadow-pop transition-opacity group-hover:opacity-100", hintOpen && "opacity-100")}>{hint}</span>
+              </span>}
             </div>
+            {heading.owner && <p id={descriptionId} className="mt-0.5 text-[12.5px] text-muted-foreground">{heading.owner}</p>}
           </div>
           <button type="button" aria-label="Close attachment picker" disabled={busy} onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-[14px] text-muted-foreground hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">✕</button>
         </div>
@@ -267,24 +272,22 @@ export function RequirementAttachmentPicker({ clientId, target, label, requireme
             {tab === "device" ? <div className="rounded-md border border-dashed border-border-strong bg-surface-2 p-4"><FilePickField file={draft?.type === "device" ? draft.file : null} disabled={busy} ariaLabel={`Choose file for ${label}`} hint="Any document · up to 25 MB" onChange={(file) => { setDraft(file ? { type: "device", file } : null); setPreviewVersion((current) => current + 1); setError(null); }} /></div>
               : <div>
                 <input type="search" aria-label="Search email attachments" placeholder="Search file name, sender or subject" value={query} disabled={busy} onChange={(event) => resetListing(event.target.value)} className={cn(INPUT, "mb-3 w-full")} />
-                <p className="mb-2 text-[11.5px] text-muted-foreground">Released email attachments for this client, including stored originals. Choosing a file does not move its original filing.</p>
+                {!!page?.items.length && <p className="mb-2 text-[11.5px] text-muted-foreground">Picking a file doesn&apos;t move its original filing.</p>}
                 {page?.items.length === 0 && !loading && (query
                   ? <p role="status" className="rounded-md border border-border-soft p-5 text-center text-[12px] text-muted-foreground">No attachments match this search.</p>
-                  : <div role="status" className="rounded-md border border-border-soft p-4 text-[12px]">
-                    <p className="font-semibold">No email attachments for this client yet</p>
-                    <p className="mt-1 text-muted-foreground">Files appear here once an email with attachments from the client is linked to one of their records in the Inbox. Common reasons it is empty:</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-                      <li>The client hasn&apos;t emailed yet, or their email had no attachment.</li>
-                      <li>
-                        They wrote from a different address. Inbox matching expects{" "}
-                        {page.client?.email ? <span className="font-semibold text-foreground">{page.client.email}</span> : <span className="font-semibold text-foreground">an email address, but none is on file</span>}.
-                        {page.client && <> <a href={`/clients/${page.client.id}/edit`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-hover underline-offset-2 hover:underline">{page.client.email ? "Edit email" : "Add email"} ↗</a></>}
-                      </li>
-                      <li>
-                        The email arrived but hasn&apos;t been linked to their record yet.{" "}
-                        <a href="/inbox" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-hover underline-offset-2 hover:underline">Open Inbox ↗</a>
-                      </li>
-                    </ul>
+                  : <div role="status" className="rounded-md border border-border-soft px-4 py-3.5 text-[12px]">
+                    <p className="text-[12.5px]">No email attachments for this client yet.</p>
+                    <details className="group/why mt-1.5 text-muted-foreground">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 select-none hover:text-foreground [&::-webkit-details-marker]:hidden"><I.chevRight size={13} className="transition-transform group-open/why:rotate-90" />Why is this empty?</summary>
+                      <ul className="mt-2 list-disc space-y-1 pl-5">
+                        <li>The client hasn&apos;t sent an email with an attachment yet.</li>
+                        <li>
+                          They sent it from another address. On file: <span className="text-foreground">{page.client?.email ?? "none"}</span>
+                          {page.client && <> · <a href={`/clients/${page.client.id}/edit`} target="_blank" rel="noopener noreferrer" className="text-brand-hover underline-offset-2 hover:underline">{page.client.email ? "Edit email" : "Add email"} ↗</a></>}
+                        </li>
+                        <li>The email isn&apos;t linked to their record yet. <a href="/inbox" target="_blank" rel="noopener noreferrer" className="text-brand-hover underline-offset-2 hover:underline">Open Inbox ↗</a></li>
+                      </ul>
+                    </details>
                   </div>)}
                 <div className="max-h-56 space-y-2 overflow-y-auto" aria-label="Available email attachments">
                   {page?.items.map((attachment) => {
