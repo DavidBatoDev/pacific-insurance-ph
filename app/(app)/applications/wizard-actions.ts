@@ -40,7 +40,7 @@ import { healthWizardRequirements, persistedDependentSubjects, questionnaireSubj
 import type { RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 import { validateCatalogSelection } from "@/lib/products/catalog-selection";
 import { isSelectProduct, plansForSelectVariant, resumeSelectVariant } from "@/lib/products/select-variant";
-import { requirementSection } from "@/lib/applications/requirement-sections";
+import { requirementLabelText, requirementSection } from "@/lib/applications/requirement-sections";
 
 export type WizardMode = "draft" | "create" | "docs";
 
@@ -638,8 +638,9 @@ export async function getDraftResumeAction(
         productVersionId: draft.productVersionId,
         items: requirements.map((row) => ({
           requirementKey: `persisted:${row.id}`,
-          name: `${row.documentName}${row.appliesTo ? ` — ${row.appliesTo}` : ""}`,
+          name: requirementLabelText(row),
           documentName: row.documentName,
+          appliesTo: row.appliesTo,
           section: requirementSection(row),
           cond: row.isRequired ? null : "not required yet",
           checked: false,

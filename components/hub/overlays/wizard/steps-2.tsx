@@ -12,7 +12,7 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate } from "@/lib/templates/merge";
 import { cn } from "@/lib/utils";
 import { isSelectProduct, plansForSelectVariant, planLimitDescription, SELECT_VARIANTS, selectLimitBasis, type SelectVariant } from "@/lib/products/select-variant";
-import { groupRequirementSections, requirementSection } from "@/lib/applications/requirement-sections";
+import { groupRequirementSections, requirementLabel, requirementSection } from "@/lib/applications/requirement-sections";
 import { I } from "../../icons";
 import { AREA, Field, INPUT } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
@@ -595,6 +595,9 @@ export function Step4({ f, clientId, selections, onSelect, disabled, loading }: 
     else groups.push({ phase: row.phase, items: [row] });
     return groups;
   }, []);
+  // Drafts saved before `documentName` was carried only have the joined label.
+  const labelOf = (r: (typeof list)[number]) =>
+    r.documentName ? requirementLabel({ documentName: r.documentName, appliesTo: r.appliesTo }) : { title: r.name, owner: null };
   return (
     <div>
       <p className="mb-3 text-[12px] text-muted-foreground">
@@ -612,7 +615,7 @@ export function Step4({ f, clientId, selections, onSelect, disabled, loading }: 
             {groupRequirementSections(items, (item) => requirementSection({ section: item.section, documentName: item.documentName ?? item.name })).map(({ section, items: sectionItems }) => (
               <Fragment key={section}>
                 <h3 className="mt-3 text-[11px] font-bold uppercase tracking-wide text-subtle">{section}</h3>
-                {sectionItems.map((r) => (
+                {sectionItems.map((r) => { const { title, owner } = labelOf(r); return (
                   <Fragment key={r.requirementKey ?? r.name}>
             <div
               className={cn(
@@ -620,12 +623,15 @@ export function Step4({ f, clientId, selections, onSelect, disabled, loading }: 
                 r.requirementKey && selections[r.requirementKey] ? "border-brand/40 bg-brand-soft/50" : "border-border-soft",
               )}
             >
-            <span className="flex-1 text-[13px] font-[550]">
-              {r.name}
-              {r.cond && <span className="ml-2 text-[11px] font-semibold text-subtle">({r.cond})</span>}
-              {r.isRequired === false && !r.cond && (
-                <span className="ml-2 text-[11px] font-semibold text-subtle">(not required yet)</span>
-              )}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-[550]">
+                {title}
+                {r.cond && <span className="ml-2 text-[11px] font-semibold text-subtle">({r.cond})</span>}
+                {r.isRequired === false && !r.cond && (
+                  <span className="ml-2 text-[11px] font-semibold text-subtle">(not required yet)</span>
+                )}
+              </span>
+              {owner && <span className="mt-0.5 block text-[11.5px] text-muted-foreground">{owner}</span>}
             </span>
             <span className="text-[11px] font-semibold text-muted-foreground">{r.status}</span>
             {r.requirementKey ? (
@@ -639,7 +645,7 @@ export function Step4({ f, clientId, selections, onSelect, disabled, loading }: 
             ) : <span className="text-[12px] text-muted-foreground">Loading requirement identity…</span>}
             </div>
           </Fragment>
-                ))}
+                ); })}
               </Fragment>
             ))}
           </Fragment>

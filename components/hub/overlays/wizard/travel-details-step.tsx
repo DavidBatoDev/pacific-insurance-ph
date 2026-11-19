@@ -1,5 +1,6 @@
 "use client";
 
+import { requirementLabel, requirementLabelText } from "@/lib/applications/requirement-sections";
 import { RequirementAttachmentPicker } from "@/components/documents/requirement-attachment-picker";
 import type { RequirementAttachmentSelection } from "@/lib/documents/requirement-attachment.types";
 import { Section } from "./steps-1";
@@ -26,11 +27,13 @@ export function TravelRequirementUploads({
       </p>
       <ul className="divide-y divide-border-soft">
         {rows.map((row) => {
-          const label = `${row.documentName}${row.appliesTo ? ` — ${row.appliesTo}` : ""}`;
+          const { title, owner } = requirementLabel(row);
+          const label = requirementLabelText(row);
           return (
             <li key={row.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5 first:pt-1 last:pb-0">
               <div className="min-w-[180px] flex-1">
-                <div className="text-[13px] font-semibold">{label}</div>
+                <div className="text-[13px] font-semibold">{title}</div>
+                {owner && <div className="text-[11.5px] text-muted-foreground">{owner}</div>}
                 <div className="text-[11.5px] text-muted-foreground">{row.isRequired === false ? "After issuance · not required yet" : "Pending until attached after creation"}</div>
               </div>
               <RequirementAttachmentPicker
