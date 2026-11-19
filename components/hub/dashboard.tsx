@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
-import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
+import type { DashboardStats } from "@/lib/queries/dashboard";
 import type { TouchpointRow } from "@/lib/queries/relationship";
 import type { Application } from "@/lib/repositories/applications/application.entity";
 import type { Claim } from "@/lib/repositories/claims/claim.entity";
@@ -20,8 +20,8 @@ import { useOverlays } from "./overlays/overlay-provider";
 import { RenewalEmailDraftModal } from "./overlays/renewal-email-draft";
 import { usePersona } from "./persona";
 import {
-  Btn, Card, CardHead, CardLink, DueCell, PageHead, Sparkline, StatusBadge,
-  TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
+  Btn, Card, CardHead, CardLink, DueCell, PageHead, StatusBadge,
+  TONE_SOFT, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Td } from "./table";
 import { QueueCard } from "./dashboard/queue-card";
@@ -50,102 +50,50 @@ const daysUntil = (iso: string | null): number | null => {
   return Math.round((new Date(iso + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
 };
 
+/* ---------- At a glance: the book and what needs attention, in one card ---------- */
+const ATTENTION: { id: ScreenId; tone: Tone; key: keyof DashboardStats["alerts"]; label: string }[] = [
+  { id: "renewals", tone: "amber", key: "renewalsDue30", label: "Renewals due in 30 days" },
+  { id: "claims", tone: "red", key: "claimsAwaitingDocs", label: "Claims awaiting documents" },
+  { id: "travel", tone: "blue", key: "travelAwaitingPayment", label: "Travel awaiting payment" },
+  { id: "applications", tone: "violet", key: "appsMissingRequirements", label: "Applications missing requirements" },
+];
+const BOOK: { id: ScreenId; key: keyof DashboardStats["kpis"]; label: string }[] = [
+  { id: "clients", key: "activeClients", label: "Active clients" },
+  { id: "policies", key: "activePolicies", label: "Active policies" },
+  { id: "applications", key: "applicationsInProgress", label: "Applications in progress" },
+  { id: "claims", key: "openClaims", label: "Open claims" },
+  { id: "renewals", key: "upcomingRenewals", label: "Upcoming renewals" },
+  { id: "travel", key: "openTravel", label: "Open travel requests" },
+];
 
-/* ---------- Alert bar ---------- */
-function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
-  const alerts: { id: ScreenId; color: Tone; icon: IconName; num: number; label: string }[] = [
-    { id: "renewals", color: "amber", icon: "refresh", num: stats.alerts.renewalsDue30, label: "Renewals due within 30 days" },
-    { id: "claims", color: "red", icon: "fileMissing", num: stats.alerts.claimsAwaitingDocs, label: "Claims awaiting documents" },
-    { id: "travel", color: "blue", icon: "wallet", num: stats.alerts.travelAwaitingPayment, label: "Travel requests awaiting payment" },
-    { id: "applications", color: "violet", icon: "alertTri", num: stats.alerts.appsMissingRequirements, label: "Applications missing requirements" },
-  ];
+/**
+ * One quiet card instead of alert tiles plus KPI tiles: the book as six numbers over hairlines,
+ * and the four queues that need someone beneath as a tone dot, a count and a label. A cleared
+ * queue drops to a grey dot so the counts that do need attention stand out.
+ */
+function GlanceCard({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   return (
-    <div className="mb-[18px] grid grid-cols-4 gap-3 max-[1200px]:grid-cols-2 max-[680px]:grid-cols-1">
-      {alerts.map((a) => {
-        const Ico = I[a.icon];
-        // A cleared queue is good news, not an alert: at zero the card drops to
-        // the neutral surface so the counts that do need attention stand out.
-        const clear = a.num === 0;
-        return (
-          <button
-            key={a.id}
-            onClick={() => setScreen(a.id)}
-            className={cn(
-              "group flex items-center gap-[13px] rounded-md border p-[13px] text-left transition-all hover:-translate-y-px hover:shadow-md",
-              clear ? "border-border bg-card" : TONE_ALERT[a.color],
-            )}
-          >
-            <span
-              className={cn(
-                "grid size-[38px] shrink-0 place-items-center rounded-[9px]",
-                clear ? "bg-surface-3 text-subtle" : TONE_SOLID[a.color],
-              )}
-            >
-              <Ico size={20} />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span
-                className={cn(
-                  "text-[19px] font-[750] leading-[1.1] tracking-[-0.02em] tabular-nums",
-                  clear ? "text-subtle" : TONE_TEXT[a.color],
-                )}
-              >
-                {a.num}
-              </span>
-              <span className="mt-px text-[12px] font-[550] text-muted-foreground">{a.label}</span>
-            </span>
-            <I.arrowRight size={17} className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
+    <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="grid grid-cols-6 divide-x divide-border-soft max-[1200px]:grid-cols-3 max-[1200px]:divide-x-0">
+        {BOOK.map((b) => (
+          <button key={b.key} type="button" onClick={() => setScreen(b.id)} className="px-4 py-3.5 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-brand/25">
+            <div className="text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums">{stats.kpis[b.key]}</div>
+            <div className="mt-1.5 text-[12px] font-[550] text-muted-foreground">{b.label}</div>
           </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ---------- KPI row ---------- */
-function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
-  const kpis: { id: ScreenId; icon: IconName; value: number; label: string; trend: KpiTrend }[] = [
-    { id: "clients", icon: "users", value: stats.kpis.activeClients, label: "Active Clients", trend: stats.trends.activeClients },
-    { id: "policies", icon: "shield", value: stats.kpis.activePolicies, label: "Active Policies", trend: stats.trends.activePolicies },
-    { id: "applications", icon: "fileText", value: stats.kpis.applicationsInProgress, label: "Applications In Progress", trend: stats.trends.applicationsInProgress },
-    { id: "claims", icon: "clipboard", value: stats.kpis.openClaims, label: "Open Claims", trend: stats.trends.openClaims },
-    { id: "renewals", icon: "refresh", value: stats.kpis.upcomingRenewals, label: "Upcoming Renewals", trend: stats.trends.upcomingRenewals },
-    { id: "travel", icon: "plane", value: stats.kpis.openTravel, label: "Open Travel Requests", trend: stats.trends.openTravel },
-  ];
-  const dirIco: Record<KpiTrend["dir"], IconName> = { up: "arrowUp", down: "arrowDown", flat: "arrowRight" };
-  return (
-    <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3 max-[680px]:grid-cols-2">
-      {kpis.map((k) => {
-        const Ico = I[k.icon];
-        const DirIco = I[dirIco[k.trend.dir]];
-        return (
-          <button
-            key={k.id}
-            onClick={() => setScreen(k.id)}
-            className="overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:shadow-md"
-          >
-            <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-              <Ico size={17} />
-            </span>
-            <div className="mt-3 text-[27px] font-[760] leading-none tracking-[-0.03em] tabular-nums">{k.value}</div>
-            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{k.label}</div>
-            {/* The delta counts newly created records, not a change in the headline
-                total, so it sits with the trend line it describes rather than beside
-                the number it would otherwise seem to modify. It stays neutral because
-                the direction is not good or bad on its own — fewer new claims and
-                fewer new clients point opposite ways. */}
-            <div className="mt-3 flex items-end gap-2">
-              <span className="min-w-0 flex-1">
-                <Sparkline data={k.trend.spark} color="var(--slate)" />
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-surface-3 px-1.5 py-px text-[11px] font-bold tabular-nums text-muted-foreground">
-                <DirIco size={12} /> {k.trend.delta.replace(/^[+-]/, "")}
-              </span>
-            </div>
-            <div className="mt-1.5 text-[11px] font-[550] text-faint">new this month vs last</div>
-          </button>
-        );
-      })}
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-x-4 border-t border-border-soft bg-surface-2 px-4 py-2.5 max-[1200px]:grid-cols-2">
+        {ATTENTION.map((a) => {
+          const n = stats.alerts[a.key];
+          return (
+            <button key={a.id} type="button" onClick={() => setScreen(a.id)} className="flex items-center gap-2 rounded-sm py-1 text-left text-[12.5px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+              <span className={cn("size-2 shrink-0 rounded-full", n ? `bg-current ${TONE_TEXT[a.tone]}` : "bg-border-strong")} />
+              <span className={cn("font-semibold tabular-nums", n ? TONE_TEXT[a.tone] : "text-subtle")}>{n}</span>
+              <span className="min-w-0 truncate">{a.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -705,8 +653,7 @@ export function Dashboard({
         actions={persona.can("dashboard", "export") ? <ExportMenu /> : undefined}
       />
 
-      <AlertBar setScreen={setScreen} stats={stats} />
-      <KpiRow setScreen={setScreen} stats={stats} />
+      <GlanceCard setScreen={setScreen} stats={stats} />
       <RevenueWidget setScreen={setScreen} stats={stats} />
 
       <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">

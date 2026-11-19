@@ -287,8 +287,6 @@ export function DueCell({ days, label }: { days: number; label?: string }) {
   );
 }
 
-export { Sparkline } from "./primitives-interactive";
-
 /* ---------- Card shell + button ---------- */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (
