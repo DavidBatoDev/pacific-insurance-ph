@@ -230,6 +230,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
               travelRequestId={travelRequestId}
               requirementId={item.id}
               requirementLabel={`${payload.travel.referenceNo ?? "Travel request"} · ${payload.travel.clientName} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+              requirement={item}
               sourceLibraryDocumentId={item.documentName.includes("application form") ? payload.travel.carrierFormLibraryId ?? undefined : undefined}
               onAttached={(receipt) => {
                 latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;

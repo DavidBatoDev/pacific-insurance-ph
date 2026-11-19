@@ -155,7 +155,7 @@ export function AddTaskDrawer({
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <FieldBlock label="Due date" required>
-          <input className={INPUT} type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          <input className={INPUT} type="date" max="9999-12-31" value={due} onChange={(e) => setDue(e.target.value)} />
         </FieldBlock>
         <FieldBlock label="Priority">
           <div className="flex gap-1.5">

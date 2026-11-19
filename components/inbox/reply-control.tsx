@@ -117,7 +117,7 @@ export function ReplyControl({ data, message }: { data: InboxReviewData; message
         <dt className="text-subtle">To</dt><dd className="break-words font-semibold">{draft.recipient}</dd>
         <dt className="text-subtle">Subject</dt><dd className="break-words">{draft.subject || <span className="text-muted-foreground">(No subject)</span>}</dd>
       </dl>
-      <p className="text-[10.5px] leading-relaxed text-subtle">Recipient and subject match the original so the reply stays in its thread. To write to someone else or change the subject, start a new email from the client instead.</p>
+      <p className="text-[11px] leading-relaxed text-subtle">Recipient and subject match the original so the reply stays in its thread. To write to someone else or change the subject, start a new email from the client instead.</p>
       <label className="block text-xs font-semibold">Reply<textarea ref={bodyRef} value={body} onChange={(event) => setBody(event.target.value)} rows={8} disabled={busy} className={`${INPUT} mt-1.5 min-h-[160px] resize-y leading-relaxed`} placeholder="Write your reply. The original message is not quoted automatically." /></label>
       {clientId && <EmailAttachmentChoices clientId={clientId} documentIds={documentIds} onDocumentIds={setDocumentIds} emailAttachments={emailAttachments} onEmailAttachments={setEmailAttachments} />}
       <EmailSendControls draft={draft} ready={body.trim().length > 0} sendLabel="Send reply" reviewLabel="Review reply" onSent={onSent} onPhaseChange={onPhaseChange} />

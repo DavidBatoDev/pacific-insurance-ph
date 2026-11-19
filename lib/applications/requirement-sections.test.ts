@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupRequirementSections, isMedicalQuestionnaireName, requirementSection } from "./requirement-sections";
+import { groupRequirementSections, isMedicalQuestionnaireName, requirementLabel, requirementLabelText, requirementSection } from "./requirement-sections";
 
 describe("requirement sections", () => {
   it("recognizes only exact known legacy labels and the beneficiary prefix", () => {
@@ -38,5 +38,13 @@ describe("requirement sections", () => {
     expect(later[0].items[0]).toBe(agreement[0]);
     expect(later[0].items[0].phase).toBe("Once the group agrees");
     expect(later[0].items[0].isRequired).toBe(false);
+  });
+
+  it("splits a beneficiary's ID into the document and who it belongs to, without em dashes", () => {
+    const row = { documentName: "Valid government-issued ID — beneficiary Andreas", appliesTo: "David Bato-bato" };
+    expect(requirementLabel(row)).toEqual({ title: "Valid government-issued ID", owner: "Beneficiary: Andreas · named by David Bato-bato" });
+    expect(requirementLabelText(row)).toBe("Valid government-issued ID · Beneficiary: Andreas · named by David Bato-bato");
+    expect(requirementLabel({ documentName: "Valid government-issued ID", appliesTo: "David Bato-bato" })).toEqual({ title: "Valid government-issued ID", owner: "David Bato-bato" });
+    expect(requirementLabelText({ documentName: "Payment proof", appliesTo: null })).toBe("Payment proof");
   });
 });

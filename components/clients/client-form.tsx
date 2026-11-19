@@ -142,6 +142,7 @@ export function ClientForm({ client, from }: { client?: Client; from?: "prospect
             <input
               name="dateOfBirth"
               type="date"
+              max="9999-12-31"
               value={v.dateOfBirth}
               onChange={(e) => set("dateOfBirth", e.target.value)}
               className={inputCls}

@@ -25,11 +25,11 @@ import { ProductCatalogManager } from "./product-catalog-manager";
  */
 
 const CATEGORY_META: Record<string, { icon: IconName; color: string; desc: string }> = {
-  "Primary Medical": { icon: "shield", color: "#059669", desc: "Individual and family health coverage plans" },
-  "Group Medical": { icon: "building", color: "#2563eb", desc: "Employer-sponsored group health maintenance plans" },
-  "Second-Layer Medical": { icon: "heart", color: "#7c3aed", desc: "Top-up coverage layered over a primary medical plan" },
-  "Travel Insurance": { icon: "plane", color: "#d97706", desc: "Short-term coverage for domestic and international travel" },
-  Other: { icon: "folder", color: "#64748b", desc: "Products outside the core medical and travel lines" },
+  "Primary Medical": { icon: "shield", color: "var(--green)", desc: "Individual and family health coverage plans" },
+  "Group Medical": { icon: "building", color: "var(--blue)", desc: "Employer-sponsored group health maintenance plans" },
+  "Second-Layer Medical": { icon: "heart", color: "var(--violet)", desc: "Top-up coverage layered over a primary medical plan" },
+  "Travel Insurance": { icon: "plane", color: "var(--amber)", desc: "Short-term coverage for domestic and international travel" },
+  Other: { icon: "folder", color: "var(--slate)", desc: "Products outside the core medical and travel lines" },
 };
 
 const fmtDate = (iso: string) =>
@@ -294,7 +294,7 @@ export function ProductsLive({
           return (
             <Card key={cat} className="mb-4 overflow-hidden">
               <div className={cn("flex items-center gap-3 px-[18px] py-3.5", !isCollapsed && "border-b border-border-soft")}>
-                <span className="grid size-9 place-items-center rounded-[9px]" style={{ background: meta.color + "1e", color: meta.color }}>
+                <span className="grid size-9 place-items-center rounded-[9px]" style={{ background: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
                   <CatIco size={18} />
                 </span>
                 <div className="min-w-0 flex-1">

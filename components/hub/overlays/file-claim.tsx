@@ -185,7 +185,7 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
             </select>
           </Field>
           <Field label="Incident date">
-            <input aria-label="Incident date" className={INPUT} type="date" value={incident} onChange={(e) => setIncident(e.target.value)} />
+            <input aria-label="Incident date" className={INPUT} type="date" max="9999-12-31" value={incident} onChange={(e) => setIncident(e.target.value)} />
           </Field>
           <Field label="Amount claimed (₱)">
             <input aria-label="Amount claimed" className={INPUT} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9,]/g, ""))} placeholder="0" />
@@ -204,7 +204,7 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
             </select>
           </Field>
           <Field label="Documents received">
-            <input aria-label="Documents received" className={INPUT} type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+            <input aria-label="Documents received" className={INPUT} type="date" max="9999-12-31" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
           </Field>
         </div>
       </Section>

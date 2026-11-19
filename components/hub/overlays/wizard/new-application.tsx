@@ -113,6 +113,8 @@ export function NewApplicationWizard({
   const [pending, startTransition] = useTransition();
 
   const [step, setStep] = useState(1);
+  // Steps finished with Next. Opening a step from the rail (forward or back) never checks it off.
+  const [completed, setCompleted] = useState<ReadonlySet<number>>(() => new Set());
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
   const [wizard, setWizard] = useState<{ form: WizardForm; selections: Record<string, RequirementAttachmentSelection> }>(() => ({
@@ -246,6 +248,7 @@ export function NewApplicationWizard({
         // so its select renders a matching option instead of going blank on resume.
         setF(withRequirementPersonKeys({ ...res.data.form, appType: normaliseAppType(res.data.form.appType) }));
         setStep(res.data.form.draftStep);
+        setCompleted(new Set(Array.from({ length: res.data.form.draftStep - 1 }, (_, i) => i + 1)));
         setAutoFilled(res.data.autoFilled);
         setLinkedClientName(res.data.linkedClientName);
         setPersistedRequirementPreview(res.data.requirementPreview);
@@ -450,6 +453,12 @@ export function NewApplicationWizard({
     setStep(next);
     setF((s) => ({ ...s, draftStep: next }));
   };
+  const advance = () => {
+    setCompleted((c) => (c.has(currentStep) ? c : new Set(c).add(currentStep)));
+    go(currentStep + 1);
+  };
+  const blockedSteps = new Set(createBlockers.map((blocker) => blocker.step));
+  const stepDone = (n: number) => n !== currentStep && completed.has(n) && !blockedSteps.has(n);
 
   const changedAutoFilledFields = () =>
     (Object.keys(autoFilled) as AutoFilledWizardField[]).filter((field) => {
@@ -642,14 +651,14 @@ export function NewApplicationWizard({
                 <span
                   className={cn(
                     "grid size-6 shrink-0 place-items-center rounded-full text-[11.5px] font-bold",
-                    currentStep > s.n
+                    stepDone(s.n)
                       ? "bg-brand text-white"
                       : currentStep === s.n
                         ? "border-2 border-brand text-brand"
                         : "border border-border-strong text-subtle",
                   )}
                 >
-                  {currentStep > s.n ? <I.check size={13} /> : s.n}
+                  {stepDone(s.n) ? <I.check size={13} /> : s.n}
                 </span>
                 <span className={cn("text-[12.5px] font-[650]", currentStep === s.n ? "text-brand-hover" : "")}>{s.label}</span>
               </button>
@@ -787,7 +796,7 @@ export function NewApplicationWizard({
             Save draft
           </Btn>
           {currentStep < lastStep ? (
-            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={() => go(currentStep + 1)}>
+            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={advance}>
               Continue <I.chevRight size={15} />
             </Btn>
           ) : (

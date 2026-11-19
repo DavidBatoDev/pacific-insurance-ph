@@ -144,7 +144,7 @@ function LogCallFields({
         />
       </Field>
       <Field label="Next follow-up" className="mt-3.5">
-        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+        <input className={INPUT} type="date" max="9999-12-31" value={follow} onChange={(e) => setFollow(e.target.value)} />
       </Field>
 
       <div className="mt-3.5 flex items-center justify-end gap-3">

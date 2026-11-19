@@ -19,7 +19,7 @@ export async function saveRenewalEmailRuleAction(id: string, input: RenewalEmail
     if (!Number.isInteger(input.offsetDays) || input.offsetDays < -32768 || input.offsetDays > 32767) {
       return { ok: false, error: "Enter a whole day offset between -32768 and 32767." };
     }
-    if (!["renewal_due_date", "notice_received_date"].includes(input.dateBasis) || typeof input.active !== "boolean") {
+    if (!["renewal_due_date", "notice_received_date", "notice_request_sent_date"].includes(input.dateBasis) || typeof input.active !== "boolean") {
       return { ok: false, error: "Choose a valid date basis and active setting." };
     }
     if (before.key === "notice_received" && (input.dateBasis !== "notice_received_date" || input.offsetDays !== 0)) {
@@ -27,6 +27,12 @@ export async function saveRenewalEmailRuleAction(id: string, input: RenewalEmail
     }
     if (before.key === "missing_notice" && input.dateBasis !== "renewal_due_date") {
       return { ok: false, error: "Missing notice must use the renewal due date." };
+    }
+    if (before.key === "missing_notice_follow_up" && (input.dateBasis !== "notice_request_sent_date" || input.offsetDays < 1)) {
+      return { ok: false, error: "The follow-up must be at least 1 day after the notice request was sent." };
+    }
+    if (before.key !== "missing_notice_follow_up" && input.dateBasis === "notice_request_sent_date") {
+      return { ok: false, error: "Only the notice follow-up can use the request sent date." };
     }
     const template = await getTemplatesRepository().findById(input.templateId);
     if (!template?.active || template.channel !== "Email") return { ok: false, error: "Choose an active Email template." };

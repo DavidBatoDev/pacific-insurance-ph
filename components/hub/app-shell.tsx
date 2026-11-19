@@ -65,7 +65,7 @@ export function AppShell({
             {!navCollapsed && (
               <div className="flex flex-col leading-[1.05]">
                 <b className="text-[15px] font-bold tracking-[-0.02em]">Pacific</b>
-                <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-subtle">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-subtle">
                   Insurance PH
                 </span>
               </div>

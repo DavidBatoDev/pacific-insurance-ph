@@ -447,8 +447,8 @@ function CommissionBreakdownToggle({ commission }: { commission: CommissionTrack
               <span className="whitespace-nowrap font-mono tabular-nums">{value}</span>
             </span>
           ))}
-          {source && <span className="mt-1.5 block text-[10.5px] font-normal text-subtle">{source}</span>}
-          <span className="mt-0.5 block text-[10.5px] font-normal text-subtle">VAT basis is an assumption pending finance (DH16).</span>
+          {source && <span className="mt-1.5 block text-[11px] font-normal text-subtle">{source}</span>}
+          <span className="mt-0.5 block text-[11px] font-normal text-subtle">VAT basis is an assumption pending finance (DH16).</span>
         </span>
       )}
     </span>

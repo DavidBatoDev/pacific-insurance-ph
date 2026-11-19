@@ -123,8 +123,9 @@
   /* Text */
   --foreground: #14211b;
   --muted-foreground: #5d6a63;
-  --text-subtle: #8a958e;
-  --text-faint: #aab2ad;
+  /* Both clear 4.5:1 on cards and the page background; faint differs from subtle by size, not legibility. */
+  --text-subtle: #66716a;
+  --text-faint: #68736c;
 
   /* Emerald accent */
   --brand: #059669;
@@ -153,7 +154,7 @@
   --red: #dc2626;
   --red-soft: #fef2f2;
   --red-border: #fbd5d5;
-  --amber: #c2700a;
+  --amber: #a76009; /* 4.6:1 on its own wash; #c2700a read at 3.5:1 */
   --amber-soft: #fff8eb;
   --amber-border: #fae3b8;
   --blue: #2563eb;
@@ -162,11 +163,12 @@
   --violet: #7c3aed;
   --violet-soft: #f6f3ff;
   --violet-border: #e6dcfb;
-  --green: #059669;
+  --green: #047857; /* status text, not the accent: --brand (#059669) is 3.6:1 as text */
   --green-soft: #ecfdf5;
   --green-border: #c4ecd9;
   --slate: #475569;
   --slate-soft: #f1f5f9;
+  --cyan: #0e7490; /* Discovery stage and FlexiShield product marks; 5.4:1 on white */
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(16, 28, 22, 0.05);
@@ -210,8 +212,8 @@
   /* Text */
   --foreground: #e9efea;
   --muted-foreground: #9aa8a0;
-  --text-subtle: #76837b;
-  --text-faint: #5a665e;
+  --text-subtle: #859189;
+  --text-faint: #77877c;
 
   /* Emerald accent */
   --brand: #10b981;
@@ -254,6 +256,7 @@
   --green-border: rgba(52, 211, 153, 0.25);
   --slate: #94a3b8;
   --slate-soft: rgba(148, 163, 184, 0.12);
+  --cyan: #22d3ee;
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -294,6 +297,31 @@
   ::selection {
     background: var(--brand-soft-2);
     color: var(--foreground);
+  }
+  /* Scrollbars: a thin thumb tinted from the muted ink, no track, so they follow both themes
+     and stay visible without the grey OS gutter. Kept, not hidden: they are the only cue
+     that a card or drawer scrolls. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent) transparent;
+  }
+  /* Browsers without scrollbar-color (older Safari) take the WebKit pseudo-elements instead. */
+  @supports not (scrollbar-color: auto) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      border: 3px solid transparent;
+      border-radius: 9999px;
+      background: color-mix(in srgb, var(--muted-foreground) 45%, transparent) padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: color-mix(in srgb, var(--muted-foreground) 70%, transparent) padding-box;
+    }
   }
 }
 

@@ -78,6 +78,8 @@ export interface ChecklistItem {
   requirementKey?: string;
   name: string;
   documentName?: string;
+  /** Whose document it is, shown as its own line under the document name. */
+  appliesTo?: string | null;
   section?: RequirementSection | null;
   cond: string | null;
   checked: boolean;

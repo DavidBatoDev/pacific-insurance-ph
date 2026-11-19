@@ -18,6 +18,7 @@ const RULE_HELP: Record<RenewalEmailRule["key"], string> = {
   notice_received: "Draft immediately when the renewal notice is received.",
   client_reminder: "Remind the client before renewal. The default is 30 days before the renewal due date.",
   missing_notice: "Ask the carrier for a missing notice, only while no notice has been received. The default is 60 days before renewal.",
+  missing_notice_follow_up: "Follow up once if the notice request was sent and the notice still has not arrived. The default is 7 days after the request.",
   premium_breakdown: "Request a premium breakdown for every renewal, regardless of a premium increase. The default is 60 days before renewal.",
 };
 
@@ -97,7 +98,9 @@ function RuleForm({ rule, templates, contacts, canEdit }: {
   const templateValid = eligibleTemplates.some((template) => template.id === templateId);
   const contactValid = eligibleContacts.some((contact) => contact.id === contactId);
   const immediate = rule.key === "notice_received";
-  const fixedBasis = immediate || rule.key === "missing_notice";
+  const followUp = rule.key === "missing_notice_follow_up";
+  const requiredBasis: RenewalDateBasis | null = immediate ? "notice_received_date" : rule.key === "missing_notice" ? "renewal_due_date" : followUp ? "notice_request_sent_date" : null;
+  const fixedBasis = requiredBasis !== null;
   const prefix = `renewal-rule-${rule.id}`;
   const days = Number(offset);
   const timing = offset.trim() && Number.isInteger(days)
@@ -120,8 +123,12 @@ function RuleForm({ rule, templates, contacts, canEdit }: {
       setError("Notice received must use the notice received date with an offset of 0.");
       return;
     }
-    if (rule.key === "missing_notice" && dateBasis !== "renewal_due_date") {
-      setError("Missing notice must use the renewal due date.");
+    if (requiredBasis && dateBasis !== requiredBasis) {
+      setError("This rule must keep its required date basis.");
+      return;
+    }
+    if (followUp && days < 1) {
+      setError("The follow-up must be at least 1 day after the notice request was sent.");
       return;
     }
     if (!templateValid) {
@@ -165,9 +172,10 @@ function RuleForm({ rule, templates, contacts, canEdit }: {
         <div>
           <label htmlFor={`${prefix}-basis`} className={LABEL}>Date basis</label>
           <select id={`${prefix}-basis`} className={CONTROL} value={dateBasis} disabled={fixedBasis || !canEdit || pending} onChange={(event) => { changed(); setDateBasis(event.target.value as RenewalDateBasis); }}>
-            {rule.key !== "notice_received" && <option value="renewal_due_date">Renewal due date</option>}
-            {rule.key !== "missing_notice" && <option value="notice_received_date">Notice received date</option>}
-            {fixedBasis && ((immediate && dateBasis !== "notice_received_date") || (!immediate && dateBasis !== "renewal_due_date")) && <option value={dateBasis}>Invalid basis: {dateBasis}</option>}
+            {(!requiredBasis || requiredBasis === "renewal_due_date") && <option value="renewal_due_date">Renewal due date</option>}
+            {(!requiredBasis || requiredBasis === "notice_received_date") && <option value="notice_received_date">Notice received date</option>}
+            {requiredBasis === "notice_request_sent_date" && <option value="notice_request_sent_date">Notice request sent date</option>}
+            {requiredBasis && dateBasis !== requiredBasis && <option value={dateBasis}>Invalid basis: {dateBasis}</option>}
           </select>
           {fixedBasis && <p className="mt-1 text-[11.5px] text-muted-foreground">Required for this rule.</p>}
         </div>

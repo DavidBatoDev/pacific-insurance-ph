@@ -138,7 +138,7 @@ export function BoardView({
                     <span className="size-2 rounded-full" style={{ background: meta.color }} />
                     <span className="text-[11.5px] font-bold">{stage}</span>
                     <span className="tabular-nums text-[11px] font-bold text-subtle">{items.length}</span>
-                    <span className="ml-auto text-[10.5px] font-semibold text-faint">{val ? pesoShort(val) : ""}</span>
+                    <span className="ml-auto text-[11px] font-semibold text-faint">{val ? pesoShort(val) : ""}</span>
                   </div>
                   <div
                     className={cn(
@@ -172,7 +172,7 @@ export function BoardView({
                               }}
                               title={l.proposalStatus === "Requested" ? "Click to mark received" : "Proposal " + proposalChipLabel(l.proposalStatus, l.proposalDecision)}
                               className={cn(
-                                "mt-1.5 inline-flex items-center gap-1 rounded-[5px] border px-1.5 py-px text-[10.5px] font-bold",
+                                "mt-1.5 inline-flex items-center gap-1 rounded-[5px] border px-1.5 py-px text-[11px] font-bold",
                                 l.proposalDecision === "Declined"
                                   ? "border-red-border bg-red-soft text-red"
                                   : "border-violet-border bg-violet-soft text-violet",

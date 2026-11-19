@@ -3,9 +3,10 @@
 import { Popover } from "@base-ui/react/popover";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { toggleTaskAction } from "@/app/(app)/tasks/actions";
-import type { DashboardStats, KpiTrend } from "@/lib/queries/dashboard";
+import type { DashboardStats } from "@/lib/queries/dashboard";
 import type { TouchpointRow } from "@/lib/queries/relationship";
 import type { Application } from "@/lib/repositories/applications/application.entity";
 import type { Claim } from "@/lib/repositories/claims/claim.entity";
@@ -20,12 +21,12 @@ import { useOverlays } from "./overlays/overlay-provider";
 import { RenewalEmailDraftModal } from "./overlays/renewal-email-draft";
 import { usePersona } from "./persona";
 import {
-  Btn, Card, CardHead, CardLink, DueCell, PageHead, Sparkline, StatusBadge,
-  TONE_ALERT, TONE_SOFT, TONE_SOLID, TONE_TEXT,
+  Btn, Card, CardLink, DueCell, PageHead, StatusBadge,
+  TONE_SOFT, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Td } from "./table";
-import { QueueCard } from "./dashboard/queue-card";
-import { BUCKET_LABEL, TAG_TONE, taskBucket, type TaskBucket } from "./task-buckets";
+import { QueueTable } from "./dashboard/queue-table";
+import { taskBucket } from "./task-buckets";
 import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
 
@@ -41,6 +42,8 @@ export interface DashboardQueues {
   renewals: Renewal[];
   claims: Claim[];
   travel: TravelRequest[];
+  /** Wizard drafts: Lead applications with a saved form, newest save first. */
+  drafts: Application[];
 }
 
 const daysUntil = (iso: string | null): number | null => {
@@ -50,102 +53,50 @@ const daysUntil = (iso: string | null): number | null => {
   return Math.round((new Date(iso + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
 };
 
+/* ---------- At a glance: the book and what needs attention, in one card ---------- */
+const ATTENTION: { id: ScreenId; tone: Tone; key: keyof DashboardStats["alerts"]; label: string }[] = [
+  { id: "renewals", tone: "amber", key: "renewalsDue30", label: "Renewals due in 30 days" },
+  { id: "claims", tone: "red", key: "claimsAwaitingDocs", label: "Claims awaiting documents" },
+  { id: "travel", tone: "blue", key: "travelAwaitingPayment", label: "Travel awaiting payment" },
+  { id: "applications", tone: "violet", key: "appsMissingRequirements", label: "Applications missing requirements" },
+];
+const BOOK: { id: ScreenId; key: keyof DashboardStats["kpis"]; label: string }[] = [
+  { id: "clients", key: "activeClients", label: "Active clients" },
+  { id: "policies", key: "activePolicies", label: "Active policies" },
+  { id: "applications", key: "applicationsInProgress", label: "Applications in progress" },
+  { id: "claims", key: "openClaims", label: "Open claims" },
+  { id: "renewals", key: "upcomingRenewals", label: "Upcoming renewals" },
+  { id: "travel", key: "openTravel", label: "Open travel requests" },
+];
 
-/* ---------- Alert bar ---------- */
-function AlertBar({ setScreen, stats }: Nav & { stats: DashboardStats }) {
-  const alerts: { id: ScreenId; color: Tone; icon: IconName; num: number; label: string }[] = [
-    { id: "renewals", color: "amber", icon: "refresh", num: stats.alerts.renewalsDue30, label: "Renewals due within 30 days" },
-    { id: "claims", color: "red", icon: "fileMissing", num: stats.alerts.claimsAwaitingDocs, label: "Claims awaiting documents" },
-    { id: "travel", color: "blue", icon: "wallet", num: stats.alerts.travelAwaitingPayment, label: "Travel requests awaiting payment" },
-    { id: "applications", color: "violet", icon: "alertTri", num: stats.alerts.appsMissingRequirements, label: "Applications missing requirements" },
-  ];
+/**
+ * One quiet card instead of alert tiles plus KPI tiles: the book as six numbers over hairlines,
+ * and the four queues that need someone beneath as a tone dot, a count and a label. A cleared
+ * queue drops to a grey dot so the counts that do need attention stand out.
+ */
+function GlanceCard({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   return (
-    <div className="mb-[18px] grid grid-cols-4 gap-3 max-[1200px]:grid-cols-2 max-[680px]:grid-cols-1">
-      {alerts.map((a) => {
-        const Ico = I[a.icon];
-        // A cleared queue is good news, not an alert: at zero the card drops to
-        // the neutral surface so the counts that do need attention stand out.
-        const clear = a.num === 0;
-        return (
-          <button
-            key={a.id}
-            onClick={() => setScreen(a.id)}
-            className={cn(
-              "group flex items-center gap-[13px] rounded-md border p-[13px] text-left transition-all hover:-translate-y-px hover:shadow-md",
-              clear ? "border-border bg-card" : TONE_ALERT[a.color],
-            )}
-          >
-            <span
-              className={cn(
-                "grid size-[38px] shrink-0 place-items-center rounded-[9px]",
-                clear ? "bg-surface-3 text-subtle" : TONE_SOLID[a.color],
-              )}
-            >
-              <Ico size={20} />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span
-                className={cn(
-                  "text-[19px] font-[750] leading-[1.1] tracking-[-0.02em] tabular-nums",
-                  clear ? "text-subtle" : TONE_TEXT[a.color],
-                )}
-              >
-                {a.num}
-              </span>
-              <span className="mt-px text-[12px] font-[550] text-muted-foreground">{a.label}</span>
-            </span>
-            <I.arrowRight size={17} className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
+    <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="grid grid-cols-6 divide-x divide-border-soft max-[1200px]:grid-cols-3 max-[1200px]:divide-x-0">
+        {BOOK.map((b) => (
+          <button key={b.key} type="button" onClick={() => setScreen(b.id)} className="px-4 py-3.5 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-brand/25">
+            <div className="text-[22px] font-[760] leading-none tracking-[-0.02em] tabular-nums">{stats.kpis[b.key]}</div>
+            <div className="mt-1.5 text-[12px] font-[550] text-muted-foreground">{b.label}</div>
           </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ---------- KPI row ---------- */
-function KpiRow({ setScreen, stats }: Nav & { stats: DashboardStats }) {
-  const kpis: { id: ScreenId; icon: IconName; value: number; label: string; trend: KpiTrend }[] = [
-    { id: "clients", icon: "users", value: stats.kpis.activeClients, label: "Active Clients", trend: stats.trends.activeClients },
-    { id: "policies", icon: "shield", value: stats.kpis.activePolicies, label: "Active Policies", trend: stats.trends.activePolicies },
-    { id: "applications", icon: "fileText", value: stats.kpis.applicationsInProgress, label: "Applications In Progress", trend: stats.trends.applicationsInProgress },
-    { id: "claims", icon: "clipboard", value: stats.kpis.openClaims, label: "Open Claims", trend: stats.trends.openClaims },
-    { id: "renewals", icon: "refresh", value: stats.kpis.upcomingRenewals, label: "Upcoming Renewals", trend: stats.trends.upcomingRenewals },
-    { id: "travel", icon: "plane", value: stats.kpis.openTravel, label: "Open Travel Requests", trend: stats.trends.openTravel },
-  ];
-  const dirIco: Record<KpiTrend["dir"], IconName> = { up: "arrowUp", down: "arrowDown", flat: "arrowRight" };
-  return (
-    <div className="mb-4 grid grid-cols-6 gap-3.5 max-[1200px]:grid-cols-3 max-[680px]:grid-cols-2">
-      {kpis.map((k) => {
-        const Ico = I[k.icon];
-        const DirIco = I[dirIco[k.trend.dir]];
-        return (
-          <button
-            key={k.id}
-            onClick={() => setScreen(k.id)}
-            className="overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:shadow-md"
-          >
-            <span className="grid size-[30px] place-items-center rounded-lg bg-brand-soft text-brand-hover">
-              <Ico size={17} />
-            </span>
-            <div className="mt-3 text-[27px] font-[760] leading-none tracking-[-0.03em] tabular-nums">{k.value}</div>
-            <div className="mt-1.5 text-[12.5px] font-[550] text-muted-foreground">{k.label}</div>
-            {/* The delta counts newly created records, not a change in the headline
-                total, so it sits with the trend line it describes rather than beside
-                the number it would otherwise seem to modify. It stays neutral because
-                the direction is not good or bad on its own — fewer new claims and
-                fewer new clients point opposite ways. */}
-            <div className="mt-3 flex items-end gap-2">
-              <span className="min-w-0 flex-1">
-                <Sparkline data={k.trend.spark} color="var(--slate)" />
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-surface-3 px-1.5 py-px text-[11px] font-bold tabular-nums text-muted-foreground">
-                <DirIco size={12} /> {k.trend.delta.replace(/^[+-]/, "")}
-              </span>
-            </div>
-            <div className="mt-1.5 text-[10.5px] font-[550] text-faint">new this month vs last</div>
-          </button>
-        );
-      })}
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-x-4 border-t border-border-soft bg-surface-2 px-4 py-2.5 max-[1200px]:grid-cols-2">
+        {ATTENTION.map((a) => {
+          const n = stats.alerts[a.key];
+          return (
+            <button key={a.id} type="button" onClick={() => setScreen(a.id)} className="flex items-center gap-2 rounded-sm py-1 text-left text-[12.5px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+              <span className={cn("size-2 shrink-0 rounded-full", n ? `bg-current ${TONE_TEXT[a.tone]}` : "bg-border-strong")} />
+              <span className={cn("font-semibold tabular-nums", n ? TONE_TEXT[a.tone] : "text-subtle")}>{n}</span>
+              <span className="min-w-0 truncate">{a.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -234,15 +185,69 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   );
 }
 
-/* ---------- Queue tables ---------- */
-function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[]; count: number }) {
+/* ---------- Recent activity drawer ---------- */
+/** Recent activity outside the page flow, so the dashboard ends at the work card. */
+function ActivityDrawer({ stats, onClose }: { stats: DashboardStats; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="fixed inset-0 z-[80] bg-black/25" onMouseDown={onClose}>
+      <aside role="dialog" aria-modal="true" aria-label="Recent activity" onMouseDown={(e) => e.stopPropagation()}
+        className="absolute inset-y-0 right-0 flex w-[400px] max-w-[92vw] flex-col border-l border-border bg-card shadow-pop">
+        <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] py-3">
+          <h2 className="flex items-center gap-2 text-[14.5px] font-[650]"><I.clock size={16} className="text-muted-foreground" /> Recent activity</h2>
+          <button type="button" onClick={onClose} aria-label="Close recent activity" autoFocus className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+            <I.x size={15} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto"><ActivityFeed stats={stats} /></div>
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+/* ---------- Queue tables (one shows at a time under the work-queue tabs) ---------- */
+/**
+ * Saved wizard drafts, above the submitted queue. They are stored as Lead applications, which the
+ * queue and its count leave out, so without this list they never reach the dashboard.
+ */
+function UnfinishedApplications({ drafts }: { drafts: Application[] }) {
+  const overlays = useOverlays();
+  if (!drafts.length) return null;
   return (
-    <QueueCard
-      icon={I.fileText}
-      title="Applications requiring action"
-      count={count}
-      screen="applications"
-      setScreen={setScreen}
+    <section aria-label="Unfinished applications" className="border-b border-border-soft">
+      <div className="px-[18px] pb-1 pt-2.5 text-[11.5px] font-semibold text-muted-foreground">
+        Unfinished <span className="font-normal text-subtle">{drafts.length}</span>
+      </div>
+      <ul className="divide-y divide-border-soft">
+        {drafts.map((a) => {
+          const state = (a.wizardState ?? {}) as { productName?: string; displayName?: string };
+          const product = a.productName || state.productName || a.applicationType || "No product yet";
+          return (
+            <li key={a.id} className="flex items-center gap-3 px-[18px] py-2.5 transition-colors hover:bg-hover">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold">{a.clientName || state.displayName || "Unnamed client"}</span>
+                <span className="block truncate text-[11.5px] text-subtle">{product} · Saved {fmtDate(a.updatedAt)}</span>
+              </span>
+              <Btn size="sm" onClick={() => overlays.openWizard({ draftApplicationId: a.id })}>
+                Continue
+              </Btn>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="px-[18px] pb-1 pt-2.5 text-[11.5px] font-semibold text-muted-foreground">In progress</div>
+    </section>
+  );
+}
+
+function ApplicationsQueue({ rows }: { rows: Application[] }) {
+  return (
+    <QueueTable
       rows={rows}
       slice={6}
       empty="No applications need action right now."
@@ -267,14 +272,9 @@ function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[
   );
 }
 
-function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count: number }) {
+function RenewalsQueue({ rows }: { rows: Renewal[] }) {
   return (
-    <QueueCard
-      icon={I.refresh}
-      title="Renewals queue"
-      count={count}
-      screen="renewals"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={6}
       empty="No renewals in the queue."
@@ -301,14 +301,9 @@ function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count
   );
 }
 
-function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: number }) {
+function ClaimsQueue({ rows }: { rows: Claim[] }) {
   return (
-    <QueueCard
-      icon={I.clipboard}
-      title="Claims requiring action"
-      count={count}
-      screen="claims"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={5}
       empty="No claims need action right now."
@@ -329,14 +324,9 @@ function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: nu
   );
 }
 
-function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; count: number }) {
+function TravelQueue({ rows }: { rows: TravelRequest[] }) {
   return (
-    <QueueCard
-      icon={I.plane}
-      title="Travel insurance queue"
-      count={count}
-      screen="travel"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={5}
       empty="No travel requests in the queue."
@@ -357,10 +347,9 @@ function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; c
   );
 }
 
-/* ---------- Rail widgets ---------- */
-function TasksWidget({ tasks }: { tasks: RealTask[] }) {
+/* ---------- Work panels (bodies of the dashboard's work tabs) ---------- */
+function TasksPanel({ tasks }: { tasks: RealTask[] }) {
   const overlays = useOverlays();
-  const setScreen = useScreenNav();
   const [, startTransition] = useTransition();
   const persona = usePersona();
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -390,89 +379,55 @@ function TasksWidget({ tasks }: { tasks: RealTask[] }) {
       }
     });
 
-  const groups: { key: TaskBucket; overdue: boolean }[] = [
-    { key: "overdue", overdue: true },
-    { key: "today", overdue: false },
-    { key: "week", overdue: false },
-  ];
-  const remaining = shownTasks.filter((t) => !t.done).length;
+  /** One list, oldest due first: the title names the work, so no group headings or tag chips. */
+  const dueLabel = (t: RealTask) => {
+    const d = daysUntil(t.dueDate);
+    if (d == null) return { text: "No date", late: false };
+    if (d < 0) return { text: d === -1 ? "1 day late" : `${-d} days late`, late: true };
+    if (d === 0) return { text: "Today", late: false };
+    return { text: taskBucket(t.dueDate).meta, late: false };
+  };
+  const byDue = [...shownTasks].sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  const overdueCount = shownTasks.filter((t) => !t.done && taskBucket(t.dueDate).bucket === "overdue").length;
+  const checkbox = (t: RealTask) => (
+    <span className={cn(
+      "grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
+      t.done ? "border-brand bg-brand text-white" : "border-border-strong text-transparent",
+    )}>
+      {t.done && <I.check size={13} />}
+    </span>
+  );
+  const draftLink = (t: RealTask) => persona.role !== "agent" && t.renewalDraftId ? (
+    <button type="button" onClick={() => setDraftId(t.renewalDraftId)} className="rounded-sm text-[11.5px] font-semibold text-brand-hover underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
+      {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
+    </button>
+  ) : null;
+  const draftModal = persona.role !== "agent" && draftId ? (
+    <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
+  ) : null;
+  const emptyRow = shownTasks.length === 0 ? (
+    <div className="px-[18px] py-3 text-[12.5px] text-subtle">No tasks yet. Add one with New task.</div>
+  ) : null;
+
   return (
-    <Card>
-      <CardHead
-        icon={I.checkSquare}
-        title="My tasks"
-        count={remaining}
-        action={
-          <div className="flex items-center gap-2">
-            <CardLink onClick={() => overlays.openAddTask()}>
-              <I.plus size={13} /> New
-            </CardLink>
-            <CardLink onClick={() => setScreen("tasks")}>
-              Open board <I.chevRight size={13} />
-            </CardLink>
-          </div>
-        }
-      />
-      <div className="py-1">
-        {shownTasks.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">
-            No tasks yet — create one with “+ New”.
-          </div>
-        )}
-        {groups.map((g) => {
-          const items = shownTasks.filter((t) => taskBucket(t.dueDate).bucket === g.key);
-          if (!items.length) return null;
+    <div>
+      {overdueCount > 0 && <div className="border-b border-border-soft px-[18px] py-2 text-[12px] text-muted-foreground"><span className="font-semibold text-red">{overdueCount} late</span> · oldest first</div>}
+      <ul className="divide-y divide-border-soft">
+        {emptyRow && <li>{emptyRow}</li>}
+        {byDue.map((t) => {
+          const due = dueLabel(t);
           return (
-            <div key={g.key} className="py-1">
-              <div className={cn(
-                "flex items-center gap-1.5 px-[18px] pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.04em]",
-                g.overdue ? "text-red" : "text-subtle",
-              )}>
-                {g.overdue && <I.alertTri size={13} />}
-                {BUCKET_LABEL[g.key]}
-                <span className="text-faint">· {items.filter((t) => !t.done).length}</span>
-              </div>
-              {items.map((t) => (
-                <div key={t.id}>
-                <button
-                  onClick={() => toggle(t)}
-                  className="flex w-full items-start gap-[11px] px-[18px] py-2 text-left transition-colors hover:bg-hover"
-                >
-                  <span className={cn(
-                    "mt-px grid size-[18px] shrink-0 place-items-center rounded-md border-[1.6px] transition-colors",
-                    t.done ? "border-brand bg-brand text-white" : "border-border-strong text-transparent",
-                  )}>
-                    {t.done && <I.check size={13} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block text-[13px] font-[550] leading-snug", t.done && "text-subtle line-through")}>
-                      {t.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-subtle">
-                      <span className={cn("rounded-[5px] bg-surface-3 px-1.5 py-px text-[10.5px] font-[650]", TAG_TONE[t.tag] ?? "text-slate")}>
-                        {t.tag}
-                      </span>
-                      {taskBucket(t.dueDate).meta}
-                    </span>
-                  </span>
-                </button>
-                {persona.role !== "agent" && t.renewalDraftId && (
-                  <div className="px-[18px] pb-2 pl-[47px]">
-                    <Btn size="sm" variant="primary" onClick={() => setDraftId(t.renewalDraftId)}>
-                      {t.renewalDraftStatus === "Draft" ? "Open draft" : "View draft"}
-                    </Btn>
-                  </div>
-                )}
-                </div>
-              ))}
-            </div>
+            <li key={t.id} className="flex items-center gap-[11px] px-[18px] py-2.5 transition-colors hover:bg-hover">
+              <button type="button" onClick={() => toggle(t)} aria-label={`${t.done ? "Reopen" : "Complete"} ${t.title}`} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">{checkbox(t)}</button>
+              <span className={cn("min-w-0 flex-1 truncate text-[13px]", t.done && "text-subtle line-through")} title={t.title}>{t.title}</span>
+              {draftLink(t)}
+              <span className={cn("shrink-0 text-[12px] tabular-nums", due.late && !t.done ? "font-semibold text-red" : "text-subtle")}>{due.text}</span>
+            </li>
           );
         })}
-      </div>
-      {persona.role !== "agent" && draftId && (
-        <RenewalEmailDraftModal key={draftId} draftId={draftId} onClose={() => setDraftId(null)} />
-      )}
-    </Card>
+      </ul>
+      {draftModal}
+    </div>
   );
 }
 
@@ -494,85 +449,74 @@ const ACT_META: Record<string, { icon: IconName; tone: Tone }> = {
   dependent: { icon: "users", tone: "slate" },
 };
 
-function ActivityWidget({ stats }: { stats: DashboardStats }) {
+function ActivityFeed({ stats }: { stats: DashboardStats }) {
   return (
-    <Card>
-      <CardHead icon={I.clock} title="Recent activity" />
-      <div className="py-1.5">
-        {stats.activity.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
-        )}
-        {stats.activity.map((a, idx) => {
-          const meta = ACT_META[a.type.split(".")[0]] ?? { icon: "clock" as IconName, tone: "slate" as Tone };
-          const Ico = I[meta.icon];
-          return (
-          <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
-            <div className="relative flex shrink-0 flex-col items-center">
-              <div className={cn("z-10 grid size-[28px] place-items-center rounded-lg", TONE_SOFT[meta.tone])}>
-                <Ico size={14} />
-              </div>
-              {idx < stats.activity.length - 1 && (
-                <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
-              )}
+    <div className="py-1.5">
+      {stats.activity.length === 0 && (
+        <div className="px-[18px] py-3 text-[12.5px] text-subtle">No activity yet.</div>
+      )}
+      {stats.activity.map((a, idx) => {
+        const meta = ACT_META[a.type.split(".")[0]] ?? { icon: "clock" as IconName, tone: "slate" as Tone };
+        const Ico = I[meta.icon];
+        return (
+        <div key={a.id} className="relative flex gap-3 px-[18px] py-2.5">
+          <div className="relative flex shrink-0 flex-col items-center">
+            <div className={cn("z-10 grid size-[28px] place-items-center rounded-lg", TONE_SOFT[meta.tone])}>
+              <Ico size={14} />
             </div>
-            <div className="flex-1 pb-1.5 pt-0.5">
-              <div className="text-[13px] leading-snug">
-                {a.actorName && <b className="font-[650]">{a.actorName} </b>}
-                {a.summary}
-              </div>
-              <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
-            </div>
+            {idx < stats.activity.length - 1 && (
+              <div className="absolute -bottom-[18px] left-1/2 top-[28px] w-0.5 -translate-x-1/2 bg-border" />
+            )}
           </div>
-          );
-        })}
-      </div>
-    </Card>
+          <div className="flex-1 pb-1.5 pt-0.5">
+            <div className="text-[13px] leading-snug">
+              {a.actorName && <b className="font-[650]">{a.actorName} </b>}
+              {a.summary}
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-subtle">{a.when}</div>
+          </div>
+        </div>
+        );
+      })}
+    </div>
   );
 }
 
-function RelationshipWidget({ touchpoints }: { touchpoints: TouchpointRow[] }) {
-  const setScreen = useScreenNav();
+function RelationshipPanel({ touchpoints }: { touchpoints: TouchpointRow[] }) {
   const { openContact } = useRecordNav();
   const tone: Record<string, Tone> = { birthday: "violet", anniversary: "green", renurture: "amber" };
   const ico: Record<string, IconName> = { birthday: "cake", anniversary: "award", renurture: "refresh" };
   const top = touchpoints.slice(0, 6);
   return (
-    <Card>
-      <CardHead
-        icon={I.heart}
-        title="Relationship management"
-        action={<CardLink onClick={() => setScreen("relationship")}>View all <I.chevRight size={13} /></CardLink>}
-      />
-      <div>
-        {top.length === 0 && (
-          <div className="px-[18px] py-3 text-[12.5px] text-subtle">No touchpoints coming up.</div>
-        )}
-        {top.map((r) => {
-          const Ico = I[ico[r.type]];
-          return (
-            <button
-              key={r.clientId + r.type}
-              onClick={() => openContact(r.clientId)}
-              className="flex w-full items-center gap-3 border-b border-border-soft px-[18px] py-[11px] text-left transition-colors last:border-b-0 hover:bg-hover"
-            >
-              <div className={cn("grid size-[34px] shrink-0 place-items-center rounded-[9px]", TONE_SOFT[tone[r.type]])}>
-                <Ico size={17} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold">{r.name}</div>
-                <div className="mt-px text-[11.5px] text-muted-foreground">{r.sub}</div>
-              </div>
-              <span className={cn(
-                "whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-bold",
-                r.daysUntil <= 7 ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
-              )}>
-                {r.when}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
+    <div>
+      {top.length === 0 && (
+        <div className="px-[18px] py-3 text-[12.5px] text-subtle">No touchpoints coming up.</div>
+      )}
+      {top.map((r) => {
+        const Ico = I[ico[r.type]];
+        return (
+          <button
+            key={r.clientId + r.type}
+            onClick={() => openContact(r.clientId)}
+            className="flex w-full items-center gap-3 border-b border-border-soft px-[18px] py-[11px] text-left transition-colors last:border-b-0 hover:bg-hover"
+          >
+            <div className={cn("grid size-[34px] shrink-0 place-items-center rounded-[9px]", TONE_SOFT[tone[r.type]])}>
+              <Ico size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold">{r.name}</div>
+              <div className="mt-px text-[11.5px] text-muted-foreground">{r.sub}</div>
+            </div>
+            <span className={cn(
+              "whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-bold",
+              r.daysUntil <= 7 ? "bg-amber-soft text-amber" : "bg-surface-3 text-muted-foreground",
+            )}>
+              {r.when}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -694,6 +638,68 @@ export function Dashboard({
   const persona = usePersona();
   useExportErrorToast();
   const { greeting, dateStr } = manilaHeading();
+  const overlays = useOverlays();
+  // One card for everything that needs doing: tasks, the four record queues, then relationships.
+  // `noun` words the "View all …" link, since the queue labels carry the word "queue".
+  const WORK_TABS = [
+    { id: "tasks", label: "My tasks", noun: "tasks", count: tasks.filter((t) => !t.done).length, screen: "tasks" },
+    { id: "applications", label: "Applications queue", noun: "applications", count: stats.kpis.applicationsInProgress, screen: "applications" },
+    { id: "renewals", label: "Renewals queue", noun: "renewals", count: stats.kpis.upcomingRenewals, screen: "renewals" },
+    { id: "claims", label: "Claims queue", noun: "claims", count: stats.kpis.openClaims, screen: "claims" },
+    { id: "travel", label: "Travel queue", noun: "travel requests", count: stats.kpis.openTravel, screen: "travel" },
+    { id: "relationship", label: "Relationships", noun: "relationships", count: touchpoints.length, screen: "relationship" },
+  ] as const;
+  type WorkTab = (typeof WORK_TABS)[number]["id"];
+  const [workTab, setWorkTab] = useState<WorkTab>("tasks");
+  const activeWork = WORK_TABS.find((w) => w.id === workTab) ?? WORK_TABS[0];
+  const workPanel = (id: WorkTab) =>
+    id === "tasks" ? <TasksPanel tasks={tasks} />
+      : id === "applications" ? <><UnfinishedApplications drafts={queues.drafts} /><ApplicationsQueue rows={queues.applications} /></>
+        : id === "renewals" ? <RenewalsQueue rows={queues.renewals} />
+          : id === "claims" ? <ClaimsQueue rows={queues.claims} />
+            : id === "travel" ? <TravelQueue rows={queues.travel} />
+              : <RelationshipPanel touchpoints={touchpoints} />;
+  const workActions = (
+    <span className="flex shrink-0 items-center gap-3 pb-1.5 pr-1">
+      {workTab === "tasks" && (
+        <CardLink onClick={() => overlays.openAddTask()}>
+          <I.plus size={13} /> New task
+        </CardLink>
+      )}
+      <CardLink onClick={() => setScreen(activeWork.screen)}>
+        {workTab === "tasks" ? "Open board" : `View all ${activeWork.noun}`} <I.chevRight size={13} />
+      </CardLink>
+    </span>
+  );
+  const [activityOpen, setActivityOpen] = useState(false);
+  const workCard = (
+    <Card className="grid grid-cols-[220px_1fr] overflow-hidden max-[900px]:grid-cols-1">
+      <div className="flex h-full flex-col border-r border-border-soft bg-card p-2 max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:border-b max-[900px]:border-r-0" role="tablist" aria-label="Work" aria-orientation="vertical">
+        {WORK_TABS.map((w) => {
+          const on = workTab === w.id;
+          return (
+            <button key={w.id} type="button" role="tab" aria-selected={on} onClick={() => setWorkTab(w.id)}
+              className={cn("mb-px flex min-h-[37px] shrink-0 items-center gap-[11px] rounded-sm px-[11px] py-1.5 text-left text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30", on ? "bg-brand-soft font-[650] text-brand-hover" : "font-[550] text-muted-foreground hover:bg-hover hover:text-foreground")}>
+              <span className="flex-1">
+                <span className="block">{w.label}</span>
+                {w.id === "applications" && queues.drafts.length > 0 && (
+                  <span className="block text-[11px] font-normal text-subtle">{queues.drafts.length} unfinished</span>
+                )}
+              </span>
+              <span className={cn("grid h-[19px] min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums", on ? "bg-brand text-white" : w.count ? "bg-surface-3 text-muted-foreground" : "text-subtle")}>{w.count}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-3 border-b border-border-soft px-[18px] pt-3">
+          <h3 className="pb-2.5 text-[14.5px] font-[650]">{activeWork.label}</h3>
+          {workActions}
+        </div>
+        {workPanel(workTab)}
+      </div>
+    </Card>
+  );
   return (
     <div>
       <PageHead
@@ -702,31 +708,20 @@ export function Dashboard({
            drops the leading space of a text node that follows an expression,
            which hydration then rejects. */
         sub={`${dateStr} · Here’s what needs your attention today.`}
-        actions={persona.can("dashboard", "export") ? <ExportMenu /> : undefined}
-      />
-
-      <AlertBar setScreen={setScreen} stats={stats} />
-      <KpiRow setScreen={setScreen} stats={stats} />
-      <RevenueWidget setScreen={setScreen} stats={stats} />
-
-      <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
-        <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ApplicationsCard setScreen={setScreen} rows={queues.applications} count={stats.kpis.applicationsInProgress} />
-          <RenewalsCard setScreen={setScreen} rows={queues.renewals} count={stats.kpis.upcomingRenewals} />
-          {/* Side by side only on a genuinely wide monitor: below that the pair
-              cannot fit client + status without clipping the status column, which
-              is the one cell these queues exist to show. */}
-          <div className="grid grid-cols-1 gap-4 min-[1700px]:grid-cols-2">
-            <ClaimsCard setScreen={setScreen} rows={queues.claims} count={stats.kpis.openClaims} />
-            <TravelCard setScreen={setScreen} rows={queues.travel} count={stats.kpis.openTravel} />
+        actions={
+          <div className="flex items-center gap-2">
+            <Btn onClick={() => setActivityOpen((v) => !v)} aria-expanded={activityOpen} aria-haspopup="dialog">
+              <I.clock size={15} /> Recent activity
+              {stats.activity.length > 0 && <span className="rounded-full bg-surface-3 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">{stats.activity.length}</span>}
+            </Btn>
+            {persona.can("dashboard", "export") && <ExportMenu />}
           </div>
-        </div>
-        <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <TasksWidget tasks={tasks} />
-          <RelationshipWidget touchpoints={touchpoints} />
-          <ActivityWidget stats={stats} />
-        </div>
-      </div>
+        }
+      />
+      <GlanceCard setScreen={setScreen} stats={stats} />
+      <RevenueWidget setScreen={setScreen} stats={stats} />
+      {workCard}
+      {activityOpen && <ActivityDrawer stats={stats} onClose={() => setActivityOpen(false)} />}
     </div>
   );
 }

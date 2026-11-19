@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AppRole } from "@/lib/auth/permissions";
+import { isRetainedRenewal } from "@/lib/renewals/lifecycle";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const REPORT_FAMILIES = ["overview", "sales", "commission", "agents", "conversion", "renewal"] as const;
@@ -27,6 +28,8 @@ export interface ReportsData {
 }
 
 export const REPORT_DETAIL_CAP = 500;
+/** Renewal-family drill selecting every retained outcome (Paid and Renewed). */
+const RETAINED_DRILL = "outcome:retained";
 const EMPTY_MONEY = (): MoneyTotals => ({ PHP: 0, USD: 0, EUR: 0 });
 const currency = (value: string | null | undefined): Currency =>
   value === "USD" || value === "EUR" ? value : "PHP";
@@ -152,7 +155,7 @@ export async function getReportsData(filters: ReportFilters, scopeInput: ReportS
   const commissionMoney=EMPTY_MONEY(); commissions.filter((c)=>inRange(commissionDate(c),range.start,range.end)).forEach((c)=>addMoney(commissionMoney,c.amount??c.estimated_amount,c.currency));
   const conversion = visibleClients.filter((c)=>inRange(c.created_at,range.start,range.end));
   const renewalRows = renewals.filter((r)=>inRange(r.renewal_due_date,range.start,range.end)).map((r)=>({id:r.id,href:"/renewals",reference:r.reference_no??r.policies?.reference_no??"—",client:person(r.clients),product:r.policies?.policy_number??"Policy",agent:nameFor(users,ownerOf(r)),date:r.renewal_due_date,status:r.status,currency:currency(r.policies?.currency),amount:r.policies?.premium_amount??null}));
-  const retained=renewalRows.filter((r)=>r.status==="Renewed").length, lapsed=renewalRows.filter((r)=>r.status==="Lapsed").length;
+  const retained=renewalRows.filter((r)=>isRetainedRenewal(r.status)).length, lapsed=renewalRows.filter((r)=>r.status==="Lapsed").length;
   const canSeeAgentCommission=scope.role==="admin";
 
   let stats:ReportStat[]=[], charts:ReportsData["charts"]=[], detail:ReportDetailRow[]=[];
@@ -177,9 +180,9 @@ export async function getReportsData(filters: ReportFilters, scopeInput: ReportS
     const points=stages.map(label=>({label,count:conversion.filter(c=>stage(c)===label).length,amounts:EMPTY_MONEY(),drill:`stage:${label}`})); const converted=points.at(-1)?.count??0;
     stats=[{label:"New contacts",value:conversion.length},{label:"Converted",value:converted,drill:"stage:Converted"},{label:"Overall conversion",value:conversion.length?converted/conversion.length*100:0},{label:"Lost",value:conversion.filter(c=>c.lead_status==="Lost").length,drill:"status:Lost"}];charts=[{title:"Current lifecycle stage · contacts created in period",points}];detail=conversion.map(c=>({id:c.id,href:`/clients/${c.id}`,reference:c.reference_no??"—",client:person(c),product:c.product_interest??"—",agent:nameFor(users,c.assigned_user_id),date:c.created_at,status:stage(c),currency:null,amount:null,note:c.lead_status??undefined}));
   } else {
-    stats=[{label:"Renewal rate",value:retained+lapsed?retained/(retained+lapsed)*100:0},{label:"Retained",value:retained,drill:"status:Renewed"},{label:"Lapsed",value:lapsed,drill:"status:Lapsed"},{label:"Due in period",value:renewalRows.length}];charts=[{title:"Retained vs lapsed · by due date",points:pointMap(renewalRows.filter(r=>["Renewed","Lapsed"].includes(r.status)).map(r=>({label:r.status,amount:r.amount,currency:r.currency,drill:`status:${r.status}`})))},{title:"Renewals by month",points:pointMap(renewalRows.map(r=>({label:new Date(r.date!).toLocaleDateString("en-PH",{month:"short"}),amount:r.amount,currency:r.currency,drill:`month:${r.date!.slice(0,7)}`})))}];detail=renewalRows;
+    stats=[{label:"Renewal rate",value:retained+lapsed?retained/(retained+lapsed)*100:0},{label:"Retained",value:retained,drill:RETAINED_DRILL},{label:"Lapsed",value:lapsed,drill:"status:Lapsed"},{label:"Due in period",value:renewalRows.length}];charts=[{title:"Retained vs lapsed · by due date",points:pointMap(renewalRows.filter(r=>isRetainedRenewal(r.status)||r.status==="Lapsed").map(r=>isRetainedRenewal(r.status)?{label:"Retained",amount:r.amount,currency:r.currency,drill:RETAINED_DRILL}:{label:"Lapsed",amount:r.amount,currency:r.currency,drill:"status:Lapsed"}))},{title:"Renewals by month",points:pointMap(renewalRows.map(r=>({label:new Date(r.date!).toLocaleDateString("en-PH",{month:"short"}),amount:r.amount,currency:r.currency,drill:`month:${r.date!.slice(0,7)}`})))}];detail=renewalRows;
   }
-  if(filters.drill){const [kind,...rest]=filters.drill.split(":"),value=rest.join(":");detail=detail.filter(r=>kind==="status"?r.status===value:kind==="agent"?r.agent===value:kind==="product"?r.product===value:kind==="month"?r.date?.slice(0,7)===value:kind==="kind"?r.product===value:kind==="stage"?r.status===value:true);}
+  if(filters.drill){const [kind,...rest]=filters.drill.split(":"),value=rest.join(":");detail=detail.filter(r=>kind==="status"?r.status===value:kind==="agent"?r.agent===value:kind==="product"?r.product===value:kind==="month"?r.date?.slice(0,7)===value:kind==="kind"?r.product===value:kind==="stage"?r.status===value:kind==="outcome"?filters.family!=="renewal"||value!=="retained"||isRetainedRenewal(r.status):true);}
   detail.sort((a,b)=>(b.date??"").localeCompare(a.date??"")); const detailTotal=detail.length;
   return {filters,periodLabel:range.label,comparisonLabel:range.comparisonLabel,stats,charts,detail:detail.slice(0,REPORT_DETAIL_CAP),detailTotal,detailCapped:detailTotal>REPORT_DETAIL_CAP,canSeeAgentCommission,sourceCapped,sourceCapNotice};
 }

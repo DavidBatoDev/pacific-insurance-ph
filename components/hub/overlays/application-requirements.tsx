@@ -27,7 +27,7 @@ import { DocumentUploadForm } from "@/components/documents/document-upload-form"
 import { PdfUpload } from "@/components/documents/pdf-upload";
 import { countsAsCompleted, deliveryOutcomeLabel, type SubmissionRecord } from "@/lib/submissions/submission-email";
 import { APPLICATION_WORKFLOW_STEPS, isStepUnlocked, workflowProgress, type WorkflowStepNumber } from "@/lib/applications/workflow";
-import { groupRequirementSections, isMedicalQuestionnaireName, requirementSection } from "@/lib/applications/requirement-sections";
+import { groupRequirementSections, isMedicalQuestionnaireName, requirementLabel, requirementLabelText, requirementSection } from "@/lib/applications/requirement-sections";
 import { fmtDate, peso } from "@/lib/format";
 import { I } from "../icons";
 import { AREA, Btn, Field, INPUT, StatusBadge } from "../primitives";
@@ -207,7 +207,7 @@ function PacificCrossReplyStep({
             <input aria-label="Reply note" className={INPUT} value={note} onChange={(event) => setNote(event.target.value)} placeholder="What the email said" />
           </Field>
           <Field label="Received">
-            <input aria-label="Reply received" type="date" className={INPUT} value={received} onChange={(event) => setReceived(event.target.value)} />
+            <input aria-label="Reply received" type="date" max="9999-12-31" className={INPUT} value={received} onChange={(event) => setReceived(event.target.value)} />
           </Field>
         </div>
         <div className="mt-3 flex justify-end">
@@ -377,7 +377,7 @@ function MedicalReviewStep({ applicationId, payload, onReload, onCleared, onOpen
         <Field label={`Original questionnaire / supporting records for ${subject.name}`} required className="mt-3">
           <select className={INPUT} value={selectedId} disabled={!review.canClear || pending} onChange={(event) => setMapping((current) => ({ ...current, [subject.key]: event.target.value }))}>
             <option value="">Choose an existing questionnaire item…</option>
-            {candidates.map((item) => <option key={item.id} value={item.id}>{item.documentName}{item.appliesTo ? ` — ${item.appliesTo}` : ""} · {item.status} · {item.id.slice(0, 8)}</option>)}
+            {candidates.map((item) => <option key={item.id} value={item.id}>{requirementLabelText(item)} · {item.status} · {item.id.slice(0, 8)}</option>)}
           </select>
         </Field>
         {selected && <p className="mt-2 text-[12px]">Checklist: <b>{selected.status}</b>{!originals.length && " · No linked original"}</p>}
@@ -624,8 +624,8 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                     <div className="flex items-center gap-3">
                       <RequirementStatusDot status={item.status} />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>
-                        {(item.appliesTo || item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{item.appliesTo ?? item.notes}</div>}
+                        <div className="text-[13px] font-semibold">{requirementLabel(item).title}{!item.isRequired && <span className="ml-1.5 font-normal text-muted-foreground">Optional</span>}</div>
+                        {(requirementLabel(item).owner ?? item.notes) && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{requirementLabel(item).owner ?? item.notes}</div>}
                         <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={item.isRequired} disabled={pending} onChange={() => toggleRequired(item)} /> Count as required</label>
                       </div>
                       <select aria-label={`Status for ${item.documentName}`} value={item.status} onChange={(event) => void update(item, event.target.value as ApplicationRequirementStatus)} className="h-8 rounded-md border border-border-strong bg-card px-2 text-[12px] font-semibold outline-none focus:border-brand disabled:opacity-60">
@@ -637,7 +637,8 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                         clientId={payload.application.clientId}
                         applicationId={applicationId}
                         requirementId={item.id}
-                        requirementLabel={`${payload.application.referenceNo ?? "Application"} · ${payload.clientName} · ${item.documentName}${item.appliesTo ? ` · ${item.appliesTo}` : ""}`}
+                        requirementLabel={`${payload.application.referenceNo ?? "Application"} · ${payload.clientName} · ${requirementLabelText(item)}`}
+                        requirement={item}
                         onAttached={(receipt) => {
                           latestStatusPick.current[item.id] = (latestStatusPick.current[item.id] ?? 0) + 1;
                           setRowStatus(item.id, receipt.requirementStatus);

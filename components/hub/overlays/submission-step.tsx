@@ -7,6 +7,7 @@ import { EmailSendControls } from "@/components/email/email-send-controls";
 import { RecentEmailSends } from "@/components/email/recent-email-sends";
 import { RequirementStatusDot } from "@/components/hub/requirement-status";
 import type { EmailDraftSeed, EmailOrigin } from "@/lib/communications/outbound-email.types";
+import { requirementLabelText } from "@/lib/applications/requirement-sections";
 import { fmtDate } from "@/lib/format";
 import { emailClipboardText, type SubmissionKind } from "@/lib/submissions/submission-email";
 import { cn } from "@/lib/utils";
@@ -175,7 +176,7 @@ export function SubmissionStep({
               <li key={item.requirementId} className="flex items-start gap-2 text-[12px]">
                 <RequirementStatusDot status={item.status} className="size-5 [&_svg]:size-[11px]" />
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium">{item.documentName}{item.appliesTo ? ` — ${item.appliesTo}` : ""}</div>
+                  <div className="font-medium">{requirementLabelText(item)}</div>
                   {item.documents.length ? (
                     <div className="truncate text-[11.5px] text-muted-foreground">{item.documents.map((document) => document.name).join(", ")}</div>
                   ) : (

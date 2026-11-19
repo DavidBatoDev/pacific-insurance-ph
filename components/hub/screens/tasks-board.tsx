@@ -99,7 +99,7 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
                         <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-subtle">
                           <span
                             className={cn(
-                              "rounded-[5px] bg-surface-3 px-1.5 py-px text-[10.5px] font-[650]",
+                              "rounded-[5px] bg-surface-3 px-1.5 py-px text-[11px] font-[650]",
                               TAG_TONE[t.tag] ?? "text-slate",
                             )}
                           >
@@ -110,7 +110,7 @@ export function TasksBoard({ tasks }: { tasks: Task[] }) {
                             <span className="font-semibold text-red">· High</span>
                           )}
                           {t.linkedRecordRef && (
-                            <span className="font-mono text-[10.5px]">{t.linkedRecordRef}</span>
+                            <span className="font-mono text-[11px]">{t.linkedRecordRef}</span>
                           )}
                         </span>
                       </span>

@@ -101,7 +101,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
             <div className="min-w-0 flex-1 text-[13px] font-[650]">{f.convertClientName}</div>
             <span
               className={cn(
-                "rounded-full border px-2 py-0.5 text-[10.5px] font-bold",
+                "rounded-full border px-2 py-0.5 text-[11px] font-bold",
                 f.status === "Lead"
                   ? "border-violet-border bg-violet-soft text-violet"
                   : "border-green-border bg-green-soft text-green",
@@ -119,7 +119,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
                 {f.existingClientName || f.displayName}
               </div>
             </div>
-            <span className="rounded-full border border-green-border bg-green-soft px-2 py-0.5 text-[10.5px] font-bold text-green">
+            <span className="rounded-full border border-green-border bg-green-soft px-2 py-0.5 text-[11px] font-bold text-green">
               Linked
             </span>
           </div>
@@ -388,7 +388,7 @@ export function Step2({
           {!lockIdentity && (
             <>
               <Field label="Date of birth">
-                <input autoComplete="off" className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
+                <input autoComplete="off" className={INPUT} type="date" max="9999-12-31" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
               </Field>
               <Field label="Age">
                 <input autoComplete="off" className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />
@@ -463,7 +463,7 @@ export function Section({
             )}
           >
             {tone === "done" && <I.check size={10} strokeWidth={3} />}
-            {tone === "attention" && <span className="text-[10px] font-bold leading-none">!</span>}
+            {tone === "attention" && <span className="text-[11px] font-bold leading-none">!</span>}
           </span>
         )}
         <h3 className="flex-1 text-[11.5px] font-bold uppercase tracking-[0.07em] text-subtle">{title}</h3>
