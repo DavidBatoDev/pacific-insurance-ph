@@ -14,7 +14,7 @@ import { PdfUpload } from "@/components/documents/pdf-upload";
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
 import { I } from "../../icons";
-import { isIndividualProposalProduct, proposalStatusLine } from "../../lead-config";
+import { isIndividualProposalProduct, isProposalAccepted, proposalStatusLine } from "../../lead-config";
 import { ProposalReceiptUpload, ProposalUploadedNotice } from "../../overlays/generate-proposal";
 import { useOverlays } from "../../overlays/overlay-provider";
 import { openPortalWindow } from "../../overlays/portal-window";
@@ -79,17 +79,19 @@ export function ProposalCard({
     setUploaded({ proposal, heading, base: proposalDocument, confirming: true });
 
   const STEPS = ["Requested", "Received", "Sent", "Decision"];
-  const stepIndex = STEPS.indexOf(status ?? "");
+  // Advancing past Proposal is the acceptance, so the tracker completes and stops asking for a decision.
+  const accepted = isProposalAccepted(status, client.proposalDecision, client.leadStage);
+  const stepIndex = accepted ? STEPS.length : STEPS.indexOf(status ?? "");
   const individual = isIndividualProposalProduct(client.productInterest);
   const stepBar = (
-    <div className="flex items-center gap-1.5" aria-label={`Proposal ${status ?? "not started"}`}>
+    <div className="flex items-center gap-1.5" aria-label={`Proposal ${accepted ? "accepted" : status ?? "not started"}`}>
       {STEPS.map((s, i) => (
         <span key={s} title={s} className={cn("h-1.5 flex-1 rounded-full", stepIndex >= 0 && i < stepIndex ? "bg-brand" : stepIndex === i ? "bg-violet" : "bg-surface-3")} />
       ))}
     </div>
   );
   const statusText = status
-    ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest)
+    ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest, accepted)
     : `No proposal ${individual ? "generated" : "requested"} yet.`;
   const portalLogo = <Image src="/pacific-cross-logo.png" alt="" width={16} height={16} className="size-4 shrink-0 rounded-[3px]" />;
   const portalSettingsLink = !pacificCrossPortalUrl && individual ? (
@@ -109,8 +111,8 @@ export function ProposalCard({
         {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received without PDF"}
       </Btn>
     ),
-    status === "Sent" && <Btn key="decide" size="sm" onClick={onRecordDecision}>Record decision</Btn>,
-    status === "Decision" && <Btn key="update" size="sm" onClick={onRecordDecision}>Update decision</Btn>,
+    !accepted && status === "Sent" && <Btn key="decide" size="sm" onClick={onRecordDecision}>Record decision</Btn>,
+    !accepted && status === "Decision" && <Btn key="update" size="sm" onClick={onRecordDecision}>Update decision</Btn>,
   ].filter(Boolean);
   const receiptUpload = (!status || status === "Requested") && !uploaded?.confirming ? (
     <ProposalReceiptUpload
@@ -182,7 +184,7 @@ export function ProposalCard({
         </div>
         {stepBar}
         {portalSettingsLink}
-        {status === "Received" && (
+        {status === "Received" && !accepted && (
           <div className="rounded-md border border-border-soft bg-surface-2 p-3">
             <p className="truncate text-[11.5px] text-muted-foreground" title={recipient ?? undefined}>
               Send to <span className="font-medium text-foreground">{recipient ?? "no email on file"}</span>

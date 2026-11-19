@@ -291,9 +291,11 @@ export function proposalStatusLine(
   status: string | null | undefined,
   decision: string | null | undefined,
   productInterest: string | null | undefined,
+  accepted = false,
 ): string {
   const product = productInterest ?? "carrier";
   if (!status) return "";
+  if (accepted) return `Client accepted — ${product} quote.`;
   if (status !== "Decision") return `Proposal ${status.toLowerCase()} — ${product} quote.`;
   switch (decision) {
     case "Awaiting Decision":
@@ -308,11 +310,30 @@ export function proposalStatusLine(
   }
 }
 
-/** What the board chips show: the sub-state once there is one, else the step. */
+/** Lead stages after Proposal. Reaching one means the client picked a plan. */
+const POST_PROPOSAL_STAGES: Record<string, true> = { "Product Selected": true, "Application Started": true, Converted: true };
+
+/**
+ * A proposal is accepted once the lead has moved past the Proposal stage: per
+ * docs/lead-stage-status.md the Advance to Product Selected *is* the acceptance, so no separate
+ * "Accepted" decision is stored. A declined proposal never counts, whatever the stage.
+ */
+export function isProposalAccepted(
+  status: string | null | undefined,
+  decision: string | null | undefined,
+  leadStage: string | null | undefined,
+): boolean {
+  return (status === "Received" || status === "Sent" || status === "Decision")
+    && decision !== "Declined"
+    && !!leadStage && Object.hasOwn(POST_PROPOSAL_STAGES, leadStage);
+}
+
+/** What the board chips show: Accepted once the lead moved on, else the sub-state, else the step. */
 export const proposalChipLabel = (
   status: string | null | undefined,
   decision: string | null | undefined,
-) => (status === "Decision" && decision ? decision : status);
+  leadStage?: string | null,
+) => (isProposalAccepted(status, decision, leadStage) ? "Accepted" : status === "Decision" && decision ? decision : status);
 
 /**
  * Product-interest colour coding (board card dots, interest widget). Display only: the selectable

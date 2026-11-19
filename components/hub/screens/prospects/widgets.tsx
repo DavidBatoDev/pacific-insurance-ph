@@ -2,7 +2,7 @@
 
 import type { Client } from "@/lib/repositories/clients/client.entity";
 import { cn } from "@/lib/utils";
-import { isIndividualProposalProduct, PRODUCT_COLORS, proposalChipLabel } from "../../lead-config";
+import { isIndividualProposalProduct, isProposalAccepted, PRODUCT_COLORS, proposalChipLabel } from "../../lead-config";
 import { Avatar, Btn, Card, CardHead, Pill } from "../../primitives";
 import { FollowPill } from "./badges";
 
@@ -61,8 +61,8 @@ export function ProposalTracking({
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Pill tone={l.proposalDecision === "Declined" ? "red" : l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"}>
-                  {proposalChipLabel(l.proposalStatus, l.proposalDecision) ?? "Not requested"}
+                <Pill tone={l.proposalDecision === "Declined" ? "red" : isProposalAccepted(l.proposalStatus, l.proposalDecision, l.leadStage) ? "green" : l.proposalStatus === "Received" ? "blue" : l.proposalStatus === "Sent" ? "violet" : "slate"}>
+                  {proposalChipLabel(l.proposalStatus, l.proposalDecision, l.leadStage) ?? "Not requested"}
                 </Pill>
                 {l.proposalStatus === "Requested" && (
                   <Btn size="sm" onClick={() => onMarkReceived(l)}>
