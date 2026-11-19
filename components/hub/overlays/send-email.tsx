@@ -14,6 +14,7 @@ import type { EmailTemplate } from "@/lib/repositories/templates/email-template.
 import { fillTemplate, pesoMerge, type MergeContext } from "@/lib/templates/merge";
 import { I } from "../icons";
 import { usePersona } from "../persona";
+import { cn } from "@/lib/utils";
 import { Field, INPUT } from "../primitives";
 import { LibraryAttachmentPicker, templateNeedsLibraryAttachment } from "./library-attachment-picker";
 import { OptionalLibraryAttachments } from "./optional-library-attachments";
@@ -158,79 +159,114 @@ export function EmailForm({
     onSent(view);
   }, [router, onSent]);
 
-  return (
+  const [pane, setPane] = useState<"write" | "preview">("write");
+  const attachmentCount = (requiredLibraryDocumentId ? 1 : 0) + optionalLibraryDocumentIds.length + documentIds.length + emailAttachments.length;
+
+  const headerFields = (
+    <div className="grid grid-cols-2 gap-3.5">
+      <Field label="Template" required>
+        <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
+          <option value="">Select…</option>
+          {templates.map((t) => (
+            <option key={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Recipient" required>
+        <input className={INPUT} type="email" value={recipient} readOnly={recipientLocked}
+          title={recipientLocked ? "Sent to the selected Pacific Cross contact." : undefined}
+          onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
+      </Field>
+    </div>
+  );
+  const subjectField = (
+    <Field label="Subject" required className="mt-3.5">
+      <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
+    </Field>
+  );
+  const messageArea = (rows = 150) => (
+    <textarea
+      aria-label="Message"
+      className="w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand"
+      style={{ minHeight: rows }}
+      value={body}
+      onChange={(e) => setBody(e.target.value)}
+    />
+  );
+  const attachments = canAttachLibrary ? (
     <>
-      <div className="grid grid-cols-2 gap-3.5">
-        <Field label="Template" required>
-          <select className={INPUT} value={tpl} onChange={(e) => applyTemplate(e.target.value)}>
-            <option value="">Select…</option>
-            {templates.map((t) => (
-              <option key={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Recipient" required>
-          <input className={INPUT} type="email" value={recipient} readOnly={recipientLocked}
-            title={recipientLocked ? "Sent to the selected Pacific Cross contact." : undefined}
-            onChange={(e) => setRecipient(e.target.value)} placeholder="name@email.com" />
-        </Field>
-      </div>
-      <Field label="Subject" required className="mt-3.5">
-        <input className={INPUT} value={subject} onChange={(e) => setSubject(e.target.value)} />
-      </Field>
-      <Field label="Message" className="mt-3.5">
-        <textarea
-          className="min-h-[150px] w-full rounded-md border border-border-strong bg-card px-3 py-2.5 text-[13px] leading-relaxed outline-none focus:border-brand"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-      </Field>
-      {canAttachLibrary && (
-        <>
-          <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
-          <OptionalLibraryAttachments
-            load={loadOptional}
-            value={optionalLibraryDocumentIds}
-            onChange={setOptionalLibraryDocumentIds}
-            exclude={requiredLibraryDocumentId || undefined}
-            fixHref={`/clients/${target.clientId}/edit`}
-          />
-          <EmailAttachmentChoices
-            clientId={target.clientId}
-            documentIds={documentIds}
-            onDocumentIds={setDocumentIds}
-            emailAttachments={emailAttachments}
-            onEmailAttachments={setEmailAttachments}
-            lockedDocumentIds={lockedDocumentIds}
-          />
-        </>
-      )}
-
-      <div className="mt-5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-subtle">
-          <I.mail size={13} /> Preview
-        </div>
-        <div className="rounded-md border border-border-soft bg-surface-2 p-4">
-          <div className="mb-2.5 text-[11.5px] text-subtle">
-            <div>From: Pacific Insurance PH &lt;{SENDER_MAILBOX}&gt;</div>
-            <div>To: {recipient || target.name}</div>
-          </div>
-          <div className="text-[13.5px] font-[650]">{subject}</div>
-          <div className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">{body}</div>
-        </div>
-      </div>
-
-      {needsRequired && !requiredLibraryDocumentId && (
-        <div className="mt-3.5 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
-          <I.alertTri size={16} className="mt-0.5 shrink-0" />
-          <div>
-            <b>Carrier attachment required.</b> Select an approved asset above, or choose a template
-            that doesn&apos;t need one.
-          </div>
-        </div>
-      )}
-
-      <EmailSendControls draft={draft} ready={ready} onSent={handleSent} />
+      <LibraryAttachmentPicker clientId={target.clientId} templateName={tpl} value={requiredLibraryDocumentId} onChange={setRequiredLibraryDocumentId} />
+      <OptionalLibraryAttachments
+        load={loadOptional}
+        value={optionalLibraryDocumentIds}
+        onChange={setOptionalLibraryDocumentIds}
+        exclude={requiredLibraryDocumentId || undefined}
+        fixHref={`/clients/${target.clientId}/edit`}
+      />
+      <EmailAttachmentChoices
+        clientId={target.clientId}
+        documentIds={documentIds}
+        onDocumentIds={setDocumentIds}
+        emailAttachments={emailAttachments}
+        onEmailAttachments={setEmailAttachments}
+        lockedDocumentIds={lockedDocumentIds}
+      />
     </>
+  ) : null;
+  // The preview reads as a real email: a white sheet with a firm border and a resting shadow.
+  const previewSheet = (
+    <div className="overflow-hidden rounded-lg border border-border-strong bg-card shadow-sm">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-border-soft bg-surface-2 px-4 py-3 text-[12px]">
+        <dt className="text-subtle">From</dt><dd className="break-all">Pacific Insurance PH &lt;{SENDER_MAILBOX}&gt;</dd>
+        <dt className="text-subtle">To</dt><dd className="break-all font-semibold">{recipient || target.name}</dd>
+        <dt className="text-subtle">Subject</dt><dd className="break-words font-semibold">{subject || <span className="font-normal text-subtle">(no subject)</span>}</dd>
+        <dt className="text-subtle">Files</dt><dd>{attachmentCount ? `${attachmentCount} attached` : "None"}</dd>
+      </dl>
+      <div className="max-h-72 overflow-auto whitespace-pre-wrap px-4 py-3.5 text-[13px] leading-relaxed text-foreground">{body || <span className="text-subtle">No message yet.</span>}</div>
+    </div>
+  );
+  const requiredAlert = needsRequired && !requiredLibraryDocumentId ? (
+    <div className="mt-3.5 flex gap-2.5 rounded-md border border-red-border bg-red-soft p-3.5 text-[12.5px] leading-relaxed text-red">
+      <I.alertTri size={16} className="mt-0.5 shrink-0" />
+      <div>
+        <b>Carrier attachment required.</b> Select an approved asset above, or choose a template
+        that doesn&apos;t need one.
+      </div>
+    </div>
+  ) : null;
+  const sendControls = <EmailSendControls draft={draft} ready={ready} onSent={handleSent} />;
+
+  // Write and Preview share one box, so the preview never adds a second long block to scroll past.
+  return (
+    <div>
+      {headerFields}
+      {subjectField}
+      <div className="mt-3.5 overflow-hidden rounded-lg border border-border-strong">
+        <div role="tablist" aria-label="Message" className="flex border-b border-border-soft bg-surface-2">
+          {(["write", "preview"] as const).map((p) => (
+            <button key={p} type="button" role="tab" aria-selected={pane === p} onClick={() => setPane(p)}
+              className={cn("px-4 py-2 text-[12.5px] font-semibold transition-colors", pane === p ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {p === "write" ? "Write" : "Preview"}
+            </button>
+          ))}
+          <span className="ml-auto self-center px-3 text-[11.5px] text-subtle">{attachmentCount ? `${attachmentCount} file${attachmentCount === 1 ? "" : "s"}` : "No files"}</span>
+        </div>
+        {pane === "write"
+          ? <div className="p-2">{messageArea(170)}</div>
+          : <div className="bg-surface-3 p-3">{previewSheet}</div>}
+      </div>
+      {attachments && (
+        // Opens on its own when the template needs a carrier file, so the red notice below points at something visible.
+        <details open={needsRequired && !requiredLibraryDocumentId ? true : undefined} className="group mt-3.5 rounded-md border border-border-soft">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 text-[12.5px] font-semibold [&::-webkit-details-marker]:hidden">
+            <I.chevRight size={14} className="transition-transform group-open:rotate-90" /> Attachments
+            <span className="font-normal text-subtle">{attachmentCount ? `${attachmentCount} selected` : "None selected"}</span>
+          </summary>
+          <div className="border-t border-border-soft px-3.5 pb-3.5">{attachments}</div>
+        </details>
+      )}
+      {requiredAlert}
+      {sendControls}
+    </div>
   );
 }

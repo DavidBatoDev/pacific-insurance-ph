@@ -84,6 +84,95 @@ export function ContactComposer({
       router.refresh();
     });
 
+  const emailForm = (
+    <EmailForm
+      key={emailFormKey}
+      target={{
+        clientId: client.id,
+        name: client.fullName,
+        email: client.email,
+        product: client.productInterest,
+        premium: client.estPremium,
+      }}
+      templates={templates}
+      initialTemplate={initialEmailTemplate}
+      initialDraft={initialEmailDraft}
+      onSent={(view) => {
+        toast("Email sent", `Accepted by Gmail for ${view.recipient}. Delivery and reading are not confirmed.`);
+        onEmailSent?.(view);
+        if (view.advance) onAdvanceSuggestion(view.advance);
+      }}
+    />
+  );
+  const otherTabs = (
+    <>
+      {tab === "Log Message" && (
+        <>
+          <div className="grid grid-cols-2 gap-3.5">
+            <Field label="Channel" required>
+              <select className={INPUT} value={msgChannel} onChange={(e) => setMsgChannel(e.target.value)}>
+                {MESSAGE_LOG_CHANNELS.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Received at">
+              <input className={INPUT} type="datetime-local" max="9999-12-31T23:59" value={msgAt} onChange={(e) => setMsgAt(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Transcript / summary" required className="mt-3.5">
+            <textarea
+              className={cn(AREA, "min-h-[130px]")}
+              value={msgText}
+              onChange={(e) => setMsgText(e.target.value)}
+              placeholder="Paste or summarize the inbound message…"
+            />
+          </Field>
+          <div className="mt-3.5 flex items-center justify-between">
+            <span className="text-[11.5px] text-faint">Logs an inbound (Received) entry to the timeline.</span>
+            <Btn variant="primary" disabled={pending || !msgText.trim()} onClick={logMessage}>
+              <I.check size={15} /> Log message
+            </Btn>
+          </div>
+        </>
+      )}
+      {tab === "Log Call" && (
+        <LogCallForm
+          key={callFormKey}
+          target={{
+            clientId: client.id,
+            name: client.fullName,
+            estPremium: client.estPremium,
+            familySize: client.familySize,
+            productInterest: client.productInterest,
+            coverageTier: client.coverageTier,
+            selectVariant: client.selectVariant,
+          }}
+          onLogged={(advance) => {
+            if (advance) onAdvanceSuggestion(advance);
+          }}
+        />
+      )}
+      {tab === "Note" && (
+        <>
+          <Field label="Internal note" required>
+            <textarea
+              className={cn(AREA, "min-h-[130px]")}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Private note — visible to staff only…"
+            />
+          </Field>
+          <div className="mt-3.5 flex justify-end">
+            <Btn variant="primary" disabled={pending || !note.trim()} onClick={addNote}>
+              <I.plus size={15} /> Add note
+            </Btn>
+          </div>
+        </>
+      )}
+    </>
+  );
+
   return (
     <Card>
             <div ref={composerRef} className="flex items-center gap-1 overflow-x-auto border-b border-border-soft px-3 pt-2.5">
@@ -101,93 +190,8 @@ export function ContactComposer({
               ))}
             </div>
             <div className="px-[18px] py-4">
-              {tab === "Email" && (
-                <EmailForm
-                  key={emailFormKey}
-                  target={{
-                    clientId: client.id,
-                    name: client.fullName,
-                    email: client.email,
-                    product: client.productInterest,
-                    premium: client.estPremium,
-                  }}
-                  templates={templates}
-                  initialTemplate={initialEmailTemplate}
-                  initialDraft={initialEmailDraft}
-                  onSent={(view) => {
-                    toast("Email sent", `Accepted by Gmail for ${view.recipient}. Delivery and reading are not confirmed.`);
-                    onEmailSent?.(view);
-                    if (view.advance) onAdvanceSuggestion(view.advance);
-                  }}
-                />
-              )}
-
-              {tab === "Log Message" && (
-                <>
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <Field label="Channel" required>
-                      <select className={INPUT} value={msgChannel} onChange={(e) => setMsgChannel(e.target.value)}>
-                        {MESSAGE_LOG_CHANNELS.map((c) => (
-                          <option key={c}>{c}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Received at">
-                      <input className={INPUT} type="datetime-local" max="9999-12-31T23:59" value={msgAt} onChange={(e) => setMsgAt(e.target.value)} />
-                    </Field>
-                  </div>
-                  <Field label="Transcript / summary" required className="mt-3.5">
-                    <textarea
-                      className={cn(AREA, "min-h-[130px]")}
-                      value={msgText}
-                      onChange={(e) => setMsgText(e.target.value)}
-                      placeholder="Paste or summarize the inbound message…"
-                    />
-                  </Field>
-                  <div className="mt-3.5 flex items-center justify-between">
-                    <span className="text-[11.5px] text-faint">Logs an inbound (Received) entry to the timeline.</span>
-                    <Btn variant="primary" disabled={pending || !msgText.trim()} onClick={logMessage}>
-                      <I.check size={15} /> Log message
-                    </Btn>
-                  </div>
-                </>
-              )}
-
-              {tab === "Log Call" && (
-                <LogCallForm
-                  key={callFormKey}
-                  target={{
-                    clientId: client.id,
-                    name: client.fullName,
-                    estPremium: client.estPremium,
-                    familySize: client.familySize,
-                    productInterest: client.productInterest,
-                    coverageTier: client.coverageTier,
-                    selectVariant: client.selectVariant,
-                  }}
-                  onLogged={(advance) => {
-                    if (advance) onAdvanceSuggestion(advance);
-                  }}
-                />
-              )}
-
-              {tab === "Note" && (
-                <>
-                  <Field label="Internal note" required>
-                    <textarea
-                      className={cn(AREA, "min-h-[130px]")}
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Private note — visible to staff only…"
-                    />
-                  </Field>
-                  <div className="mt-3.5 flex justify-end">
-                    <Btn variant="primary" disabled={pending || !note.trim()} onClick={addNote}>
-                      <I.plus size={15} /> Add note
-                    </Btn>
-                  </div>
-                </>
-              )}
+              {tab === "Email" && emailForm}
+              {otherTabs}
             </div>
     </Card>
   );
