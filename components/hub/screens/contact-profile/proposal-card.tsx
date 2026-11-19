@@ -1,11 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  recordProposalReceivedAction,
   replaceProposalPdfAction,
   setProposalStatusAction,
   type UploadedProposal,
@@ -78,163 +78,130 @@ export function ProposalCard({
   const showUploaded = (proposal: UploadedProposal, heading: string) =>
     setUploaded({ proposal, heading, base: proposalDocument, confirming: true });
 
+  const STEPS = ["Requested", "Received", "Sent", "Decision"];
+  const stepIndex = STEPS.indexOf(status ?? "");
+  const individual = isIndividualProposalProduct(client.productInterest);
+  const stepBar = (
+    <div className="flex items-center gap-1.5" aria-label={`Proposal ${status ?? "not started"}`}>
+      {STEPS.map((s, i) => (
+        <span key={s} title={s} className={cn("h-1.5 flex-1 rounded-full", stepIndex >= 0 && i < stepIndex ? "bg-brand" : stepIndex === i ? "bg-violet" : "bg-surface-3")} />
+      ))}
+    </div>
+  );
+  const statusText = status
+    ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest)
+    : `No proposal ${individual ? "generated" : "requested"} yet.`;
+  const portalLogo = <Image src="/pacific-cross-logo.png" alt="" width={16} height={16} className="size-4 shrink-0 rounded-[3px]" />;
+  const portalSettingsLink = !pacificCrossPortalUrl && individual ? (
+    <Link href="/settings" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-border bg-amber-soft px-3 text-[12.5px] font-semibold text-amber transition-colors hover:bg-hover">
+      <I.settings size={14} /> Configure portal in Settings
+    </Link>
+  ) : null;
+  const markSent = () => markProposal("Sent");
+  const markingSent = pending && proposalMarking === "Sent";
+  const recipient = client.email;
+  const otherActions = [
+    client.leadStage === "Proposal" && !status && (
+      <Btn key="start" size="sm" onClick={() => (individual ? onGenerate() : onRequest())}>{individual ? "Generate proposal" : "Request proposal"}</Btn>
+    ),
+    status === "Requested" && (
+      <Btn key="received" size="sm" disabled={pending} onClick={() => markProposal("Received")}>
+        {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received without PDF"}
+      </Btn>
+    ),
+    status === "Sent" && <Btn key="decide" size="sm" onClick={onRecordDecision}>Record decision</Btn>,
+    status === "Decision" && <Btn key="update" size="sm" onClick={onRecordDecision}>Update decision</Btn>,
+  ].filter(Boolean);
+  const receiptUpload = (!status || status === "Requested") && !uploaded?.confirming ? (
+    <ProposalReceiptUpload
+      clientId={client.id}
+      defaultFrequency={client.paymentFrequency}
+      prompt="Upload proposal"
+      onUploaded={(proposal) => {
+        showUploaded(proposal, "Proposal attached and marked Received");
+        onStatusChange("Received");
+        overlays.toast("Proposal received", `${client.fullName}: PDF attached and marked Received.`);
+        router.refresh();
+      }}
+    />
+  ) : null;
+  const uploadedNotice = uploaded?.confirming ? (
+    <ProposalUploadedNotice proposal={uploaded.proposal} heading={uploaded.heading} onDone={() => setUploaded({ ...uploaded, confirming: false })} />
+  ) : null;
+  const hasFiledProposal = !uploaded?.confirming && !!shownDocument && !!status && status !== "Requested";
+  const documentRow = hasFiledProposal && shownDocument ? (
+    <div>
+      <div className="flex items-stretch rounded-md border border-border-soft">
+        <a href={`/api/documents/${shownDocument.id}/download`} className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-3 py-2 text-[12.5px] font-semibold text-brand-hover transition-colors hover:bg-hover">
+          <I.fileText size={15} className="shrink-0" />
+          <span className="truncate">{shownDocument.name}</span>
+        </a>
+        {!replacing && (
+          <button type="button" onClick={() => setReplacing(true)} className="shrink-0 rounded-r-md border-l border-border-soft px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
+            Replace
+          </button>
+        )}
+      </div>
+      {shownDocument === proposalDocument && proposalDocument?.notes && <p className="mt-1.5 text-[11.5px] text-muted-foreground">{proposalDocument.notes}</p>}
+    </div>
+  ) : null;
+  const replaceUpload = replacing && hasFiledProposal ? (
+    <div>
+      <PdfUpload
+        clientId={client.id}
+        prompt="Upload the corrected PDF; the current one is kept as Replaced"
+        onUploaded={async (path, fileName) => {
+          const res = await replaceProposalPdfAction(client.id, path, fileName);
+          if (res.ok) {
+            setReplacing(false);
+            showUploaded(res.data, "Proposal PDF replaced");
+            overlays.toast("Proposal PDF replaced", `${client.fullName}: the previous PDF is kept as Replaced.`);
+            router.refresh();
+          }
+          return res;
+        }}
+      />
+      <div className="mt-1.5 flex justify-end">
+        <Btn size="sm" variant="ghost" onClick={() => setReplacing(false)}>Cancel</Btn>
+      </div>
+    </div>
+  ) : null;
+  const stageNote = client.leadStage !== "Proposal" && status ? `Lead stage: ${client.leadStage ?? "New Lead"}` : null;
+
   return (
     <Card>
       <CardHead iconName="fileText" title="Proposal tracking" />
-              <div className="px-[18px] py-3.5">
-                <div className="mb-3 flex items-center gap-1.5">
-                  {["Requested", "Received", "Sent", "Decision"].map((s, i) => {
-                    const idx = ["Requested", "Received", "Sent", "Decision"].indexOf(status ?? "");
-                    return (
-                      <span
-                        key={s}
-                        title={s}
-                        className={cn("h-1.5 flex-1 rounded-full", idx >= 0 && i < idx ? "bg-brand" : idx === i ? "bg-violet" : "bg-surface-3")}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="mb-3 text-[12.5px] text-muted-foreground">
-                  {status
-                    ? proposalStatusLine(status, status === "Decision" ? client.proposalDecision : null, client.productInterest)
-                    : `No proposal ${isIndividualProposalProduct(client.productInterest) ? "generated" : "requested"} yet.`}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {pacificCrossPortalUrl && (
-                    <button
-                      type="button"
-                      onClick={() => openPortalWindow(pacificCrossPortalUrl)}
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-card px-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-                    >
-                      <I.arrowUpRight size={14} /> Open Pacific Cross portal
-                    </button>
-                  )}
-                  {!pacificCrossPortalUrl && isIndividualProposalProduct(client.productInterest) && (
-                    <Link
-                      href="/settings"
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-amber-border bg-amber-soft px-3 text-[12.5px] font-semibold text-amber transition-colors hover:bg-hover"
-                    >
-                      <I.settings size={14} /> Configure portal in Settings
-                    </Link>
-                  )}
-                  {client.leadStage === "Proposal" && !status && (
-                    <Btn size="sm" onClick={() => (isIndividualProposalProduct(client.productInterest) ? onGenerate() : onRequest())}>
-                      {isIndividualProposalProduct(client.productInterest) ? "Generate proposal" : "Request proposal"}
-                    </Btn>
-                  )}
-                  {status === "Requested" && (
-                    <Btn size="sm" disabled={pending} onClick={() => markProposal("Received")}>
-                      {pending && proposalMarking === "Received" ? "Marking received…" : "Mark Received without PDF"}
-                    </Btn>
-                  )}
-                  {status === "Received" && (
-                    <>
-                      <Btn size="sm" variant="primary" onClick={onEmailProposal}>
-                        Email proposal
-                      </Btn>
-                      <Btn size="sm" disabled={pending} onClick={() => markProposal("Sent")}
-                        title="Record a proposal you sent outside the CRM. This is not Gmail evidence.">
-                        {pending && proposalMarking === "Sent" ? "Marking sent…" : "Mark sent manually"}
-                      </Btn>
-                    </>
-                  )}
-                  {status === "Sent" && (
-                    <Btn size="sm" onClick={onRecordDecision}>
-                      Record decision
-                    </Btn>
-                  )}
-                  {/* Already decided, but still negotiable — let staff correct or move it on. */}
-                  {status === "Decision" && (
-                    <Btn size="sm" onClick={onRecordDecision}>
-                      Update decision
-                    </Btn>
-                  )}
-                </div>
-                {/* Upload works from no status too, so a proposal can be filed without going through the portal hand-off. */}
-                {(!status || status === "Requested") && !uploaded?.confirming && (
-                  <div className="mt-3">
-                    <ProposalReceiptUpload
-                      clientId={client.id}
-                      defaultFrequency={client.paymentFrequency}
-                      prompt="Upload proposal"
-                      onUploaded={(proposal) => {
-                        showUploaded(proposal, "Proposal attached and marked Received");
-                        onStatusChange("Received");
-                        overlays.toast("Proposal received", `${client.fullName}: PDF attached and marked Received.`);
-                        router.refresh();
-                      }}
-                    />
-                  </div>
-                )}
-                {uploaded?.confirming && (
-                  <div className="mt-3">
-                    <ProposalUploadedNotice
-                      proposal={uploaded.proposal}
-                      heading={uploaded.heading}
-                      onDone={() => setUploaded({ ...uploaded, confirming: false })}
-                    />
-                  </div>
-                )}
-                {!uploaded?.confirming && shownDocument && status && status !== "Requested" && (
-                  <div className="mt-3 flex items-stretch rounded-md border border-border-soft">
-                    <a
-                      href={`/api/documents/${shownDocument.id}/download`}
-                      className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-3 py-2 text-[12.5px] font-semibold text-brand-hover transition-colors hover:bg-hover"
-                    >
-                      <I.fileText size={15} className="shrink-0" />
-                      <span className="truncate">{shownDocument.name}</span>
-                    </a>
-                    {!replacing && (
-                      <button
-                        type="button"
-                        onClick={() => setReplacing(true)}
-                        className="shrink-0 rounded-r-md border-l border-border-soft px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-                      >
-                        Replace PDF
-                      </button>
-                    )}
-                  </div>
-                )}
-                {!uploaded?.confirming && shownDocument === proposalDocument && proposalDocument?.notes && status && status !== "Requested" && (
-                  <p className="mt-1.5 text-[11.5px] text-muted-foreground">{proposalDocument.notes}</p>
-                )}
-                {replacing && !uploaded?.confirming && shownDocument && status && status !== "Requested" && (
-                  <div className="mt-2">
-                    <PdfUpload
-                      clientId={client.id}
-                      prompt="Upload the corrected PDF — the current one is kept as Replaced…"
-                      onUploaded={async (path, fileName) => {
-                        const res = await replaceProposalPdfAction(client.id, path, fileName);
-                        if (res.ok) {
-                          setReplacing(false);
-                          showUploaded(res.data, "Proposal PDF replaced");
-                          overlays.toast("Proposal PDF replaced", `${client.fullName} — the previous PDF is kept as Replaced.`);
-                          router.refresh();
-                        }
-                        return res;
-                      }}
-                    />
-                    <div className="mt-1.5 flex justify-end">
-                      <Btn size="sm" variant="ghost" onClick={() => setReplacing(false)}>
-                        Cancel
-                      </Btn>
-                    </div>
-                  </div>
-                )}
-                {client.leadStage !== "Proposal" && status && (
-                  <p className="mt-2 text-[11.5px] text-faint">
-                    This lead is at the <b>{client.leadStage ?? "New Lead"}</b> stage — the proposal is tracked here
-                    independently of the stage.
-                  </p>
-                )}
-                {status === "Received" && (
-                  <p className="mt-2 text-[11.5px] text-faint">
-                    <b>Email proposal</b> sends the current PDF from admin@pacificinsuranceph.com after review; the status
-                    becomes Sent only when Gmail accepts it. Use <b>Mark sent manually</b> only for a proposal you sent
-                    outside the CRM.
-                  </p>
-                )}
-              </div>
+      <div className="flex flex-col gap-3 px-[18px] py-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 text-[12.5px] text-muted-foreground">{statusText}</p>
+          {pacificCrossPortalUrl && (
+            <button type="button" onClick={() => openPortalWindow(pacificCrossPortalUrl)} title="Open Pacific Cross portal" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-strong bg-card px-2 py-1 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
+              {portalLogo} Portal <I.arrowUpRight size={12} />
+            </button>
+          )}
+        </div>
+        {stepBar}
+        {portalSettingsLink}
+        {status === "Received" && (
+          <div className="rounded-md border border-border-soft bg-surface-2 p-3">
+            <p className="truncate text-[11.5px] text-muted-foreground" title={recipient ?? undefined}>
+              Send to <span className="font-medium text-foreground">{recipient ?? "no email on file"}</span>
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Btn size="sm" variant="primary" onClick={onEmailProposal}>Email</Btn>
+              <Btn size="sm" disabled={pending} onClick={markSent} title="Record a proposal you sent outside the CRM. This is not Gmail evidence.">
+                {markingSent ? "Marking…" : "Mark sent"}
+              </Btn>
+            </div>
+          </div>
+        )}
+        {otherActions.length > 0 && <div className="flex flex-wrap gap-2">{otherActions}</div>}
+        {receiptUpload}
+        {uploadedNotice}
+        {documentRow}
+        {replaceUpload}
+        {stageNote && <p className="text-[11.5px] text-faint">{stageNote}</p>}
+      </div>
     </Card>
   );
 }
