@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@base-ui/react/tooltip";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -377,15 +378,15 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
         const busy = lapsingId === r.id;
         const open = r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed";
         // Every action this row offers, in order; a Paid row's first entry is its completion step.
-        const rowActions: { key: string; label: string; icon: typeof I.send; run: () => void; primary?: boolean; title?: string }[] = [
+        const rowActions: { key: string; label: string; icon: typeof I.send; run: () => void; primary?: boolean; hint?: string }[] = [
           ...(r.status === "Paid" ? [{ key: "renewed", label: "Mark renewed", icon: I.refresh, run: () => setRenewedRenewal(r), primary: true }] : []),
           ...(open && !r.noticeReceivedDate ? [{ key: "receipt", label: "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
           ...(open ? [{ key: "send", label: "Send notice", icon: I.send, run: () => sendNotice(r) }] : []),
           ...(r.status === "Upcoming" || r.status === "Notice Received"
-            ? [{ key: "sent", label: "Mark notice sent", icon: I.check, run: () => markNoticeSent(r), title: "Record that the client was sent the renewal notice. Sending an email does not do this automatically." }]
+            ? [{ key: "sent", label: "Mark notice sent", icon: I.check, run: () => markNoticeSent(r), hint: "Client already has the notice" }]
             : []),
           ...(canMarkLapsed(r, todayIso)
-            ? [{ key: "lapsed", label: busy ? "Marking lapsed…" : "Mark lapsed", icon: I.clock, run: () => markLapsed(r), title: "Close this overdue renewal as lapsed. It does not cancel the policy or change recorded payments." }]
+            ? [{ key: "lapsed", label: busy ? "Marking lapsed…" : "Mark lapsed", icon: I.clock, run: () => markLapsed(r), hint: "Closes this overdue renewal" }]
             : []),
           ...(!open || r.noticeReceivedDate ? [{ key: "receipt", label: r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
         ];
@@ -419,21 +420,30 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: RenewalQueueRow[
                   {nextAction.label}
                 </Btn>
               )}
-              <span role="group" aria-label="Renewal actions" className="inline-flex overflow-hidden rounded-sm border border-border-strong bg-card">
-                {(nextAction?.primary ? moreActions : rowActions).map((a) => (
-                  <button
-                    key={a.key}
-                    type="button"
-                    disabled={busy}
-                    aria-label={a.label}
-                    title={a.title ?? a.label}
-                    onClick={a.run}
-                    className="grid size-[30px] place-items-center text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-50 [&+&]:border-l [&+&]:border-border-strong"
-                  >
-                    <a.icon size={15} />
-                  </button>
-                ))}
-              </span>
+              <Tooltip.Provider delay={200}>
+                <span role="group" aria-label="Renewal actions" className="inline-flex overflow-hidden rounded-sm border border-border-strong bg-card">
+                  {(nextAction?.primary ? moreActions : rowActions).map((a) => (
+                    <Tooltip.Root key={a.key}>
+                      <Tooltip.Trigger
+                        render={<button type="button" disabled={busy} />}
+                        aria-label={a.label}
+                        onClick={a.run}
+                        className="grid size-[30px] place-items-center text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-50 [&+&]:border-l [&+&]:border-border-strong"
+                      >
+                        <a.icon size={15} />
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Positioner side="top" sideOffset={6} className="z-50">
+                          <Tooltip.Popup className="max-w-[220px] rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] leading-snug shadow-pop transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+                            <span className="block font-semibold text-foreground">{a.label}</span>
+                            {a.hint && <span className="block text-muted-foreground">{a.hint}</span>}
+                          </Tooltip.Popup>
+                        </Tooltip.Positioner>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  ))}
+                </span>
+              </Tooltip.Provider>
             </span>
           </Td>
         </Row>
