@@ -24,7 +24,7 @@ import {
   TONE_SOFT, TONE_TEXT,
 } from "./primitives";
 import { ClientCell, Td } from "./table";
-import { QueueCard } from "./dashboard/queue-card";
+import { QueueTable } from "./dashboard/queue-table";
 import { taskBucket } from "./task-buckets";
 import { useRecordNav, useScreenNav } from "./nav";
 import type { ScreenId } from "./shell";
@@ -182,15 +182,10 @@ function RevenueWidget({ setScreen, stats }: Nav & { stats: DashboardStats }) {
   );
 }
 
-/* ---------- Queue tables ---------- */
-function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[]; count: number }) {
+/* ---------- Queue tables (one shows at a time under the work-queue tabs) ---------- */
+function ApplicationsQueue({ rows }: { rows: Application[] }) {
   return (
-    <QueueCard
-      icon={I.fileText}
-      title="Applications requiring action"
-      count={count}
-      screen="applications"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={6}
       empty="No applications need action right now."
@@ -215,14 +210,9 @@ function ApplicationsCard({ setScreen, rows, count }: Nav & { rows: Application[
   );
 }
 
-function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count: number }) {
+function RenewalsQueue({ rows }: { rows: Renewal[] }) {
   return (
-    <QueueCard
-      icon={I.refresh}
-      title="Renewals queue"
-      count={count}
-      screen="renewals"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={6}
       empty="No renewals in the queue."
@@ -249,14 +239,9 @@ function RenewalsCard({ setScreen, rows, count }: Nav & { rows: Renewal[]; count
   );
 }
 
-function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: number }) {
+function ClaimsQueue({ rows }: { rows: Claim[] }) {
   return (
-    <QueueCard
-      icon={I.clipboard}
-      title="Claims requiring action"
-      count={count}
-      screen="claims"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={5}
       empty="No claims need action right now."
@@ -277,14 +262,9 @@ function ClaimsCard({ setScreen, rows, count }: Nav & { rows: Claim[]; count: nu
   );
 }
 
-function TravelCard({ setScreen, rows, count }: Nav & { rows: TravelRequest[]; count: number }) {
+function TravelQueue({ rows }: { rows: TravelRequest[] }) {
   return (
-    <QueueCard
-      icon={I.plane}
-      title="Travel insurance queue"
-      count={count}
-      screen="travel"
-      setScreen={setScreen}
+    <QueueTable
       rows={rows}
       slice={5}
       empty="No travel requests in the queue."
@@ -628,6 +608,17 @@ export function Dashboard({
   const persona = usePersona();
   useExportErrorToast();
   const { greeting, dateStr } = manilaHeading();
+  // One card, four tabs: it opens on the first queue that has rows.
+  const QUEUE_TABS = [
+    { id: "applications", label: "Applications", count: stats.kpis.applicationsInProgress, screen: "applications" },
+    { id: "renewals", label: "Renewals", count: stats.kpis.upcomingRenewals, screen: "renewals" },
+    { id: "claims", label: "Claims", count: stats.kpis.openClaims, screen: "claims" },
+    { id: "travel", label: "Travel", count: stats.kpis.openTravel, screen: "travel" },
+  ] as const;
+  const [queueTab, setQueueTab] = useState<(typeof QUEUE_TABS)[number]["id"]>(
+    () => QUEUE_TABS.find((q) => queues[q.id].length > 0)?.id ?? "applications",
+  );
+  const activeQueue = QUEUE_TABS.find((q) => q.id === queueTab) ?? QUEUE_TABS[0];
   return (
     <div>
       <PageHead
@@ -642,22 +633,33 @@ export function Dashboard({
       <GlanceCard setScreen={setScreen} stats={stats} />
       <RevenueWidget setScreen={setScreen} stats={stats} />
 
-      <div className="grid grid-cols-12 gap-4 max-[1200px]:grid-cols-1">
+      <div className="grid grid-cols-12 items-start gap-4 max-[1200px]:grid-cols-1">
         <div className="col-span-8 flex flex-col gap-4 max-[1200px]:col-span-1">
-          <ApplicationsCard setScreen={setScreen} rows={queues.applications} count={stats.kpis.applicationsInProgress} />
-          <RenewalsCard setScreen={setScreen} rows={queues.renewals} count={stats.kpis.upcomingRenewals} />
-          {/* Side by side only on a genuinely wide monitor: below that the pair
-              cannot fit client + status without clipping the status column, which
-              is the one cell these queues exist to show. */}
-          <div className="grid grid-cols-1 gap-4 min-[1700px]:grid-cols-2">
-            <ClaimsCard setScreen={setScreen} rows={queues.claims} count={stats.kpis.openClaims} />
-            <TravelCard setScreen={setScreen} rows={queues.travel} count={stats.kpis.openTravel} />
-          </div>
+          <Card className="overflow-hidden">
+            <div className="flex items-center gap-1 border-b border-border-soft px-3 pt-2" role="tablist" aria-label="Work queues">
+              {QUEUE_TABS.map((q) => (
+                <button key={q.id} type="button" role="tab" aria-selected={queueTab === q.id} onClick={() => setQueueTab(q.id)}
+                  className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-semibold transition-colors", queueTab === q.id ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  {q.label}
+                  <span className={cn("rounded-full px-1.5 text-[11px] tabular-nums", q.count ? "bg-surface-3 text-foreground" : "text-subtle")}>{q.count}</span>
+                </button>
+              ))}
+              <span className="ml-auto pb-1.5 pr-1">
+                <CardLink onClick={() => setScreen(activeQueue.screen)}>
+                  View all {activeQueue.label.toLowerCase()} <I.chevRight size={13} />
+                </CardLink>
+              </span>
+            </div>
+            {queueTab === "applications" && <ApplicationsQueue rows={queues.applications} />}
+            {queueTab === "renewals" && <RenewalsQueue rows={queues.renewals} />}
+            {queueTab === "claims" && <ClaimsQueue rows={queues.claims} />}
+            {queueTab === "travel" && <TravelQueue rows={queues.travel} />}
+          </Card>
+          <ActivityWidget stats={stats} />
         </div>
         <div className="col-span-4 flex flex-col gap-4 max-[1200px]:col-span-1">
           <TasksWidget tasks={tasks} />
           <RelationshipWidget touchpoints={touchpoints} />
-          <ActivityWidget stats={stats} />
         </div>
       </div>
     </div>
