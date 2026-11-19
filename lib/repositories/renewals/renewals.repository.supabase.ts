@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
+import { DEFAULT_LIST_LIMIT, ownerScopedSelect, ownerScopeFilter, RepositoryError, statusListLiteral, toRepositoryError, type ListOptions } from "../types";
 import type { Renewal, NewRenewal, RenewalUpdate, RenewalSyncResult } from "./renewal.entity";
 import type { RenewalsRepository } from "./renewals.repository";
 
@@ -48,6 +48,39 @@ function toDomain(row: JoinedRow): Renewal {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function toPatch(input: RenewalUpdate): RenewalPatch {
+  const patch: RenewalPatch = {};
+  if (input.status !== undefined) patch.status = input.status;
+  if (input.noticeReceivedDate !== undefined) patch.notice_received_date = input.noticeReceivedDate;
+  if (input.renewalPaymentDate !== undefined) patch.renewal_payment_date = input.renewalPaymentDate;
+  if (input.renewalCompletedDate !== undefined)
+    patch.renewal_completed_date = input.renewalCompletedDate;
+  if (input.notes !== undefined) patch.notes = input.notes;
+  return patch;
+}
+
+const RENEWAL_CONFLICT = "This renewal changed. Reload and try again.";
+
+/** Business errors raised by complete_renewal / lapse_renewal; anything else is SQL internals. */
+const LIFECYCLE_SAFE_MESSAGES: readonly string[] = [
+  "Not authenticated.",
+  "Your account is inactive.",
+  "Record not found.",
+  RENEWAL_CONFLICT,
+  "Only a paid renewal can be marked renewed.",
+  "New expiry must be after the current renewal dates and today.",
+  "A newer renewal cycle already exists. Review the policy before completing this renewal.",
+  "Next renewal cycle was not created.",
+  "A paid or renewed renewal cannot be lapsed.",
+  "Only an overdue renewal can be marked lapsed.",
+];
+
+function lifecycleMutationError(message: string | undefined, fallback: string): RepositoryError {
+  return new RepositoryError(message && LIFECYCLE_SAFE_MESSAGES.includes(message) ? message : fallback, {
+    code: message === RENEWAL_CONFLICT ? "renewal_conflict" : "renewal_lifecycle_failed",
+  });
 }
 
 /** supabase-js (service role) implementation of {@link RenewalsRepository}. */
@@ -121,22 +154,54 @@ export class SupabaseRenewalsRepository implements RenewalsRepository {
   }
 
   async update(id: string, input: RenewalUpdate): Promise<Renewal> {
-    const patch: RenewalPatch = {};
-    if (input.status !== undefined) patch.status = input.status;
-    if (input.noticeReceivedDate !== undefined) patch.notice_received_date = input.noticeReceivedDate;
-    if (input.renewalPaymentDate !== undefined) patch.renewal_payment_date = input.renewalPaymentDate;
-    if (input.renewalCompletedDate !== undefined)
-      patch.renewal_completed_date = input.renewalCompletedDate;
-    if (input.notes !== undefined) patch.notes = input.notes;
-
     const { data, error } = await getSupabaseAdmin()
       .from("renewals")
-      .update(patch)
+      .update(toPatch(input))
       .eq("id", id)
       .select(SELECT)
       .single<JoinedRow>();
 
     if (error) throw toRepositoryError("RenewalsRepository.update", error);
     return toDomain(data);
+  }
+
+  async transition(id: string, from: readonly string[], input: RenewalUpdate): Promise<Renewal | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from("renewals")
+      .update(toPatch(input))
+      .eq("id", id)
+      .in("status", from)
+      .select(SELECT)
+      .maybeSingle<JoinedRow>();
+
+    if (error) throw toRepositoryError("RenewalsRepository.transition", error);
+    return data ? toDomain(data) : null;
+  }
+
+  async completeRenewal(id: string, actorId: string, expectedUpdatedAt: string, newExpiryDate: string): Promise<Renewal> {
+    const { data, error } = await getSupabaseAdmin().rpc("complete_renewal", {
+      p_actor_id: actorId,
+      p_renewal_id: id,
+      p_expected_updated_at: expectedUpdatedAt,
+      p_new_expiry_date: newExpiryDate,
+    });
+    if (error || !data) throw lifecycleMutationError(error?.message, "The renewal could not be marked renewed.");
+    return this.reloadAfterLifecycle(data, "The renewal was marked renewed but could not be loaded. Refresh the page.");
+  }
+
+  async lapseRenewal(id: string, actorId: string, expectedUpdatedAt: string): Promise<Renewal> {
+    const { data, error } = await getSupabaseAdmin().rpc("lapse_renewal", {
+      p_actor_id: actorId,
+      p_renewal_id: id,
+      p_expected_updated_at: expectedUpdatedAt,
+    });
+    if (error || !data) throw lifecycleMutationError(error?.message, "The renewal could not be marked lapsed.");
+    return this.reloadAfterLifecycle(data, "The renewal was marked lapsed but could not be loaded. Refresh the page.");
+  }
+
+  private async reloadAfterLifecycle(id: string, missingMessage: string): Promise<Renewal> {
+    const renewal = await this.findById(id);
+    if (!renewal) throw new RepositoryError(missingMessage, { code: "renewal_lifecycle_unavailable" });
+    return renewal;
   }
 }

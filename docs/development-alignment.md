@@ -36,6 +36,7 @@ they are historical references, not active sources of task status. Current prior
 | Historical medical questionnaire recovery | Explicit staff action creates one Pending questionnaire item for a persisted affected insured when historical checklists have none | No evidence is invented or auto-verified. Staff upload the original, verify the checklist, explicitly associate it and clear review. Existing exact questionnaire rows can instead be associated under the locked RPC; names, including identical dependent names, never establish identity. |
 | Policy-driven renewals (H5a) | Migration `0047` locks each policy and synchronizes its renewal in the policy transaction; Admin `Sync policies` invokes the same routine for every Active policy | Renewal date takes precedence over expiry; Travel needs an explicit renewal date. One open cycle per policy; only source dates refresh. Paid/Renewed/Lapsed cycles retain history. No automatic page-load backfill or inactive-policy cancellation. SQL rollback, concurrent RPC, actual policy create/edit, repeated backfill and direct Staff rejection verified 2026-10-09–10. |
 | Carrier renewal notice receipt (H5b) | Separate nullable `renewals.notice_received_date`, receipt action/modal and sortable list column | Receipt advances only Upcoming → Notice Received, preserves every later status and audits/timelines actual changes. Repeated saves are no-ops. Legacy sent-notice data is not reinterpreted/backfilled. Receipt never sends/logs an email; existing Send notice remains logged-only and retains receipt. UI and action boundaries verified 2026-10-10. |
+| Renewal completion, lapse and retention | Migration `0070_renewal_completion`: service-role-only atomic completion/lapse RPCs; queue actions and revision checks; conditional notice/payment transitions | User-approved: Paid → Renewed sets the policy **Active**, changes expiry and renewal date to the explicitly entered future date, preserves inception/history, and uses existing triggers for the next cycle/installments. Lapse closes only an overdue unpaid renewal, leaving policy/payment values untouched and dismissing pending drafts/tasks. Paid and Renewed both count as retained; rate excludes pending outcomes, and KPI/chart/drill/CSV share the same scoped source. |
 | Renewal email rules and interim execution (H5c–e / DH10) | Migration `0048`, `renewal_email_rules` and separate `renewal_email_drafts`; repository/actions, Settings Notifications, Tasks/dashboard review modal, secret-protected `/api/cron/renewals` | User approved four Email-only draft/task cases: receipt immediately, reminder -30 days, missing notice -60 days and premium breakdown -60 days regardless of premium change. Existing Thea record selected, configurable by Admin. Staff view/review; Agent denied both payload and direct read/write. Broader canonical WhatsApp/payment/missing-document/auto-send automation remains outside this interim. No provider delivery or renewal-state advancement occurs. |
 | Renewal draft history and staff ownership | SQL unique `(renewal_id, rule_id)` and row locks; task/draft insert and explicit email-log/task completion are transactional | Closed/ineligible work is suppressed; pending drafts are dismissed/cancelled, including missing-notice work after receipt. Early payer suppresses client reminders, not informational receipt. Draft source dates/context can refresh, but template/recipient snapshots and edited copy remain staff-owned; changed template/contact selections apply to newly queued drafts. Completed/dismissed/logged work is never automatically re-created for the same cycle. Checkbox completion does not log email. Revision checks reject stale forms; repeated committed logs reuse their communication. |
 | Renewal cron activation | `vercel.json` keeps `sin1` and adds `0 0 * * *` (08:00 Manila); only the exact endpoint bypasses session proxy and enforces `CRON_SECRET` itself | Local missing configuration (503), missing/wrong token (401), authorized/repeated calls (200), and sibling-route login protection verified. Set `CRON_SECRET` in Vercel Production and deploy before claiming live scheduling. No push or Production web activation performed here. |
@@ -191,6 +192,26 @@ they are historical references, not active sources of task status. Current prior
   protection and fail-closed/authorized/repeated cron checks. Final `npm test`:
   **8 files / 58 tests**; `npx next typegen` and `npx tsc --noEmit` passed. Owned QA fixtures removed.
   No lint rerun or email-provider/Production web deployment is claimed.
+
+### Renewal completion verification (2026-11-20)
+
+- Applied `0070_renewal_completion` to the hosted database; regenerated types, retaining only the two
+  new RPC definitions rather than unrelated live schema drift. Existing installment/email functions
+  were inspected and left unchanged.
+- Focused lifecycle, notice-receipt, report/export and action tests: **5 files / 114 tests passed**;
+  memory-capped `tsc --noEmit -p . --incremental false` passed.
+  Hosted `BEGIN`/`ROLLBACK` fixtures proved Active-policy completion with original inception/history,
+  Annual and Semi-Annual collections (including client-frequency fallback and null premium), exact
+  replay without duplicate evidence, revision/date/state/ownership/link/open-cycle guards, browser
+  EXECUTE denial, lapse preservation and pending draft/task suppression, and closed-cycle transition
+  protection. Synthetic fixtures were rolled back; no real client mutation or email was sent.
+- `/renewals` and `/reports?family=renewal` redirected to login; the saved staff account remained
+  inactive. Authenticated queue mutations, report drill clicks and browser CSV download were not
+  exercised. The real completion modal was rendered in an isolated throwaway preview at desktop
+  and 390px: empty/invalid disabled submission, linked errors, Saving state, blocked Escape while
+  saving and retained input after a deliberate stale-revision response. No horizontal overflow.
+  The preview used an explicit failure boundary, not a simulated successful lifecycle mutation,
+  and was removed after inspection.
 
 ### Gmail connection configuration and verification
 

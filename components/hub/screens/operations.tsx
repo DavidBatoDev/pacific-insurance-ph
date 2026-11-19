@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { backfillPolicyRenewalsAction, markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
+import { backfillPolicyRenewalsAction, markRenewalLapsedAction, markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
 import type { Application } from "@/lib/repositories/applications";
 import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
@@ -12,11 +12,13 @@ import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { money, moneyTotals, peso, pesoShort } from "@/lib/format";
 import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
+import { canMarkLapsed, manilaTodayIso } from "@/lib/renewals/lifecycle";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { usePersona } from "../persona";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RenewalNoticeReceivedModal } from "../overlays/renewal-notice-received";
+import { RenewalMarkRenewedModal } from "../overlays/renewal-mark-renewed";
 import { Avatar, Btn, DueCell, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { ListScreen } from "./list-screen";
@@ -271,6 +273,9 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
   const [, startTransition] = useTransition();
   const [syncPending, startSyncTransition] = useTransition();
   const [receiptRenewal, setReceiptRenewal] = useState<Renewal | null>(null);
+  const [renewedRenewal, setRenewedRenewal] = useState<Renewal | null>(null);
+  const [lapsingId, setLapsingId] = useState<string | null>(null);
+  const todayIso = manilaTodayIso();
 
   const syncPolicies = () => startSyncTransition(async () => {
     const result = await backfillPolicyRenewalsAction();
@@ -282,12 +287,9 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
 
   const due30 = rows.filter((r) => {
     const d = daysUntil(r.renewalDueDate);
-    return d != null && d >= 0 && d <= 30;
+    return r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed" && d != null && d >= 0 && d <= 30;
   }).length;
-  const overdue = rows.filter((r) => {
-    const d = daysUntil(r.renewalDueDate);
-    return d != null && d < 0 && r.status !== "Renewed" && r.status !== "Paid";
-  }).length;
+  const overdue = rows.filter((r) => canMarkLapsed(r, todayIso)).length;
 
   // Email acceptance never advances the renewal lifecycle; staff mark the notice sent explicitly.
   const sendNotice = (r: Renewal) =>
@@ -305,6 +307,29 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
       overlays.toast("Renewal notice marked sent", `${r.clientName ?? "Client"} — ${r.policyRef ?? "policy"}`);
       router.refresh();
     });
+
+  const markLapsed = async (r: Renewal) => {
+    if (lapsingId) return;
+    const label = `${r.clientName ?? "Client"} · ${r.policyNumber ?? r.policyRef ?? "Policy"}`;
+    const ok = await overlays.confirm({
+      kind: "warn",
+      title: "Mark renewal lapsed?",
+      confirmLabel: "Mark lapsed",
+      message: `${label}. This closes the overdue renewal and dismisses pending renewal drafts. It does not cancel the policy or change recorded payments.`,
+    });
+    if (!ok) return;
+    setLapsingId(r.id);
+    try {
+      const res = await markRenewalLapsedAction(r.id, r.updatedAt);
+      if (!res.ok) return overlays.toast("Couldn’t mark renewal lapsed", res.error);
+      overlays.toast("Renewal marked lapsed", label);
+      router.refresh();
+    } catch {
+      overlays.toast("Couldn’t mark renewal lapsed", "Check your connection and try again.");
+    } finally {
+      setLapsingId(null);
+    }
+  };
 
   return (
     <>
@@ -332,7 +357,7 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           color: "var(--brand)",
         },
       ]}
-      filters={["Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Renewed", "Lapsed"]}
+      filters={["Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Renewed", "Lapsed"]}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
       defaultSort={{ key: "renewalDueDate", dir: "asc" }}
       emptyText="No renewals tracked yet."
@@ -345,7 +370,10 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
         { k: "premiumAmount", label: "Premium", num: true },
         { k: "id", label: "" },
       ]}
-      renderRow={(r) => (
+      renderRow={(r) => {
+        const busy = lapsingId === r.id;
+        const open = r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed";
+        return (
         <Row key={r.id} onClick={() => openContact(r.clientId)} onMouseEnter={() => prefetchContact(r.clientId)}>
           <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
           <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
@@ -363,24 +391,39 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           </Td>
           <Td>
             <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Btn size="sm" onClick={() => setReceiptRenewal(r)}>
+              <Btn size="sm" disabled={busy} onClick={() => setReceiptRenewal(r)}>
                 {r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received"}
               </Btn>
-              <Btn size="sm" onClick={() => sendNotice(r)}>
-                <I.send size={13} /> Send notice
-              </Btn>
+              {open && (
+                <Btn size="sm" disabled={busy} onClick={() => sendNotice(r)}>
+                  <I.send size={13} /> Send notice
+                </Btn>
+              )}
               {(r.status === "Upcoming" || r.status === "Notice Received") && (
-                <Btn size="sm" variant="ghost" onClick={() => markNoticeSent(r)}
+                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => markNoticeSent(r)}
                   title="Record that the client was sent the renewal notice. Sending an email does not do this automatically.">
                   Mark notice sent
+                </Btn>
+              )}
+              {r.status === "Paid" && (
+                <Btn size="sm" variant="primary" disabled={busy} onClick={() => setRenewedRenewal(r)}>
+                  Mark renewed
+                </Btn>
+              )}
+              {canMarkLapsed(r, todayIso) && (
+                <Btn size="sm" disabled={busy} onClick={() => markLapsed(r)}
+                  title="Close this overdue renewal as lapsed. It does not cancel the policy or change recorded payments.">
+                  {busy ? "Marking lapsed…" : "Mark lapsed"}
                 </Btn>
               )}
             </span>
           </Td>
         </Row>
-      )}
+        );
+      }}
     />
     {receiptRenewal && <RenewalNoticeReceivedModal renewal={receiptRenewal} onClose={() => setReceiptRenewal(null)} />}
+    {renewedRenewal && <RenewalMarkRenewedModal renewal={renewedRenewal} onClose={() => setRenewedRenewal(null)} />}
     </>
   );
 }

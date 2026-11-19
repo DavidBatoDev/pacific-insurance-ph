@@ -62,6 +62,11 @@ async function resolvePaymentProduct(
 const money = (n: number, currency: string | null) =>
   `${!currency || currency === "PHP" ? "₱" : currency === "USD" ? "US$" : `${currency} `}${n.toLocaleString("en-PH")}`;
 
+/** Open renewal states a verified payment may advance to Paid; closed cycles are never reopened. */
+const PAYABLE_RENEWAL_STATUSES = [
+  "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Grace Period", "Reinstatement Required",
+] as const;
+
 export interface VerifyPaymentInput {
   paymentId: string;
   paymentMethod: string;
@@ -130,7 +135,11 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
       if (payment.applicationId) {
         await getApplicationsRepository().update(payment.applicationId, { status: "Approved" });
       } else if (payment.renewalId) {
-        await getRenewalsRepository().update(payment.renewalId, { status: "Paid", renewalPaymentDate: today });
+        // Only an open cycle becomes Paid, keeping the first payment date. A later installment on a
+        // Paid, Renewed or Lapsed cycle is still recorded below without touching the renewal.
+        await getRenewalsRepository().transition(payment.renewalId, PAYABLE_RENEWAL_STATUSES, {
+          status: "Paid", renewalPaymentDate: today,
+        });
       } else if (payment.travelRequestId) {
         await getTravelRepository().update(payment.travelRequestId, { status: "Policy Issued" });
       }
@@ -193,6 +202,11 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     revalidatePath("/commissions");
     if (payment.clientId) revalidatePath(`/clients/${payment.clientId}`);
     revalidatePath("/tasks");
+    if (payment.renewalId && input.status === "Verified") {
+      revalidatePath("/renewals");
+      revalidatePath("/dashboard");
+      revalidatePath("/reports");
+    }
     return { ok: true, data: updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to verify payment." };
