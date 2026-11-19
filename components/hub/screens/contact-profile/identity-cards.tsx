@@ -195,7 +195,7 @@ export function DependentsCard({ client, dependents }: { client: Client; depende
               <input name="fullName" required placeholder="Full name" className={INPUT} />
               <div className="grid grid-cols-2 gap-2">
                 <input name="relationship" placeholder="Relationship" className={INPUT} />
-                <input name="dateOfBirth" type="date" className={INPUT} />
+                <input name="dateOfBirth" type="date" max="9999-12-31" className={INPUT} />
               </div>
               <button
                 type="submit"

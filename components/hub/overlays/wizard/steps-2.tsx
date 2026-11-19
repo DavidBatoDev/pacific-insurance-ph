@@ -163,7 +163,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             </select>
           </Field>
           <Field label="Desired coverage start date" htmlFor="wiz-start-date">
-            <input id="wiz-start-date" className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+            <input id="wiz-start-date" className={INPUT} type="date" max="9999-12-31" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </Field>
           <Field label="Family size / people to cover" hint="Includes the principal applicant." htmlFor="wiz-family-size">
             <input id="wiz-family-size" className={INPUT} type="number" min={1} step={1} value={f.familySize} onChange={(e) => set({ familySize: e.target.value })} placeholder="1" />
@@ -176,7 +176,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
             </select>
           </Field>
         </div>
-        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={INPUT} type="date" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
+        {f.coverage === "Family" && <div className="mt-4 space-y-2"><div className="text-[12px] font-semibold">Covered dependents</div>{f.healthDependents.map((person, index) => <div key={index} className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.6fr_1.1fr_1.1fr_0.9fr_auto] gap-2 rounded-md border border-border-soft p-2"><input aria-label={`Dependent ${index + 1} name`} className={INPUT} value={person.name} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Dependent ${index + 1} birthdate`} className={INPUT} type="date" max="9999-12-31" value={person.dob} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><input aria-label={`Dependent ${index + 1} relationship`} className={INPUT} value={person.rel} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, rel: e.target.value } : item) })} placeholder="Relationship" /><select aria-label={`Dependent ${index + 1} conditions`} className={INPUT} value={person.preExisting ?? "Unknown"} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, preExisting: e.target.value } : item) })}><option>No</option><option>Yes</option><option>Unknown</option></select><select aria-label={`Dependent ${index + 1} smoker`} className={INPUT} value={person.smokerStatus ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, smokerStatus: e.target.value } : item) })}><option value="">Smoker…</option>{SMOKER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select><input aria-label={`Dependent ${index + 1} weight lbs`} className={INPUT} value={person.weightLbs ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, weightLbs: e.target.value } : item) })} placeholder="lbs" inputMode="decimal" /><HeightInput value={person.heightInches ?? ""} onChange={(v) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, heightInches: v } : item) })} idPrefix={`Dependent ${index + 1}`} /><input aria-label={`Dependent ${index + 1} beneficiary name`} className={INPUT} value={person.beneficiaryName ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary" /><input aria-label={`Dependent ${index + 1} beneficiary relationship`} className={INPUT} value={person.beneficiaryRelationship ?? ""} onChange={(e) => set({ healthDependents: f.healthDependents.map((item, i) => i === index ? { ...item, beneficiaryRelationship: e.target.value } : item) })} placeholder="Relation" /><button type="button" aria-label={`Remove ${person.name || "dependent"}`} onClick={() => set({ healthDependents: f.healthDependents.filter((_, i) => i !== index) })} className="px-2 text-red"><I.fileMissing size={15} /></button></div>)}<button type="button" onClick={() => set({ healthDependents: [...f.healthDependents, { name: "", dob: "", rel: "Dependent", email: "", preExisting: "Unknown", medicalNotes: "" }] })} className="text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add dependent</button></div>}
       </Section>
 
       <Section title="Underwriting">
@@ -225,7 +225,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
               <input aria-label="Principal beneficiary relationship" className={INPUT} value={f.beneficiaryRelationship} onChange={(e) => set({ beneficiaryRelationship: e.target.value })} placeholder="e.g. Spouse" />
             </Field>
             <Field label="Beneficiary date of birth">
-              <input aria-label="Principal beneficiary birth date" className={INPUT} type="date" value={f.beneficiaryBirthDate} onChange={(e) => set({ beneficiaryBirthDate: e.target.value })} />
+              <input aria-label="Principal beneficiary birth date" className={INPUT} type="date" max="9999-12-31" value={f.beneficiaryBirthDate} onChange={(e) => set({ beneficiaryBirthDate: e.target.value })} />
             </Field>
             <Field label="Beneficiary contact number">
               <input aria-label="Principal beneficiary contact" className={INPUT} value={f.beneficiaryContact} onChange={(e) => set({ beneficiaryContact: e.target.value })} placeholder="+63 9XX XXX XXXX" />
@@ -259,10 +259,10 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
                 <input className={INPUT} value={f.firstLayerMbl} onChange={(e) => set({ firstLayerMbl: e.target.value })} placeholder="0.00" inputMode="decimal" />
               </Field>
               <Field label="Effective date">
-                <input className={INPUT} type="date" value={f.firstLayerEffective} onChange={(e) => set({ firstLayerEffective: e.target.value })} />
+                <input className={INPUT} type="date" max="9999-12-31" value={f.firstLayerEffective} onChange={(e) => set({ firstLayerEffective: e.target.value })} />
               </Field>
               <Field label="Expiry date">
-                <input className={INPUT} type="date" value={f.firstLayerExpiry} onChange={(e) => set({ firstLayerExpiry: e.target.value })} />
+                <input className={INPUT} type="date" max="9999-12-31" value={f.firstLayerExpiry} onChange={(e) => set({ firstLayerExpiry: e.target.value })} />
               </Field>
             </div>
           </div>
@@ -341,7 +341,7 @@ function CetMemberFields({
         <input aria-label={`Member ${index + 1} place of birth`} className={INPUT} value={field("placeOfBirth")} onChange={(e) => onChange({ placeOfBirth: e.target.value })} />
       </Field>
       <Field label="Coverage effective date">
-        <input aria-label={`Member ${index + 1} effective date`} className={INPUT} type="date" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
+        <input aria-label={`Member ${index + 1} effective date`} className={INPUT} type="date" max="9999-12-31" value={field("effectiveDate")} onChange={(e) => onChange({ effectiveDate: e.target.value })} />
       </Field>
       <Field label="Occupation / grade">
         <input aria-label={`Member ${index + 1} occupation or grade`} className={INPUT} value={field("occupationGrade")} onChange={(e) => onChange({ occupationGrade: e.target.value })} />
@@ -371,7 +371,7 @@ function CetMemberFields({
         <input aria-label={`Member ${index + 1} beneficiary name`} className={INPUT} value={field("beneficiaryName")} onChange={(e) => onChange({ beneficiaryName: e.target.value })} />
       </Field>
       <Field label="Beneficiary birth date" className="col-span-2">
-        <input aria-label={`Member ${index + 1} beneficiary birth date`} className={INPUT} type="date" value={field("beneficiaryBirthDate")} onChange={(e) => onChange({ beneficiaryBirthDate: e.target.value })} />
+        <input aria-label={`Member ${index + 1} beneficiary birth date`} className={INPUT} type="date" max="9999-12-31" value={field("beneficiaryBirthDate")} onChange={(e) => onChange({ beneficiaryBirthDate: e.target.value })} />
       </Field>
     </div>
   );
@@ -397,7 +397,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
       <Section title="Coverage & commercials">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Coverage start date">
-            <input className={INPUT} type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+            <input className={INPUT} type="date" max="9999-12-31" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} />
           </Field>
           <Field label="Estimated premium (₱)">
             <input className={INPUT} inputMode="numeric" value={f.premium} onChange={(e) => set({ premium: e.target.value.replace(/[^0-9,]/g, "") })} placeholder="0" />
@@ -431,7 +431,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
                         <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" value={m.name} onChange={(e) => setMember(i, { ...m, name: e.target.value })} placeholder="Full name" />
                       </td>
                       <td className="w-[140px] px-2 py-1.5">
-                        <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" type="date" value={m.dob} onChange={(e) => setMember(i, { ...m, dob: e.target.value })} />
+                        <input className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[12.5px] outline-none focus:border-brand focus:bg-card" type="date" max="9999-12-31" value={m.dob} onChange={(e) => setMember(i, { ...m, dob: e.target.value })} />
                       </td>
                       <td className="w-[44px] px-3 py-1.5 tabular-nums text-muted-foreground">
                         {ageFromDob(m.dob) !== "" ? ageFromDob(m.dob) : "—"}
@@ -543,7 +543,7 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
       </Section>
       <Section title="Persons to be insured" state={sectionStatus(f, "travelers")}>
         <div className="mb-2 flex items-center justify-end"><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
-        <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
+        <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" max="9999-12-31" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
         <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
       </Section>
       <Section title="Trip" state={sectionStatus(f, "trip")}>
@@ -552,10 +552,10 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
             <input className={INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
           </Field>
           <Field label="Departure date" required>
-            <input className={INPUT} type="date" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
+            <input className={INPUT} type="date" max="9999-12-31" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
           </Field>
           <Field label="Return date" required>
-            <input className={INPUT} type="date" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
+            <input className={INPUT} type="date" max="9999-12-31" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
           </Field>
         </div>
         {days !== "" && (
@@ -756,7 +756,7 @@ export function Step5({
         />
         {f.createTask && (
           <Field label="Follow-up date" className="mt-3">
-            <input className={INPUT} type="date" value={f.followDate} onChange={(e) => set({ followDate: e.target.value })} />
+            <input className={INPUT} type="date" max="9999-12-31" value={f.followDate} onChange={(e) => set({ followDate: e.target.value })} />
           </Field>
         )}
         <Field label="Internal note" className="mt-4">

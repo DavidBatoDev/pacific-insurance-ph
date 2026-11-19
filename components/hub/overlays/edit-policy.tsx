@@ -158,13 +158,13 @@ export function EditPolicyDrawer({ policy, onClose }: { policy: Policy; onClose:
 
       <div className="mt-4 grid grid-cols-3 gap-4">
         <Field label="Effective date">
-          <input className={INPUT} type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
+          <input className={INPUT} type="date" max="9999-12-31" value={effective} onChange={(e) => setEffective(e.target.value)} />
         </Field>
         <Field label="Expiry date">
-          <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+          <input className={INPUT} type="date" max="9999-12-31" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
         <Field label="Renewal date">
-          <input className={INPUT} type="date" value={renewal} onChange={(e) => setRenewal(e.target.value)} />
+          <input className={INPUT} type="date" max="9999-12-31" value={renewal} onChange={(e) => setRenewal(e.target.value)} />
         </Field>
       </div>
 

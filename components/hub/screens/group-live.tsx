@@ -406,7 +406,7 @@ function AddMemberDrawer({
         </Field>
       </div>
       <Field label="Join date" className="mt-4">
-        <input className={INPUT} type="date" value={join} onChange={(e) => setJoin(e.target.value)} />
+        <input className={INPUT} type="date" max="9999-12-31" value={join} onChange={(e) => setJoin(e.target.value)} />
       </Field>
       <button
         onClick={() => setEcardNow(!ecardNow)}

@@ -207,7 +207,7 @@ function RateModal({ rate, onClose }: { rate: CommissionRate; onClose: () => voi
         </div>
         <div>
           <label className={field}>Effective date</label>
-          <input type="date" className={INPUT} value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+          <input type="date" max="9999-12-31" className={INPUT} value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
         </div>
       </div>
       <div className="mt-3.5">

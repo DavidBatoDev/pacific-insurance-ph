@@ -388,7 +388,7 @@ export function Step2({
           {!lockIdentity && (
             <>
               <Field label="Date of birth">
-                <input autoComplete="off" className={INPUT} type="date" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
+                <input autoComplete="off" className={INPUT} type="date" max="9999-12-31" value={f.dob} onChange={(e) => set({ dob: e.target.value })} />
               </Field>
               <Field label="Age">
                 <input autoComplete="off" className={cn(INPUT, "bg-surface-3 text-muted-foreground")} readOnly value={age !== "" ? age + " years" : ""} placeholder="—" />

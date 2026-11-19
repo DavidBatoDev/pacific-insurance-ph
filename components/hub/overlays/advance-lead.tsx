@@ -304,6 +304,7 @@ export function AdvanceLeadModal({
             </label>
             <input
               type="date"
+              max="9999-12-31"
               className="h-9 w-full rounded-md border border-border-strong bg-card px-3 text-[13.5px] outline-none focus:border-brand"
               value={follow}
               onChange={(e) => setFollow(e.target.value)}

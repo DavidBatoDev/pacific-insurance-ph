@@ -207,7 +207,7 @@ function PacificCrossReplyStep({
             <input aria-label="Reply note" className={INPUT} value={note} onChange={(event) => setNote(event.target.value)} placeholder="What the email said" />
           </Field>
           <Field label="Received">
-            <input aria-label="Reply received" type="date" className={INPUT} value={received} onChange={(event) => setReceived(event.target.value)} />
+            <input aria-label="Reply received" type="date" max="9999-12-31" className={INPUT} value={received} onChange={(event) => setReceived(event.target.value)} />
           </Field>
         </div>
         <div className="mt-3 flex justify-end">

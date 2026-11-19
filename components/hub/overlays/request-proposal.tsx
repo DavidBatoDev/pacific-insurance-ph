@@ -103,7 +103,7 @@ export function RequestProposalModal({
         />
       </Field>
       <Field label="Follow-up date" className="mt-3.5">
-        <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+        <input className={INPUT} type="date" max="9999-12-31" value={follow} onChange={(e) => setFollow(e.target.value)} />
       </Field>
 
       <button

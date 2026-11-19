@@ -133,7 +133,7 @@ export function ContactComposer({
                       </select>
                     </Field>
                     <Field label="Received at">
-                      <input className={INPUT} type="datetime-local" value={msgAt} onChange={(e) => setMsgAt(e.target.value)} />
+                      <input className={INPUT} type="datetime-local" max="9999-12-31T23:59" value={msgAt} onChange={(e) => setMsgAt(e.target.value)} />
                     </Field>
                   </div>
                   <Field label="Transcript / summary" required className="mt-3.5">
