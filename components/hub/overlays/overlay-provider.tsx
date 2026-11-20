@@ -104,6 +104,10 @@ export function OverlayProvider({
   children: ReactNode;
 }) {
   const [active, setActive] = useState<OverlayState | null>(null);
+  // Bumped on every open so the host remounts: opening a wizard from a wizard (Continue draft)
+  // is otherwise the same component in the same slot, and React kept the old instance's state —
+  // the open-work dialog stayed up over a wizard that never loaded the draft.
+  const [openSeq, setOpenSeq] = useState(0);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [confirmState, setConfirmState] = useState<{
     options: ConfirmOptions;
@@ -111,7 +115,10 @@ export function OverlayProvider({
   } | null>(null);
   const toastSeq = useRef(0);
 
-  const open = useCallback((overlay: OverlayState) => setActive(overlay), []);
+  const open = useCallback((overlay: OverlayState) => {
+    setActive(overlay);
+    setOpenSeq((n) => n + 1);
+  }, []);
   const close = useCallback(() => setActive(null), []);
 
   const toast = useCallback((title: string, sub?: string, action?: ToastData["action"]) => {
@@ -155,7 +162,7 @@ export function OverlayProvider({
   return (
     <OverlayContext.Provider value={api}>
       {children}
-      {active && <Host overlay={active} close={close} />}
+      {active && <Host key={openSeq} overlay={active} close={close} />}
       {confirmState && (
         <ConfirmDialog
           options={confirmState.options}

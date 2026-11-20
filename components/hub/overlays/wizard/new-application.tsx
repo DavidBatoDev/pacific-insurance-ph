@@ -615,6 +615,7 @@ export function NewApplicationWizard({
               overlays.openApplicationRequirements(applicationId);
             }}
             onStartNew={() => setOpenWork(null)}
+            onClose={requestClose}
           />
         )}
 

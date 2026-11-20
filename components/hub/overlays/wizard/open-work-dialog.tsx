@@ -18,6 +18,7 @@ export function OpenWorkDialog({
   onOpenTravel,
   onOpenApplication,
   onStartNew,
+  onClose,
 }: {
   clientName: string;
   work: ClientOpenWork;
@@ -27,6 +28,8 @@ export function OpenWorkDialog({
   onOpenTravel: (travelRequestId: string) => void;
   onOpenApplication: (applicationId: string) => void;
   onStartNew: () => void;
+  /** Closes the whole wizard: the dialog covers the wizard's own Close button. */
+  onClose: () => void;
 }) {
   const sameProductDraft = work.drafts.find((draft) => draft.productName && draft.productName === productName);
   const rows = [
@@ -57,8 +60,16 @@ export function OpenWorkDialog({
   ];
   return (
     <div className="absolute inset-0 z-20 grid place-items-center bg-black/30 p-6" role="dialog" aria-label={`${clientName} already has open work`}>
-      <div className="w-full max-w-[560px] rounded-xl border border-border bg-card p-5 shadow-pop">
-        <div className="flex items-start gap-3">
+      <div className="relative w-full max-w-[560px] rounded-xl border border-border bg-card p-5 shadow-pop">
+        <button
+          type="button"
+          aria-label="Close wizard"
+          onClick={onClose}
+          className="absolute right-3 top-3 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <I.plus size={18} className="rotate-45" />
+        </button>
+        <div className="flex items-start gap-3 pr-8">
           <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-soft text-amber">
             <I.alertTri size={17} />
           </span>
