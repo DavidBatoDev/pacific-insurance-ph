@@ -72,6 +72,7 @@ export function Field({
   label,
   required,
   hint,
+  error,
   children,
   className,
   htmlFor,
@@ -79,6 +80,8 @@ export function Field({
   label: string;
   required?: boolean;
   hint?: string;
+  /** Why this field blocks the form's action; shown in place of the hint. */
+  error?: string;
   children: ReactNode;
   className?: string;
   /** Id of the control this label names (makes it reachable by accessible name). */
@@ -90,7 +93,13 @@ export function Field({
         {label} {required && <span className="text-red">*</span>}
       </label>
       {children}
-      {hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>}
+      {error ? (
+        <div className="mt-1 flex items-center gap-1 text-[11.5px] font-semibold text-amber">
+          <I.alertTri size={12} aria-hidden className="shrink-0" /> {error}
+        </div>
+      ) : (
+        hint && <div className="mt-1 text-[11.5px] text-faint">{hint}</div>
+      )}
     </div>
   );
 }
@@ -366,9 +375,11 @@ export function Btn({
         variant === "default" &&
           "border-border-strong bg-card text-foreground hover:border-faint hover:bg-hover disabled:opacity-50 disabled:hover:border-border-strong disabled:hover:bg-card",
         // A blocked primary must not read as available: drop the brand fill entirely rather than
-        // dimming it, so "Create" next to a "Still needed" list is unmistakably off.
+        // dimming it, so "Create" next to a "Still needed" list is unmistakably off. `aria-disabled`
+        // gets the same look for a blocked action that stays clickable to explain itself (the
+        // wizard's Create jumps to the first missing field).
         variant === "primary" &&
-          "border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(4,120,87,0.25)] hover:bg-brand-hover disabled:border-border disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3",
+          "border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(4,120,87,0.25)] hover:bg-brand-hover disabled:border-border disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3 aria-disabled:border-border aria-disabled:bg-surface-3 aria-disabled:text-subtle aria-disabled:shadow-none aria-disabled:hover:bg-surface-3 aria-disabled:hover:text-muted-foreground",
         variant === "ghost" && "border-transparent bg-transparent hover:bg-hover disabled:opacity-50 disabled:hover:bg-transparent",
         className,
       )}

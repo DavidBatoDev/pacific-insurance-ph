@@ -52,7 +52,7 @@ function NewClaimStep({ onCancel, onFiled }: { onCancel: () => void; onFiled: (p
   return (
     <>
       {form.fields}
-      <StepActionBar onBack={onCancel} backLabel="Cancel" missing={form.missing} note="The checklist is created with the claim">
+      <StepActionBar onBack={onCancel} backLabel="Cancel" action={form.submitLabel} missing={form.missing} note="The checklist is created with the claim">
         <Btn variant="primary" disabled={!form.canSave} onClick={form.save}><I.clipboard size={14} /> {form.submitLabel}</Btn>
       </StepActionBar>
     </>
@@ -283,7 +283,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
       return (
         <WorkflowFooter
           back={back}
-          missing={outstanding.length && !flow.done[3] ? [`${outstanding.length} required document${outstanding.length === 1 ? "" : "s"}`] : []}
+          missing={outstanding.length && !flow.done[3] ? [{ label: `${outstanding.length} required document${outstanding.length === 1 ? "" : "s"}`, target: `requirement-${outstanding[0].id}` }] : []}
           note="All required documents are in"
         >
           <Btn variant="primary" disabled={!flow.done[2] && !flow.done[3]} onClick={() => go(3)}>Continue <I.chevRight size={15} /></Btn>

@@ -290,7 +290,7 @@ await step("create Select application", async () => {
   await continueBtn().click();
   await page.waitForTimeout(500);
   check((await heading().textContent()).trim() === "Review & create application", "Continue → Step 6 Review & create");
-  const still = wiz().getByText("Still needed:");
+  const still = wiz().getByText("stays greyed out until you add:");
   if (await still.count()) t.note(`Step 6 blockers: ${(await still.first().textContent()).trim()}`);
   const createBtn = wiz().getByRole("button", { name: "Create & request documents" });
   check(!(await createBtn.isDisabled()), "Create & request documents is enabled");

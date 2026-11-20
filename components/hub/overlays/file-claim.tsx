@@ -21,6 +21,7 @@ import { Field, INPUT } from "../primitives";
 import { ClaimWorkflowModal } from "./claim-workflow";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { useOverlays } from "./overlay-provider";
+import type { Blocker } from "./still-needed";
 import { Section } from "./wizard/steps-1";
 import type { SectionState } from "./wizard/wizard-data";
 
@@ -108,7 +109,7 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
   const isInterim = INTERIM_CHECKLIST_TYPES.includes(claimType as ClaimType);
   const currentPreview = preview?.type === claimType ? preview.data : null;
   const canSave = !!client && !pending;
-  const missing = client ? [] : ["claimant"];
+  const missing: Blocker[] = client ? [] : [{ label: "claimant", target: "claim-claimant" }];
   const submitLabel = pending ? "Filing…" : "File claim";
 
   const save = () => {
@@ -149,8 +150,8 @@ export function useFileClaimForm(onFiled: (filed: { claim: Claim; requirements: 
   const fields = (
     <>
       <Section title="Claimant & policy" state={claimantState}>
-        <Field label="Claimant" required>
-          <ClientPicker value={client} onPick={setClient} onClear={() => setClient(null)} />
+        <Field label="Claimant" required htmlFor="claim-claimant">
+          <ClientPicker id="claim-claimant" value={client} onPick={setClient} onClear={() => setClient(null)} />
         </Field>
         <Field label="Policy" className="mt-4">
           {!client ? (

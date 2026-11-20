@@ -115,7 +115,7 @@ export function ClaimRequirementsPanel({
 
           <div className="mt-4 space-y-2">
             {requirements.map((item) => (
-              <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
+              <div key={item.id} id={`requirement-${item.id}`} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
                 <div className="flex items-center gap-3">
                   <RequirementStatusDot status={item.status} />
                   <div className="min-w-0 flex-1">

@@ -10,6 +10,7 @@ import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { ClientPicker, type PickedClient } from "./client-picker";
 import { Drawer } from "./drawer";
+import type { Blocker } from "./still-needed";
 import { Section } from "./wizard/steps-1";
 import type { SectionState } from "./wizard/wizard-data";
 import { useOverlays } from "./overlay-provider";
@@ -124,9 +125,14 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   const submitLabel = pending ? "Saving…" : fromApplication ? "Log policy & convert" : "Log policy copy";
 
   // Grouped like the New Application wizard: each card's dot says whether it is complete.
-  const missing = optionsLoading
+  const missing: Blocker[] = optionsLoading
     ? []
-    : [...(client ? [] : ["client"]), ...(productVersionId ? [] : ["product"]), ...(select && !selectVariant ? ["Select variant"] : []), ...(select && !selectedPlan ? ["matching active plan"] : [])];
+    : [
+        ...(client ? [] : [{ label: "client", target: "policy-client" }]),
+        ...(productVersionId ? [] : [{ label: "product", target: "policy-product" }]),
+        ...(select && !selectVariant ? [{ label: "Select variant", target: "policy-select-variant" }] : []),
+        ...(select && !selectedPlan ? [{ label: "matching active plan", target: "policy-plan" }] : []),
+      ];
   const recommended = [policyNumber.trim(), premium, effective, expiry].filter(Boolean).length;
   const clientState: SectionState = optionsLoading
     ? { status: "todo", label: "Loading product options…" }
@@ -140,7 +146,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
   const fields = (
     <>
       <Section title="Client & product" state={clientState}>
-        <Field label="Client" required>
+        <Field label="Client" required htmlFor={fromApplication ? undefined : "policy-client"}>
           {fromApplication ? (
             <div className="flex h-9 items-center gap-2 rounded-md border border-border-soft bg-surface-2 px-3 text-[13px] font-semibold">
               <I.user size={14} className="text-subtle" /> {fromApplication.client.name}
@@ -148,6 +154,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
             </div>
           ) : (
             <ClientPicker
+              id="policy-client"
               value={client}
               onPick={(picked) => { setClient(picked); setPdf(null); }}
               onClear={() => { setClient(null); setPdf(null); }}
@@ -161,8 +168,9 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-4">
-          <Field label="Product" required>
+          <Field label="Product" required htmlFor="policy-product">
             <select
+              id="policy-product"
               className={INPUT}
               value={productVersionId}
               onChange={(e) => {
@@ -180,8 +188,8 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
               ))}
             </select>
           </Field>
-          {select && <Field label="Select variant" required>
-            <select className={INPUT} value={selectVariant} onChange={(e) => {
+          {select && <Field label="Select variant" required htmlFor="policy-select-variant">
+            <select id="policy-select-variant" className={INPUT} value={selectVariant} onChange={(e) => {
               const variant = e.target.value as SelectVariant | "";
               setSelectVariant(variant);
               if (!product?.planOptions.some((plan) => plan.id === planOptionId && plan.planFamily === variant)) setPlanOptionId("");
@@ -191,8 +199,9 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
             </select>
             <p className="mt-1 text-[12px] text-muted-foreground">{optionsLoading ? "Loading plan options…" : selectVariant ? selectLimitBasis(selectVariant) : "Choose the variant recorded on the carrier policy."}</p>
           </Field>}
-          <Field label="Plan option" required={select}>
+          <Field label="Plan option" required={select} htmlFor="policy-plan">
             <select
+              id="policy-plan"
               className={INPUT}
               value={planOptionId}
               onChange={(e) => setPlanOptionId(e.target.value)}

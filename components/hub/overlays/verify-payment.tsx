@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Btn, Field, INPUT } from "../primitives";
 import { Drawer } from "./drawer";
+import type { Blocker } from "./still-needed";
 import { Section } from "./wizard/steps-1";
 import type { SectionState } from "./wizard/wizard-data";
 import { useOverlays } from "./overlay-provider";
@@ -108,10 +109,10 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
   // Same grouped cards + completeness dots as the New Application wizard, so it is clear what is
   // still missing before saving.
   const needsOr = status === "Verified" && !or.trim();
-  const missing = [
-    ...(hasAmount ? [] : ["premium amount"]),
-    ...(hasProof ? [] : ["proof of payment"]),
-    ...(needsOr ? ["service invoice no."] : []),
+  const missing: Blocker[] = [
+    ...(hasAmount ? [] : [{ label: "premium amount", target: "pay-amount" }]),
+    ...(hasProof ? [] : [{ label: "proof of payment", target: "pay-proof" }]),
+    ...(needsOr ? [{ label: "service invoice no.", target: "pay-or" }] : []),
   ];
   const proofState: SectionState = hasProof
     ? { status: "done", label: proof ? "Attached" : "On file" }
@@ -124,7 +125,7 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
 
   const fields = (
     <>
-      <Section title="Proof of payment" state={proofState}>
+      <Section id="pay-proof" title="Proof of payment" state={proofState}>
         <label
           className={cn(
             "flex cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-3.5 py-3 text-[12.5px] transition-colors",
@@ -170,8 +171,9 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
             </select>
           </Field>
         </div>
-        <Field label={`Premium amount (${currencySymbol(payment.currency).trim()})`} required className="mt-4">
+        <Field label={`Premium amount (${currencySymbol(payment.currency).trim()})`} required className="mt-4" htmlFor="pay-amount">
           <input
+            id="pay-amount"
             aria-label="Premium amount"
             className={INPUT}
             inputMode="decimal"
@@ -185,8 +187,9 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
           required={status === "Verified"}
           hint="From Pacific Cross’s service invoice"
           className="mt-4"
+          htmlFor="pay-or"
         >
-          <input className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
+          <input id="pay-or" className={INPUT} value={or} onChange={(e) => setOr(e.target.value)} placeholder="OR-2026-XXXXX" />
         </Field>
       </Section>
 

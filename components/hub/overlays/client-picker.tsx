@@ -15,11 +15,14 @@ export interface PickedClient {
 
 /** Debounced real-record contact search used by the operation drawers. */
 export function ClientPicker({
+  id,
   value,
   onPick,
   onClear,
   placeholder = "Search a client…",
 }: {
+  /** Id of the search input, for a `<label htmlFor>` or a "Still needed" jump. */
+  id?: string;
   value: PickedClient | null;
   onPick: (c: PickedClient) => void;
   onClear: () => void;
@@ -51,6 +54,7 @@ export function ClientPicker({
       <div className="flex h-[38px] items-center gap-2.5 rounded-md border border-border-strong bg-card px-3 text-muted-foreground focus-within:border-brand">
         <I.search size={16} />
         <input
+          id={id}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder}

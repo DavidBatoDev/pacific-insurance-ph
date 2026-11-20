@@ -506,9 +506,9 @@ async function run73(seeded, filed71) {
     const step3 = d.getByRole("navigation", { name: "Workflow steps" }).getByRole("button", { name: /Email Pacific Cross/ });
     if (await step3.isDisabled()) t.pass("Email Pacific Cross stays locked while required documents are outstanding");
     const cont = d.getByRole("button", { name: "Continue" });
-    if (await cont.isDisabled()) t.pass("Continue is disabled; footer lists 'Still needed: 2 required documents'");
-    const still = await d.getByText(/Still needed: 2 required documents/).count();
-    if (!still) t.note("Footer did not show 'Still needed: 2 required documents'");
+    if (await cont.isDisabled()) t.pass("Continue is disabled; the footer notice lists '2 required documents'");
+    const still = await d.getByText(/until you add: 2 required documents/).count();
+    if (!still) t.note("Footer notice did not list '2 required documents'");
     await t.shot("7.3-fresh-op");
     await closeDialog(t);
   });
@@ -554,8 +554,8 @@ async function run73(seeded, filed71) {
     for (const doc of docs ?? []) created.documents.push({ id: doc.id, name: doc.name, claim: fresh.reference_no });
     if (docs?.length) t.pass(`documents row created: ${docs.map((x) => x.name).join(", ")}`);
     else t.fail("No documents row linked to the claim after upload");
-    const still = await d.getByText(/Still needed: 7 required documents/).count();
-    if (still) t.pass("Footer now reads 'Still needed: 7 required documents'");
+    const still = await d.getByText(/until you add: 7 required documents/).count();
+    if (still) t.pass("Footer notice now lists '7 required documents'");
     await t.shot("7.3-uploaded");
   });
 

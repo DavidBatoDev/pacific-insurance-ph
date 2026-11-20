@@ -298,6 +298,32 @@
 }
 
 /* ============================================================
+   "Still needed" jump target (components/hub/overlays/still-needed.tsx).
+   `revealField` sets [data-attention] for ~1.8s on the field or section it
+   scrolls to: an amber ring that holds, then fades. Unlayered so it wins over
+   the `outline-none` / ring utilities on the control itself.
+   ============================================================ */
+@keyframes field-attention {
+  0%,
+  55% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+[data-attention] {
+  border-color: var(--amber);
+  animation: field-attention 1.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-attention] {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 45%, transparent);
+  }
+}
+
+/* ============================================================
    docx-preview output (carrier document viewer).
 
    Selectors are two classes deep on purpose: the library injects its own

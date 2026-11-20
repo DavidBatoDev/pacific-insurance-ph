@@ -370,7 +370,7 @@ await step("Application last workflow step button", async () => {
     const productVal = await control(page, "Product").evaluate((s) => s.options[s.selectedIndex]?.textContent?.trim());
     const variantVal = await control(page, "Select variant").evaluate((s) => s.value).catch(() => "(no variant field)");
     const planVal = await control(page, "Plan option").evaluate((s) => s.options[s.selectedIndex]?.textContent?.trim());
-    const needed = (await page.getByText(/Still needed/).first().textContent().catch(() => "")) ?? "";
+    const needed = (await page.getByText(/greyed out until you add/).first().textContent().catch(() => "")) ?? "";
     if (productVal === "Select") t.pass("Product prefilled from the application: Select");
     else t.fail(`Product prefilled as "${productVal}" (application product is Select)`);
     if (variantVal === "Select Plus" && planVal === "Select Plus Ward") t.pass("Select variant + plan prefilled from the application's plan (Select Plus Ward)");

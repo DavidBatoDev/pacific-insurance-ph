@@ -33,6 +33,7 @@ import { openPortalWindow } from "../portal-window";
 import { Step1, Step2 } from "./steps-1";
 import { Step3, Step4, Step5, Step6 } from "./steps-2";
 import { OpenWorkDialog } from "./open-work-dialog";
+import { BlockedNotice, BlockerFlags, useRevealAfterRender, type Blocker } from "../still-needed";
 import { TravelRequirementUploads } from "./travel-details-step";
 import { healthWizardRequirements, travelWizardRequirements, requirementSelectionScope, withRequirementPersonKeys, wizardRequirementPreview } from "./wizard-requirements";
 import {
@@ -49,6 +50,10 @@ import {
   type ChecklistItem,
   type WizardForm,
 } from "./wizard-data";
+
+/** A reason Create is blocked: the wizard step and control that fix it, and its inline message. */
+type WizardBlocker = Blocker & { step: number; target: string; hint?: string };
+const NO_FLAGS: ReadonlyMap<string, string> = new Map();
 
 /**
  * New Client Application — the 6-step wizard overlay (see
@@ -115,6 +120,12 @@ export function NewApplicationWizard({
   const [step, setStep] = useState(1);
   const [splitOpen, setSplitOpen] = useState(false);
   const dirtyRef = useRef(false);
+  // The step body scrolls; it is reset on a step change so a step never opens mid-page.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Set once Create (or a "Still needed" chip) is pressed while blocked: from then on every
+  // blocked field carries an inline message, so a fresh form isn't covered in warnings.
+  const [flagBlockers, setFlagBlockers] = useState(false);
+  const reveal = useRevealAfterRender();
   const [wizard, setWizard] = useState<{ form: WizardForm; selections: Record<string, RequirementAttachmentSelection> }>(() => ({
     form: withRequirementPersonKeys(initialiseFamilySizeSuggestion({
       ...emptyWizardForm(),
@@ -410,30 +421,36 @@ export function NewApplicationWizard({
   // A draft captures an early inquiry, before a product/workflow is necessarily known.
   const canDraft = hasName && hasContact && !pending;
   const groupTooFew = f.category === "hmo" && f.members.filter((m) => m.name.trim()).length < 3;
-  // Why Create is disabled, as jump-to links (2026-10-06: a draft with no trip dates silently
+  // Why Create is blocked, as jump-to chips (2026-10-06: a draft with no trip dates silently
   // greyed out "Create & open portal" and nothing said why). `canCreate` is derived from this
-  // list so the two can't disagree. Steps are the travel screen numbers on the travel path.
+  // list so the two can't disagree. Steps are the travel screen numbers on the travel path;
+  // `target` is the control a jump focuses, `hint` its inline message once flagged.
   const blockerStep = (standard: number) => (f.category === "travel" ? (standard === 5 || standard === 6 ? 2 : 1) : standard);
   const activeProduct = products.find((product) => product.productVersionId === f.productVersionId);
   const activeHealthPlan = plansForSelectVariant(activeProduct?.planOptions ?? [], f.productName, f.selectVariant)
     .find((plan) => plan.id === f.planOptionId);
-  const createBlockers: { label: string; step: number }[] = [
-    ...(!hasName ? [{ label: "Client name", step: blockerStep(2) }] : []),
-    ...(!hasContact ? [{ label: "Email or mobile", step: blockerStep(2) }] : []),
-    ...(!activeProduct ? [{ label: "Active product", step: 1 }] : []),
-    ...(!f.appType ? [{ label: "Application type", step: 1 }] : []),
-    ...(!f.source ? [{ label: "Source", step: 1 }] : []),
-    ...(groupTooFew ? [{ label: "At least 3 group members", step: 3 }] : []),
-    ...(f.category === "travel" && !f.destination ? [{ label: "Destination", step: blockerStep(3) }] : []),
-    ...(f.category === "travel" && !f.departure ? [{ label: "Departure date", step: blockerStep(3) }] : []),
-    ...(f.category === "travel" && !f.returnDate ? [{ label: "Return date", step: blockerStep(3) }] : []),
+  // "Existing client" with nobody picked yet is fixed in Step 1's picker, not the identity fields.
+  const pickingClient = f.clientMode === "existing" && !f.existingClientId && !f.convertClientId;
+  const identityStep = pickingClient ? 1 : blockerStep(2);
+  const nameTarget = pickingClient ? "wiz-client-search" : f.category === "hmo" ? "wiz-company-name" : "wiz-first-name";
+  const contactTarget = pickingClient ? "wiz-client-search" : f.category === "hmo" ? "wiz-company-mobile" : "wiz-mobile";
+  const createBlockers: WizardBlocker[] = [
+    ...(!hasName ? [{ label: "Client name", step: identityStep, target: nameTarget }] : []),
+    ...(!hasContact ? [{ label: "Email or mobile", step: identityStep, target: contactTarget }] : []),
+    ...(!activeProduct ? [{ label: "Active product", step: 1, target: "wiz-product" }] : []),
+    ...(!f.appType ? [{ label: "Application type", step: 1, target: "wiz-app-type" }] : []),
+    ...(!f.source ? [{ label: "Source", step: 1, target: "wiz-source" }] : []),
+    ...(groupTooFew ? [{ label: "At least 3 group members", step: 3, target: "wiz-members", hint: "Add at least 3 members" }] : []),
+    ...(f.category === "travel" && !f.destination ? [{ label: "Destination", step: blockerStep(3), target: "wiz-destination" }] : []),
+    ...(f.category === "travel" && !f.departure ? [{ label: "Departure date", step: blockerStep(3), target: "wiz-departure" }] : []),
+    ...(f.category === "travel" && !f.returnDate ? [{ label: "Return date", step: blockerStep(3), target: "wiz-return" }] : []),
     ...(f.category === "travel" && f.departure && f.returnDate && f.returnDate < f.departure
-      ? [{ label: "Return date after departure", step: blockerStep(3) }]
+      ? [{ label: "Return date after departure", step: blockerStep(3), target: "wiz-return", hint: "Must be after the departure date" }]
       : []),
-    ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3) }] : []),
-    ...(f.category === "health" && !activeHealthPlan ? [{ label: "Matching active plan option", step: 3 }] : []),
-    ...(isSelectProduct(f.productName) && !isSelectVariant(f.selectVariant) ? [{ label: "Select variant", step: 3 }] : []),
-    ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3 }] : []),
+    ...(f.category === "travel" && !f.travelers.some((traveler) => traveler.name.trim()) ? [{ label: "A named traveler", step: blockerStep(3), target: "wiz-travelers", hint: "Name at least one traveler" }] : []),
+    ...(f.category === "health" && !activeHealthPlan ? [{ label: "Matching active plan option", step: 3, target: "wiz-plan-option" }] : []),
+    ...(isSelectProduct(f.productName) && !isSelectVariant(f.selectVariant) ? [{ label: "Select variant", step: 3, target: "wiz-select-variant" }] : []),
+    ...(f.category === "health" && !f.coverage ? [{ label: "Coverage type", step: 3, target: "wiz-coverage" }] : []),
   ];
   const canCreate = !pending && createBlockers.length === 0;
 
@@ -447,9 +464,19 @@ export function NewApplicationWizard({
   const currentStep = Math.min(step, lastStep);
   const go = (n: number) => {
     const next = Math.max(1, Math.min(lastStep, productChosen ? n : 1));
+    if (next !== currentStep) bodyRef.current?.scrollTo({ top: 0 });
     setStep(next);
     setF((s) => ({ ...s, draftStep: next }));
   };
+  // Take the user to a blocker's field: its step, scrolled into view, focused and ringed.
+  const jump = (blocker: WizardBlocker) => {
+    setFlagBlockers(true);
+    go(blocker.step);
+    reveal(blocker.target);
+  };
+  const blockerFlags: ReadonlyMap<string, string> = flagBlockers
+    ? new Map(createBlockers.map((blocker) => [blocker.target, blocker.hint ?? "Required to create"]))
+    : NO_FLAGS;
 
   const changedAutoFilledFields = () =>
     (Object.keys(autoFilled) as AutoFilledWizardField[]).filter((field) => {
@@ -665,7 +692,8 @@ export function NewApplicationWizard({
         </div>
 
         {/* Body */}
-        <div className="min-h-0 overflow-y-auto p-6">
+        <div ref={bodyRef} className="min-h-0 overflow-y-auto p-6">
+          <BlockerFlags value={blockerFlags}>
           {f.convertClientId && (
             <div className="mb-4 flex gap-2.5 rounded-md border border-brand/25 bg-brand-soft p-3.5 text-[12.5px] leading-relaxed">
               <I.user size={15} className="mt-0.5 shrink-0 text-brand" />
@@ -754,87 +782,85 @@ export function NewApplicationWizard({
               )}
             </>
           )}
+          </BlockerFlags>
         </div>
 
-        {/* Footer */}
-        <div className="col-start-2 flex items-center gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5 max-[800px]:col-start-1">
-          {currentStep > 1 ? (
-            <Btn onClick={() => go(currentStep - 1)}>
-              <I.chevRight size={15} className="rotate-180" /> Back
-            </Btn>
-          ) : (
-            <Btn onClick={requestClose}>Cancel</Btn>
+        {/* Footer: while Create is blocked, an amber bar above the buttons says why it is greyed out. */}
+        <div className="col-start-2 flex flex-col border-t border-border-soft bg-surface-2 max-[800px]:col-start-1">
+          {currentStep === lastStep && createBlockers.length > 0 && (
+            <BlockedNotice
+              id="wiz-still-needed"
+              action={isTravel ? "Create & open portal" : "Create & request documents"}
+              items={createBlockers}
+              onJump={jump}
+            />
           )}
-          <span className="flex-1 text-[11.5px] text-faint">
-            {currentStep === 1 && !productChosen ? (
-              "Choose a product to continue — it decides the requirements"
-            ) : currentStep === lastStep && createBlockers.length > 0 ? (
-              <span className="text-amber">
-                Still needed:{" "}
-                {createBlockers.map((blocker, index) => (
-                  <span key={blocker.label}>
-                    {index > 0 && ", "}
-                    <button type="button" className="font-semibold underline-offset-2 hover:underline" onClick={() => go(blocker.step)}>
-                      {blocker.label}
-                    </button>
-                  </span>
-                ))}
-              </span>
-            ) : (
-              !canDraft && "Add a name and contact method to save a draft"
-            )}
-          </span>
-          <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
-            Save draft
-          </Btn>
-          {currentStep < lastStep ? (
-            <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={() => go(currentStep + 1)}>
-              Continue <I.chevRight size={15} />
-            </Btn>
-          ) : (
-            <div className="relative flex">
-              <Btn
-                variant="primary"
-                disabled={!canCreate || resumeLoading || !!resumeError}
-                title={createBlockers.length ? `Still needed: ${createBlockers.map((blocker) => blocker.label).join(", ")}` : undefined}
-                onClick={() => finish(isTravel ? "create" : "docs")}
-                className="rounded-r-none"
-              >
-                <I.send size={15} /> {pending ? "Creating…" : isTravel ? "Create & open portal" : "Create & request documents"}
+          <div className="flex items-center gap-3 px-5 py-3.5">
+            {currentStep > 1 ? (
+              <Btn onClick={() => go(currentStep - 1)}>
+                <I.chevRight size={15} className="rotate-180" /> Back
               </Btn>
-              <button
-                onClick={() => setSplitOpen((o) => !o)}
-                disabled={!canCreate || resumeLoading || !!resumeError}
-                className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:border-border disabled:border-l-border-strong disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3"
-              >
-                <I.chevDown size={15} className="rotate-180" />
-              </button>
-              {splitOpen && (
-                <div className="absolute bottom-11 right-0 w-[240px] overflow-hidden rounded-md border border-border bg-card py-1 shadow-pop">
-                  {(
-                    [
-                      ["create", "Create application", "check"],
-                      ["draft", "Save as draft", "doc2"],
-                    ] as const
-                  ).map(([mode, label, icon]) => {
-                    const Ico = I[icon];
-                    return (
-                      <button
-                        key={mode}
-                        onClick={() => {
-                          setSplitOpen(false);
-                          finish(mode);
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                      >
-                        <Ico size={15} className="text-subtle" /> {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <Btn onClick={requestClose}>Cancel</Btn>
+            )}
+            <span className="flex-1 text-[11.5px] text-faint">
+              {currentStep === 1 && !productChosen ? "Choose a product to continue — it decides the requirements" : !canDraft && "Add a name and contact method to save a draft"}
+            </span>
+            <Btn disabled={!canDraft || resumeLoading || !!resumeError} onClick={() => finish("draft")}>
+              Save draft
+            </Btn>
+            {currentStep < lastStep ? (
+              <Btn variant="primary" disabled={resumeLoading || !!resumeError || (currentStep === 1 && !productChosen)} onClick={() => go(currentStep + 1)}>
+                Continue <I.chevRight size={15} />
+              </Btn>
+            ) : (
+              <div className="relative flex">
+                {/* Blocked, Create keeps the disabled look but stays pressable (aria-disabled): pressing
+                    it jumps to the first missing field instead of doing nothing. */}
+                <Btn
+                  variant="primary"
+                  disabled={pending || resumeLoading || !!resumeError}
+                  aria-disabled={createBlockers.length > 0 || undefined}
+                  aria-describedby={createBlockers.length > 0 ? "wiz-still-needed" : undefined}
+                  onClick={() => (createBlockers.length > 0 ? jump(createBlockers[0]) : finish(isTravel ? "create" : "docs"))}
+                  className="rounded-r-none"
+                >
+                  <I.send size={15} /> {pending ? "Creating…" : isTravel ? "Create & open portal" : "Create & request documents"}
+                </Btn>
+                <button
+                  onClick={() => setSplitOpen((o) => !o)}
+                  disabled={!canCreate || resumeLoading || !!resumeError}
+                  className="grid h-9 w-8 place-items-center rounded-r-md border border-l border-transparent border-l-white/25 bg-primary text-primary-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:border-border disabled:border-l-border-strong disabled:bg-surface-3 disabled:text-subtle disabled:hover:bg-surface-3"
+                >
+                  <I.chevDown size={15} className="rotate-180" />
+                </button>
+                {splitOpen && (
+                  <div className="absolute bottom-11 right-0 w-[240px] overflow-hidden rounded-md border border-border bg-card py-1 shadow-pop">
+                    {(
+                      [
+                        ["create", "Create application", "check"],
+                        ["draft", "Save as draft", "doc2"],
+                      ] as const
+                    ).map(([mode, label, icon]) => {
+                      const Ico = I[icon];
+                      return (
+                        <button
+                          key={mode}
+                          onClick={() => {
+                            setSplitOpen(false);
+                            finish(mode);
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-[550] transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                        >
+                          <Ico size={15} className="text-subtle" /> {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>,

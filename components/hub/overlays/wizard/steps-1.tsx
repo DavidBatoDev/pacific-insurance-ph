@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { I } from "../../icons";
 import { AREA, Avatar, Field, INPUT } from "../../primitives";
 import { ClientPicker, type PickedClient } from "../client-picker";
+import { useBlockerFlag } from "../still-needed";
 import {
   ageFromDob,
   categoryForProduct,
@@ -32,11 +33,12 @@ export interface StepProps {
 
 
 export function Step1({ f, set, products, users, unmatchedProduct }: StepProps & { unmatchedProduct?: string | null }) {
+  const flag = useBlockerFlag();
   return (
     <div>
       <Section title="Workflow" state={sectionStatus(f, "workflow")}>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Application type" required htmlFor="wiz-app-type">
+          <Field label="Application type" required htmlFor="wiz-app-type" error={flag("wiz-app-type")}>
             <select id="wiz-app-type" className={INPUT} value={f.appType} onChange={(e) => set({ appType: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.appType.map((t) => (
@@ -44,7 +46,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
               ))}
             </select>
           </Field>
-          <Field label="Source" required htmlFor="wiz-source">
+          <Field label="Source" required htmlFor="wiz-source" error={flag("wiz-source")}>
             <select id="wiz-source" className={INPUT} value={f.source} onChange={(e) => set({ source: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.sources.map((s) => (
@@ -56,7 +58,7 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
       </Section>
 
       <Section title="Product" state={sectionStatus(f, "product")}>
-        <Field label="Product" required htmlFor="wiz-product">
+        <Field label="Product" required htmlFor="wiz-product" error={flag("wiz-product")}>
           <select
             id="wiz-product"
             className={INPUT}
@@ -166,8 +168,9 @@ export function Step1({ f, set, products, users, unmatchedProduct }: StepProps &
               </div>
             </Field>
             {f.clientMode === "existing" && !f.convertClientId && (
-              <Field label="Search existing client" required className="mt-3">
+              <Field label="Search existing client" required className="mt-3" htmlFor="wiz-client-search" error={flag("wiz-client-search")}>
                 <ClientPicker
+                  id="wiz-client-search"
                   value={f.existingClientId ? { id: f.existingClientId, name: f.existingClientName } : null}
                   onPick={(c: PickedClient) =>
                     set({ existingClientId: c.id, existingClientName: c.name, displayName: c.name })
@@ -270,19 +273,20 @@ export function Step2({
   linkedClientName,
   leadDetails,
 }: StepProps & { linkedClientName?: string | null; leadDetails?: LeadDetails }) {
+  const flag = useBlockerFlag();
   if (f.category === "hmo") {
     return (
       <div>
         <Section title="Company / group" state={sectionStatus(f, "name")} last>
-          <Field label="Company / group name" required>
-            <input autoComplete="off" className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
+          <Field label="Company / group name" required htmlFor="wiz-company-name" error={flag("wiz-company-name")}>
+            <input id="wiz-company-name" autoComplete="off" className={INPUT} value={f.companyName} onChange={(e) => set({ companyName: e.target.value })} placeholder="e.g. Northwind Logistics Inc." />
           </Field>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <Field label="Company contact person" required>
               <input autoComplete="off" className={INPUT} value={f.companyContact} onChange={(e) => set({ companyContact: e.target.value })} placeholder="Full name" />
             </Field>
-            <Field label="Contact number" required>
-              <input autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
+            <Field label="Contact number" required htmlFor="wiz-company-mobile" error={flag("wiz-company-mobile")}>
+              <input id="wiz-company-mobile" autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
             <Field label="Contact email" required>
               <input autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="hr@company.com" />
@@ -329,7 +333,7 @@ export function Step2({
       {!lockIdentity && (
         <Section title="Name" state={sectionStatus(f, "name")}>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="First name" required htmlFor="wiz-first-name">
+            <Field label="First name" required htmlFor="wiz-first-name" error={flag("wiz-first-name")}>
               <input id="wiz-first-name" autoComplete="off"
                 className={INPUT}
                 value={f.firstName}
@@ -353,7 +357,7 @@ export function Step2({
             <Field label="Email address" htmlFor="wiz-email">
               <input id="wiz-email" autoComplete="off" className={INPUT} type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@email.com" />
             </Field>
-            <Field label="Mobile number" required htmlFor="wiz-mobile">
+            <Field label="Mobile number" required htmlFor="wiz-mobile" error={flag("wiz-mobile")}>
               <input id="wiz-mobile" autoComplete="off" className={INPUT} value={f.mobile} onChange={(e) => set({ mobile: e.target.value })} placeholder="+63 9XX XXX XXXX" />
             </Field>
           </div>
@@ -432,12 +436,16 @@ export function Step2({
  * A wizard input group: a bordered card with a title and, for groups with required inputs, a
  * completeness indicator — neutral until complete, green when done, amber when something filled in
  * is wrong. The border carries the same tone as the dot so a scan down the form reads at a glance.
+ * A section whose `id` is a flagged "Still needed" target turns amber too.
  */
 export function Section({
+  id,
   title,
   state,
   children,
 }: {
+  /** DOM id, so a "Still needed" chip can jump to the section. */
+  id?: string;
   title: string;
   /** From `sectionStatus(f, key)`; omit for optional or informational groups. */
   state?: SectionState;
@@ -445,9 +453,12 @@ export function Section({
   /** Kept for call-site compatibility; spacing now comes from the card stack. */
   last?: boolean;
 }) {
-  const tone = state?.status;
+  const flagged = useBlockerFlag()(id ?? "");
+  const tone = flagged ? "attention" : state?.status;
+  const label = state?.label ?? flagged;
   return (
     <section
+      id={id}
       className={cn(
         "mb-4 rounded-lg border bg-card last:mb-0",
         tone === "done" ? "border-green-border" : tone === "attention" ? "border-amber-border" : tone === "todo" ? "border-border" : "border-border-soft",
@@ -467,14 +478,14 @@ export function Section({
           </span>
         )}
         <h3 className="flex-1 text-[11.5px] font-bold uppercase tracking-[0.07em] text-subtle">{title}</h3>
-        {state && (
+        {label && (
           <span
             className={cn(
               "text-[11.5px] font-semibold",
               tone === "done" ? "text-green" : tone === "attention" ? "text-amber" : "text-faint",
             )}
           >
-            {state.label}
+            {label}
           </span>
         )}
       </header>

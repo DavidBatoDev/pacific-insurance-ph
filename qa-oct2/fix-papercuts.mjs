@@ -168,7 +168,7 @@ await step("L5 workflow Step 6 loading state", async () => {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     const text = (await dialog.innerText()).replace(/\s+/g, " ");
-    if (/Still needed: Select variant/.test(text)) seen.stillNeeded++;
+    if (/until you add: Select variant/.test(text)) seen.stillNeeded++;
     if (text.includes("Loading product options…")) {
       if (!seen.loading) await t.shot("L5-step6-loading");
       seen.loading++;

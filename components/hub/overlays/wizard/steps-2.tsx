@@ -17,6 +17,7 @@ import { I } from "../../icons";
 import { AREA, Field, INPUT } from "../../primitives";
 import { templateNeedsLibraryAttachment } from "../library-attachment-picker";
 import { OptionalLibraryAttachments } from "../optional-library-attachments";
+import { useBlockerFlag } from "../still-needed";
 import { Section, type StepProps } from "./steps-1";
 import { EXTERNAL_COVERAGE_TYPES } from "@/lib/repositories/external-coverage/external-coverage.entity";
 import {
@@ -124,6 +125,7 @@ function BmiReadout({ heightInches, weightLbs }: { heightInches: string; weightL
 }
 
 function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "products">) {
+  const flag = useBlockerFlag();
   const allPlans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
   const plans = plansForSelectVariant(allPlans, f.productName, f.selectVariant);
   const selectedPlan = plans.find((plan) => plan.id === f.planOptionId);
@@ -136,7 +138,7 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
   return (
     <div>
       <Section title="Plan & coverage" state={sectionStatus(f, "plan")}>
-        {isSelectProduct(f.productName) && <Field label="Select variant" required className="mb-4" htmlFor="wiz-select-variant">
+        {isSelectProduct(f.productName) && <Field label="Select variant" required className="mb-4" htmlFor="wiz-select-variant" error={flag("wiz-select-variant")}>
           <select id="wiz-select-variant" className={INPUT} value={f.selectVariant} onChange={(e) => {
             const variant = e.target.value as SelectVariant | "";
             const compatible = plansForSelectVariant(allPlans, f.productName, variant);
@@ -148,13 +150,13 @@ function Step3Health({ f, set, products }: Pick<StepProps, "f" | "set" | "produc
           <p className="mt-1 text-[12px] text-muted-foreground">{f.selectVariant ? selectLimitBasis(f.selectVariant) : "Choose a variant before choosing a plan; room preference never chooses the variant."}</p>
         </Field>}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Plan option" required htmlFor="wiz-plan-option">
+          <Field label="Plan option" required htmlFor="wiz-plan-option" error={flag("wiz-plan-option")}>
             <select id="wiz-plan-option" className={INPUT} value={f.planOptionId} onChange={(e) => set({ planOptionId: e.target.value })}>
               <option value="">Select…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}{plan.coverageTier ? ` · ${plan.coverageTier}` : ""}</option>)}
             </select>
             <p className="mt-1 text-[12px] text-muted-foreground">{planLimitDescription(selectedPlan)}</p>
           </Field>
-          <Field label="Coverage type" required htmlFor="wiz-coverage">
+          <Field label="Coverage type" required htmlFor="wiz-coverage" error={flag("wiz-coverage")}>
             <select id="wiz-coverage" className={INPUT} value={f.coverage} onChange={(e) => set({ coverage: e.target.value })}>
               <option value="">Select…</option>
               {WIZ_OPTS.coverage.map((c) => (
@@ -405,7 +407,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
         </div>
       </Section>
 
-      <Section title="Member list" state={sectionStatus(f, "group")} last>
+      <Section id="wiz-members" title="Member list" state={sectionStatus(f, "group")} last>
         <div className={cn("mb-2 text-[12px] font-semibold", tooFew ? "text-red" : "text-brand")}>
           {named} member{named === 1 ? "" : "s"} {tooFew ? "· minimum 3" : "✓"}
         </div>
@@ -510,6 +512,7 @@ function Step3Group({ f, set }: { f: WizardForm; set: (p: Partial<WizardForm>) =
 }
 
 function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" | "set" | "products" | "paymentChannels">) {
+  const flag = useBlockerFlag();
   const days = daysBetween(f.departure, f.returnDate);
   const plans = products.find((product) => product.productVersionId === f.productVersionId)?.planOptions ?? [];
   // The applicant takes an empty leading row (e.g. left behind by a cleared client) instead of
@@ -541,21 +544,21 @@ function Step3Travel({ f, set, products, paymentChannels }: Pick<StepProps, "f" 
           </Field>
         </div>
       </Section>
-      <Section title="Persons to be insured" state={sectionStatus(f, "travelers")}>
+      <Section id="wiz-travelers" title="Persons to be insured" state={sectionStatus(f, "travelers")}>
         <div className="mb-2 flex items-center justify-end"><button type="button" onClick={addApplicant} className="text-[12px] font-semibold text-brand-hover">Use applicant</button></div>
         <div className="space-y-2">{f.travelers.map((traveler, index) => <div key={index} className="rounded-md border border-border-soft p-3"><div className="grid grid-cols-3 gap-2"><input aria-label={`Traveler ${index + 1} name`} className={INPUT} value={traveler.name} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, name: e.target.value } : item) })} placeholder="Full name" /><input aria-label={`Traveler ${index + 1} birthdate`} className={INPUT} type="date" value={traveler.dob} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, dob: e.target.value } : item) })} /><select aria-label={`Traveler ${index + 1} plan`} className={INPUT} value={traveler.planOptionId} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, planOptionId: e.target.value } : item) })}><option value="">Plan…</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select><select aria-label={`Traveler ${index + 1} ID type`} className={INPUT} value={traveler.idType} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idType: e.target.value } : item) })}><option>Passport</option><option>Government-issued ID</option></select><input aria-label={`Traveler ${index + 1} ID number`} className={INPUT} value={traveler.idNumber} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, idNumber: e.target.value } : item) })} placeholder="ID / passport number" /><input aria-label={`Traveler ${index + 1} beneficiary`} className={INPUT} value={traveler.beneficiaryName} onChange={(e) => set({ travelers: f.travelers.map((item, i) => i === index ? { ...item, beneficiaryName: e.target.value } : item) })} placeholder="Beneficiary name" /></div><button type="button" onClick={() => set({ travelers: f.travelers.filter((_, i) => i !== index) })} className="mt-2 text-[11px] font-semibold text-red">Remove traveler</button></div>)}</div>
         <button type="button" onClick={() => set({ travelers: [...f.travelers, { name: "", dob: "", nationality: "", gender: "", contact: "", idType: "Passport", idNumber: "", planOptionId: f.planOptionId, beneficiaryName: "", beneficiaryDob: "", beneficiaryRelationship: "", beneficiaryContact: "" }] })} className="mt-2 text-[12px] font-semibold text-brand-hover"><I.plus size={13} className="mr-1 inline" />Add traveler</button>
       </Section>
       <Section title="Trip" state={sectionStatus(f, "trip")}>
         <div className="grid grid-cols-3 gap-4 max-[700px]:grid-cols-1">
-          <Field label="Destination country" required>
-            <input className={INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
+          <Field label="Destination country" required htmlFor="wiz-destination" error={flag("wiz-destination")}>
+            <input id="wiz-destination" className={INPUT} value={f.destination} onChange={(e) => set({ destination: e.target.value })} placeholder="e.g. Japan" />
           </Field>
-          <Field label="Departure date" required>
-            <input className={INPUT} type="date" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
+          <Field label="Departure date" required htmlFor="wiz-departure" error={flag("wiz-departure")}>
+            <input id="wiz-departure" className={INPUT} type="date" value={f.departure} onChange={(e) => set({ departure: e.target.value })} />
           </Field>
-          <Field label="Return date" required>
-            <input className={INPUT} type="date" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
+          <Field label="Return date" required htmlFor="wiz-return" error={flag("wiz-return")}>
+            <input id="wiz-return" className={INPUT} type="date" value={f.returnDate} onChange={(e) => set({ returnDate: e.target.value })} />
           </Field>
         </div>
         {days !== "" && (

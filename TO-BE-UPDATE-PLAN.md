@@ -2569,6 +2569,27 @@ pass.
     pending search no longer shows or lets staff pick the previous query's clients.
   - **Still open, L6:** the `email_templates` row "Policy issued" (data). Renaming it is a wording
     choice for Eman/Matt; "Log policy copy" replaced "Issue policy" in the app (H4a).
+- [x] **K9. "Still needed" leads to the field.** ✅ *Done 2026-11-20.* Eman couldn't tell why
+  "Create & open portal" was greyed out, and the "Source" link changed step without scrolling
+  to the field or highlighting it. (Steps 1 and 2 share one scroll container, so she landed
+  partway down Step 1.)
+  - `components/hub/overlays/still-needed.tsx` `BlockedNotice`: while an action is blocked, an
+    amber bar above the footer buttons reads "<action> stays greyed out until you add:" followed
+    by one chip per `Blocker { label, target }`. The bar was picked in an impeccable live session
+    over two other variants. Pressing a chip scrolls its target into view, focuses it and rings it
+    amber for about 1.8 s (`[data-attention]` in `globals.css`).
+  - Wizard Create stays pressable while blocked (`aria-disabled`, grey). Pressing it jumps to
+    the first gap. After the first jump every blocked field shows "Required to create" via
+    `Field`'s new `error` prop. The step body scrolls to the top on every step change.
+  - The same bar and jumps are in `WorkflowFooter` / `StepActionBar` (all `WorkflowShell`
+    footers go through `WorkflowFooter`): Verify payment, Log policy copy and File claim, the
+    claim's required documents, and application step 4. Step 4's checklist chip goes back to
+    step 1's first outstanding item. The QA scripts match the new wording.
+- [x] **K10. "Continue draft" left the open-work dialog stuck.** ✅ *Done 2026-11-20.* Opening a
+  wizard from a wizard put the same component in the same overlay slot, so React kept the old
+  wizard's state. The dialog stayed up over a wizard that never loaded the draft, and it covered
+  the wizard's Close button. `OverlayProvider` now remounts the host on every `open()`, and the
+  dialog has its own Close wizard button.
 - Open from the run: real Staff/Agent logins were never exercised (persona preview only); cron
   steps of §5.3 not run against the live project; filing a voucher (9.2) or recording an Inbox
   attachment (6.5) creates rows only SQL can delete — run those on a development branch.

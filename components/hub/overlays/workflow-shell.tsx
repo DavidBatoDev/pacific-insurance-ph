@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { I } from "../icons";
 import { Btn, StatusBadge } from "../primitives";
+import { BlockedNotice, type Blocker } from "./still-needed";
 import { WorkflowRail, type WorkflowRailStep } from "./workflow-rail";
 
 /**
@@ -44,7 +45,7 @@ export function WorkflowShell({
   /** Loading text while the record loads; the body is replaced until it resolves. */
   loading?: string | null;
   error?: { title: string; message: string } | null;
-  /** Footer bar content; null when the step renders its own pinned action bar. */
+  /** A `WorkflowFooter`; null when the step renders its own pinned action bar. */
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -115,7 +116,7 @@ export function WorkflowShell({
         </div>
 
         {footer && (
-          <div className="col-start-2 flex items-center gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5 max-[800px]:col-start-1">
+          <div className="col-start-2 flex flex-col border-t border-border-soft bg-surface-2 max-[800px]:col-start-1">
             {footer}
           </div>
         )}
@@ -125,26 +126,31 @@ export function WorkflowShell({
   );
 }
 
-/** Footer content: back (or close), a note or "Still needed" list, and the step's actions. */
-export function WorkflowFooter({ back, note, missing = [], children }: { back: ReactNode; note?: string; missing?: string[]; children?: ReactNode }) {
+/**
+ * Footer content: while `missing` is non-empty, an amber bar naming the greyed-out `action` and
+ * what unblocks it; then back (or close), a note and the step's actions. A blocker with a `target`
+ * jumps to that field; `onJump` overrides the jump (e.g. to change step).
+ */
+export function WorkflowFooter<T extends Blocker>({ back, note, action = "Continue", missing = [], onJump, children }: { back: ReactNode; note?: string; action?: string; missing?: T[]; onJump?: (item: T) => void; children?: ReactNode }) {
   return (
     <>
-      {back}
-      <span className="flex-1 text-[11.5px] text-faint">
-        {missing.length ? <span className="text-amber">Still needed: {missing.join(", ")}</span> : note}
-      </span>
-      <div className="flex gap-2">{children}</div>
+      {missing.length > 0 && <BlockedNotice action={action} items={missing} onJump={onJump} />}
+      <div className="flex items-center gap-3 px-5 py-3.5">
+        {back}
+        <span className="flex-1 text-[11.5px] text-faint">{missing.length ? null : note}</span>
+        <div className="flex gap-2">{children}</div>
+      </div>
     </>
   );
 }
 
 /** Action bar pinned to the bottom of a step whose form lives in the step body. */
-export function StepActionBar({ onBack, backLabel = "Back", note, missing = [], children }: { onBack: () => void; backLabel?: string; note?: string; missing?: string[]; children: ReactNode }) {
+export function StepActionBar({ onBack, backLabel = "Back", note, action, missing = [], children }: { onBack: () => void; backLabel?: string; note?: string; action?: string; missing?: Blocker[]; children: ReactNode }) {
   return (
     <>
       <div aria-hidden className="min-h-6 flex-1" />
-      <div className="sticky -bottom-6 -mx-6 -mb-6 mt-auto flex items-center gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5">
-        <WorkflowFooter back={<Btn onClick={onBack}>{backLabel === "Back" && <I.chevRight size={15} className="rotate-180" />} {backLabel}</Btn>} note={note} missing={missing}>
+      <div className="sticky -bottom-6 -mx-6 -mb-6 mt-auto flex flex-col border-t border-border-soft bg-surface-2">
+        <WorkflowFooter back={<Btn onClick={onBack}>{backLabel === "Back" && <I.chevRight size={15} className="rotate-180" />} {backLabel}</Btn>} note={note} action={action} missing={missing}>
           {children}
         </WorkflowFooter>
       </div>

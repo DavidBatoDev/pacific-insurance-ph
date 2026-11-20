@@ -385,7 +385,7 @@ async function section62() {
       t.note(`Step 2 heading = "${heading?.trim()}"`);
       const createBtn = wiz.getByRole("button", { name: /Create & open portal/ });
       check(t, await createBtn.isDisabled(), "'Create & open portal' is disabled while required fields are missing");
-      const still = wiz.getByText(/Still needed:/);
+      const still = wiz.getByText(/stays greyed out until you add:/);
       check(t, await still.isVisible(), `Footer shows: "${(await still.textContent())?.trim()}"`);
       await t.shot("still-needed");
       await wiz.getByRole("button", { name: "Back" }).click();
@@ -397,7 +397,7 @@ async function section62() {
       await wiz.getByRole("heading", { name: /Review & create/ }).waitFor();
       const createBtn = wiz.getByRole("button", { name: /Create & open portal/ });
       check(t, await createBtn.isEnabled(), "'Create & open portal' enabled once everything required is filled");
-      check(t, (await wiz.getByText(/Still needed:/).count()) === 0, "No 'Still needed' list once complete");
+      check(t, (await wiz.getByText(/stays greyed out until you add:/).count()) === 0, "No blocked-Create notice once complete");
       await t.shot("review-ready");
       const { popup, popupUrl } = await createAndOpenPortal(t, wiz);
       check(t, !!popup, `TravelSafe portal pop-up opened (url: ${popupUrl})`);

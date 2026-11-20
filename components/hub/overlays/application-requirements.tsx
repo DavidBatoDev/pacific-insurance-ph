@@ -39,7 +39,8 @@ import { SubmissionStep } from "./submission-step";
 import { useVerifyPaymentForm } from "./verify-payment";
 import { Section } from "./wizard/steps-1";
 import type { SectionState } from "./wizard/wizard-data";
-import { Checkpoint, StepActionBar, WorkflowShell } from "./workflow-shell";
+import { useRevealAfterRender } from "./still-needed";
+import { Checkpoint, StepActionBar, WorkflowFooter, WorkflowShell } from "./workflow-shell";
 
 /** Payment step, verification half: the Payments page's Verify form, rendered in the step. */
 function VerifyPaymentInline({ payment, onBack, onSaved }: { payment: Payment; onBack: () => void; onSaved: () => void }) {
@@ -47,7 +48,7 @@ function VerifyPaymentInline({ payment, onBack, onSaved }: { payment: Payment; o
   return (
     <>
       {form.fields}
-      <StepActionBar onBack={onBack} missing={form.missing} note={`${payment.status} · ${payment.amount != null ? peso(payment.amount) : ""}`}>
+      <StepActionBar onBack={onBack} action={form.submitLabel} missing={form.missing} note={`${payment.status} · ${payment.amount != null ? peso(payment.amount) : ""}`}>
         <Btn variant="primary" disabled={!form.canSave} onClick={form.save}><I.check size={14} /> {form.submitLabel}</Btn>
       </StepActionBar>
     </>
@@ -60,7 +61,7 @@ function PolicyCopyInline({ fromApplication, onBack, onSaved }: { fromApplicatio
   return (
     <>
       {form.fields}
-      <StepActionBar onBack={onBack} missing={form.missing} note="Closes the application">
+      <StepActionBar onBack={onBack} action={form.submitLabel} missing={form.missing} note="Closes the application">
         <Btn variant="primary" disabled={!form.canSave} onClick={form.save}><I.shield size={14} /> {form.submitLabel}</Btn>
       </StepActionBar>
     </>
@@ -116,6 +117,7 @@ function PacificCrossReplyStep({
   return (
     <div className="flex flex-1 flex-col">
       <Section
+        id="app-proposal"
         title="Illustrative proposal (final billing)"
         state={proposal ? { status: "done", label: "On file" } : { status: "todo", label: "Needed" }}
       >
@@ -444,6 +446,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
   const [step, setStep] = useState<WorkflowStepNumber | null>(null);
   const [composing, setComposing] = useState(false);
   const [amount, setAmount] = useState("");
+  const reveal = useRevealAfterRender();
 
   const reload = useCallback(async () => {
     const result = await getApplicationRequirementsAction(applicationId).catch(() => null);
@@ -620,7 +623,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
                 {groupRequirementSections(items, requirementSection).map(({ section, items: sectionItems }) => <Fragment key={section}>
                   <h3 className="pt-3 text-[11px] font-bold uppercase tracking-wide text-subtle">{section}</h3>
                   {sectionItems.map((item) => (
-                  <div key={item.id} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
+                  <div key={item.id} id={`requirement-${item.id}`} className={cn("rounded-md border px-3 py-2.5", requirementRowTone(item.status))}>
                     <div className="flex items-center gap-3">
                       <RequirementStatusDot status={item.status} />
                       <div className="min-w-0 flex-1">
@@ -808,7 +811,7 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
   })();
 
   const footer = (() => {
-    if (!payload) return <Btn onClick={onClose}>Close</Btn>;
+    if (!payload) return <WorkflowFooter back={<Btn onClick={onClose}>Close</Btn>} />;
     const back = active > 1 ? <Btn onClick={() => go((active - 1) as WorkflowStepNumber)}><I.chevRight size={15} className="rotate-180" /> Back</Btn> : <Btn onClick={onClose}>Close</Btn>;
     let note = "";
     let primary: React.ReactNode = null;
@@ -836,18 +839,25 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
         </>
       );
     } else if (active === 4) {
-      const missing = [
-        ...(!payload.proposal ? ["illustrative proposal"] : []),
-        ...(outstanding.length ? [`${outstanding.length} checklist item${outstanding.length === 1 ? "" : "s"} from the client`] : []),
+      // The proposal is on this step; outstanding checklist items live on step 1.
+      const missing: { label: string; target: string; step?: WorkflowStepNumber }[] = [
+        ...(!payload.proposal ? [{ label: "illustrative proposal", target: "app-proposal" }] : []),
+        ...(outstanding.length ? [{ label: `${outstanding.length} checklist item${outstanding.length === 1 ? "" : "s"} from the client`, target: `requirement-${outstanding[0].id}`, step: 1 as const }] : []),
       ];
       note = missing.length ? "" : `Proposal on file${payload.replies.length ? ` · ${payload.replies.length} repl${payload.replies.length === 1 ? "y" : "ies"} logged` : ""}`;
       primary = <Btn variant="primary" disabled={!flow.done[4] && !flow.done[5]} onClick={() => go(5)}>Continue <I.chevRight size={15} /></Btn>;
       return (
-        <>
-          {back}
-          <span className="flex-1 text-[11.5px] text-faint">{missing.length ? <span className="text-amber">Still needed: {missing.join(", ")}</span> : note}</span>
-          <div className="flex gap-2">{primary}</div>
-        </>
+        <WorkflowFooter
+          back={back}
+          note={note}
+          missing={missing}
+          onJump={(item) => {
+            if (item.step) go(item.step);
+            reveal(item.target);
+          }}
+        >
+          {primary}
+        </WorkflowFooter>
       );
     } else if (active === 5) {
       if (!payment) {
@@ -871,11 +881,9 @@ export function ApplicationRequirementsModal({ applicationId, onClose }: { appli
       return null; // PolicyCopyInline has its own action bar
     }
     return (
-      <>
-        {back}
-        <span className="flex-1 text-[11.5px] text-faint">{note}</span>
-        <div className="flex gap-2">{primary}</div>
-      </>
+      <WorkflowFooter back={back} note={note}>
+        {primary}
+      </WorkflowFooter>
     );
   })();
 
