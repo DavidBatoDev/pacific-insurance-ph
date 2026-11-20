@@ -1172,7 +1172,7 @@ async function createTravelRecord(ctx: WizardCreateContext) {
         actorId: actor.id,
       });
       result.travelRequestId = travel.id;
-      result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " Approved Travel application form unavailable; record creation continued." : ""}`;
+      result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " No approved blank Travel application form in the Library; record creation continued." : ""}`;
       if (overlapping.length) {
         result.summary += ` Note: ${overlapping.map((request) => request.referenceNo ?? "another request").join(", ")} to ${form.destination} is still open for overlapping dates.`;
       }

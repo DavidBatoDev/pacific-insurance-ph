@@ -220,6 +220,22 @@ they are historical references, not active sources of task status. Current prior
   change, so types stayed unchanged. `isNoticeMissing` boundary tests passed; the Renewals flag and
   Settings rule card were not viewed in an authenticated browser by the agent.
 
+### Travel library on TravelSafe (2026-11-20)
+
+- Cause of the Travel workflow's "no approved application form" warning: the September library
+  load filed the Travel Application Form, Travel Brochure 2024, Credit Card Authorization Form and
+  Geographical Loading under the legacy `Travel Insurance` product version that `0037` retired.
+  Wizard matching and email-attachment eligibility look them up by the request's TravelSafe
+  version, so every Travel request was stamped `Unavailable`. The warning concerns the blank
+  carrier form in the Library, not the client's submission on the TravelSafe portal; its wording
+  now says so.
+- `0072_travel_library_on_travelsafe` re-files those four rows under TravelSafe and assigns the
+  Travel Application Form (2026-01) to Travel requests left `Unavailable` (TRV-2026-00001 and
+  TRV-2026-00029). Applied to the hosted database; post-query showed both requests `Matched`, five
+  Active TravelSafe library rows and none left on the legacy version. The loader manifest now
+  names `travelSafe` for those rows; a full dry-run preflight passed. Data-only, so types stayed
+  unchanged. The Travel workflow was not reopened in an authenticated browser by the agent.
+
 ### Gmail connection configuration and verification
 
 - Server-only: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
