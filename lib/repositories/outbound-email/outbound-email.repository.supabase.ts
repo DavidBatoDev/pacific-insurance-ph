@@ -2,14 +2,16 @@ import "server-only";
 
 import type { AttachmentManifestEntry } from "@/lib/communications/email-attachments";
 import type { EmailOrigin, EmailSendState } from "@/lib/communications/outbound-email.types";
+import type { SentEmailSummary } from "@/lib/communications/sent-email.types";
 import type { InboxTargetKind } from "@/lib/repositories/inbox/inbox.entity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/types";
 import { RepositoryError } from "../types";
 import type { OutboundClaim, OutboundEmail, OutboundResult, PrepareOutboundInput } from "./outbound-email.entity";
-import type { OutboundEmailRepository } from "./outbound-email.repository";
+import type { AgencyOutboundFilters, OutboundEmailRepository } from "./outbound-email.repository";
 
 type Row = Database["public"]["Tables"]["gmail_outbound_messages"]["Row"];
+type AgencyRow = Database["public"]["Functions"]["list_agency_outbound_email"]["Returns"][number];
 
 const STATES: readonly EmailSendState[] = ["prepared", "sending", "accepted", "failed", "unknown"];
 const TARGETS: readonly InboxTargetKind[] = ["client", "application", "claim", "renewal", "travel", "policy"];
@@ -100,6 +102,21 @@ function toJson(value: unknown): Json {
   return JSON.parse(JSON.stringify(value)) as Json;
 }
 
+function toSummary(row: AgencyRow): SentEmailSummary {
+  const state = row.effective_state as EmailSendState;
+  if (!STATES.includes(state)) throw persistenceError("decodeAgency");
+  return {
+    id: row.id, clientId: row.client_id,
+    // Labels are joined from current records; the ledger evidence (recipient, subject) never is.
+    clientName: row.client_name ?? "Client", clientReference: row.client_reference ?? null,
+    actorName: row.actor_name ?? "Staff",
+    recipient: row.recipient, subject: row.subject, targetKind: row.target_kind, targetId: row.target_id,
+    originType: row.origin_type, effectiveState: state, occurredAt: row.occurred_at, createdAt: row.created_at,
+    acceptedAt: row.accepted_at ?? null, attachmentCount: row.attachment_count,
+    effectsPending: row.effects_pending, threadMismatch: row.thread_mismatch,
+  };
+}
+
 export class SupabaseOutboundEmailRepository implements OutboundEmailRepository {
   async prepare(actorId: string, input: PrepareOutboundInput): Promise<OutboundEmail> {
     const { data, error } = await getSupabaseAdmin().rpc("prepare_gmail_outbound_email", { p_actor_id: actorId, p_input: toJson(input) }).single();
@@ -151,5 +168,14 @@ export class SupabaseOutboundEmailRepository implements OutboundEmailRepository 
     });
     if (error) throw persistenceError("list", error);
     return data.map(toOutbound);
+  }
+
+  async listAgency(actorId: string, filters: AgencyOutboundFilters): Promise<SentEmailSummary[]> {
+    const { data, error } = await getSupabaseAdmin().rpc("list_agency_outbound_email", {
+      p_actor_id: actorId, p_query: filters.query, p_status: filters.status, p_offset: filters.offset,
+      ...(filters.from ? { p_from: filters.from } : {}), ...(filters.to ? { p_to: filters.to } : {}),
+    });
+    if (error) throw persistenceError("listAgency", error);
+    return data.map(toSummary);
   }
 }

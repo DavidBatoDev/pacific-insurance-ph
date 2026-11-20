@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
+import { MailboxTabs } from "@/components/email/mailbox-tabs";
 import { InboxWorkspace } from "@/components/inbox/inbox-workspace";
+import { isEmailSender } from "@/lib/communications/outbound-email";
 import { getInboxReviewData, InboxReviewError, requireInboxActor } from "@/lib/gmail/review";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +18,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     if (error instanceof InboxReviewError && error.status === 404) notFound();
     throw error;
   });
-  return <InboxWorkspace data={data} />;
+  return <>
+    <MailboxTabs current="inbox" canViewSent={isEmailSender(actor)} />
+    <InboxWorkspace data={data} />
+  </>;
 }

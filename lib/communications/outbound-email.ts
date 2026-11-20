@@ -81,11 +81,13 @@ export function outboundEmailErrorMessage(error: unknown): string {
 }
 
 /** Real DB role and status; persona previews never grant sending. */
+export function isEmailSender(user: Pick<User, "role" | "status"> | null): user is User {
+  return user !== null && user.status === "Active" && ["Owner", "Admin", "Assistant"].includes(user.role);
+}
+
 export async function requireEmailSender(): Promise<User> {
   const user = await getCurrentUser();
-  if (!user || user.status !== "Active" || !["Owner", "Admin", "Assistant"].includes(user.role)) {
-    throw new OutboundEmailError(REPOSITORY_MESSAGES.outbound_forbidden, 403);
-  }
+  if (!isEmailSender(user)) throw new OutboundEmailError(REPOSITORY_MESSAGES.outbound_forbidden, 403);
   return user;
 }
 

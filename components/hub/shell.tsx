@@ -58,7 +58,7 @@ const NAV_MAIN: NavEntry[] = [
 ];
 const NAV_WORK: NavEntry[] = [
   { id: "tasks", label: "Tasks", icon: "checkSquare" },
-  { id: "inbox", label: "Incoming email", icon: "mail" },
+  { id: "inbox", label: "Email", icon: "mail" },
   { id: "payments", label: "Payments", icon: "peso" },
   { id: "commissions", label: "Commissions", icon: "coins" },
   { id: "documents", label: "Documents", icon: "folder" },

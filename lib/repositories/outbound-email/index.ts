@@ -10,5 +10,5 @@ export function getOutboundEmailRepository(): OutboundEmailRepository {
   return instance;
 }
 
-export type { OutboundEmailRepository } from "./outbound-email.repository";
+export type { AgencyOutboundFilters, OutboundEmailRepository } from "./outbound-email.repository";
 export type { OutboundClaim, OutboundEmail, OutboundResult, PrepareOutboundInput } from "./outbound-email.entity";

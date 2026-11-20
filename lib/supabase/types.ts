@@ -5277,6 +5277,35 @@ export type Database = {
         }
         Returns: string
       }
+      list_agency_outbound_email: {
+        Args: {
+          p_actor_id: string
+          p_from?: string
+          p_offset?: number
+          p_query?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          accepted_at: string
+          actor_name: string
+          attachment_count: number
+          client_id: string
+          client_name: string
+          client_reference: string
+          created_at: string
+          effective_state: string
+          effects_pending: boolean
+          id: string
+          occurred_at: string
+          origin_type: string
+          recipient: string
+          subject: string
+          target_id: string
+          target_kind: string
+          thread_mismatch: boolean
+        }[]
+      }
       list_gmail_inbox_messages: {
         Args: { p_actor_id: string; p_message_id?: string; p_offset?: number }
         Returns: {

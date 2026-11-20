@@ -42,6 +42,7 @@ function memoryRepository(initial: OutboundEmail) {
     prepare: vi.fn(),
     get: async () => current,
     list: async () => [current],
+    listAgency: async () => [],
     claim: async (): Promise<OutboundClaim> => {
       calls.claim++;
       if (current.state !== "prepared") return { claimed: false, dispatchToken: null, message: current, blockedBy: null, problem: null };
