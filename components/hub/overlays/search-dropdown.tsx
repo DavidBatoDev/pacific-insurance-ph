@@ -199,9 +199,9 @@ export function SearchDropdown({
           const GIco = I[SEARCH_KIND_ICON[g.kind]];
           return (
             <div key={g.kind}>
-              <div className="flex items-center gap-1.5 px-4 pb-1 pt-2.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+              <div className="flex items-center gap-1.5 px-4 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                 <GIco size={12} /> {g.label}
-                <span className="rounded-full bg-surface-3 px-1.5 text-[10px] font-bold text-subtle">
+                <span className="rounded-full bg-surface-3 px-1.5 text-[11px] font-bold text-subtle">
                   {g.hits.length + g.more}
                 </span>
               </div>

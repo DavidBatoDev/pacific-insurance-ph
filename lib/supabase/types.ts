@@ -4565,6 +4565,23 @@ export type Database = {
       }
     }
     Functions: {
+      complete_renewal: {
+        Args: {
+          p_actor_id: string
+          p_expected_updated_at: string
+          p_new_expiry_date: string
+          p_renewal_id: string
+        }
+        Returns: string
+      }
+      lapse_renewal: {
+        Args: {
+          p_actor_id: string
+          p_expected_updated_at: string
+          p_renewal_id: string
+        }
+        Returns: string
+      }
       add_application_medical_questionnaire: {
         Args: {
           p_actor_id: string

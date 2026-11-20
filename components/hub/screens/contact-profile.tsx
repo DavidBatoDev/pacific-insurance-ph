@@ -333,6 +333,10 @@ export function ContactProfile({
           clientId={client.id}
           clientName={client.fullName}
           onClose={() => setRecordDecisionOpen(false)}
+          onAccepted={() => {
+            setRecordDecisionOpen(false);
+            setAdvanceOpen({ stage: "Product Selected", label: "Client accepted the proposal" });
+          }}
         />
       )}
     </div>

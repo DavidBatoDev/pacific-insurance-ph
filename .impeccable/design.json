@@ -1,0 +1,636 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T14:30:18+00:00",
+  "title": "Design System: Pacific Insurance PH",
+  "extensions": {
+    "colorMeta": {
+      "policy-green": {
+        "role": "primary",
+        "displayName": "Policy Green",
+        "canonical": "#059669",
+        "tonalRamp": [
+          "#001007",
+          "#00301d",
+          "#005337",
+          "#007a52",
+          "#3d9e76",
+          "#7dbe9f",
+          "#b5e0ca",
+          "#dbf6e8"
+        ]
+      },
+      "policy-green-deep": {
+        "role": "primary",
+        "displayName": "Policy Green Deep",
+        "canonical": "#047857",
+        "tonalRamp": [
+          "#010f08",
+          "#052e20",
+          "#0f513b",
+          "#1b7759",
+          "#4e9a7c",
+          "#85bca4",
+          "#badecd",
+          "#def5ea"
+        ]
+      },
+      "policy-green-press": {
+        "role": "primary",
+        "displayName": "Policy Green Press",
+        "canonical": "#036549",
+        "tonalRamp": [
+          "#020e09",
+          "#0c2d21",
+          "#1b503d",
+          "#2b765a",
+          "#57997e",
+          "#8bbaa5",
+          "#bdddce",
+          "#e0f4ea"
+        ]
+      },
+      "policy-green-wash": {
+        "role": "primary",
+        "displayName": "Policy Green Wash",
+        "canonical": "#ecfdf5",
+        "tonalRamp": [
+          "#090c0b",
+          "#222825",
+          "#3e4843",
+          "#5c6a63",
+          "#808d87",
+          "#a7b1ac",
+          "#cfd6d3",
+          "#ebf0ed"
+        ]
+      },
+      "policy-green-wash-strong": {
+        "role": "primary",
+        "displayName": "Policy Green Wash Strong",
+        "canonical": "#d6f5e6",
+        "tonalRamp": [
+          "#070d0a",
+          "#1e2924",
+          "#384a41",
+          "#536d61",
+          "#789084",
+          "#a1b3aa",
+          "#cbd8d1",
+          "#e8f1ed"
+        ]
+      },
+      "morning-desk": {
+        "role": "neutral",
+        "displayName": "Morning Desk",
+        "canonical": "#f4f6f5",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262726",
+          "#444545",
+          "#656666",
+          "#888989",
+          "#adaeae",
+          "#d3d4d4",
+          "#eeeeee"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d4d4d4",
+          "#eeeeee"
+        ]
+      },
+      "surface-quiet": {
+        "role": "neutral",
+        "displayName": "Quiet Surface",
+        "canonical": "#fafbfa",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#656665",
+          "#888988",
+          "#adaead",
+          "#d4d4d4",
+          "#eeeeee"
+        ]
+      },
+      "surface-recessed": {
+        "role": "neutral",
+        "displayName": "Recessed Surface",
+        "canonical": "#f1f3f2",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262726",
+          "#444545",
+          "#656666",
+          "#888989",
+          "#adaeae",
+          "#d3d4d4",
+          "#eeeeee"
+        ]
+      },
+      "surface-hover": {
+        "role": "neutral",
+        "displayName": "Hover Surface",
+        "canonical": "#f5f7f6",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262726",
+          "#444545",
+          "#656666",
+          "#888989",
+          "#adaeae",
+          "#d3d4d4",
+          "#eeeeee"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "#e6e9e7",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262726",
+          "#444544",
+          "#646765",
+          "#878a88",
+          "#adaead",
+          "#d3d4d4",
+          "#eeefee"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Line",
+        "canonical": "#d6dad8",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252726",
+          "#434644",
+          "#646765",
+          "#878a88",
+          "#acaead",
+          "#d3d5d4",
+          "#eeefee"
+        ]
+      },
+      "line-soft": {
+        "role": "neutral",
+        "displayName": "Soft Line",
+        "canonical": "#eef1ef",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262726",
+          "#444544",
+          "#646765",
+          "#878a88",
+          "#adaead",
+          "#d3d4d4",
+          "#eeefee"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#14211b",
+        "tonalRamp": [
+          "#090c0a",
+          "#222825",
+          "#3e4843",
+          "#5c6a63",
+          "#7f8d86",
+          "#a6b1ac",
+          "#cfd6d3",
+          "#ebf0ed"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#5d6a63",
+        "tonalRamp": [
+          "#090c0a",
+          "#222825",
+          "#3f4743",
+          "#5d6963",
+          "#818c86",
+          "#a7b0ab",
+          "#d0d6d2",
+          "#ebf0ed"
+        ]
+      },
+      "ink-subtle": {
+        "role": "neutral",
+        "displayName": "Ink Subtle",
+        "canonical": "#66716a",
+        "tonalRamp": [
+          "#0a0c0a",
+          "#232825",
+          "#404742",
+          "#5f6963",
+          "#828c86",
+          "#a9b0ab",
+          "#d0d6d2",
+          "#ecefed"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Ink Faint",
+        "canonical": "#68736c",
+        "tonalRamp": [
+          "#0a0c0a",
+          "#232825",
+          "#404742",
+          "#5f6963",
+          "#828c86",
+          "#a9b0ab",
+          "#d1d6d2",
+          "#ecefed"
+        ]
+      },
+      "alert-red": {
+        "role": "status",
+        "displayName": "Alert Red",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "#1e0101",
+          "#4e0305",
+          "#84090d",
+          "#be1318",
+          "#e35047",
+          "#f98a7e",
+          "#ffbeb4",
+          "#ffe0d9"
+        ]
+      },
+      "alert-red-wash": {
+        "role": "status",
+        "displayName": "Alert Red Wash",
+        "canonical": "#fef2f2",
+        "tonalRamp": [
+          "#0d0b0b",
+          "#292525",
+          "#4a4343",
+          "#6d6363",
+          "#908787",
+          "#b3acac",
+          "#d8d3d3",
+          "#f1eded"
+        ]
+      },
+      "caution-amber": {
+        "role": "status",
+        "displayName": "Caution Amber",
+        "canonical": "#a76009",
+        "tonalRamp": [
+          "#150700",
+          "#3b1e00",
+          "#663801",
+          "#945402",
+          "#b7793f",
+          "#d3a379",
+          "#eecdb2",
+          "#ffead8"
+        ]
+      },
+      "caution-amber-wash": {
+        "role": "status",
+        "displayName": "Caution Amber Wash",
+        "canonical": "#fff8eb",
+        "tonalRamp": [
+          "#0c0b09",
+          "#292621",
+          "#48443d",
+          "#6b655b",
+          "#8e887e",
+          "#b2ada6",
+          "#d7d4cf",
+          "#f0eeeb"
+        ]
+      },
+      "info-blue": {
+        "role": "status",
+        "displayName": "Info Blue",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#010923",
+          "#082159",
+          "#143c95",
+          "#215ad6",
+          "#4a82f7",
+          "#7facff",
+          "#b5d5ff",
+          "#daefff"
+        ]
+      },
+      "info-blue-wash": {
+        "role": "status",
+        "displayName": "Info Blue Wash",
+        "canonical": "#eff5ff",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#24272a",
+          "#42454b",
+          "#62666e",
+          "#858991",
+          "#aaaeb4",
+          "#d2d4d8",
+          "#edeef1"
+        ]
+      },
+      "stage-violet": {
+        "role": "status",
+        "displayName": "Stage Violet",
+        "canonical": "#7c3aed",
+        "tonalRamp": [
+          "#0e0324",
+          "#2c115a",
+          "#4d2397",
+          "#7237d9",
+          "#9266fa",
+          "#b399ff",
+          "#d6c8ff",
+          "#efe7ff"
+        ]
+      },
+      "stage-violet-wash": {
+        "role": "status",
+        "displayName": "Stage Violet Wash",
+        "canonical": "#f6f3ff",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#27262a",
+          "#46444b",
+          "#67646e",
+          "#8a8791",
+          "#aeadb4",
+          "#d4d3d8",
+          "#efeef1"
+        ]
+      },
+      "neutral-slate": {
+        "role": "status",
+        "displayName": "Neutral Slate",
+        "canonical": "#475569",
+        "tonalRamp": [
+          "#090b0f",
+          "#212730",
+          "#3c4653",
+          "#5a677a",
+          "#7d8a9d",
+          "#a5afbd",
+          "#ced5df",
+          "#eaeff5"
+        ]
+      },
+      "neutral-slate-wash": {
+        "role": "status",
+        "displayName": "Neutral Slate Wash",
+        "canonical": "#f1f5f9",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252728",
+          "#434547",
+          "#63666a",
+          "#86898d",
+          "#acaeb1",
+          "#d3d4d6",
+          "#edeef0"
+        ]
+      },
+      "product-cyan": {
+        "role": "status",
+        "displayName": "Product Cyan",
+        "canonical": "#0e7490",
+        "tonalRamp": [
+          "#010d13",
+          "#052b37",
+          "#0f4c5f",
+          "#1a708a",
+          "#4d94ad",
+          "#84b7ca",
+          "#b9dbe7",
+          "#ddf3fb"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Screen title in the page header."
+      },
+      "stat": {
+        "displayName": "Stat",
+        "purpose": "Headline numbers in the stat strip, tabular."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base text; most UI text runs 12.5–13.5px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase form field labels and group headers."
+      },
+      "reference": {
+        "displayName": "Reference",
+        "purpose": "Reference numbers, policy numbers and amounts in dense tables."
+      },
+      "subhead": {
+        "displayName": "Subhead",
+        "purpose": "Modal and drawer titles."
+      },
+      "ui": {
+        "displayName": "UI",
+        "purpose": "Buttons, tabs, list rows and most interactive text."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Status pills, badges, counts and small meta; the 11px floor."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-xs",
+        "value": "0 1px 2px rgba(16,28,22,0.05)",
+        "purpose": "Hairline lift for small elements."
+      },
+      {
+        "name": "shadow-sm",
+        "value": "0 1px 3px rgba(16,28,22,0.06), 0 1px 2px rgba(16,28,22,0.04)",
+        "purpose": "Resting card and stat tile."
+      },
+      {
+        "name": "shadow-md",
+        "value": "0 4px 12px rgba(16,28,22,0.07), 0 2px 4px rgba(16,28,22,0.04)",
+        "purpose": "Raised in-page element."
+      },
+      {
+        "name": "shadow-lg",
+        "value": "0 12px 32px rgba(16,28,22,0.12), 0 4px 8px rgba(16,28,22,0.06)",
+        "purpose": "Large raised panels."
+      },
+      {
+        "name": "shadow-pop",
+        "value": "0 16px 40px rgba(16,28,22,0.16), 0 2px 6px rgba(16,28,22,0.08)",
+        "purpose": "Menus, popovers, dialogs, the mobile drawer."
+      },
+      {
+        "name": "primary-press",
+        "value": "0 1px 2px rgba(4,120,87,0.25)",
+        "purpose": "Green-tinted lift under the primary button."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": "150ms ease",
+        "purpose": "Default hover and focus colour transitions on controls."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1200px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "compact",
+        "value": "800px"
+      },
+      {
+        "name": "phone",
+        "value": "640px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action on a surface: Create, Continue, Email.",
+      "html": "<button class=\"ds-btn-primary\">Continue</button> <button class=\"ds-btn-primary\" disabled>Create</button>",
+      "css": ".ds-btn-primary { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid transparent; border-radius: 10px; background: var(--primary, #059669); color: var(--primary-foreground, #fff); font-size: 13px; font-weight: 600; box-shadow: 0 1px 2px rgba(4,120,87,0.25); cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: var(--brand-hover, #047857); } .ds-btn-primary:active { background: var(--brand-press, #036549); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #059669) 25%, transparent); } .ds-btn-primary:disabled { background: var(--surface-3, #f1f3f2); color: var(--text-subtle, #66716a); border-color: var(--border, #e6e9e7); box-shadow: none; cursor: not-allowed; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Secondary actions beside a primary: Cancel, Mark sent, Reopen portal.",
+      "html": "<button class=\"ds-btn\">Cancel</button> <button class=\"ds-btn ds-btn-sm\">Mark sent</button>",
+      "css": ".ds-btn { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--border-strong, #d6dad8); border-radius: 10px; background: var(--card, #fff); color: var(--foreground, #14211b); font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 150ms, border-color 150ms; } .ds-btn:hover { background: var(--hover, #f5f7f6); border-color: var(--text-faint, #68736c); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #059669) 25%, transparent); } .ds-btn-sm { height: 30px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled form control used in drawers, modals and the application wizard.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Client name <b>*</b></span><input class=\"ds-input\" placeholder=\"Juan dela Cruz\"><span class=\"ds-field-hint\">As it appears on their ID.</span></label>",
+      "css": ".ds-field { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); display: block; width: 260px; } .ds-field-label { display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-subtle, #66716a); } .ds-field-label b { color: var(--red, #dc2626); } .ds-input { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); box-sizing: border-box; width: 100%; height: 36px; padding: 0 12px; border: 1px solid var(--border-strong, #d6dad8); border-radius: 10px; background: var(--card, #fff); color: var(--foreground, #14211b); font-size: 13.5px; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: var(--text-subtle, #66716a); } .ds-input:focus { border-color: var(--brand, #059669); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #059669) 20%, transparent); } .ds-field-hint { display: block; margin-top: 4px; font-size: 11.5px; color: var(--text-faint, #68736c); }"
+    },
+    {
+      "name": "Status Pills",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "A record's state, one tone per status, assigned centrally.",
+      "html": "<span class=\"ds-pill ds-red\"><i></i>Overdue</span> <span class=\"ds-pill ds-amber\"><i></i>Awaiting</span> <span class=\"ds-pill ds-blue\"><i></i>Received</span> <span class=\"ds-pill ds-violet\"><i></i>Requested</span> <span class=\"ds-pill ds-green\"><i></i>Verified</span> <span class=\"ds-pill ds-slate\"><i></i>Pending</span>",
+      "css": ".ds-pill { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid; border-radius: 9999px; font-size: 11.5px; font-weight: 650; white-space: nowrap; } .ds-pill i { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; } .ds-red { background: var(--red-soft, #fef2f2); color: var(--red, #dc2626); border-color: var(--red-border, #fbd5d5); } .ds-amber { background: var(--amber-soft, #fff8eb); color: var(--amber, #c2700a); border-color: var(--amber-border, #fae3b8); } .ds-blue { background: var(--blue-soft, #eff5ff); color: var(--blue, #2563eb); border-color: var(--blue-border, #d3e2fd); } .ds-violet { background: var(--violet-soft, #f6f3ff); color: var(--violet, #7c3aed); border-color: var(--violet-border, #e6dcfb); } .ds-green { background: var(--green-soft, #ecfdf5); color: var(--green, #059669); border-color: var(--green-border, #c4ecd9); } .ds-slate { background: var(--slate-soft, #f1f5f9); color: var(--slate, #475569); border-color: transparent; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The one-job container on the Morning Desk, with a titled heading row.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-head\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/></svg>Proposal tracking<span class=\"ds-count\">2</span></header><div class=\"ds-card-body\">Proposal received for the Select quote.</div></section>",
+      "css": ".ds-card { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); width: 300px; border: 1px solid var(--border, #e6e9e7); border-radius: 14px; background: var(--card, #fff); box-shadow: var(--shadow-sm, 0 1px 3px rgba(16,28,22,0.06), 0 1px 2px rgba(16,28,22,0.04)); color: var(--foreground, #14211b); } .ds-card-head { display: flex; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--border-soft, #eef1ef); font-size: 14.5px; font-weight: 650; letter-spacing: -0.01em; } .ds-card-head svg { color: var(--muted-foreground, #5d6a63); } .ds-count { display: grid; place-items: center; min-width: 21px; height: 20px; padding: 0 7px; border-radius: 9999px; background: var(--surface-3, #f1f3f2); color: var(--muted-foreground, #5d6a63); font-size: 11.5px; font-weight: 700; } .ds-card-body { padding: 14px 18px; font-size: 12.5px; color: var(--muted-foreground, #5d6a63); }"
+    },
+    {
+      "name": "Navigation Items",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Sidebar rows; the current screen takes the green wash and aria-current.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/></svg>Clients<span class=\"ds-nav-badge\">12</span></a><a class=\"ds-nav-item\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg>Renewals</a></nav>",
+      "css": ".ds-nav { font-family: var(--font-sans, \"Hanken Grotesk\", system-ui, sans-serif); width: 230px; padding: 8px; background: var(--sidebar, #fff); } .ds-nav-item { display: flex; align-items: center; gap: 11px; height: 37px; padding: 0 11px; margin-bottom: 1px; border-radius: 7px; color: var(--muted-foreground, #5d6a63); font-size: 13.5px; font-weight: 550; text-decoration: none; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-nav-item svg { color: var(--text-subtle, #66716a); flex-shrink: 0; } .ds-nav-item:hover { background: var(--hover, #f5f7f6); color: var(--foreground, #14211b); } .ds-nav-item.is-active { background: var(--brand-soft, #ecfdf5); color: var(--brand-hover, #047857); font-weight: 650; } .ds-nav-item.is-active svg { color: var(--brand, #059669); } .ds-nav-badge { margin-left: auto; display: grid; place-items: center; min-width: 20px; height: 19px; padding: 0 6px; border-radius: 9999px; background: var(--brand, #059669); color: #fff; font-size: 11px; font-weight: 700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Back Office",
+    "overview": "This is the room the brokerage works in from opening to close. A green-tinted grey desk (Morning Desk) holds white cards that each carry one job, set in Hanken Grotesk at a dense 12–14px so a full queue fits without scrolling past the point of comfort. The system stays quiet so that the few things that need attention are unmistakable: an overdue renewal in red, a waiting document in amber, a proposal in violet. Policy Green is the one voice of action.\n\nQuiet is not timid. Controls are tactile and confident: the primary button is a solid green fill with a small lift of shadow and a clear hover, inputs show a green ring when focused, and a blocked action drops its colour entirely rather than fading. The goal is the feeling that everything is going according to plan and every person and record is accounted for.\n\nIt must not read as a generic CRM: no stock dashboard of identical metric tiles, no decoration standing in for information, no colour that doesn't carry a status. Both a light and a dark theme ship, with the same roles.",
+    "keyCharacteristics": [
+      "One accent (Policy Green) for action and the current place; status colours only for status.",
+      "White cards with hairline borders and a small ambient shadow on a tinted desk.",
+      "Dense, legible type: 14px body, 11.5px uppercase labels, tabular figures for money and counts.",
+      "Gently rounded corners (7 / 10 / 14px); pills only for small status chips.",
+      "Every interactive control has visible hover, focus and disabled states."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Policy Green is the only accent. It marks action and the current place; it is never decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Means Status Rule",
+        "body": "Red, amber, blue and violet appear only to report a record's state. A colour that doesn't map to a status doesn't belong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Grey Rule",
+        "body": "Every grey and every status colour used for text clears 4.5:1 against cards, the desk and its own wash. Hierarchy between secondary text levels comes from size and weight, not from fading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Not Hex Rule",
+        "body": "Charts, stage dots and category tiles take their colour from the theme variables, never a literal hex, so they follow dark mode and stay on this palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Amounts, counts and dates in lists use tabular figures so columns line up.",
+        "section": "typography"
+      },
+      {
+        "name": "The Small But Weighted Rule",
+        "body": "At 12–13px, emphasis comes from weight steps (550, 650, 700), not from size jumps or colour.",
+        "section": "typography"
+      },
+      {
+        "name": "The Rest Then Float Rule",
+        "body": "In-page surfaces only ever take the resting shadow. The deep shadow is reserved for things that float above the page.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use Policy Green for the single primary action on a surface and for the current place; nothing else.",
+      "**Do** report record state with the status pill tones, assigned centrally, never ad hoc.",
+      "**Do** keep every text grey at 4.5:1 or better on cards and the desk, in both themes.",
+      "**Do** use tabular figures and the mono face for amounts, counts and reference numbers in lists.",
+      "**Do** give every control visible hover, keyboard focus and disabled states."
+    ],
+    "donts": [
+      "**Don't** make it look like a generic CRM: no grid of identical icon-plus-number tiles as a page structure, no decorative charts standing in for real status.",
+      "**Don't** add a second accent colour or use status colours as decoration.",
+      "**Don't** dim a blocked primary action; remove its fill.",
+      "**Don't** put the deep overlay shadow on in-page cards, or stack a wide shadow under a bordered card.",
+      "**Don't** use one-sided coloured bars on cards or rows; use a full border, a tint or a status pill."
+    ]
+  }
+}

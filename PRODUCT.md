@@ -58,6 +58,11 @@ truthfully claim this, and neither could a carrier-supplied tool.
   plus claims and pre-approvals) drive document checklists, including which party prepares a
   document and whose signature it needs. Sourced from the carrier's own written lists in
   `../docs/REQUIREMENTS.md`.
+- **Email runs through the agency's Gmail.** Incoming mail syncs into the Inbox, where staff
+  link each message to a client's record; matching suggests a record from the sender's address
+  against the client's email on file. Attachments on linked messages become available to that
+  client's requirement checklists. Outbound email (proposals, billing, requirement requests,
+  invitations) is composed in-app and sent from Gmail.
 
 ## Capabilities and Constraints
 
@@ -72,9 +77,11 @@ as the `prospects` route key.
 
 **Constraints that future work must preserve:**
 
-- **Outbound email does not send.** Logging an email, message, brochure, or payment
-  instruction writes a `communications` row only — there is no SMTP or Gmail integration yet.
-  A logged action is not delivered and must not trigger delivery-dependent statuses.
+- **Sending is a person's decision.** Outbound email goes through Gmail and is a real
+  delivery, so nothing sends on its own: a draft opens in the composer for review and an
+  explicit Send, and every send is recorded with its delivery state in the sent-email history.
+  A draft that was never sent is not a delivery and must not trigger delivery-dependent
+  statuses.
 - **All actions stay human-in-the-loop and are logged.** Nothing advances a lead or notifies a
   client autonomously.
 - **Delete is Admin-only.** Staff and Agent use soft states — deactivate, mark-lost — never

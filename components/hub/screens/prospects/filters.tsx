@@ -43,7 +43,7 @@ export function LeadFilters({
       >
         <I.filter size={15} />
         {activeCount > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 grid size-[17px] place-items-center rounded-full bg-brand text-[10px] font-bold text-white ring-2 ring-background">
+          <span className="absolute -right-1.5 -top-1.5 grid size-[17px] place-items-center rounded-full bg-brand text-[11px] font-bold text-white ring-2 ring-background">
             {activeCount}
           </span>
         )}
@@ -65,7 +65,7 @@ export function LeadFilters({
             </div>
             <div className="max-h-[min(520px,calc(100vh-120px))] overflow-y-auto p-3">
               <fieldset>
-                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                <legend className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                   Status
                 </legend>
                 <div className="grid grid-cols-2 gap-0.5">
@@ -85,7 +85,7 @@ export function LeadFilters({
               </fieldset>
 
               <fieldset className="mt-3 border-t border-border-soft pt-3">
-                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                <legend className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                   Product interest
                 </legend>
                 {productOptions.length > 0 ? (
@@ -112,7 +112,7 @@ export function LeadFilters({
               </fieldset>
 
               <fieldset className="mt-3 border-t border-border-soft pt-3">
-                <legend className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                <legend className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                   Follow-up date
                 </legend>
                 <label className={optionClass}>

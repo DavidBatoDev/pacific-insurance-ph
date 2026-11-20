@@ -56,8 +56,8 @@ export function TravelReferenceAttachments({ travelRequestId, travelLabel, canEd
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <div className="text-[11.5px] font-semibold">{slot.label}</div>
             {!link ? <span className="text-[11px] text-muted-foreground">Not linked</span>
-              : link.available ? <span className="rounded-sm bg-green-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-green">Recorded from Inbox</span>
-                : <span className="rounded-sm bg-amber-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-amber">Linked source unavailable</span>}
+              : link.available ? <span className="rounded-sm bg-green-soft px-1.5 py-0.5 text-[11px] font-semibold text-green">Recorded from Inbox</span>
+                : <span className="rounded-sm bg-amber-soft px-1.5 py-0.5 text-[11px] font-semibold text-amber">Linked source unavailable</span>}
           </div>
           {link?.available && <div className="mt-1.5 min-w-0 text-[11px]">
             <p className="break-all font-semibold">{link.fileName}</p>
@@ -222,7 +222,7 @@ function ReferencePicker({ travelRequestId, travelLabel, slot, current, onClose,
               <div className="flex items-start justify-between gap-3"><span className="break-all text-[12.5px] font-semibold">{item.fileName}</span><span className="shrink-0 text-[11px] text-muted-foreground">{fileSize(item.size)}</span></div>
               <div className="mt-1 truncate text-[11.5px] text-muted-foreground">{item.fromAddress} · {receivedDate(item.receivedAt)}</div>
               <div className="truncate text-[11.5px]">{item.subject || "(No subject)"}</div>
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[10.5px]">
+              <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
                 {isSuggested(item) && <span className="rounded-sm bg-brand-soft px-1.5 py-0.5 font-semibold text-brand-hover">Suggested by file name</span>}
                 {isCurrent(item) && <span className="rounded-sm bg-green-soft px-1.5 py-0.5 font-semibold text-green">Current link</span>}
                 {item.clientLevel && <span className="rounded-sm bg-amber-soft px-1.5 py-0.5 font-semibold text-amber">Client-level email</span>}

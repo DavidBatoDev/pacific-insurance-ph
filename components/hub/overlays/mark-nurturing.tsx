@@ -60,7 +60,7 @@ export function MarkNurturingModal({
       </div>
 
       <Field label="Re-engagement date" required>
-        <input className={INPUT} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <input className={INPUT} type="date" max="9999-12-31" value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
       <Field label="Note" className="mt-3.5">
         <textarea

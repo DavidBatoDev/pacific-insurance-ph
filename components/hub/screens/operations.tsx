@@ -1,9 +1,10 @@
 "use client";
 
+import { Tooltip } from "@base-ui/react/tooltip";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { backfillPolicyRenewalsAction, markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
+import { backfillPolicyRenewalsAction, markRenewalLapsedAction, markRenewalNoticeSentAction } from "@/app/(app)/renewals/actions";
 import type { Application } from "@/lib/repositories/applications";
 import type { Claim } from "@/lib/repositories/claims";
 import type { Policy } from "@/lib/repositories/policies";
@@ -12,11 +13,13 @@ import type { TravelDraft } from "@/lib/queries/travel-drafts";
 import type { TravelRequest } from "@/lib/repositories/travel";
 import { money, moneyTotals, peso, pesoShort } from "@/lib/format";
 import { isSelectProduct, planLimitDescription } from "@/lib/products/select-variant";
+import { canMarkLapsed, isNoticeMissing, manilaTodayIso, type RenewalQueueRow } from "@/lib/renewals/lifecycle";
 import { I } from "../icons";
 import { useRecordNav } from "../nav";
 import { usePersona } from "../persona";
 import { useOverlays } from "../overlays/overlay-provider";
 import { RenewalNoticeReceivedModal } from "../overlays/renewal-notice-received";
+import { RenewalMarkRenewedModal } from "../overlays/renewal-mark-renewed";
 import { Avatar, Btn, DueCell, StatusBadge } from "../primitives";
 import { ClientCell, Row, Td } from "../table";
 import { ListScreen } from "./list-screen";
@@ -261,7 +264,12 @@ export function PoliciesLive({ rows }: { rows: Policy[] }) {
 }
 
 /* --------------------------------- Renewals -------------------------------- */
-export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSyncPolicies: boolean }) {
+export function RenewalsLive({ rows, noticeRequestOffsetDays, canSyncPolicies }: {
+  rows: RenewalQueueRow[];
+  /** Settings "Carrier notice request" day offset from the due date; null when the rule is absent. */
+  noticeRequestOffsetDays: number | null;
+  canSyncPolicies: boolean;
+}) {
   const router = useRouter();
   const overlays = useOverlays();
   const { openContact, prefetchContact } = useRecordNav();
@@ -271,6 +279,10 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
   const [, startTransition] = useTransition();
   const [syncPending, startSyncTransition] = useTransition();
   const [receiptRenewal, setReceiptRenewal] = useState<Renewal | null>(null);
+  const [renewedRenewal, setRenewedRenewal] = useState<Renewal | null>(null);
+  const [lapsingId, setLapsingId] = useState<string | null>(null);
+  const todayIso = manilaTodayIso();
+  const noticeMissing = (r: RenewalQueueRow) => isNoticeMissing(r, todayIso, noticeRequestOffsetDays);
 
   const syncPolicies = () => startSyncTransition(async () => {
     const result = await backfillPolicyRenewalsAction();
@@ -282,12 +294,9 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
 
   const due30 = rows.filter((r) => {
     const d = daysUntil(r.renewalDueDate);
-    return d != null && d >= 0 && d <= 30;
+    return r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed" && d != null && d >= 0 && d <= 30;
   }).length;
-  const overdue = rows.filter((r) => {
-    const d = daysUntil(r.renewalDueDate);
-    return d != null && d < 0 && r.status !== "Renewed" && r.status !== "Paid";
-  }).length;
+  const overdue = rows.filter((r) => canMarkLapsed(r, todayIso)).length;
 
   // Email acceptance never advances the renewal lifecycle; staff mark the notice sent explicitly.
   const sendNotice = (r: Renewal) =>
@@ -305,6 +314,29 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
       overlays.toast("Renewal notice marked sent", `${r.clientName ?? "Client"} — ${r.policyRef ?? "policy"}`);
       router.refresh();
     });
+
+  const markLapsed = async (r: Renewal) => {
+    if (lapsingId) return;
+    const label = `${r.clientName ?? "Client"} · ${r.policyNumber ?? r.policyRef ?? "Policy"}`;
+    const ok = await overlays.confirm({
+      kind: "warn",
+      title: "Mark renewal lapsed?",
+      confirmLabel: "Mark lapsed",
+      message: `${label}. This closes the overdue renewal and dismisses pending renewal drafts. It does not cancel the policy or change recorded payments.`,
+    });
+    if (!ok) return;
+    setLapsingId(r.id);
+    try {
+      const res = await markRenewalLapsedAction(r.id, r.updatedAt);
+      if (!res.ok) return overlays.toast("Couldn’t mark renewal lapsed", res.error);
+      overlays.toast("Renewal marked lapsed", label);
+      router.refresh();
+    } catch {
+      overlays.toast("Couldn’t mark renewal lapsed", "Check your connection and try again.");
+    } finally {
+      setLapsingId(null);
+    }
+  };
 
   return (
     <>
@@ -332,7 +364,13 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
           color: "var(--brand)",
         },
       ]}
-      filters={["Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Renewed", "Lapsed"]}
+      filters={["Open", "Notice missing", "Upcoming", "Notice Received", "Reminder Sent", "Awaiting Payment", "Paid", "Lapsed"]}
+      // One row per policy (its current cycle); the queue opens on policies with unfinished work.
+      defaultFilter="Open"
+      filterMatches={(r, f) =>
+        f === "Open" ? r._filter !== "Renewed" && r._filter !== "Lapsed"
+        : f === "Notice missing" ? noticeMissing(r)
+        : r._filter === f}
       rows={rows.map((r) => ({ ...r, _filter: r.status }))}
       defaultSort={{ key: "renewalDueDate", dir: "asc" }}
       emptyText="No renewals tracked yet."
@@ -345,7 +383,24 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
         { k: "premiumAmount", label: "Premium", num: true },
         { k: "id", label: "" },
       ]}
-      renderRow={(r) => (
+      renderRow={(r) => {
+        const busy = lapsingId === r.id;
+        const open = r.status !== "Paid" && r.status !== "Renewed" && r.status !== "Lapsed";
+        // Every action this row offers, in order; a Paid row's first entry is its completion step.
+        const rowActions: { key: string; label: string; icon: typeof I.send; run: () => void; primary?: boolean; hint?: string }[] = [
+          ...(r.status === "Paid" ? [{ key: "renewed", label: "Mark renewed", icon: I.refresh, run: () => setRenewedRenewal(r), primary: true }] : []),
+          ...(open && !r.noticeReceivedDate ? [{ key: "receipt", label: "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
+          ...(open ? [{ key: "send", label: "Send notice", icon: I.send, run: () => sendNotice(r) }] : []),
+          ...(r.status === "Upcoming" || r.status === "Notice Received"
+            ? [{ key: "sent", label: "Mark notice sent", icon: I.check, run: () => markNoticeSent(r), hint: "Client already has the notice" }]
+            : []),
+          ...(canMarkLapsed(r, todayIso)
+            ? [{ key: "lapsed", label: busy ? "Marking lapsed…" : "Mark lapsed", icon: I.clock, run: () => markLapsed(r), hint: "Closes this overdue renewal" }]
+            : []),
+          ...(!open || r.noticeReceivedDate ? [{ key: "receipt", label: r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received", icon: I.calendar, run: () => setReceiptRenewal(r) }] : []),
+        ];
+        const [nextAction, ...moreActions] = rowActions;
+        return (
         <Row key={r.id} onClick={() => openContact(r.clientId)} onMouseEnter={() => prefetchContact(r.clientId)}>
           <Td><ClientCell name={r.clientName ?? "—"} sub={r.policyNumber ?? undefined} /></Td>
           <Td className="text-muted-foreground">{r.policyRef ?? "—"}</Td>
@@ -356,31 +411,64 @@ export function RenewalsLive({ rows, canSyncPolicies }: { rows: Renewal[]; canSy
               "—"
             )}
           </Td>
-          <Td>{fmtDate(r.noticeReceivedDate)}</Td>
-          <Td><StatusBadge status={r.status} /></Td>
+          <Td>
+            {noticeMissing(r) ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-amber">
+                <I.alertTri size={13} /> Not received
+              </span>
+            ) : (
+              fmtDate(r.noticeReceivedDate)
+            )}
+          </Td>
+          <Td>
+            <StatusBadge status={r.status} />
+            {r.lastRenewedDate && (
+              <div className="mt-1 text-[11.5px] tabular-nums text-subtle">Last renewed {fmtDate(r.lastRenewedDate)}</div>
+            )}
+          </Td>
           <Td className="text-right font-mono font-semibold tabular-nums">
             {r.premiumAmount != null ? money(r.premiumAmount, r.currency) : "—"}
           </Td>
           <Td>
+            {/* One joined icon toolbar keeps the row narrow; only the completion step keeps its words. */}
             <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Btn size="sm" onClick={() => setReceiptRenewal(r)}>
-                {r.noticeReceivedDate ? "Edit receipt date" : "Mark notice received"}
-              </Btn>
-              <Btn size="sm" onClick={() => sendNotice(r)}>
-                <I.send size={13} /> Send notice
-              </Btn>
-              {(r.status === "Upcoming" || r.status === "Notice Received") && (
-                <Btn size="sm" variant="ghost" onClick={() => markNoticeSent(r)}
-                  title="Record that the client was sent the renewal notice. Sending an email does not do this automatically.">
-                  Mark notice sent
+              {nextAction?.primary && (
+                <Btn size="sm" variant="primary" disabled={busy} onClick={nextAction.run}>
+                  {nextAction.label}
                 </Btn>
               )}
+              <Tooltip.Provider delay={200}>
+                <span role="group" aria-label="Renewal actions" className="inline-flex overflow-hidden rounded-sm border border-border-strong bg-card">
+                  {(nextAction?.primary ? moreActions : rowActions).map((a) => (
+                    <Tooltip.Root key={a.key}>
+                      <Tooltip.Trigger
+                        render={<button type="button" disabled={busy} />}
+                        aria-label={a.label}
+                        onClick={a.run}
+                        className="grid size-[30px] place-items-center text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-50 [&+&]:border-l [&+&]:border-border-strong"
+                      >
+                        <a.icon size={15} />
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Positioner side="top" sideOffset={6} className="z-50">
+                          <Tooltip.Popup className="max-w-[220px] rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] leading-snug shadow-pop transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+                            <span className="block font-semibold text-foreground">{a.label}</span>
+                            {a.hint && <span className="block text-muted-foreground">{a.hint}</span>}
+                          </Tooltip.Popup>
+                        </Tooltip.Positioner>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  ))}
+                </span>
+              </Tooltip.Provider>
             </span>
           </Td>
         </Row>
-      )}
+        );
+      }}
     />
     {receiptRenewal && <RenewalNoticeReceivedModal renewal={receiptRenewal} onClose={() => setReceiptRenewal(null)} />}
+    {renewedRenewal && <RenewalMarkRenewedModal renewal={renewedRenewal} onClose={() => setRenewedRenewal(null)} />}
     </>
   );
 }
@@ -553,7 +641,7 @@ export function TravelLive({ rows, drafts }: { rows: TravelRequest[]; drafts: Tr
           <Td>
             <span className="font-mono text-[12px] text-muted-foreground">{t.referenceNo ?? "—"}</span>
             {t.kind === "draft" && (
-              <span className="ml-1.5 rounded border border-border-strong px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-subtle">
+              <span className="ml-1.5 rounded border border-border-strong px-1 py-px text-[11px] font-semibold uppercase tracking-wide text-subtle">
                 Draft
               </span>
             )}

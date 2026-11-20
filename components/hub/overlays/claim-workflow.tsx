@@ -197,7 +197,7 @@ export function ClaimWorkflowModal({ claimId: initialClaimId, onClose }: { claim
                 </select>
               </Field>
               <Field label="Documents received">
-                <input aria-label="Documents received" className={INPUT} type="date" value={claim.documentsReceivedDate ?? ""} onChange={(e) => saveIntake({ documentsReceivedDate: e.target.value || null })} />
+                <input aria-label="Documents received" className={INPUT} type="date" max="9999-12-31" value={claim.documentsReceivedDate ?? ""} onChange={(e) => saveIntake({ documentsReceivedDate: e.target.value || null })} />
               </Field>
             </div>
           </Section>

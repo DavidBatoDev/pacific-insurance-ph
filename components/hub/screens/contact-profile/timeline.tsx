@@ -129,7 +129,7 @@ export function ContactTimeline({ timeline }: { timeline: TimelineEntry[] }) {
                         {e.status && (
                           <span
                             className={cn(
-                              "rounded-[5px] px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.04em]",
+                              "rounded-[5px] px-1.5 py-px text-[11px] font-bold uppercase tracking-[0.04em]",
                               STATUS_META[e.status].className,
                             )}
                           >

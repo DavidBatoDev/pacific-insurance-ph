@@ -40,7 +40,7 @@ import { healthWizardRequirements, persistedDependentSubjects, questionnaireSubj
 import type { RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 import { validateCatalogSelection } from "@/lib/products/catalog-selection";
 import { isSelectProduct, plansForSelectVariant, resumeSelectVariant } from "@/lib/products/select-variant";
-import { requirementSection } from "@/lib/applications/requirement-sections";
+import { requirementLabelText, requirementSection } from "@/lib/applications/requirement-sections";
 
 export type WizardMode = "draft" | "create" | "docs";
 
@@ -638,8 +638,9 @@ export async function getDraftResumeAction(
         productVersionId: draft.productVersionId,
         items: requirements.map((row) => ({
           requirementKey: `persisted:${row.id}`,
-          name: `${row.documentName}${row.appliesTo ? ` — ${row.appliesTo}` : ""}`,
+          name: requirementLabelText(row),
           documentName: row.documentName,
+          appliesTo: row.appliesTo,
           section: requirementSection(row),
           cond: row.isRequired ? null : "not required yet",
           checked: false,
@@ -1171,7 +1172,7 @@ async function createTravelRecord(ctx: WizardCreateContext) {
         actorId: actor.id,
       });
       result.travelRequestId = travel.id;
-      result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " Approved Travel application form unavailable; record creation continued." : ""}`;
+      result.summary = `${clientName} — travel request ${travel.referenceNo ?? ""} · Awaiting Payment.${travel.carrierFormMatchStatus === "Unavailable" ? " No approved blank Travel application form in the Library; record creation continued." : ""}`;
       if (overlapping.length) {
         result.summary += ` Note: ${overlapping.map((request) => request.referenceNo ?? "another request").join(", ")} to ${form.destination} is still open for overlapping dates.`;
       }

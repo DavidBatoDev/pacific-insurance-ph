@@ -240,6 +240,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
             <input
               className={INPUT}
               type="date"
+              max="9999-12-31"
               value={effective}
               onChange={(e) => {
                 const value = e.target.value;
@@ -250,7 +251,7 @@ export function usePolicyCopyForm({ fromApplication, onSaved }: { fromApplicatio
             />
           </Field>
           <Field label="Expiry date">
-            <input className={INPUT} type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+            <input className={INPUT} type="date" max="9999-12-31" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           </Field>
         </div>
 

@@ -20,10 +20,6 @@
       "id": "3fedf55d-ab5e-4b24-947d-5f7c46a5de63",
       "product": "BC Flexi"
     },
-    "travel": {
-      "id": "7539edb8-a0db-4393-8f6f-080238b3ae5d",
-      "product": "Travel Insurance"
-    },
     "travelSafe": {
       "id": "e6f25cd4-71a6-4bf9-8670-76358dca6e16",
       "product": "TravelSafe"
@@ -108,7 +104,7 @@
       "originalFileName": "Travel-Brochure-2024.pdf",
       "rows": [
         {
-          "productVersion": "travel",
+          "productVersion": "travelSafe",
           "documentName": "Travel Brochure 2024",
           "documentType": "Brochure",
           "versionLabel": "2024",
@@ -132,7 +128,7 @@
       "originalFileName": "CCAF-Credit-Card-Authorization-Form.pdf",
       "rows": [
         {
-          "productVersion": "travel",
+          "productVersion": "travelSafe",
           "documentName": "Credit Card Authorization Form",
           "documentType": "Authorization Form",
           "versionLabel": "Undated",
@@ -156,7 +152,7 @@
       "originalFileName": "Geographical-Loading.pdf",
       "rows": [
         {
-          "productVersion": "travel",
+          "productVersion": "travelSafe",
           "documentName": "Geographical Loading",
           "documentType": "Reference Document",
           "versionLabel": "Undated",
@@ -334,7 +330,7 @@
       "originalFileName": "Travel-Application-Form-2026-01.pdf",
       "rows": [
         {
-          "productVersion": "travel",
+          "productVersion": "travelSafe",
           "documentName": "Travel Application Form",
           "documentType": "Application Form",
           "versionLabel": "2026-01",

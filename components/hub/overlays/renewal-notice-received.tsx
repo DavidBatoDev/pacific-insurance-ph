@@ -47,6 +47,7 @@ export function RenewalNoticeReceivedModal({ renewal, onClose }: { renewal: Rene
         <input
           className={INPUT}
           type="date"
+          max="9999-12-31"
           aria-label="Notice received date"
           required
           value={date}

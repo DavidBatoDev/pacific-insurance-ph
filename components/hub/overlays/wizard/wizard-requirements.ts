@@ -1,5 +1,5 @@
 import type { NewApplicationRequirement } from "@/lib/repositories/application-requirements";
-import { requirementSection } from "@/lib/applications/requirement-sections";
+import { requirementLabelText, requirementSection } from "@/lib/applications/requirement-sections";
 import {
   ageFromDob, beneficiaryIdDocumentFor, isFlexiShieldProduct, medicalRequirementDocumentsFor,
   type ChecklistItem, type WizardForm,
@@ -46,8 +46,8 @@ export function healthWizardRequirements(form: WizardForm): WizardRequirement[] 
   });
   if (form.remoteSale) items.push({ key: "health:declaration", documentName: "Advisor's Declaration", appliesTo: "Remote or online sale", isRequired: true, sortOrder: 900 });
   if (isFlexiShieldProduct(form.productName)) items.push(
-    { key: "health:first-layer-benefits", documentName: "Schedule of Benefits of the first-layer HMO", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 920 },
-    { key: "health:first-layer-coverage", documentName: "Certificate of Coverage of the first-layer HMO (full maximum benefit limit and expiry date)", appliesTo: "Supplied by the client — issued by the first-layer HMO", isRequired: true, sortOrder: 930 },
+    { key: "health:first-layer-benefits", documentName: "Schedule of Benefits of the first-layer HMO", appliesTo: "Supplied by the client, issued by the first-layer HMO", isRequired: true, sortOrder: 920 },
+    { key: "health:first-layer-coverage", documentName: "Certificate of Coverage of the first-layer HMO (full maximum benefit limit and expiry date)", appliesTo: "Supplied by the client, issued by the first-layer HMO", isRequired: true, sortOrder: 930 },
   );
   else items.push(
     { key: "health:tal", documentName: "Treatment Area Limitation (TAL) conforme", appliesTo: "Only when requested after underwriting", isRequired: false, sortOrder: 920 },
@@ -76,8 +76,9 @@ export function wizardRequirementPreview(items: WizardRequirement[]): ChecklistI
   return items.map((item) => ({
     requirementKey: item.key,
     documentName: item.documentName,
+    appliesTo: item.appliesTo ?? null,
     section: requirementSection(item),
-    name: `${item.documentName}${item.appliesTo ? ` — ${item.appliesTo}` : ""}`,
+    name: requirementLabelText(item),
     cond: item.isRequired === false ? "not required yet" : null,
     checked: false,
     status: "Pending",

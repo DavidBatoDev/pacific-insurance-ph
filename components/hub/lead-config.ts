@@ -45,6 +45,7 @@ const ADVANCE_ACTION_DEFAULTS: Record<string, { note: string; followUpDays: numb
   "First outreach sent": { note: "First outreach sent", followUpDays: 3 },
   "Inbound response logged": { note: "Inbound response logged", followUpDays: 1 },
   "Reached call logged": { note: "Reached call logged", followUpDays: 1 },
+  "Client accepted the proposal": { note: "Client accepted the proposal", followUpDays: 1 },
 };
 
 /** Resolve an action suggestion into editable popup defaults, using local calendar days. */
@@ -170,15 +171,16 @@ export function formatGaps(gaps: string[]): string {
   return `${lower.slice(0, -1).join(", ")} and ${lower[lower.length - 1]}`;
 }
 
+// Theme tokens, not hex: they follow dark mode and stay on the DESIGN.md palette.
 export const STAGE_META: Record<string, { color: string; health: "good" | "watch" | "risk" }> = {
-  "New Lead": { color: "#64748b", health: "good" },
-  Contacted: { color: "#2563eb", health: "good" },
-  Discovery: { color: "#0891b2", health: "good" },
-  Proposal: { color: "#7c3aed", health: "watch" },
-  "Product Selected": { color: "#d97706", health: "good" },
-  "Application Started": { color: "#059669", health: "good" },
-  Converted: { color: "#047857", health: "good" },
-  Lost: { color: "#dc2626", health: "risk" },
+  "New Lead": { color: "var(--slate)", health: "good" },
+  Contacted: { color: "var(--blue)", health: "good" },
+  Discovery: { color: "var(--cyan)", health: "good" },
+  Proposal: { color: "var(--violet)", health: "watch" },
+  "Product Selected": { color: "var(--amber)", health: "good" },
+  "Application Started": { color: "var(--brand)", health: "good" },
+  Converted: { color: "var(--green)", health: "good" },
+  Lost: { color: "var(--red)", health: "risk" },
 };
 
 export const STAGE_TONE: Record<string, Tone> = {
@@ -289,9 +291,11 @@ export function proposalStatusLine(
   status: string | null | undefined,
   decision: string | null | undefined,
   productInterest: string | null | undefined,
+  accepted = false,
 ): string {
   const product = productInterest ?? "carrier";
   if (!status) return "";
+  if (accepted) return `Client accepted — ${product} quote.`;
   if (status !== "Decision") return `Proposal ${status.toLowerCase()} — ${product} quote.`;
   switch (decision) {
     case "Awaiting Decision":
@@ -306,11 +310,30 @@ export function proposalStatusLine(
   }
 }
 
-/** What the board chips show: the sub-state once there is one, else the step. */
+/** Lead stages after Proposal. Reaching one means the client picked a plan. */
+const POST_PROPOSAL_STAGES: Record<string, true> = { "Product Selected": true, "Application Started": true, Converted: true };
+
+/**
+ * A proposal is accepted once the lead has moved past the Proposal stage: per
+ * docs/lead-stage-status.md the Advance to Product Selected *is* the acceptance, so no separate
+ * "Accepted" decision is stored. A declined proposal never counts, whatever the stage.
+ */
+export function isProposalAccepted(
+  status: string | null | undefined,
+  decision: string | null | undefined,
+  leadStage: string | null | undefined,
+): boolean {
+  return (status === "Received" || status === "Sent" || status === "Decision")
+    && decision !== "Declined"
+    && !!leadStage && Object.hasOwn(POST_PROPOSAL_STAGES, leadStage);
+}
+
+/** What the board chips show: Accepted once the lead moved on, else the sub-state, else the step. */
 export const proposalChipLabel = (
   status: string | null | undefined,
   decision: string | null | undefined,
-) => (status === "Decision" && decision ? decision : status);
+  leadStage?: string | null,
+) => (isProposalAccepted(status, decision, leadStage) ? "Accepted" : status === "Decision" && decision ? decision : status);
 
 /**
  * Product-interest colour coding (board card dots, interest widget). Display only: the selectable
@@ -318,12 +341,12 @@ export const proposalChipLabel = (
  * "Travel Insurance" is the deactivated legacy Travel product, kept so older values still colour.
  */
 export const PRODUCT_COLORS: Record<string, string> = {
-  "Blue Royale": "#059669",
-  Select: "#2563eb",
-  TravelSafe: "#d97706",
-  "Travel Insurance": "#d97706",
-  "BC Flexi": "#7c3aed",
-  FlexiShield: "#0891b2",
+  "Blue Royale": "var(--green)",
+  Select: "var(--blue)",
+  TravelSafe: "var(--amber)",
+  "Travel Insurance": "var(--amber)",
+  "BC Flexi": "var(--violet)",
+  FlexiShield: "var(--cyan)",
 };
 
 export const nextStage = (stage: string | null): LeadStage => {

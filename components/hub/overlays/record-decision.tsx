@@ -22,6 +22,7 @@ import { useOverlays } from "./overlay-provider";
  * board (`../../docs/web/data-model.md:75`).
  */
 export function RecordDecisionModal({
+  onAccepted,
   clientId,
   clientName,
   onClose,
@@ -31,6 +32,11 @@ export function RecordDecisionModal({
   clientName: string;
   onClose: () => void;
   onDone?: () => void;
+  /**
+   * "Client accepted" is not a decision value: a yes is confirmed by moving the stage to
+   * Product Selected (docs/lead-stage-status.md), so this hands off to the Advance-lead popup.
+   */
+  onAccepted?: () => void;
 }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -87,6 +93,21 @@ export function RecordDecisionModal({
           );
         })}
       </div>
+
+      {onAccepted && (
+        <button
+          type="button"
+          onClick={onAccepted}
+          className="mt-3 flex w-full items-center gap-2.5 rounded-md border border-green-border bg-card px-3.5 py-2.5 text-left transition-colors hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25"
+        >
+          <I.check size={15} className="shrink-0 text-brand" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-[650]">Client accepted</span>
+            <span className="block text-[11.5px] text-muted-foreground">Advance them to Product Selected</span>
+          </span>
+          <I.arrowRight size={14} className="shrink-0 text-muted-foreground" />
+        </button>
+      )}
 
       <div className="mt-5 flex items-center justify-end gap-2.5">
         <Btn onClick={onClose}>Cancel</Btn>

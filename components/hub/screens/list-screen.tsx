@@ -32,6 +32,10 @@ interface ListScreenProps<T extends FilterableRow> {
   icon: LucideIcon;
   stats?: Stat[];
   filters?: string[];
+  /** Chip selected on first render; defaults to All. */
+  defaultFilter?: string;
+  /** Custom chip matching, e.g. one chip spanning several statuses. Defaults to `_filter` equality. */
+  filterMatches?: (row: T, filter: string) => boolean;
   /** Second filter dimension, shown in the Filters popover. */
   filters2?: string[];
   filters2Label?: string;
@@ -76,6 +80,8 @@ export function ListScreen<T extends FilterableRow>({
   icon,
   stats,
   filters,
+  defaultFilter,
+  filterMatches,
   filters2,
   filters2Label,
   rows,
@@ -88,7 +94,7 @@ export function ListScreen<T extends FilterableRow>({
   emptyText,
 }: ListScreenProps<T>) {
   const [q, setQ] = useState("");
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState(defaultFilter ?? "All");
   const [activeFilter2, setActiveFilter2] = useState("All");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -102,7 +108,9 @@ export function ListScreen<T extends FilterableRow>({
   }, []);
 
   let view = rows;
-  if (filters && activeFilter !== "All") view = view.filter((r) => r._filter === activeFilter);
+  if (filters && activeFilter !== "All") {
+    view = view.filter((r) => (filterMatches ? filterMatches(r, activeFilter) : r._filter === activeFilter));
+  }
   if (filters2 && activeFilter2 !== "All") view = view.filter((r) => r._filter2 === activeFilter2);
   if (q.trim()) {
     const ql = q.toLowerCase();
@@ -179,14 +187,14 @@ export function ListScreen<T extends FilterableRow>({
                 <Chip active={filterOpen || activeFilter2 !== "All"} onClick={() => setFilterOpen((o) => !o)}>
                   <I.filter size={15} /> Filters
                   {activeFilter2 !== "All" && (
-                    <span className="grid size-[17px] place-items-center rounded-full bg-brand text-[10.5px] font-bold text-white">
+                    <span className="grid size-[17px] place-items-center rounded-full bg-brand text-[11px] font-bold text-white">
                       1
                     </span>
                   )}
                 </Chip>
                 {filterOpen && (
                   <div className="absolute right-0 top-[38px] z-40 w-[280px] rounded-md border border-border bg-card p-3 shadow-pop">
-                    <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-faint">
+                    <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
                       {filters2Label ?? "Filter"}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -226,7 +234,7 @@ export function ListScreen<T extends FilterableRow>({
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-[13px] text-subtle">
-                  {emptyText ?? "No matching records."}
+                  {rows.length === 0 ? (emptyText ?? "No matching records.") : "No matching records."}
                 </td>
               </tr>
             )}

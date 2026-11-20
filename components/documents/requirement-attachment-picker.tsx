@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { listRequirementEmailAttachmentsAction } from "@/app/(app)/documents/requirement-attachment-actions";
 import { I } from "@/components/hub/icons";
 import { Btn, INPUT } from "@/components/hub/primitives";
+import type { ActionResult } from "@/lib/actions/context";
+import { requirementHint } from "@/lib/applications/requirement-hints";
+import { requirementLabel } from "@/lib/applications/requirement-sections";
 import type { AttachmentPickerScope, RequirementAttachmentPage, RequirementAttachmentReceipt, RequirementAttachmentSelection, RequirementEmailAttachment, RequirementTarget } from "@/lib/documents/requirement-attachment.types";
 import { cn } from "@/lib/utils";
 import { FilePickField } from "./file-pick-field";
@@ -15,6 +18,8 @@ type Props = {
   clientId?: string;
   target?: RequirementTarget;
   label: string;
+  /** The checklist row; drives the dialog heading and the "what to attach" hint. */
+  requirement?: { documentName: string; appliesTo?: string | null };
   value?: RequirementAttachmentSelection | null;
   onSelect?: (selection: RequirementAttachmentSelection | null) => void;
   onAttached?: (receipt: RequirementAttachmentReceipt) => void;
@@ -26,6 +31,27 @@ const sourceUrl = (attachment: RequirementEmailAttachment, action: "preview" | "
 const fileSize = (size: number) => size < 1024 * 1024 ? `${Math.ceil(size / 1024)} KB` : `${(size / (1024 * 1024)).toFixed(1)} MB`;
 const receivedDate = (value: string) => new Date(value).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
 const selectionName = (selection: RequirementAttachmentSelection) => selection.type === "device" ? selection.file.name : selection.attachment.fileName;
+
+/*
+ * First pages (no search) are shared across pickers and reopenings, so the email list is already
+ * there when the dialog opens. Each open still refreshes it in the background.
+ */
+const firstPages = new Map<string, RequirementAttachmentPage>();
+const inflight = new Map<string, Promise<ActionResult<RequirementAttachmentPage>>>();
+const scopeKey = (scope: AttachmentPickerScope) => scope.type === "client" ? `client:${scope.clientId}` : `requirement:${scope.target.kind}:${scope.target.recordId}:${scope.target.requirementId}`;
+function fetchFirstPage(scope: AttachmentPickerScope): Promise<ActionResult<RequirementAttachmentPage>> {
+  const key = scopeKey(scope);
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const request = listRequirementEmailAttachmentsAction(scope, { search: "" })
+    .then((result) => { if (result.ok) firstPages.set(key, result.data); return result; })
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
+  return request;
+}
+function prefetchFirstPage(scope: AttachmentPickerScope | null) {
+  if (scope && !firstPages.has(scopeKey(scope))) fetchFirstPage(scope).catch(() => undefined);
+}
 
 function needsAcknowledgement(attachment: RequirementEmailAttachment, target?: RequirementTarget) {
   return [attachment.sourceRecord, ...attachment.usages].some((record) => record.kind !== "client" && (!target || record.recordId !== target.recordId || record.kind !== target.kind));
@@ -70,7 +96,7 @@ function AttachmentPreview({ selection }: { selection: RequirementAttachmentSele
 }
 
 /** One picker for staged creation selections and receipts on existing requirement rows. */
-export function RequirementAttachmentPicker({ clientId, target, label, value, onSelect, onAttached, disabled }: Props) {
+export function RequirementAttachmentPicker({ clientId, target, label, requirement, value, onSelect, onAttached, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"device" | "email">("device");
   const [draft, setDraft] = useState<RequirementAttachmentSelection | null>(null);
@@ -94,6 +120,20 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
   const kind = target?.kind;
   const recordId = target?.recordId;
   const requirementId = target?.requirementId;
+  const scope = useMemo<AttachmentPickerScope | null>(
+    () => kind && recordId && requirementId ? { type: "requirement", target: { kind, recordId, requirementId } } : clientId ? { type: "client", clientId } : null,
+    [kind, recordId, requirementId, clientId],
+  );
+  const heading = requirement ? requirementLabel(requirement) : { title: label, owner: null };
+  const hint = requirement ? requirementHint(requirement.documentName) : null;
+  const [hintOpen, setHintOpen] = useState(false);
+  const hintId = useId();
+
+  // Client-scoped pickers share one listing, so a whole checklist costs one request. Per-row
+  // (requirement) listings prefetch on hover/focus of the trigger instead.
+  useEffect(() => {
+    if (scope?.type === "client" && !disabled) prefetchFirstPage(scope);
+  }, [scope, disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -126,12 +166,11 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
   }, [open]);
 
   useEffect(() => {
-    if (!open || (!kind && !clientId)) return;
+    if (!open || !scope) return;
     let active = true;
     const request = ++listRequest.current;
-    const scope: AttachmentPickerScope = kind && recordId && requirementId ? { type: "requirement", target: { kind, recordId, requirementId } } : { type: "client", clientId: clientId! };
     const timer = setTimeout(() => {
-      void listRequirementEmailAttachmentsAction(scope, { search: query }).then((result) => {
+      void (query ? listRequirementEmailAttachmentsAction(scope, { search: query }) : fetchFirstPage(scope)).then((result) => {
         if (!active || request !== listRequest.current) return;
         if (result.ok) { setPage(result.data); setCanUseEmail(result.data.canUseEmail); if (!result.data.canUseEmail) { setTab("device"); setDraft((current) => current?.type === "email" ? null : current); } }
         else setListError(result.error);
@@ -139,12 +178,11 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
         .finally(() => { if (active && request === listRequest.current) setLoading(false); });
     }, query ? 250 : 0);
     return () => { active = false; clearTimeout(timer); };
-  }, [open, clientId, kind, recordId, requirementId, query, reload]);
+  }, [open, scope, query, reload]);
 
   const loadMore = async () => {
-    if (loading || page?.nextOffset == null) return;
+    if (loading || page?.nextOffset == null || !scope) return;
     const request = ++listRequest.current;
-    const scope: AttachmentPickerScope = target ? { type: "requirement", target } : { type: "client", clientId: clientId! };
     setLoading(true);
     setListError(null);
     try {
@@ -168,8 +206,13 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
   const show = () => {
     setDraft(value ?? null);
     setTab("device");
-    resetListing("");
-    setCanUseEmail(null);
+    const cached = scope ? firstPages.get(scopeKey(scope)) : undefined;
+    listRequest.current++;
+    setQuery("");
+    setListError(null);
+    setPage(cached ?? null);
+    setCanUseEmail(cached?.canUseEmail ?? null);
+    setLoading(!cached && !!scope);
     setPreviewVersion((current) => current + 1);
     setError(null);
     setOpen(true);
@@ -187,13 +230,15 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
     setBusy(false);
     if (!result.ok) return setError(result.error);
     setReceipt(result.data);
+    // Usage badges on this listing changed; the next open must not show the old ones first.
+    firstPages.delete(scopeKey({ type: "requirement", target }));
     setOpen(false);
     onAttached?.(result.data);
   };
 
   return <div className="min-w-0 space-y-1.5">
     <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <Btn type="button" ref={triggerRef} size="sm" disabled={disabled} onClick={show}><I.upload size={13} /> {receipt ? "Attach another file" : value ? "Change file" : "Choose file"}</Btn>
+      <Btn type="button" ref={triggerRef} size="sm" disabled={disabled} onPointerEnter={() => prefetchFirstPage(scope)} onFocus={() => prefetchFirstPage(scope)} onClick={show}><I.upload size={13} /> {receipt ? "Attach another file" : value ? "Change file" : "Choose file"}</Btn>
       {!target && value && <span className="inline-flex min-w-0 items-center gap-2 rounded-md border border-brand/25 bg-brand-soft px-2 py-1 text-[11.5px]">
         <span className="truncate font-semibold">{selectionName(value)}</span><span className="shrink-0 text-muted-foreground">On create</span>
         <button type="button" disabled={disabled} onClick={() => onSelect?.(null)} className="font-semibold text-brand-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Remove</button>
@@ -201,9 +246,19 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
     </div>
     {receipt && <p role="status" className="text-[11.5px] text-green">{receipt.alreadyAttached ? "Already attached" : "Attached"} · {receipt.requirementStatus} · <a href={`/api/documents/${receipt.document.id}/download`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{receipt.document.name}</a></p>}
     {open && createPortal(<div className="fixed inset-0 z-[150] grid place-items-center bg-black/35 p-3 backdrop-blur-[2px] sm:p-4" onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget && !busy) setOpen(false); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-pop">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={heading.owner ? descriptionId : undefined} tabIndex={-1} className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-pop">
         <div className="flex items-start justify-between gap-4 border-b border-border-soft px-5 py-4">
-          <div className="min-w-0"><h2 id={titleId} className="text-[16px] font-bold">Attach requirement document</h2><p id={descriptionId} className="mt-1 text-[12px] text-muted-foreground">For <span className="font-semibold text-foreground">{label}</span>{!target && " · Attached after the record is created"}</p></div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-subtle">Attach document</p>
+            <div className="mt-1 flex items-center gap-1">
+              <h2 id={titleId} className="text-[17px] font-bold leading-snug">{heading.title}</h2>
+              {hint && <span className="group relative inline-flex shrink-0">
+                <button type="button" aria-label="What to attach" aria-expanded={hintOpen} aria-describedby={hintId} onClick={() => setHintOpen((current) => !current)} onBlur={() => setHintOpen(false)} className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><I.info size={15} /></button>
+                <span id={hintId} role="tooltip" className={cn("pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-border bg-card px-3 py-2 text-[12px] leading-snug text-foreground opacity-0 shadow-pop transition-opacity group-hover:opacity-100", hintOpen && "opacity-100")}>{hint}</span>
+              </span>}
+            </div>
+            {heading.owner && <p id={descriptionId} className="mt-0.5 text-[12.5px] text-muted-foreground">{heading.owner}</p>}
+          </div>
           <button type="button" aria-label="Close attachment picker" disabled={busy} onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-[14px] text-muted-foreground hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">✕</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -217,8 +272,23 @@ export function RequirementAttachmentPicker({ clientId, target, label, value, on
             {tab === "device" ? <div className="rounded-md border border-dashed border-border-strong bg-surface-2 p-4"><FilePickField file={draft?.type === "device" ? draft.file : null} disabled={busy} ariaLabel={`Choose file for ${label}`} hint="Any document · up to 25 MB" onChange={(file) => { setDraft(file ? { type: "device", file } : null); setPreviewVersion((current) => current + 1); setError(null); }} /></div>
               : <div>
                 <input type="search" aria-label="Search email attachments" placeholder="Search file name, sender or subject" value={query} disabled={busy} onChange={(event) => resetListing(event.target.value)} className={cn(INPUT, "mb-3 w-full")} />
-                <p className="mb-2 text-[11.5px] text-muted-foreground">Released email attachments for this client, including stored originals. Choosing a file does not move its original filing.</p>
-                {page?.items.length === 0 && !loading && <p role="status" className="rounded-md border border-border-soft p-5 text-center text-[12px] text-muted-foreground">{query ? "No attachments match this search." : "No available email attachments for this client."}</p>}
+                {!!page?.items.length && <p className="mb-2 text-[11.5px] text-muted-foreground">Picking a file doesn&apos;t move its original filing.</p>}
+                {page?.items.length === 0 && !loading && (query
+                  ? <p role="status" className="rounded-md border border-border-soft p-5 text-center text-[12px] text-muted-foreground">No attachments match this search.</p>
+                  : <div role="status" className="rounded-md border border-border-soft px-4 py-3.5 text-[12px]">
+                    <p className="text-[12.5px]">No email attachments for this client yet.</p>
+                    <details className="group/why mt-1.5 text-muted-foreground">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 select-none hover:text-foreground [&::-webkit-details-marker]:hidden"><I.chevRight size={13} className="transition-transform group-open/why:rotate-90" />Why is this empty?</summary>
+                      <ul className="mt-2 list-disc space-y-1 pl-5">
+                        <li>The client hasn&apos;t sent an email with an attachment yet.</li>
+                        <li>
+                          They sent it from another address. On file: <span className="text-foreground">{page.client?.email ?? "none"}</span>
+                          {page.client && <> · <a href={`/clients/${page.client.id}/edit`} target="_blank" rel="noopener noreferrer" className="text-brand-hover underline-offset-2 hover:underline">{page.client.email ? "Edit email" : "Add email"} ↗</a></>}
+                        </li>
+                        <li>The email isn&apos;t linked to their record yet. <a href="/inbox" target="_blank" rel="noopener noreferrer" className="text-brand-hover underline-offset-2 hover:underline">Open Inbox ↗</a></li>
+                      </ul>
+                    </details>
+                  </div>)}
                 <div className="max-h-56 space-y-2 overflow-y-auto" aria-label="Available email attachments">
                   {page?.items.map((attachment) => {
                     const active = draft?.type === "email" && draft.attachment.messageId === attachment.messageId && draft.attachment.partId === attachment.partId;

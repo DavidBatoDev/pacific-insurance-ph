@@ -101,7 +101,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
             <input className={INPUT} value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </Field>
           <Field label="Date of birth" required>
-            <input className={INPUT} type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+            <input className={INPUT} type="date" max="9999-12-31" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
           </Field>
         </div>
       </FieldGroup>
@@ -139,7 +139,7 @@ export function NewLeadDrawer({ onClose }: { onClose: () => void }) {
             </select>
           </Field>
           <Field label="Next follow-up">
-            <input className={INPUT} type="date" value={follow} onChange={(e) => setFollow(e.target.value)} />
+            <input className={INPUT} type="date" max="9999-12-31" value={follow} onChange={(e) => setFollow(e.target.value)} />
           </Field>
         </div>
       </FieldGroup>
