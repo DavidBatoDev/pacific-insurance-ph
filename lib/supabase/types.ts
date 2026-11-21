@@ -4900,6 +4900,10 @@ export type Database = {
         Args: { p_input: Json }
         Returns: undefined
       }
+      ensure_travel_collection: {
+        Args: { p_travel_request_id: string }
+        Returns: string
+      }
       fail_prepared_gmail_outbound_email: {
         Args: { p_actor_id: string; p_error_code: string; p_id: string }
         Returns: {

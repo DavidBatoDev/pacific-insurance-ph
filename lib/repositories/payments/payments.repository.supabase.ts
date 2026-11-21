@@ -112,6 +112,14 @@ export class SupabasePaymentsRepository implements PaymentsRepository {
     return (data ?? []).map(paymentToDomain);
   }
 
+  async ensureTravelCollection(travelRequestId: string): Promise<Payment> {
+    const { data, error } = await getSupabaseAdmin().rpc("ensure_travel_collection", { p_travel_request_id: travelRequestId });
+    if (error) throw toRepositoryError("PaymentsRepository.ensureTravelCollection", error);
+    const payment = await this.findById(data);
+    if (!payment) throw new RepositoryError("The Travel collection could not be loaded.");
+    return payment;
+  }
+
   async listByApplication(applicationId: string): Promise<Payment[]> {
     const { data, error } = await getSupabaseAdmin().from("payments").select(PAYMENT_SELECT)
       .eq("application_id", applicationId).order("created_at").returns<PaymentJoined[]>();

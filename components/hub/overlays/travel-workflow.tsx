@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { getTravelWorkflowAction, recordTravelApplicationCopyAction, recordTravelPolicyAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
+import { ensureTravelCollectionAction, getTravelWorkflowAction, recordTravelApplicationCopyAction, recordTravelPolicyAction, updateTravelRequirementAction, updateTravelWorkflowAction, type TravelWorkflowPayload } from "@/app/(app)/travel/actions";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { RequirementStatusDot, requirementRowTone } from "@/components/hub/requirement-status";
 import { PdfUpload } from "@/components/documents/pdf-upload";
@@ -16,6 +16,10 @@ import { useOverlays } from "./overlay-provider";
 import { usePersona } from "../persona";
 import { TravelReferenceAttachments } from "./travel-reference-attachments";
 import type { DocumentRecord } from "@/lib/repositories/documents";
+import type { Payment } from "@/lib/repositories/payments";
+import { money } from "@/lib/format";
+import { TRAVEL_PAYMENT_PROOF_REQUIREMENT, travelClientProofDocuments } from "@/lib/travel/client-payment-proof";
+import { useVerifyPaymentForm } from "./verify-payment";
 
 function postIssuanceDocuments(documents: DocumentRecord[], documentType: string) {
   return documents
@@ -32,6 +36,24 @@ function PersonalPackDocuments({ documents }: { documents: DocumentRecord[] }) {
   ))}</div>;
 }
 
+/** Records the client's payment on one collection with the shared Verify Payment form. */
+function TravelCollectionForm({ payment, existingProofDocuments, onCancel, onSaved }: {
+  payment: Payment;
+  existingProofDocuments: DocumentRecord[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const form = useVerifyPaymentForm(payment, onSaved, { existingProofDocuments });
+  return <div className="mt-3 border-t border-border-soft pt-3">
+    {form.fields}
+    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      {form.missing.length > 0 && <p className="mr-auto text-[11.5px] text-muted-foreground">Still needed: {form.missing.map((item) => item.label).join(", ")}</p>}
+      <Btn onClick={onCancel} disabled={form.pending}>Cancel</Btn>
+      <Btn variant="primary" disabled={!form.canSave} onClick={form.save}><I.check size={14} /> {form.submitLabel}</Btn>
+    </div>
+  </div>;
+}
+
 export function TravelWorkflowModal({ travelRequestId, onClose }: { travelRequestId: string; onClose: () => void }) {
   const router = useRouter();
   const overlays = useOverlays();
@@ -39,6 +61,7 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
   // Server rules narrowed by the "View as" persona: the pack is Admin/Staff-only; everything else
   // follows the permission matrix (Agents edit their own clients; the server enforces assignment).
   const canEdit = persona.can("travel", "edit");
+  const canEditPayments = persona.can("payments", "edit");
   const [payload, setPayload] = useState<TravelWorkflowPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canFilePack = canEdit && persona.role !== "agent" && !!payload?.canFilePostIssuance;
@@ -51,6 +74,10 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
   const [policyNumber, setPolicyNumber] = useState("");
   const [policyNumberError, setPolicyNumberError] = useState<string | null>(null);
   const policyNumberRef = useRef<HTMLInputElement>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [collectionRefreshError, setCollectionRefreshError] = useState<string | null>(null);
+  const [collectionError, setCollectionError] = useState<string | null>(null);
+  const [creatingCollection, startCreatingCollection] = useTransition();
 
   useEffect(() => {
     // A superseded load must not overwrite fields the user has already edited.
@@ -94,6 +121,30 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
     });
   };
 
+  // A recorded collection reloads only the ledger and its proof originals; unsaved portal fields and
+  // the rest of the workflow are left exactly as the user has them.
+  const refreshCollection = async () => {
+    const result = await getTravelWorkflowAction(travelRequestId).catch(
+      (error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : "The refresh didn’t reach the server." }),
+    );
+    if (!result.ok) return setCollectionRefreshError(result.error);
+    setCollectionRefreshError(null);
+    setPayload((current) => current ? { ...current, payments: result.data.payments, documents: result.data.documents, requirements: result.data.requirements } : current);
+  };
+
+  const createCollection = () => startCreatingCollection(async () => {
+    setCollectionError(null);
+    const result = await ensureTravelCollectionAction(travelRequestId).catch(
+      (error: unknown) => ({ ok: false as const, error: error instanceof Error ? error.message : "The request didn’t reach the server." }),
+    );
+    if (!result.ok) return setCollectionError(result.error);
+    setPayload((current) => current ? {
+      ...current,
+      payments: current.payments.some((item) => item.id === result.data.id) ? current.payments : [...current.payments, result.data],
+    } : current);
+    router.refresh();
+  });
+
   // Optimistic: the row shows the new status at once and the save runs in the background. A failed
   // save restores the previous status — unless a newer pick for that row has superseded it.
   const latestStatusPick = useRef<Record<string, number>>({});
@@ -124,13 +175,54 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
       {!canEdit && <div className="mt-4 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">Read-only. Viewing as {persona.roleLabel} — this role can’t update Travel requests.</div>}
       {payload.travel.carrierFormMatchStatus === "Unavailable" && <div className="mt-4 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">The Library has no approved blank Travel application form for this product, so this request isn’t linked to one.</div>}
 
-      <div className="mt-5 grid grid-cols-2 gap-4"><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Travelers</div>{payload.travelers.map((traveler) => <div key={traveler.id} className="border-b border-border-soft py-2 last:border-0"><div className="text-[13px] font-semibold">{traveler.fullName}</div><div className="text-[11.5px] text-muted-foreground">{traveler.dateOfBirth ?? "DOB missing"} · {traveler.idType ?? "ID"} {traveler.idNumber ?? "missing"}</div><div className="text-[11.5px] text-muted-foreground">Beneficiary: {traveler.beneficiaryName ?? "Not recorded"}</div></div>)}</div><div className="rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Collection</div>{payload.payments.length ? payload.payments.map((payment) => <div key={payment.id} className="flex items-center justify-between py-1 text-[12.5px]"><span>{payment.referenceNo ?? "Expected payment"}</span><StatusBadge status={payment.status} /></div>) : <div className="text-[12px] text-muted-foreground">No expected payment yet.</div>}<p className="mt-3 text-[11px] text-muted-foreground">Communications are logged/prepared only; the app does not deliver them without an email provider.</p></div></div>
+      <div className="mt-5 rounded-md border border-border-soft p-3"><div className="mb-2 text-[11px] font-bold uppercase text-subtle">Travelers</div>{payload.travelers.map((traveler) => <div key={traveler.id} className="border-b border-border-soft py-2 last:border-0"><div className="text-[13px] font-semibold">{traveler.fullName}</div><div className="text-[11.5px] text-muted-foreground">{traveler.dateOfBirth ?? "DOB missing"} · {traveler.idType ?? "ID"} {traveler.idNumber ?? "missing"}</div><div className="text-[11.5px] text-muted-foreground">Beneficiary: {traveler.beneficiaryName ?? "Not recorded"}</div></div>)}</div>
+
+      <section aria-labelledby="travel-client-collection" className="mt-4 rounded-md border border-border-soft p-3">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div id="travel-client-collection" className="text-[11px] font-bold uppercase text-subtle">Client collection · Client → agency</div>
+          <a href={`/payments?travelRequestId=${travelRequestId}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover hover:underline"><I.arrowUpRight size={13} /> Open in Payments</a>
+        </div>
+        <p className="text-[11px] text-muted-foreground">What the client paid the agency. Recording it doesn’t buy or issue the TravelSafe policy.</p>
+        {collectionRefreshError && <div role="alert" className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-border bg-amber-soft px-3 py-2 text-[12px] text-amber">
+          <span>Client payment saved, but the collection list couldn’t refresh: {collectionRefreshError}</span>
+          <Btn size="sm" onClick={() => void refreshCollection()}>Retry refresh</Btn>
+        </div>}
+        {payload.payments.length ? <div className="mt-2">{payload.payments.map((payment) => {
+          const editing = editingPaymentId === payment.id;
+          return <div key={payment.id} className="border-b border-border-soft py-2.5 last:border-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold">{payment.referenceNo ?? "Client collection"}</div>
+                <div className="text-[11.5px] text-muted-foreground">{payment.amount != null ? money(payment.amount, payment.currency) : "Amount not set"}{payment.orNumber ? ` · OR ${payment.orNumber}` : ""}</div>
+              </div>
+              <StatusBadge status={payment.status} />
+              {canEditPayments && payment.status !== "Verified" && !editing && <Btn size="sm" onClick={() => setEditingPaymentId(payment.id)}><I.peso size={13} /> Record client payment</Btn>}
+            </div>
+            {editing && <TravelCollectionForm
+              key={`${payment.id}:${payment.updatedAt}`}
+              payment={payment}
+              existingProofDocuments={travelClientProofDocuments(payload.documents, payload.requirements)}
+              onCancel={() => setEditingPaymentId(null)}
+              onSaved={() => {
+                setEditingPaymentId(null);
+                void refreshCollection();
+              }}
+            />}
+          </div>;
+        })}</div> : <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border-strong px-3 py-2.5">
+          <span className="text-[12px] text-muted-foreground">No client collection for this trip yet.</span>
+          {canEditPayments && <Btn size="sm" disabled={creatingCollection} onClick={createCollection}>{creatingCollection ? "Creating…" : "Create client collection"}</Btn>}
+        </div>}
+        {collectionError && <p role="alert" className="mt-2 text-[11.5px] text-red">Couldn’t create the client collection: {collectionError}</p>}
+        <p className="mt-3 text-[11px] text-muted-foreground">Communications are logged/prepared only; the app does not deliver them without an email provider.</p>
+      </section>
 
       <div className="mt-4 rounded-md border border-border-soft p-3">
-        <div className="mb-3 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal processing</div>{payload.portalUrl ? <button type="button" onClick={() => openPortalWindow(payload.portalUrl ?? undefined, "pacific-cross-travel-portal")} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</button> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div>
+        <div className="mb-1 flex items-center justify-between gap-3"><div className="text-[11px] font-bold uppercase text-subtle">Portal payment · Agency → Pacific Cross</div>{payload.portalUrl ? <button type="button" onClick={() => openPortalWindow(payload.portalUrl ?? undefined, "pacific-cross-travel-portal")} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-hover"><I.arrowUpRight size={13} /> Open Travel portal</button> : <a href="/settings" className="text-[12px] font-semibold text-amber">Configure portal in Settings</a>}</div>
+        <p className="mb-3 text-[11px] text-muted-foreground">Records the agency’s purchase on TravelSafe, not the client’s payment.</p>
         <div className="grid grid-cols-5 gap-2">
-          <Field label="Payment status"><select aria-label="Payment status" className={INPUT} disabled={!canEdit} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select></Field>
-          <Field label="Payment method"><select aria-label="Payment method" className={INPUT} disabled={!canEdit} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">—</option>{TRAVEL_PAYMENT_METHODS.map((method) => <option key={method}>{method}</option>)}</select></Field>
+          <Field label="Portal payment status"><select aria-label="Portal payment status" className={INPUT} disabled={!canEdit} value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Not Yet</option><option>Prepaid</option></select></Field>
+          <Field label="Portal payment method"><select aria-label="Portal payment method" className={INPUT} disabled={!canEdit} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="">—</option>{TRAVEL_PAYMENT_METHODS.map((method) => <option key={method}>{method}</option>)}</select></Field>
           <Field label="Portal reference"><input aria-label="Portal reference" className={INPUT} disabled={!canEdit} value={portalRef} onChange={(event) => setPortalRef(event.target.value)} placeholder="Portal reference" /></Field>
           <Field label="Portal amount"><input aria-label="Portal amount" className={INPUT} disabled={!canEdit} inputMode="decimal" value={portalAmount} onChange={(event) => setPortalAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="Portal amount" /></Field>
           <Field label="Portal status"><select aria-label="Portal status" className={INPUT} disabled={!canEdit} value={portalStatus} onChange={(event) => { const value = event.target.value; setPortalStatus(value); if (value !== "Issued") setPolicyNumberError(null); }}><option>Not Started</option><option>Processing</option><option>Issued</option><option>Failed</option></select></Field>
@@ -217,10 +309,10 @@ export function TravelWorkflowModal({ travelRequestId, onClose }: { travelReques
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <RequirementStatusDot status={item.status} className="max-sm:hidden" />
             <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-semibold">{item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div>
-              <div className="text-[11px] text-muted-foreground">{item.appliesTo}</div>
+              <div className="text-[12.5px] font-semibold">{item.documentName === TRAVEL_PAYMENT_PROOF_REQUIREMENT ? "Client payment proof" : item.documentName}{!item.isRequired && <span className="ml-1 font-normal text-muted-foreground">Optional</span>}</div>
+              <div className="text-[11px] text-muted-foreground">{item.documentName === TRAVEL_PAYMENT_PROOF_REQUIREMENT ? "Client → agency. Attaching a file does not record receipt of payment; record the collection above." : item.appliesTo}</div>
             </div>
-            <select aria-label={`Status for ${item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} disabled={!canEdit} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}>
+            <select aria-label={`Status for ${item.documentName === TRAVEL_PAYMENT_PROOF_REQUIREMENT ? "Client payment proof" : item.documentName}`} className={`${INPUT} sm:w-44 sm:shrink-0`} disabled={!canEdit} value={item.status} onChange={(event) => void setRequirement(item.id, event.target.value as typeof item.status)}>
               <option>Pending</option><option>Received</option><option>Incomplete</option><option>Verified</option>
             </select>
           </div>

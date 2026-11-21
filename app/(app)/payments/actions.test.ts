@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   tasks: { create: vi.fn() },
   applications: { update: vi.fn() },
   travel: { update: vi.fn() },
+  documents: { findById: vi.fn() },
+  carrierWorkflows: { listTravelRequirements: vi.fn() },
   renewals: { findById: vi.fn(), update: vi.fn(), transition: vi.fn() },
   policyUpdates: [] as { values: Record<string, unknown>; id: unknown }[],
 }));
@@ -32,6 +34,8 @@ vi.mock("@/lib/repositories/commission-rates", () => ({ getCommissionRatesReposi
 vi.mock("@/lib/repositories/renewals", () => ({ getRenewalsRepository: () => mocks.renewals }));
 vi.mock("@/lib/repositories/tasks", () => ({ getTasksRepository: () => mocks.tasks }));
 vi.mock("@/lib/repositories/travel", () => ({ getTravelRepository: () => mocks.travel }));
+vi.mock("@/lib/repositories/documents", () => ({ getDocumentsRepository: () => mocks.documents }));
+vi.mock("@/lib/repositories/carrier-workflows", () => ({ getCarrierWorkflowsRepository: () => mocks.carrierWorkflows }));
 vi.mock("@/lib/repositories/external-contacts", () => ({ getExternalContactsRepository: vi.fn() }));
 vi.mock("@/lib/commissions/access", () => ({ requireCommissionAccess: vi.fn(), requireCommissionActor: vi.fn() }));
 vi.mock("@/lib/documents/uploaded-pdf", () => ({ registerUploadedCommissionVoucher: vi.fn() }));
@@ -157,5 +161,80 @@ describe("verifyPaymentAction renewal advancement", () => {
     expect(result.ok).toBe(true);
     expect(mocks.renewals.transition).not.toHaveBeenCalled();
     expect(renewalRow.status).toBe("Awaiting Payment");
+  });
+});
+
+describe("verifyPaymentAction Travel client collection", () => {
+  const TRIP = "trip-1";
+  const PROOF_REQUIREMENT = "req-proof";
+  const travelPayment = (overrides: Partial<Payment> = {}) => payment({
+    id: "payment-t", referenceNo: "PAY-T", renewalId: null, travelRequestId: TRIP, source: "Travel", sourceRef: "TRV-1",
+    amount: null, installmentNumber: null, installmentCount: null, proofDocumentId: null, ...overrides,
+  });
+  const document = (overrides: Record<string, unknown> = {}) => ({
+    id: "doc-proof", clientId: "client-1", travelRequestId: null, travelRequirementId: PROOF_REQUIREMENT,
+    status: "Received", filePath: "client-1/proof.png", ...overrides,
+  });
+  const record = (status: "Received" | "Verified", proofDocumentId = "doc-proof") =>
+    verifyPaymentAction({
+      paymentId: "payment-t", paymentMethod: "Bank transfer", amount: 2500, status, proofDocumentId,
+      ...(status === "Verified" ? { orNumber: "OR-900" } : {}),
+    });
+
+  beforeEach(() => {
+    mocks.payments.findById.mockResolvedValue(travelPayment());
+    mocks.payments.update.mockImplementation(async (_id: string, patch: Partial<Payment>) => ({ ...travelPayment(), ...patch }));
+    mocks.documents.findById.mockResolvedValue(document());
+    mocks.carrierWorkflows.listTravelRequirements.mockResolvedValue([
+      { id: "req-passport", documentName: "Passport copy", travelRequestId: TRIP, status: "Received" },
+      { id: PROOF_REQUIREMENT, documentName: "Payment proof", travelRequestId: TRIP, status: "Received" },
+    ]);
+  });
+
+  it("records Received with the reused intake proof and leaves the trip's portal and issuance alone", async () => {
+    const result = await record("Received");
+
+    expect(result).toMatchObject({ ok: true, data: { status: "Received", amount: 2500, proofDocumentId: "doc-proof" } });
+    expect(mocks.payments.update).toHaveBeenCalledWith("payment-t", expect.objectContaining({ status: "Received", amount: 2500, proofDocumentId: "doc-proof" }));
+    expect(mocks.travel.update).not.toHaveBeenCalled();
+    expect(mocks.commissions.create).not.toHaveBeenCalled();
+    for (const path of ["/payments", "/travel", "/dashboard"]) expect(mocks.revalidatePath).toHaveBeenCalledWith(path);
+  });
+
+  it("verifies with an OR, starting commission tracking without marking the policy issued", async () => {
+    mocks.documents.findById.mockResolvedValue(document({ id: "doc-new", travelRequestId: TRIP, travelRequirementId: null }));
+
+    const result = await record("Verified", "doc-new");
+
+    expect(result).toMatchObject({ ok: true, data: { status: "Verified", orNumber: "OR-900", orReceivedDate: TODAY, proofDocumentId: "doc-new" } });
+    expect(mocks.travel.update).not.toHaveBeenCalled();
+    expect(mocks.commissions.create).toHaveBeenCalledWith(expect.objectContaining({ paymentId: "payment-t", orNumber: "OR-900", status: "Voucher Pending" }));
+    expect(mocks.tasks.create).toHaveBeenCalledWith(expect.objectContaining({ tag: "Commission", assignedUserId: ACTOR.id }));
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/travel");
+  });
+
+  it.each([
+    ["another client's file", document({ clientId: "client-2" })],
+    ["another trip's file", document({ travelRequestId: "trip-2", travelRequirementId: "req-other-trip" })],
+    ["a different checklist row", document({ travelRequirementId: "req-passport" })],
+    ["an archived file", document({ status: "Archived" })],
+    ["a missing file", null],
+  ])("rejects %s as client payment proof without writing", async (_label, found) => {
+    mocks.documents.findById.mockResolvedValue(found);
+
+    const result = await record("Received");
+
+    expect(result).toEqual({ ok: false, error: "Choose client payment proof for this Travel request." });
+    expect(mocks.payments.update).not.toHaveBeenCalled();
+    expect(mocks.travel.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps proof already linked to the payment usable without re-validating it", async () => {
+    mocks.payments.findById.mockResolvedValue(travelPayment({ proofDocumentId: "doc-linked" }));
+
+    const result = await verifyPaymentAction({ paymentId: "payment-t", paymentMethod: "Cashier", amount: 2500, status: "Received" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.documents.findById).not.toHaveBeenCalled();
   });
 });
