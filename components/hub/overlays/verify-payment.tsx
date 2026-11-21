@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { uploadDocumentAction } from "@/app/(app)/documents/actions";
 import { verifyPaymentAction } from "@/app/(app)/payments/actions";
 import { currencySymbol, money } from "@/lib/format";
+import type { DocumentRecord } from "@/lib/repositories/documents";
 import type { Payment } from "@/lib/repositories/payments";
 import { installmentLabel } from "@/lib/repositories/payments/payment.entity";
 import { cn } from "@/lib/utils";
@@ -16,11 +17,20 @@ import { Section } from "./wizard/steps-1";
 import type { SectionState } from "./wizard/wizard-data";
 import { useOverlays } from "./overlay-provider";
 
+/** Explicit proof choice when filed originals can be reused: an existing document id, or a new upload. */
+type ProofChoice = { kind: "upload" } | { kind: "existing"; documentId: string } | null;
+
 /**
  * Verify Payment form (payments-page.md Tab 1): proof, method, status, OR. One implementation,
- * rendered by the Payments page's drawer and inline in the application workflow's Payment step.
+ * rendered by the Payments page's drawer and inline in the application and Travel workflows.
+ * `existingProofDocuments` offers filed originals (e.g. the Travel intake's client payment proof)
+ * for explicit reuse by id; nothing is pre-selected and no bytes are copied.
  */
-export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
+export function useVerifyPaymentForm(
+  payment: Payment,
+  onSaved: () => void,
+  options: { existingProofDocuments?: DocumentRecord[] } = {},
+) {
   const router = useRouter();
   const overlays = useOverlays();
   const [pending, startTransition] = useTransition();
@@ -32,25 +42,33 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
   const [or, setOr] = useState(payment.orNumber ?? "");
   const [submitted, setSubmitted] = useState(payment.sentToPacificCross);
   const [proof, setProof] = useState<File | null>(null);
+  const [proofChoice, setProofChoice] = useState<ProofChoice>(null);
   const [notes, setNotes] = useState("");
   const [amount, setAmount] = useState(payment.amount?.toString() ?? "");
+  const isTravel = !!payment.travelRequestId;
+  const existingProofs = options.existingProofDocuments ?? [];
+  // With reusable originals on offer, the file input counts only while "Upload new" is chosen.
+  const upload = existingProofs.length && proofChoice?.kind !== "upload" ? null : proof;
+  const selectedExisting = proofChoice?.kind === "existing" ? proofChoice.documentId : null;
 
-
-  const hasProof = !!proof || !!payment.proofDocumentId;
+  const hasProof = !!upload || !!selectedExisting || !!payment.proofDocumentId;
   const amountValue = Number(amount.replace(/[^0-9.]/g, ""));
   const hasAmount = Number.isFinite(amountValue) && amountValue > 0;
   const canSave = !pending && hasProof && hasAmount && (status !== "Verified" || or.trim());
 
   const save = () =>
     startTransition(async () => {
-      // Upload the proof first (documents storage path), then verify with its id.
-      let proofDocumentId: string | null = null;
-      if (proof) {
+      // Precedence: a new upload, else an explicitly chosen filed original, else the proof already
+      // linked to this payment (sent as null so the server keeps it).
+      let proofDocumentId: string | null = selectedExisting;
+      if (upload) {
         const fd = new FormData();
-        fd.set("file", proof);
+        fd.set("file", upload);
         if (payment.clientId) fd.set("clientId", payment.clientId);
+        if (payment.travelRequestId) fd.set("travelRequestId", payment.travelRequestId);
         fd.set("documentType", "Proof of Payment");
-        fd.set("name", `Proof of payment — ${payment.referenceNo ?? payment.id.slice(0, 8)}`);
+        const ref = payment.referenceNo ?? payment.id.slice(0, 8);
+        fd.set("name", isTravel ? `Client payment proof — ${ref}` : `Proof of payment — ${ref}`);
         try {
           const uploaded = await uploadDocumentAction(fd);
           proofDocumentId = uploaded?.id ?? null;
@@ -110,11 +128,11 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
   const needsOr = status === "Verified" && !or.trim();
   const missing = [
     ...(hasAmount ? [] : ["premium amount"]),
-    ...(hasProof ? [] : ["proof of payment"]),
+    ...(hasProof ? [] : [isTravel ? "client payment proof" : "proof of payment"]),
     ...(needsOr ? ["service invoice no."] : []),
   ];
   const proofState: SectionState = hasProof
-    ? { status: "done", label: proof ? "Attached" : "On file" }
+    ? { status: "done", label: upload ? "Attached" : selectedExisting ? "Selected" : "On file" }
     : { status: "todo", label: "1 needed" };
   const receiptState: SectionState = !hasAmount
     ? { status: "todo", label: "Premium needed" }
@@ -124,29 +142,92 @@ export function useVerifyPaymentForm(payment: Payment, onSaved: () => void) {
 
   const fields = (
     <>
-      <Section title="Proof of payment" state={proofState}>
-        <label
-          className={cn(
-            "flex cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-3.5 py-3 text-[12.5px] transition-colors",
-            proof
-              ? "border-brand bg-brand-soft text-brand-hover"
-              : "border-border-strong text-muted-foreground hover:bg-hover",
-          )}
-        >
-          <I.upload size={16} className="shrink-0" />
-          {proof
-            ? proof.name
-            : payment.proofDocumentId
-              ? "Proof already on file"
-              : "Attach a screenshot, bank slip or provisional receipt…"}
-          <input
-            type="file"
-            accept="image/*,.pdf"
-            aria-label="Proof of payment"
-            className="hidden"
-            onChange={(e) => setProof(e.target.files?.[0] ?? null)}
-          />
-        </label>
+      <Section title={isTravel ? "Client payment proof" : "Proof of payment"} state={proofState}>
+        {isTravel && (
+          <p className="mb-3 text-[11.5px] text-muted-foreground">
+            Client → agency payment only; the TravelSafe portal purchase is recorded separately.
+          </p>
+        )}
+        {existingProofs.length > 0 && (
+          <div role="radiogroup" aria-label="Client payment proof file" className="mb-2 space-y-2">
+            {payment.proofDocumentId && (
+              <p className="text-[11.5px] text-muted-foreground">Proof already on file. Choose a file only to replace it.</p>
+            )}
+            {existingProofs.map((document) => {
+              const active = selectedExisting === document.id;
+              return (
+                <label
+                  key={document.id}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-2.5 rounded-md border px-3.5 py-2.5 transition-colors",
+                    active ? "border-brand bg-brand-soft" : "border-border-strong bg-card hover:bg-hover",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`proof-choice-${payment.id}`}
+                    className="mt-0.5 size-3.5 shrink-0 accent-brand"
+                    checked={active}
+                    onChange={() => setProofChoice({ kind: "existing", documentId: document.id })}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-[650]">{document.name}</span>
+                    <span className="block text-[11px] text-muted-foreground">Filed {document.createdAt.slice(0, 10)} · use this original</span>
+                  </span>
+                  <a
+                    href={`/api/documents/${document.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-[11.5px] font-semibold text-brand-hover hover:underline"
+                  >
+                    View
+                  </a>
+                </label>
+              );
+            })}
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 rounded-md border px-3.5 py-2.5 transition-colors",
+                proofChoice?.kind === "upload" ? "border-brand bg-brand-soft" : "border-border-strong bg-card hover:bg-hover",
+              )}
+            >
+              <input
+                type="radio"
+                name={`proof-choice-${payment.id}`}
+                className="size-3.5 shrink-0 accent-brand"
+                checked={proofChoice?.kind === "upload"}
+                onChange={() => setProofChoice({ kind: "upload" })}
+              />
+              <span className="text-[12.5px] font-[650]">Upload a new file</span>
+            </label>
+          </div>
+        )}
+        {(existingProofs.length === 0 || proofChoice?.kind === "upload") && (
+          <label
+            className={cn(
+              "flex cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-3.5 py-3 text-[12.5px] transition-colors",
+              upload
+                ? "border-brand bg-brand-soft text-brand-hover"
+                : "border-border-strong text-muted-foreground hover:bg-hover",
+            )}
+          >
+            <I.upload size={16} className="shrink-0" />
+            <span className="min-w-0 break-words">
+              {upload
+                ? upload.name
+                : payment.proofDocumentId
+                  ? "Proof already on file"
+                  : "Attach a screenshot, bank slip or provisional receipt…"}
+            </span>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              aria-label={isTravel ? "Client payment proof" : "Proof of payment"}
+              className="hidden"
+              onChange={(e) => setProof(e.target.files?.[0] ?? null)}
+            />
+          </label>
+        )}
       </Section>
 
       <Section title="Payment & service invoice" state={receiptState}>

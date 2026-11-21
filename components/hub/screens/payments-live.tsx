@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 
 import type { Payment } from "@/lib/repositories/payments";
 import { installmentLabel } from "@/lib/repositories/payments/payment.entity";
@@ -29,10 +30,13 @@ export function PaymentsLive({
   payments,
   commissions,
   commissionContacts,
+  travelFilter = null,
 }: {
   payments: Payment[];
   commissions: CommissionTrackerRow[];
   commissionContacts: ExternalContact[];
+  /** Collections narrowed server-side to one Travel request (`/payments?travelRequestId=`). */
+  travelFilter?: { id: string; referenceNo: string | null } | null;
 }) {
   const { openContact, prefetchContact } = useRecordNav();
   const [tab, setTab] = useState<"collections" | "commissions">("collections");
@@ -87,7 +91,7 @@ export function PaymentsLive({
       filters2Label="Source"
       rows={payments.map((p) => ({ ...p, _filter: p.status, _filter2: p.source }))}
       defaultSort={{ key: "createdAt", dir: "desc" }}
-      emptyText="No payments tracked yet."
+      emptyText={travelFilter ? "No collections for this Travel request yet." : "No payments tracked yet."}
       columns={[
         { k: "referenceNo", label: "Payment ref" },
         { k: "clientName", label: "Client" },
@@ -131,7 +135,18 @@ export function PaymentsLive({
 
   return (
     <div>
-      <div className="mb-2 flex justify-end">{tabControl}</div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        {travelFilter && tab === "collections" ? (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border-soft bg-surface-2 px-3 py-1.5 text-[12.5px]">
+            <span>
+              Showing collections for Travel request{" "}
+              <span className="font-semibold">{travelFilter.referenceNo ?? travelFilter.id.slice(0, 8)}</span>
+            </span>
+            <Link href="/payments" className="font-semibold text-brand-hover hover:underline">All payments</Link>
+          </p>
+        ) : <span />}
+        {tabControl}
+      </div>
       {tab === "collections" ? collections : <CommissionsLive commissions={commissions} commissionContacts={commissionContacts} />}
       {verify && <VerifyPaymentDrawer payment={verify} onClose={() => setVerify(null)} />}
     </div>

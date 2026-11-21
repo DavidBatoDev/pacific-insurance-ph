@@ -8,6 +8,11 @@ export interface PaymentsRepository {
   findByIds(ids: string[]): Promise<Payment[]>;
   list(opts?: ListOptions): Promise<Payment[]>;
   listByTravelRequest(travelRequestId: string): Promise<Payment[]>;
+  /**
+   * The trip's client collection: its earliest existing payment, or a new Awaiting one (quoted
+   * premium when positive, else no amount). Serialized per trip; never modifies existing rows.
+   */
+  ensureTravelCollection(travelRequestId: string): Promise<Payment>;
   listByApplication(applicationId: string): Promise<Payment[]>;
   create(input: NewPayment): Promise<Payment>;
   update(id: string, input: PaymentUpdate): Promise<Payment>;

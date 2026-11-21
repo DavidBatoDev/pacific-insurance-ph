@@ -18,7 +18,9 @@ import { registerUploadedCommissionVoucher } from "@/lib/documents/uploaded-pdf"
 import { getCommissionRatesRepository } from "@/lib/repositories/commission-rates";
 import { getRenewalsRepository } from "@/lib/repositories/renewals";
 import { getTasksRepository } from "@/lib/repositories/tasks";
-import { getTravelRepository } from "@/lib/repositories/travel";
+import { getCarrierWorkflowsRepository } from "@/lib/repositories/carrier-workflows";
+import { getDocumentsRepository } from "@/lib/repositories/documents";
+import { TRAVEL_PAYMENT_PROOF_ERROR, travelPaymentProofRequirementIds } from "@/lib/travel/client-payment-proof";
 import { getExternalContactsRepository } from "@/lib/repositories/external-contacts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { logOutboundEmails } from "@/lib/communications/log-outbound-email";
@@ -81,6 +83,19 @@ export interface VerifyPaymentInput {
 }
 
 /**
+ * A newly supplied Travel proof must be a filed, live original for this client and trip: either
+ * filed against the trip itself or attached to the trip's exact `Payment proof` checklist row.
+ */
+async function isTravelClientProof(payment: Payment, documentId: string): Promise<boolean> {
+  const document = await getDocumentsRepository().findById(documentId);
+  if (!document || document.clientId !== payment.clientId || document.status === "Archived" || !document.filePath) return false;
+  if (document.travelRequestId === payment.travelRequestId) return true;
+  if (!document.travelRequirementId || !payment.travelRequestId) return false;
+  const requirements = await getCarrierWorkflowsRepository().listTravelRequirements(payment.travelRequestId);
+  return travelPaymentProofRequirementIds(requirements).has(document.travelRequirementId);
+}
+
+/**
  * Verify Payment (payments-page.md Tab 1). On Verified-with-OR: logs Payment
  * verified + OR recorded, advances the source record, stamps the policy's
  * or_number, and auto-creates a commission row + a follow-up task.
@@ -103,6 +118,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     // (payments-page.md) — either just attached or already on file.
     if (!input.proofDocumentId && !payment.proofDocumentId)
       return { ok: false, error: "Attach the proof of payment (screenshot or bank slip) first." };
+    if (payment.travelRequestId && input.proofDocumentId && input.proofDocumentId !== payment.proofDocumentId
+      && !(await isTravelClientProof(payment, input.proofDocumentId)))
+      return { ok: false, error: TRAVEL_PAYMENT_PROOF_ERROR };
 
     const today = new Date().toISOString().slice(0, 10);
     const updated = await repo.update(input.paymentId, {
@@ -140,9 +158,9 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
         await getRenewalsRepository().transition(payment.renewalId, PAYABLE_RENEWAL_STATUSES, {
           status: "Paid", renewalPaymentDate: today,
         });
-      } else if (payment.travelRequestId) {
-        await getTravelRepository().update(payment.travelRequestId, { status: "Policy Issued" });
       }
+      // Travel: collecting the client's money says nothing about the TravelSafe portal purchase or
+      // issuance; those stay on the Travel workflow's portal fields.
 
       // Stamp the OR onto the linked policy (directly via renewal, if any).
       let policyId = payment.policyId;
@@ -202,6 +220,10 @@ export async function verifyPaymentAction(input: VerifyPaymentInput): Promise<Ac
     revalidatePath("/commissions");
     if (payment.clientId) revalidatePath(`/clients/${payment.clientId}`);
     revalidatePath("/tasks");
+    if (payment.travelRequestId) {
+      revalidatePath("/travel");
+      revalidatePath("/dashboard");
+    }
     if (payment.renewalId && input.status === "Verified") {
       revalidatePath("/renewals");
       revalidatePath("/dashboard");

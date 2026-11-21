@@ -1,5 +1,6 @@
 import type { NewApplicationRequirement } from "@/lib/repositories/application-requirements";
 import { requirementLabelText, requirementSection } from "@/lib/applications/requirement-sections";
+import { TRAVEL_PAYMENT_PROOF_REQUIREMENT } from "@/lib/travel/client-payment-proof";
 import {
   ageFromDob, beneficiaryIdDocumentFor, isFlexiShieldProduct, medicalRequirementDocumentsFor,
   type ChecklistItem, type WizardForm,
@@ -67,7 +68,7 @@ export function travelWizardRequirements(form: WizardForm): WizardRequirement[] 
   return [
     { key: "travel:form", documentName: "Completed Travel application form", appliesTo: travelers.map((person) => person.name).join(", "), isRequired: true, sortOrder: 10 },
     ...travelers.map((person, index) => ({ key: `travel:${personKey(person.requirementPersonKey)}:id`, documentName: person.idType === "Government-issued ID" ? "Valid government-issued ID" : "Passport copy", appliesTo: person.name, isRequired: true, sortOrder: 20 + index * 10 })),
-    { key: "travel:payment", documentName: "Payment proof", appliesTo: "Client collection", isRequired: true, sortOrder: 500 },
+    { key: "travel:payment", documentName: TRAVEL_PAYMENT_PROOF_REQUIREMENT, appliesTo: "Client collection", isRequired: true, sortOrder: 500 },
     { key: "travel:policy", documentName: "Issued Travel policy", appliesTo: "After portal issuance", isRequired: false, sortOrder: 510 },
   ];
 }

@@ -1159,10 +1159,8 @@ async function createTravelRecord(ctx: WizardCreateContext) {
       await getCarrierWorkflowsRepository().replaceTravelRequirements(travel.id, requirementRows);
       result.requirementTargets = requirementTargets;
       result.travelPortalUrl = (await getIntegrationSettingsRepository().getTravelPortal())?.portalUrl ?? null;
-      const premium = parseAmount(form.premium);
-      if (premium && !(await getPaymentsRepository().listByTravelRequest(travel.id)).length) {
-        await getPaymentsRepository().create({ clientId: resolvedClientId, travelRequestId: travel.id, amount: premium, status: "Awaiting", notes: "Travel collection created by application workflow" });
-      }
+      // Every completed trip gets one client collection, even when the premium is not known yet.
+      await getPaymentsRepository().ensureTravelCollection(travel.id);
       if (resumingDraft && form.draftApplicationId) await getApplicationsRepository().delete(form.draftApplicationId);
       await recordActivity({
         scopeType: "client",

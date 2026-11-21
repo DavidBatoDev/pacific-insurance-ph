@@ -169,6 +169,26 @@ export async function updateTravelWorkflowAction(id: string, input: TravelReques
   }
 }
 
+/**
+ * Creates the trip's client collection when none exists (older trips, or ones created before the
+ * premium was known). Returns the existing earliest collection otherwise; nothing else changes.
+ */
+export async function ensureTravelCollectionAction(travelRequestId: string): Promise<ActionResult<Payment>> {
+  await getActor();
+  try {
+    if (typeof travelRequestId !== "string" || !UUID.test(travelRequestId)) return { ok: false, error: "Travel request not found." };
+    await assertRecordAccess("travel", travelRequestId);
+    if (!(await getTravelRepository().findById(travelRequestId))) return { ok: false, error: "Travel request not found." };
+    const payment = await getPaymentsRepository().ensureTravelCollection(travelRequestId);
+    revalidatePath("/payments");
+    revalidatePath("/travel");
+    if (payment.clientId) revalidatePath(`/clients/${payment.clientId}`);
+    return { ok: true, data: payment };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Couldn’t create the client collection." };
+  }
+}
+
 /** Attach the policy PDF the Travel portal issued (uploaded to Storage by the browser). */
 export async function recordTravelPolicyAction(
   travelRequestId: string,
